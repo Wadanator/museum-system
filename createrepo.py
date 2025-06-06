@@ -144,7 +144,7 @@ mosquitto -c mosquitto.conf
     # Create config.ini
     config = configparser.ConfigParser()
     config['MQTT'] = {
-        'BrokerIP': '192.168.1.100',
+        'BrokerIP': '192.168.0.127',
         'Port': '1883'
     }
     config['GPIO'] = {
@@ -306,7 +306,7 @@ IPAddress subnet(255, 255, 255, 0);  // Subnet mask
 #define W5500_RST  4   // Reset pin (voliteľný)
 
 // MQTT Settings
-const char* mqtt_server = "192.168.1.100";
+const char* mqtt_server = "192.168.0.127";
 const int mqtt_port = 1883;
 const char* mqtt_topic = "room1/light";
 const char* client_id = "esp32_w5500_light_controller";
@@ -722,8 +722,11 @@ if __name__ == "__main__":
     
     # Create scene parser Python module
     scene_parser = """#!/usr/bin/env python3
+#!/usr/bin/env python3
 import json
 import time
+import os
+import sys
 
 class SceneParser:
     def __init__(self):
@@ -765,22 +768,45 @@ class SceneParser:
 
 # Example usage
 if __name__ == "__main__":
-    import sys
-    sys.path.append('..')  # For importing mqtt_client
-    from mqtt_client import MQTTClient
+    # Get the directory where this script is located
+    script_dir = os.path.dirname(os.path.abspath(__file__))
     
-    parser = SceneParser()
-    if parser.load_scene("../scenes/room1/intro.json"):
-        mqtt_client = MQTTClient("localhost")
-        if mqtt_client.connect():
-            parser.start_scene()
-            # Simulate scene playback
-            for _ in range(15):
-                actions = parser.get_current_actions(mqtt_client)
-                if actions:
-                    print(f"Executing actions: {actions}")
-                time.sleep(1)
-            mqtt_client.disconnect()
+    # Build path to scene file
+    scene_file = os.path.join(script_dir, "..", "scenes", "room1", "intro.json")
+    
+    print(f"Looking for scene file at: {scene_file}")
+    
+    # Add the utils directory to Python path for importing mqtt_client
+    utils_dir = os.path.dirname(__file__)
+    if utils_dir not in sys.path:
+        sys.path.insert(0, utils_dir)
+    
+    try:
+        from mqtt_client import MQTTClient
+        
+        parser = SceneParser()
+        if parser.load_scene(scene_file):
+            print("Scene loaded successfully!")
+            mqtt_client = MQTTClient("localhost", use_logging=False)
+            if mqtt_client.connect():
+                print("Connected to MQTT broker")
+                parser.start_scene()
+                # Simulate scene playback
+                for i in range(15):
+                    actions = parser.get_current_actions(mqtt_client)
+                    if actions:
+                        print(f"[{i}s] Executing actions: {actions}")
+                    time.sleep(1)
+                mqtt_client.disconnect()
+                print("Scene playback completed")
+            else:
+                print("Failed to connect to MQTT broker")
+        else:
+            print("Failed to load scene file")
+            print(f"Make sure the file exists at: {scene_file}")
+    except ImportError as e:
+        print(f"Error importing mqtt_client: {e}")
+        print("Make sure mqtt_client.py is in the same directory") 
 """
     create_file(f"{base_dir}/raspberry-pi/utils/scene_parser.py", scene_parser)
     
