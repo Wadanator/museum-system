@@ -7,7 +7,12 @@
   {
     "timestamp": 0,
     "topic": "room1/audio",
-    "message": "PLAY:welcome.wav"
+    "message": "PLAY:welcome.wav:1.0"
+  },
+  {
+    "timestamp": 1.0,
+    "topic": "room1/video",
+    "message": "PLAY:intro.mp4"
   },
   {
     "timestamp": 5.0,
@@ -19,7 +24,11 @@
     "topic": "room1/light",
     "message": "OFF"
   },
-    {
+  {"timestamp": 15,
+   "topic": "room1/video",
+   "message": "STOP"},
+
+  {
     "timestamp": 15.0,
     "topic": "room1/audio",
     "message": "STOP"
