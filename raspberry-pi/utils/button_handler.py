@@ -50,8 +50,7 @@ class ButtonHandler:
         if (current_time - self.last_press_time) > self.debounce_time:
             self.last_press_time = current_time
             if self.callback:
-                self.callback()
-    
+                self.callback()    
     def _check_button_polling(self):
         """Alternative polling method if edge detection fails"""
         if not hasattr(self, '_last_state'):

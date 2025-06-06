@@ -63,7 +63,7 @@ if __name__ == "__main__":
         parser = SceneParser()
         if parser.load_scene(scene_file):
             print("Scene loaded successfully!")
-            mqtt_client = MQTTClient("localhost", use_logging=False)
+            mqtt_client = MQTTClient("localhost", use_logging=True)
             if mqtt_client.connect():
                 print("Connected to MQTT broker")
                 parser.start_scene()
