@@ -14,6 +14,6 @@ based on timed scenes and automated hardware control using MQTT.
 
 - `docs/`: Project documentation
 - `broker/`: MQTT broker configuration
-- `raspberry-pi/`: Code for the Raspberry Pi scene controllers
+- `raspberry_pi/`: Code for the Raspberry Pi scene controllers
 - `esp32/`: Code for ESP32 devices
 - `tools/`: Utility tools for testing and development

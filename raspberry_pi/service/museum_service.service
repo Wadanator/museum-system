@@ -4,8 +4,8 @@ After=network.target mosquitto.service
 Wants=mosquitto.service
 
 [Service]
-ExecStart=/usr/bin/python3 /home/pi/museum-system/raspberry-pi/main.py
-WorkingDirectory=/home/pi/museum-system/raspberry-pi
+ExecStart=/usr/bin/python3 /home/pi/museum-system/raspberry_pi/main.py
+WorkingDirectory=/home/pi/museum-system/raspberry_pi
 StandardOutput=append:/var/log/museum-system.log
 StandardError=append:/var/log/museum-system-error.log
 Restart=always

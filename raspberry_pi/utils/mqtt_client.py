@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#!/usr/bin/env python3
 import paho.mqtt.client as mqtt
 import json
 import time
@@ -51,7 +52,6 @@ class MQTTClient:
             print(f"Message published with ID: {mid}")
     
     def connect(self, timeout=10):
-        """Connect to the MQTT broker"""
         try:
             self.client.connect(self.broker_host, self.broker_port, timeout)
             self.client.loop_start()
@@ -68,13 +68,11 @@ class MQTTClient:
             return False
     
     def disconnect(self):
-        """Disconnect from the MQTT broker"""
         if self.connected:
             self.client.loop_stop()
             self.client.disconnect()
     
     def publish(self, topic, message, qos=0, retain=False):
-        """Publish a message to a topic"""
         if not self.connected:
             if self.use_logging:
                 print("Not connected to MQTT broker")
@@ -97,7 +95,6 @@ class MQTTClient:
             return False
     
     def subscribe(self, topic, qos=0):
-        """Subscribe to a topic"""
         if not self.connected:
             if self.use_logging:
                 print("Not connected to MQTT broker")
@@ -114,7 +111,6 @@ class MQTTClient:
             return False
     
     def is_connected(self):
-        """Check if connected to the broker"""
         return self.connected
 
 # Example usage and testing

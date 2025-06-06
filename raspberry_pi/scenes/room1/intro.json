@@ -5,9 +5,9 @@
     "message": "ON"
   },
   {
-    "timestamp": 2.0,
+    "timestamp": 0,
     "topic": "room1/audio",
-    "message": "PLAY_WELCOME"
+    "message": "PLAY:welcome.wav"
   },
   {
     "timestamp": 5.0,
@@ -15,13 +15,14 @@
     "message": "BLINK"
   },
   {
-    "timestamp": 10.0,
-    "topic": "room1/audio",
-    "message": "STOP"
-  },
-  {
     "timestamp": 12.0,
     "topic": "room1/light",
     "message": "OFF"
+  },
+    {
+    "timestamp": 15.0,
+    "topic": "room1/audio",
+    "message": "STOP"
   }
+
 ]

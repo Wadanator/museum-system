@@ -1,6 +1,6 @@
 [
   {
-    "timestamp": 0,
+    "timestamp": 0.1,
     "topic": "room2/light",
     "message": "ON"
   },

@@ -31,13 +31,13 @@ def create_project_structure():
         f"{base_dir}",
         f"{base_dir}/docs",
         f"{base_dir}/broker",
-        f"{base_dir}/raspberry-pi",
-        f"{base_dir}/raspberry-pi/config",
-        f"{base_dir}/raspberry-pi/scenes",
-        f"{base_dir}/raspberry-pi/scenes/room1",
-        f"{base_dir}/raspberry-pi/scenes/room2",
-        f"{base_dir}/raspberry-pi/utils",
-        f"{base_dir}/raspberry-pi/service",
+        f"{base_dir}/raspberry_pi",
+        f"{base_dir}/raspberry_pi/config",
+        f"{base_dir}/raspberry_pi/scenes",
+        f"{base_dir}/raspberry_pi/scenes/room1",
+        f"{base_dir}/raspberry_pi/scenes/room2",
+        f"{base_dir}/raspberry_pi/utils",
+        f"{base_dir}/raspberry_pi/service",
         f"{base_dir}/esp32",
         f"{base_dir}/esp32/common",
         f"{base_dir}/esp32/devices",
@@ -69,7 +69,7 @@ based on timed scenes and automated hardware control using MQTT.
 
 - `docs/`: Project documentation
 - `broker/`: MQTT broker configuration
-- `raspberry-pi/`: Code for the Raspberry Pi scene controllers
+- `raspberry_pi/`: Code for the Raspberry Pi scene controllers
 - `esp32/`: Code for ESP32 devices
 - `tools/`: Utility tools for testing and development
 """
@@ -157,9 +157,9 @@ mosquitto -c mosquitto.conf
         'Directory': 'scenes'
     }
     
-    with open(f"{base_dir}/raspberry-pi/config/config.ini", 'w') as configfile:
+    with open(f"{base_dir}/raspberry_pi/config/config.ini", 'w') as configfile:
         config.write(configfile)
-    print(f"Created file: {base_dir}/raspberry-pi/config/config.ini")
+    print(f"Created file: {base_dir}/raspberry_pi/config/config.ini")
     
     # Create sample scene JSON
     scene = [
@@ -190,9 +190,9 @@ mosquitto -c mosquitto.conf
         }
     ]
     
-    with open(f"{base_dir}/raspberry-pi/scenes/room1/intro.json", 'w') as f:
+    with open(f"{base_dir}/raspberry_pi/scenes/room1/intro.json", 'w') as f:
         json.dump(scene, f, indent=2)
-    print(f"Created file: {base_dir}/raspberry-pi/scenes/room1/intro.json")
+    print(f"Created file: {base_dir}/raspberry_pi/scenes/room1/intro.json")
     
     # Create sample scene for room2
     scene2 = [
@@ -218,9 +218,9 @@ mosquitto -c mosquitto.conf
         }
     ]
     
-    with open(f"{base_dir}/raspberry-pi/scenes/room2/intro.json", 'w') as f:
+    with open(f"{base_dir}/raspberry_pi/scenes/room2/intro.json", 'w') as f:
         json.dump(scene2, f, indent=2)
-    print(f"Created file: {base_dir}/raspberry-pi/scenes/room2/intro.json")
+    print(f"Created file: {base_dir}/raspberry_pi/scenes/room2/intro.json")
     
     # Create MQTT test script
     mqtt_test = """#!/usr/bin/env python3
@@ -549,8 +549,8 @@ After=network.target mosquitto.service
 Wants=mosquitto.service
 
 [Service]
-ExecStart=/usr/bin/python3 /home/pi/museum-system/raspberry-pi/main.py
-WorkingDirectory=/home/pi/museum-system/raspberry-pi
+ExecStart=/usr/bin/python3 /home/pi/museum-system/raspberry_pi/main.py
+WorkingDirectory=/home/pi/museum-system/raspberry_pi
 StandardOutput=append:/var/log/museum-system.log
 StandardError=append:/var/log/museum-system-error.log
 Restart=always
@@ -562,7 +562,7 @@ User=pi
 [Install]
 WantedBy=multi-user.target
 """
-    create_file(f"{base_dir}/raspberry-pi/service/museum_service.service", systemd_service)
+    create_file(f"{base_dir}/raspberry_pi/service/museum_service.service", systemd_service)
     
     # Create MQTT client Python module
     mqtt_client = """#!/usr/bin/env python3
@@ -704,10 +704,10 @@ if __name__ == "__main__":
         print("Failed to connect to MQTT broker")
         print("Make sure your MQTT broker is running on localhost:1883") 
 """
-    create_file(f"{base_dir}/raspberry-pi/utils/mqtt_client.py", mqtt_client)
+    create_file(f"{base_dir}/raspberry_pi/utils/mqtt_client.py", mqtt_client)
     
     # Create scene parser Python module
-    scene_parser = """#!/usr/bin/env python3
+    scene_parser = """
 #!/usr/bin/env python3
 import json
 import time
@@ -793,15 +793,16 @@ if __name__ == "__main__":
     except ImportError as e:
         print(f"Error importing mqtt_client: {e}")
         print("Make sure mqtt_client.py is in the same directory") 
+
 """
-    create_file(f"{base_dir}/raspberry-pi/utils/scene_parser.py", scene_parser)
+    create_file(f"{base_dir}/raspberry_pi/utils/scene_parser.py", scene_parser)
     
     # Create button handler Python module
     button_handler = """#!/usr/bin/env python3
-#!/usr/bin/env python3
 import RPi.GPIO as GPIO
 import time
 import atexit
+import sys
 
 class ButtonHandler:
     def __init__(self, pin, debounce_time=300):
@@ -809,199 +810,557 @@ class ButtonHandler:
         self.debounce_time = debounce_time
         self.last_press_time = 0
         self.callback = None
-        
-        # Clean up any existing GPIO setup first
+        self._use_polling = False
+
+        # Use GPIO.BCM mode
         try:
-            GPIO.cleanup()
-        except:
-            pass
-        
-        # Setup GPIO
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-        
-        # Remove any existing edge detection on this pin
+            GPIO.setmode(GPIO.BCM)
+        except Exception as e:
+            print(f"Error setting GPIO mode: {e}")
+            sys.exit(1)
+
+        # Attempt to clean up any existing GPIO configuration
         try:
-            GPIO.remove_event_detect(pin)
-        except:
-            pass
-        
-        # Small delay to ensure cleanup is complete
-        time.sleep(0.1)
-        
-        # Setup edge detection with error handling
+            GPIO.cleanup(self.pin)  # Clean only the specific pin
+        except Exception as e:
+            print(f"Warning: Failed to clean up GPIO pin {self.pin}: {e}")
+
+        # Setup GPIO pin with pull-up resistor
         try:
-            GPIO.add_event_detect(pin, GPIO.FALLING, 
+            GPIO.setup(self.pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+        except Exception as e:
+            print(f"Error setting up GPIO pin {self.pin}: {e}")
+            sys.exit(1)
+
+        # Setup edge detection
+        try:
+            GPIO.add_event_detect(self.pin, GPIO.FALLING, 
                                  callback=self._button_callback, 
                                  bouncetime=debounce_time)
         except RuntimeError as e:
-            print(f"Error setting up edge detection: {e}")
-            # Alternative: use polling method instead
+            print(f"Error setting up edge detection on pin {self.pin}: {e}")
+            print("Falling back to polling mode.")
             self._use_polling = True
-        else:
-            self._use_polling = False
-        
-        # Register cleanup function to run on exit
+
+        # Register cleanup function
         atexit.register(self.cleanup)
+
     def _button_callback(self, channel):
         current_time = time.time() * 1000  # Convert to milliseconds
-        
-        # Check time difference for debouncing
         if (current_time - self.last_press_time) > self.debounce_time:
             self.last_press_time = current_time
             if self.callback:
-                self.callback()    
+                try:
+                    self.callback()
+                except Exception as e:
+                    print(f"Error in callback: {e}")
+
     def _check_button_polling(self):
         if not hasattr(self, '_last_state'):
             self._last_state = GPIO.input(self.pin)
-        
+
         current_state = GPIO.input(self.pin)
-        
-        # Button pressed (transition from HIGH to LOW)
         if self._last_state == GPIO.HIGH and current_state == GPIO.LOW:
             current_time = time.time() * 1000
             if (current_time - self.last_press_time) > self.debounce_time:
                 self.last_press_time = current_time
                 if self.callback:
-                    self.callback()
-        
+                    try:
+                        self.callback()
+                    except Exception as e:
+                        print(f"Error in polling callback: {e}")
         self._last_state = current_state
-    
+
     def set_callback(self, callback_function):
         self.callback = callback_function
-    
+
     def cleanup(self):
         try:
-            GPIO.remove_event_detect(self.pin)
-        except:
-            pass
-        try:
-            GPIO.cleanup()
-        except:
-            pass
+            if not self._use_polling:
+                GPIO.remove_event_detect(self.pin)
+            GPIO.cleanup(self.pin)  # Clean only the specific pin
+            print(f"Cleaned up GPIO pin {self.pin}")
+        except Exception as e:
+            print(f"Error during cleanup of pin {self.pin}: {e}")
 
 # Example usage
 if __name__ == "__main__":
     def on_button_press():
         print("Button pressed!")
-    
-    button = ButtonHandler(17)  # GPIO17
-    button.set_callback(on_button_press)
-    
+
+    # Initialize button handler on GPIO17
     try:
-        print("Press the button (Ctrl+C to exit)...")
+        button = ButtonHandler(27)
+        button.set_callback(on_button_press)
+    except Exception as e:
+        print(f"Failed to initialize button handler: {e}")
+        sys.exit(1)
+
+    print("Press the button (Ctrl+C to exit)...")
+    try:
         while True:
-            # If edge detection failed, use polling
-            if hasattr(button, '_use_polling') and button._use_polling:
+            if button._use_polling:
                 button._check_button_polling()
-            time.sleep(0.1)
+            time.sleep(0.1)  # Reduce CPU usage in polling mode
     except KeyboardInterrupt:
-        print("Program terminated")
+        print("\nProgram terminated by user")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
     finally:
         button.cleanup()
 """
-    create_file(f"{base_dir}/raspberry-pi/utils/button_handler.py", button_handler)
+    create_file(f"{base_dir}/raspberry_pi/utils/button_handler.py", button_handler)
     
+
+    button_handler_improved = """
+    #!/usr/bin/env python3
+import time
+import atexit
+
+# Try to import RPi.GPIO, fall back to mock if not available
+try:
+    import RPi.GPIO as GPIO
+    GPIO_AVAILABLE = True
+except ImportError:
+    print("Warning: RPi.GPIO not available, using mock GPIO")
+    GPIO_AVAILABLE = False
+    
+    # Mock GPIO for testing
+    class MockGPIO:
+        BCM = "BCM"
+        IN = "IN"
+        HIGH = 1
+        LOW = 0
+        PUD_UP = "PUD_UP"
+        FALLING = "FALLING"
+        
+        @staticmethod
+        def setmode(mode): pass
+        @staticmethod
+        def setup(pin, mode, pull_up_down=None): pass
+        @staticmethod
+        def input(pin): return MockGPIO.HIGH
+        @staticmethod
+        def add_event_detect(pin, edge, callback=None, bouncetime=None): pass
+        @staticmethod
+        def remove_event_detect(pin): pass
+        @staticmethod
+        def cleanup(): pass
+    
+    GPIO = MockGPIO()
+
+class ImprovedButtonHandler:
+    def __init__(self, pin, debounce_time=300):
+        self.pin = pin
+        self.debounce_time = debounce_time
+        self.last_press_time = 0
+        self.callback = None
+        self.use_polling = False
+        self.running = True
+        
+        if not GPIO_AVAILABLE:
+            print(f"Warning: GPIO not available, button on pin {pin} will be simulated")
+            self.use_polling = True
+            return
+        
+        try:
+            # Clean setup
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+            
+            # Try edge detection first
+            try:
+                GPIO.remove_event_detect(pin)  # Remove any existing detection
+            except:
+                pass
+            
+            time.sleep(0.1)  # Small delay
+            
+            GPIO.add_event_detect(pin, GPIO.FALLING, 
+                                 callback=self._button_callback, 
+                                 bouncetime=debounce_time)
+            print(f"✅ Button handler setup with edge detection on GPIO {pin}")
+            
+        except Exception as e:
+            print(f"⚠️  Edge detection failed ({e}), using polling method")
+            self.use_polling = True
+            self._last_state = GPIO.HIGH
+        
+        atexit.register(self.cleanup)
+    
+    def _button_callback(self, channel):
+        current_time = time.time() * 1000
+        if (current_time - self.last_press_time) > self.debounce_time:
+            self.last_press_time = current_time
+            if self.callback:
+                print(f"🔘 Button pressed on GPIO {self.pin}")
+                self.callback()
+    
+    def check_button_polling(self):
+        if not self.use_polling or not GPIO_AVAILABLE:
+            return
+            
+        try:
+            current_state = GPIO.input(self.pin)
+            
+            # Button pressed (transition from HIGH to LOW)
+            if hasattr(self, '_last_state') and self._last_state == GPIO.HIGH and current_state == GPIO.LOW:
+                current_time = time.time() * 1000
+                if (current_time - self.last_press_time) > self.debounce_time:
+                    self.last_press_time = current_time
+                    if self.callback:
+                        print(f"🔘 Button pressed on GPIO {self.pin} (polling)")
+                        self.callback()
+            
+            self._last_state = current_state
+        except Exception as e:
+            print(f"Error in button polling: {e}")
+    
+    def set_callback(self, callback_function):
+        self.callback = callback_function
+    
+    def cleanup(self):
+        self.running = False
+        if GPIO_AVAILABLE:
+            try:
+                GPIO.remove_event_detect(self.pin)
+                GPIO.cleanup()
+            except:
+                pass
+
+# Test function
+if __name__ == "__main__":
+    def on_button_press():
+        print("🎉 Button press detected!")
+    
+    button = ImprovedButtonHandler(17)
+    button.set_callback(on_button_press)
+    
+    print("Testing button handler...")
+    print("Press Ctrl+C to exit")
+    
+    try:
+        while True:
+            if button.use_polling:
+                button.check_button_polling()
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        print("Test completed")
+    finally:
+        button.cleanup()
+
+    """
+    create_file(f"{base_dir}/raspberry_pi/utils/button_handler_improved.py", button_handler_improved)
+
     # Create main Python script for Raspberry Pi
-    main_script = """#!/usr/bin/env python3
+    main_script = """
+#!/usr/bin/env python3
+
 import os
 import time
 import configparser
-from utils.mqtt_client import MQTTClient
-from utils.scene_parser import SceneParser
-from utils.button_handler import ButtonHandler
-import RPi.GPIO as GPIO
+import sys
 
-class MuseumController:
-    def __init__(self, config_file="config/config.ini"):
+# Add the current directory to Python path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+if script_dir not in sys.path:
+    sys.path.insert(0, script_dir)
+
+try:
+    from utils.mqtt_client import MQTTClient
+    from utils.scene_parser import SceneParser
+except ImportError as e:
+    print(f"Import error: {e}")
+    print("Make sure you're running from the raspberry_pi directory")
+    sys.exit(1)
+
+# Import improved button handler or fall back to simulation
+try:
+        from utils.button_handler_improved import ImprovedButtonHandler as ButtonHandler
+        print("✅ Using improved button handler")
+except ImportError:
+    print("⚠️  Button handler not available, using simulation")
+    
+    class MockButtonHandler:
+        def __init__(self, pin):
+            self.pin = pin
+            self.callback = None
+            print(f"Mock button handler created for GPIO {pin}")
+        
+        def set_callback(self, callback):
+            self.callback = callback
+        
+        def simulate_press(self):
+            if self.callback:
+                print("🔘 Simulated button press")
+                self.callback()
+        
+        def cleanup(self):
+            pass
+    
+    ButtonHandler = MockButtonHandler
+
+class FixedMuseumController:
+    def __init__(self, config_file=None):
+        if config_file is None:
+            config_file = os.path.join(os.path.dirname(__file__), "config", "config.ini")
+        
+        if not os.path.exists(config_file):
+            print(f"❌ Config file not found: {config_file}")
+            print("Creating default config...")
+            self.create_default_config(config_file)
+        
         # Load configuration
         self.config = configparser.ConfigParser()
         self.config.read(config_file)
         
-        # Get settings
+        # Get configuration values
         broker_ip = self.config['MQTT']['BrokerIP']
         button_pin = int(self.config['GPIO']['ButtonPin'])
         self.room_id = self.config['Room']['ID']
         self.scenes_dir = self.config['Scenes']['Directory']
         
-        # Initialize components
-        self.mqtt_client = MQTTClient(broker_ip, f"rpi_room_{self.room_id}", use_logging=False)
-        self.scene_parser = SceneParser()
-        self.button_handler = ButtonHandler(button_pin)
+        print(f"🏛️  Museum Controller for Room: {self.room_id}")
+        print(f"📡 MQTT Broker: {broker_ip}")
+        print(f"🔘 Button Pin: GPIO {button_pin}")
         
-        # Set button callback function
-        self.button_handler.set_callback(self.start_default_scene)
+        # Initialize components with error handling
+        try:
+            self.mqtt_client = MQTTClient(broker_ip, client_id=f"rpi_room_{self.room_id}", use_logging=True)
+        except Exception as e:
+            print(f"❌ MQTT client initialization failed: {e}")
+            self.mqtt_client = None
+        
+        try:
+            self.scene_parser = SceneParser()
+        except Exception as e:
+            print(f"❌ Scene parser initialization failed: {e}")
+            self.scene_parser = None
+        
+        try:
+            self.button_handler = ButtonHandler(button_pin)
+            self.button_handler.set_callback(self.on_button_press)
+        except Exception as e:
+            print(f"❌ Button handler initialization failed: {e}")
+            self.button_handler = None
         
         # State
         self.scene_running = False
+        self.connected_to_broker = False
+    
+    def create_default_config(self, config_file):
+        config = configparser.ConfigParser()
+        config['MQTT'] = {
+            'BrokerIP': 'localhost',
+            'Port': '1883'
+        }
+        config['GPIO'] = {
+            'ButtonPin': '17'
+        }
+        config['Room'] = {
+            'ID': 'room1'
+        }
+        config['Scenes'] = {
+            'Directory': 'scenes'
+        }
+        
+        # Create config directory if it doesn't exist
+        os.makedirs(os.path.dirname(config_file), exist_ok=True)
+        
+        with open(config_file, 'w') as f:
+            config.write(f)
+        
+        print(f"✅ Created default config: {config_file}")
+    
+    def test_mqtt_connection(self):
+        if not self.mqtt_client:
+            return False
+        
+        # Try current broker
+        if self.mqtt_client.connect(timeout=3):
+            self.connected_to_broker = True
+            print("✅ Connected to MQTT broker")
+            return True
+        
+        print("❌ Failed to connect to configured broker")
+        
+        # Try localhost as fallback
+        if self.config['MQTT']['BrokerIP'] != 'localhost':
+            print("🔄 Trying localhost as fallback...")
+            self.mqtt_client.broker_host = 'localhost'
+            if self.mqtt_client.connect(timeout=3):
+                self.connected_to_broker = True
+                print("✅ Connected to localhost broker")
+                return True
+        
+        print("❌ No MQTT broker accessible")
+        return False
+    
+    def on_button_press(self):
+        if self.scene_running:
+            print("⚠️  Scene already running, ignoring button press")
+            return
+        
+        print("🔘 Button pressed! Starting default scene...")
+        self.start_default_scene()
     
     def start_default_scene(self):
-        if self.scene_running:
-            print("Scene already running, ignoring button press")
+        scene_path = os.path.join(self.scenes_dir, self.room_id, "intro.json")
+        
+        if not os.path.exists(scene_path):
+            print(f"❌ Scene file not found: {scene_path}")
+            self.create_default_scene(scene_path)
+        
+        if not self.scene_parser:
+            print("❌ Scene parser not available")
             return
         
-        default_scene = os.path.join(self.scenes_dir, self.room_id, "intro.json")
-        if not os.path.exists(default_scene):
-            print(f"Error: Scene file {default_scene} does not exist")
-            return
-        
-        print(f"Starting scene: {default_scene}")
-        if self.scene_parser.load_scene(default_scene):
+        print(f"🎬 Loading scene: {scene_path}")
+        if self.scene_parser.load_scene(scene_path):
             self.scene_running = True
             self.scene_parser.start_scene()
             self.run_scene()
+        else:
+            print("❌ Failed to load scene")
+    
+    def create_default_scene(self, scene_path):
+        import json
+        
+        default_scene = [
+            {"timestamp": 0, "topic": f"{self.room_id}/light", "message": "ON"},
+            {"timestamp": 2.0, "topic": f"{self.room_id}/audio", "message": "PLAY_WELCOME"},
+            {"timestamp": 5.0, "topic": f"{self.room_id}/light", "message": "BLINK"},
+            {"timestamp": 8.0, "topic": f"{self.room_id}/audio", "message": "STOP"},
+            {"timestamp": 10.0, "topic": f"{self.room_id}/light", "message": "OFF"}
+        ]
+        
+        os.makedirs(os.path.dirname(scene_path), exist_ok=True)
+        
+        with open(scene_path, 'w') as f:
+            json.dump(default_scene, f, indent=2)
+        
+        print(f"✅ Created default scene: {scene_path}")
     
     def run_scene(self):
+        if not self.scene_parser.scene_data:
+            print("❌ No scene data to run")
+            return
+        
         start_time = time.time()
-        # Get maximum scene time
-        max_time = 0
-        for action in self.scene_parser.scene_data:
-            if action["timestamp"] > max_time:
-                max_time = action["timestamp"]
+        max_time = max(action["timestamp"] for action in self.scene_parser.scene_data)
         
-        print(f"Playing scene, duration: {max_time} seconds")
+        print(f"🎬 Playing scene, duration: {max_time} seconds")
         
-        # Main scene playback loop
         while time.time() - start_time <= max_time + 1:
-            actions = self.scene_parser.get_current_actions(self.mqtt_client)
+            actions = self.scene_parser.get_current_actions(self.mqtt_client if self.connected_to_broker else None)
+            
             if actions:
                 current_time = time.time() - start_time
                 for action in actions:
-                    print(f"[{current_time:.2f}s] Executing: {action['topic']} = {action['message']}")
+                    print(f"[{current_time:.1f}s] 🎭 {action['topic']} = {action['message']}")
+                    
+                    # If MQTT is not connected, just simulate the action
+                    if not self.connected_to_broker:
+                        print(f"    (Simulated - no MQTT connection)")
+            
             time.sleep(0.1)
         
-        print("Scene completed")
+        print("✅ Scene completed")
         self.scene_running = False
     
-    def run(self):
-        if not self.mqtt_client.connect():
-            print("Cannot connect to MQTT broker, exiting")
-            return
+    def run_interactive_mode(self):
+        print("\n🎮 Interactive Mode")
+        print("Commands:")
+        print("  'b' or 'button' - Simulate button press")
+        print("  's' or 'scene' - Start default scene")
+        print("  'q' or 'quit' - Exit")
         
-        print(f"Museum controller for room {self.room_id} is ready")
-        print("Press the button to start a scene...")
-        
-        try:
-            while True:
-                time.sleep(0.1)
-        except KeyboardInterrupt:
-            print("Program terminated by user")
-        finally:
-            self.cleanup()
+        while True:
+            try:
+                cmd = input("\n> ").strip().lower()
+                
+                if cmd in ['q', 'quit', 'exit']:
+                    break
+                elif cmd in ['b', 'button']:
+                    self.on_button_press()
+                elif cmd in ['s', 'scene']:
+                    self.start_default_scene()
+                elif cmd == 'status':
+                    print(f"MQTT Connected: {self.connected_to_broker}")
+                    print(f"Scene Running: {self.scene_running}")
+                    print(f"Room ID: {self.room_id}")
+                elif cmd == 'help':
+                    print("Available commands: button, scene, status, quit")
+                else:
+                    print("Unknown command. Type 'help' for available commands.")
+                    
+            except KeyboardInterrupt:
+                break
+            except EOFError:
+                break
     
-    def cleanup(self):
-        if hasattr(self, 'button_handler'):
+    def run(self):
+        print("🚀 Starting Museum Controller...")
+        
+        # Test MQTT connection
+        mqtt_ok = self.test_mqtt_connection()
+        
+        if mqtt_ok:
+            print("✅ System ready with MQTT")
+        else:
+            print("⚠️  System ready without MQTT (simulation mode)")
+        
+        print(f"🏛️  Museum controller for {self.room_id} is running")
+        
+        # Check if we have a working button handler
+        if hasattr(self.button_handler, 'use_polling') and self.button_handler.use_polling:
+            print("🔘 Using button polling mode")
+            print("💡 Press Ctrl+C to enter interactive mode")
+            
+            try:
+                while True:
+                    if self.button_handler:
+                        self.button_handler.check_button_polling()
+                    time.sleep(0.1)
+            except KeyboardInterrupt:
+                print("\n🎮 Switching to interactive mode...")
+                self.run_interactive_mode()
+        else:
+            print("🔘 Using button interrupt mode")
+            print("💡 Press the button or Ctrl+C for interactive mode")
+            
+            try:
+                while True:
+                    time.sleep(0.1)
+            except KeyboardInterrupt:
+                print("\n🎮 Switching to interactive mode...")
+                self.run_interactive_mode()
+        
+        # Cleanup
+        if self.button_handler:
             self.button_handler.cleanup()
-        if hasattr(self, 'mqtt_client'):
+        if self.mqtt_client and self.connected_to_broker:
             self.mqtt_client.disconnect()
-        GPIO.cleanup()
+        
+        print("👋 Museum controller stopped")
+
+def main():
+    print("🏛️  Fixed Museum Automation System")
+    print("=" * 40)
+    
+    try:
+        controller = FixedMuseumController()
+        controller.run()
+    except Exception as e:
+        print(f"❌ Critical error: {e}")
+        print("💡 Try running the diagnostic script first")
 
 if __name__ == "__main__":
-    controller = MuseumController()
-    controller.run()
+    main()
 """
-    create_file(f"{base_dir}/raspberry-pi/main.py", main_script)
-    os.chmod(f"{base_dir}/raspberry-pi/main.py", 0o755)  # Make executable
+
+    create_file(f"{base_dir}/raspberry_pi/main.py", main_script)
+    os.chmod(f"{base_dir}/raspberry_pi/main.py", 0o755)  # Make executable
     
     # Create architecture documentation
     arch_doc = """# Museum Automation System Architecture
