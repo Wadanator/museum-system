@@ -1,0 +1,27 @@
+[
+  {
+    "timestamp": 0,
+    "topic": "room1/light",
+    "message": "ON"
+  },
+  {
+    "timestamp": 2.0,
+    "topic": "room1/audio",
+    "message": "PLAY_WELCOME"
+  },
+  {
+    "timestamp": 5.0,
+    "topic": "room1/light",
+    "message": "BLINK"
+  },
+  {
+    "timestamp": 10.0,
+    "topic": "room1/audio",
+    "message": "STOP"
+  },
+  {
+    "timestamp": 12.0,
+    "topic": "room1/light",
+    "message": "OFF"
+  }
+]

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JSON Scene Generator with Timeline</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+  <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-4xl">
+    <h1 class="text-2xl font-bold mb-4 text-center">JSON Scene Generator</h1>
+
+    <!-- Formulár na pridanie novej akcie -->
+    <div class="mb-4 p-4 border rounded">
+      <h2 class="text-lg font-semibold mb-2">Pridať akciu</h2>
+      <div class="grid grid-cols-3 gap-4">
+        <input id="timestamp" type="number" step="0.1" min="0" placeholder="Timestamp (s)" class="border p-2 rounded">
+        <select id="topic" class="border p-2 rounded">
+          <option value="">Vyber topic</option>
+        </select>
+        <select id="message" class="border p-2 rounded">
+          <option value="">Vyber message</option>
+        </select>
+      </div>
+      <button onclick="addAction()" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Pridať akciu</button>
+    </div>
+
+    <!-- Správa Topics a Messages -->
+    <div class="mb-4 p-4 border rounded">
+      <h2 class="text-lg font-semibold mb-2">Správa Topics a Messages</h2>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block font-medium">Pridať Topic</label>
+          <input id="newTopic" type="text" placeholder="Nový topic" class="border p-2 rounded w-full">
+          <button onclick="addTopic()" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Pridať</button>
+        </div>
+        <div>
+          <label class="block font-medium">Pridať Message</label>
+          <input id="newMessage" type="text" placeholder="Nová message" class="border p-2 rounded w-full">
+          <button onclick="addMessage()" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Pridať</button>
+        </div>
+      </div>
+      <div class="mt-4">
+        <h3 class="font-semibold">Dostupné Topics</h3>
+        <ul id="topicList" class="list-disc pl-5"></ul>
+      </div>
+      <div class="mt-4">
+        <h3 class="font-semibold">Dostupné Messages</h3>
+        <ul id="messageList" class="list-disc pl-5"></ul>
+      </div>
+    </div>
+
+    <!-- Časová os -->
+    <div class="mb-4 p-4 border rounded">
+      <h2 class="text-lg font-semibold mb-2">Časová os akcií</h2>
+      <div id="timeline" class="relative h-32 bg-gray-200 rounded"></div>
+    </div>
+
+    <!-- Zoznam akcií -->
+    <div id="actionList" class="mb-4"></div>
+
+    <!-- Tlačidlá na export a import -->
+    <div class="flex justify-between">
+      <button onclick="exportJSON()" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">Exportovať JSON</button>
+      <label class="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 cursor-pointer">
+        Importovať JSON
+        <input type="file" id="importFile" accept=".json" onchange="importJSON()" class="hidden">
+      </label>
+    </div>
+
+    <!-- Výstup JSON -->
+    <pre id="jsonOutput" class="bg-gray-200 p-4 mt-4 rounded hidden"></pre>
+  </div>
+
+  <script>
+    let actions = [];
+    let topics = ['room1/light', 'room1/audio', 'room2/light', 'room2/motor'];
+    let messages = ['ON', 'OFF', 'BLINK', 'PLAY_WELCOME', 'PLAY_INFO', 'STOP', 'START', 'SPEED:50'];
+
+    // Inicializácia Topics a Messages
+    function initDropdowns() {
+      const topicSelect = document.getElementById('topic');
+      const messageSelect = document.getElementById('message');
+      topicSelect.innerHTML = '<option value="">Vyber topic</option>';
+      messageSelect.innerHTML = '<option value="">Vyber message</option>';
+
+      topics.forEach(topic => {
+        const option = document.createElement('option');
+        option.value = topic;
+        option.textContent = topic;
+        topicSelect.appendChild(option);
+      });
+
+      messages.forEach(msg => {
+        const option = document.createElement('option');
+        option.value = msg;
+        option.textContent = msg;
+        messageSelect.appendChild(option);
+      });
+
+      updateTopicList();
+      updateMessageList();
+    }
+
+    // Pridanie nového Topic
+    function addTopic() {
+      const newTopic = document.getElementById('newTopic').value.trim();
+      if (newTopic && !topics.includes(newTopic)) {
+        topics.push(newTopic);
+        initDropdowns();
+        document.getElementById('newTopic').value = '';
+      } else {
+        alert('Zadajte platný topic, ktorý ešte neexistuje!');
+      }
+    }
+
+    // Pridanie novej Message
+    function addMessage() {
+      const newMessage = document.getElementById('newMessage').value.trim();
+      if (newMessage && !messages.includes(newMessage)) {
+        messages.push(newMessage);
+        initDropdowns();
+        document.getElementById('newMessage').value = '';
+      } else {
+        alert('Zadajte platnú message, ktorá ešte neexistuje!');
+      }
+    }
+
+    // Aktualizácia zoznamu Topics
+    function updateTopicList() {
+      const topicList = document.getElementById('topicList');
+      topicList.innerHTML = '';
+      topics.forEach(topic => {
+        const li = document.createElement('li');
+        li.textContent = topic;
+        topicList.appendChild(li);
+      });
+    }
+
+    // Aktualizácia zoznamu Messages
+    function updateMessageList() {
+      const messageList = document.getElementById('messageList');
+      messageList.innerHTML = '';
+      messages.forEach(msg => {
+        const li = document.createElement('li');
+        li.textContent = msg;
+        messageList.appendChild(li);
+      });
+    }
+
+    // Pridanie akcie
+    function addAction() {
+      const timestamp = parseFloat(document.getElementById('timestamp').value);
+      const topic = document.getElementById('topic').value;
+      const message = document.getElementById('message').value;
+
+      if (isNaN(timestamp) || !topic || !message) {
+        alert('Vyplňte všetky polia správne!');
+        return;
+      }
+
+      actions.push({ timestamp, topic, message });
+      actions.sort((a, b) => a.timestamp - b.timestamp);
+      updateActionList();
+      updateTimeline();
+      clearInputs();
+    }
+
+    // Aktualizácia zoznamu akcií
+    function updateActionList() {
+      const actionList = document.getElementById('actionList');
+      actionList.innerHTML = '';
+
+      actions.forEach((action, index) => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center justify-between p-2 border-b';
+        div.innerHTML = `
+          <span>[${action.timestamp.toFixed(1)}s] ${action.topic}: ${action.message}</span>
+          <div>
+            <button onclick="editAction(${index})" class="text-blue-500 mr-2">Upraviť</button>
+            <button onclick="deleteAction(${index})" class="text-red-500">Odstrániť</button>
+          </div>
+        `;
+        actionList.appendChild(div);
+      });
+
+      updateJSONOutput();
+    }
+
+    // Úprava akcie
+    function editAction(index) {
+      const action = actions[index];
+      document.getElementById('timestamp').value = action.timestamp;
+      document.getElementById('topic').value = action.topic;
+      document.getElementById('message').value = action.message;
+      deleteAction(index);
+    }
+
+    // Odstránenie akcie
+    function deleteAction(index) {
+      actions.splice(index, 1);
+      updateActionList();
+      updateTimeline();
+    }
+
+    // Čistenie vstupov
+    function clearInputs() {
+      document.getElementById('timestamp').value = '';
+      document.getElementById('topic').value = '';
+      document.getElementById('message').value = '';
+    }
+
+    // Export JSON
+    function exportJSON() {
+      const json = JSON.stringify(actions, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'scene.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // Import JSON
+    function importJSON() {
+      const file = document.getElementById('importFile').files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const imported = JSON.parse(e.target.result);
+          if (Array.isArray(imported) && imported.every(a => 
+            typeof a.timestamp === 'number' && 
+            typeof a.topic === 'string' && 
+            typeof a.message === 'string'
+          )) {
+            actions = imported;
+            // Pridanie nových topics a messages, ak nie sú v zozname
+            imported.forEach(a => {
+              if (!topics.includes(a.topic)) topics.push(a.topic);
+              if (!messages.includes(a.message)) messages.push(a.message);
+            });
+            initDropdowns();
+            updateActionList();
+            updateTimeline();
+          } else {
+            alert('Neplatný formát JSON!');
+          }
+        } catch (e) {
+          alert('Chyba pri načítaní JSON: ' + e.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // Aktualizácia JSON výstupu
+    function updateJSONOutput() {
+      const jsonOutput = document.getElementById('jsonOutput');
+      jsonOutput.textContent = JSON.stringify(actions, null, 2);
+      jsonOutput.classList.remove('hidden');
+    }
+
+    // Aktualizácia časovej osi
+    function updateTimeline() {
+      const timeline = document.getElementById('timeline');
+      timeline.innerHTML = '';
+
+      if (actions.length === 0) return;
+
+      const maxTime = Math.max(...actions.map(a => a.timestamp), 10); // Minimálne 10s
+      const scale = 100 / maxTime; // Percentá na sekundu
+
+      actions.forEach(action => {
+        const div = document.createElement('div');
+        const left = action.timestamp * scale;
+        div.className = 'absolute top-0 w-2 h-full bg-blue-500';
+        div.style.left = `${left}%`;
+        div.title = `[${action.timestamp.toFixed(1)}s] ${action.topic}: ${action.message}`;
+
+        const label = document.createElement('div');
+        label.className = 'absolute text-xs mt-8 transform -rotate-45';
+        label.style.left = `${left}%`;
+        label.textContent = `${action.timestamp.toFixed(1)}s: ${action.message}`;
+        timeline.appendChild(div);
+        timeline.appendChild(label);
+      });
+
+      // Pridať časové značky
+      for (let i = 0; i <= maxTime; i += 1) {
+        const marker = document.createElement('div');
+        marker.className = 'absolute text-xs bottom-0';
+        marker.style.left = `${i * scale}%`;
+        marker.textContent = `${i}s`;
+        timeline.appendChild(marker);
+      }
+    }
+
+    // Inicializácia
+    initDropdowns();
+  </script>
+</body>
+</html>

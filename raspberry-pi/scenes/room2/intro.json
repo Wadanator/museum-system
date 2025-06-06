@@ -1,0 +1,22 @@
+[
+  {
+    "timestamp": 0,
+    "topic": "room2/light",
+    "message": "ON"
+  },
+  {
+    "timestamp": 3.0,
+    "topic": "room2/motor",
+    "message": "START"
+  },
+  {
+    "timestamp": 8.0,
+    "topic": "room2/motor",
+    "message": "STOP"
+  },
+  {
+    "timestamp": 10.0,
+    "topic": "room2/light",
+    "message": "OFF"
+  }
+]
