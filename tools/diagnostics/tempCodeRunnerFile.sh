@@ -1,1 +1,1 @@
-museum-system
+sudo systemctl stop museum-system

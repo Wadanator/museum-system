@@ -111,7 +111,7 @@ class MuseumController:
         self.scene_running = False
         self.connected_to_broker = False
         self.last_heartbeat = time.time()
-        self.health_check_interval = 30
+        self.health_check_interval = int(self.config['System'].get('health_check_interval', '30'))
     
     def _safe_init(self, init_func, name):
         try:
