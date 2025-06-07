@@ -78,6 +78,7 @@ cat > "$WATCHDOG_SCRIPT" << 'EOF'
 """
 System Watchdog for Museum System
 Monitors the main process and restarts it if needed
+Storage-efficient logging - only logs when action is needed
 """
 
 import os
@@ -88,15 +89,37 @@ import psutil
 import logging
 from datetime import datetime
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - WATCHDOG - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('/var/log/museum-watchdog.log'),
-        logging.StreamHandler()
-    ]
-)
+# Clean logging setup (matching museum system)
+def setup_logging():
+    class CleanFormatter(logging.Formatter):
+        def format(self, record):
+            timestamp = datetime.now().strftime('%H:%M:%S')
+            level = record.levelname.ljust(7)
+            return f"[{timestamp}] {level} {record.getMessage()}"
+    
+    logger = logging.getLogger('watchdog')
+    logger.setLevel(logging.DEBUG)
+    
+    # Console
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(CleanFormatter())
+    logger.addHandler(console_handler)
+    
+    # Log files - same directory structure as museum system
+    log_dir = os.path.expanduser("~/Documents/GitHub/museum-system/logs")
+    os.makedirs(log_dir, exist_ok=True)
+    
+    for level, filename in [(logging.INFO, 'watchdog-info.log'), 
+                           (logging.WARNING, 'watchdog-warnings.log'), 
+                           (logging.ERROR, 'watchdog-errors.log')]:
+        handler = logging.FileHandler(f"{log_dir}/{filename}")
+        handler.setLevel(level)
+        handler.setFormatter(CleanFormatter())
+        logger.addHandler(handler)
+    
+    return logger
+
+log = setup_logging()
 
 class MuseumWatchdog:
     def __init__(self):
@@ -107,6 +130,8 @@ class MuseumWatchdog:
         self.high_cpu_count = 0
         self.restart_count = 0
         self.max_restarts_per_hour = 10
+        self.last_health_log_time = 0
+        self.health_log_interval = 300  # Log health status every 5 minutes max
         
     def is_service_running(self):
         """Check if the museum service is running"""
@@ -117,7 +142,7 @@ class MuseumWatchdog:
             )
             return result.stdout.strip() == 'active'
         except Exception as e:
-            logging.error(f"Error checking service status: {e}")
+            log.error(f"Error checking service status: {e}")
             return False
     
     def get_service_process(self):
@@ -126,8 +151,9 @@ class MuseumWatchdog:
             for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
                 if proc.info['cmdline'] and 'main.py' in ' '.join(proc.info['cmdline']):
                     return proc
-        except Exception as e:
-            logging.error(f"Error finding process: {e}")
+        except Exception:
+            # Don't log routine process search failures
+            pass
         return None
     
     def check_process_health(self):
@@ -146,10 +172,17 @@ class MuseumWatchdog:
             cpu_percent = proc.cpu_percent(interval=1)
             if cpu_percent > self.max_cpu_percent:
                 self.high_cpu_count += 1
-                if self.high_cpu_count >= 3:  # 3 consecutive high CPU readings
+                if self.high_cpu_count >= 2:  # 2 consecutive high CPU readings
                     return False, f"High CPU usage: {cpu_percent:.1f}%"
             else:
                 self.high_cpu_count = 0
+            
+            # Only log health status occasionally or when there are issues
+            current_time = time.time()
+            if (current_time - self.last_health_log_time > self.health_log_interval or 
+                memory_mb > self.max_memory_mb * 0.8 or cpu_percent > self.max_cpu_percent * 0.8):
+                log.info(f"Health: CPU {cpu_percent:.1f}%, Memory {memory_mb:.1f}MB")
+                self.last_health_log_time = current_time
             
             return True, f"Healthy - CPU: {cpu_percent:.1f}%, Memory: {memory_mb:.1f}MB"
             
@@ -159,19 +192,21 @@ class MuseumWatchdog:
     def restart_service(self, reason):
         """Restart the museum service"""
         self.restart_count += 1
-        logging.warning(f"Restarting service (#{self.restart_count}) - Reason: {reason}")
+        log.warning(f"Restarting service (#{self.restart_count}) - Reason: {reason}")
         
         try:
             # Stop the service
-            subprocess.run(['sudo', 'systemctl', 'stop', self.service_name], check=True)
+            subprocess.run(['sudo', 'systemctl', 'stop', self.service_name], 
+                         capture_output=True, check=True)
             time.sleep(5)
             
             # Start the service
-            subprocess.run(['sudo', 'systemctl', 'start', self.service_name], check=True)
-            logging.info("Service restarted successfully")
+            subprocess.run(['sudo', 'systemctl', 'start', self.service_name], 
+                         capture_output=True, check=True)
+            log.warning("Service restarted successfully")
             
         except subprocess.CalledProcessError as e:
-            logging.error(f"Failed to restart service: {e}")
+            log.error(f"Failed to restart service: {e}")
     
     def check_network_connectivity(self):
         """Check if network is available"""
@@ -184,47 +219,73 @@ class MuseumWatchdog:
     
     def run(self):
         """Main watchdog loop"""
-        logging.info("Museum System Watchdog started")
+        log.warning("Museum System Watchdog started")  # Only log startup
+        
+        network_down_logged = False
+        startup_complete = False
         
         while True:
             try:
                 # Check if service is running
                 if not self.is_service_running():
-                    logging.warning("Service not running, starting it...")
-                    subprocess.run(['sudo', 'systemctl', 'start', self.service_name])
+                    log.warning("Service not running, starting it...")
+                    subprocess.run(['sudo', 'systemctl', 'stop', self.service_name], 
+                                 capture_output=True)
+                    subprocess.run(['sudo', 'systemctl', 'daemon-reload'], 
+                                 capture_output=True)
+                    subprocess.run(['sudo', 'systemctl', 'start', self.service_name], 
+                                 capture_output=True)
                     time.sleep(10)
                     continue
                 
                 # Check process health
                 healthy, status = self.check_process_health()
-                logging.info(f"Health check: {status}")
                 
+                # Only restart if there's an actual problem (not just "process not found")
                 if not healthy and "Process not found" not in status:
                     self.restart_service(status)
                     time.sleep(30)  # Wait longer after restart
                     continue
+                elif not healthy and "Process not found" in status:
+                    # Process not found - only log if service claims to be running
+                    if self.is_service_running():
+                        log.warning("Service running but process not found")
                 
-                # Check network connectivity periodically
-                if not self.check_network_connectivity():
-                    logging.warning("Network connectivity issue detected")
+                # Check network connectivity periodically (only log when it goes down/up)
+                network_ok = self.check_network_connectivity()
+                if not network_ok and not network_down_logged:
+                    log.warning("Network connectivity lost")
+                    network_down_logged = True
+                elif network_ok and network_down_logged:
+                    log.warning("Network connectivity restored")
+                    network_down_logged = False
                 
-                # Reset restart count every hour
+                # Reset restart count every hour (only log if there were restarts)
                 if self.restart_count > 0 and int(time.time()) % 3600 == 0:
-                    logging.info(f"Hourly reset - Had {self.restart_count} restarts")
+                    log.warning(f"Hourly reset - Had {self.restart_count} restarts this hour")
                     self.restart_count = 0
+                
+                # Log successful startup completion once
+                if not startup_complete:
+                    log.warning("Watchdog monitoring active")
+                    startup_complete = True
                 
                 time.sleep(self.check_interval)
                 
             except KeyboardInterrupt:
-                logging.info("Watchdog stopped by user")
+                log.warning("Watchdog stopped by user")
                 break
             except Exception as e:
-                logging.error(f"Watchdog error: {e}")
+                log.error(f"Watchdog error: {e}")
                 time.sleep(self.check_interval)
 
 if __name__ == "__main__":
     watchdog = MuseumWatchdog()
-    watchdog.run()
+    if len(sys.argv) > 1 and sys.argv[1] == "--test-restart":
+        log.warning("Running test mode: restarting service")
+        watchdog.restart_service("Test restart")
+    else:
+        watchdog.run()
 EOF
 
 # Make watchdog executable
