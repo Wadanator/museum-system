@@ -715,26 +715,47 @@ import os
 import sys
 
 class SceneParser:
-    def __init__(self):
+    def __init__(self, audio_handler=None):
         self.scene_data = None
         self.start_time = None
+        self.audio_handler = audio_handler
+        self.executed_actions = set()  # Track executed actions to avoid duplicates
     
     def load_scene(self, scene_file):
         try:
             with open(scene_file, 'r') as file:
                 self.scene_data = json.load(file)
+            
+            # Reset executed actions when loading new scene
+            self.executed_actions = set()
+            
+            # Validate scene data
+            if not isinstance(self.scene_data, list):
+                print("❌ Scene data must be a list of actions")
+                return False
+            
+            # Validate each action
+            for i, action in enumerate(self.scene_data):
+                if not all(key in action for key in ['timestamp', 'topic', 'message']):
+                    print(f"❌ Action {i} missing required fields (timestamp, topic, message)")
+                    return False
+            
+            print(f"✅ Scene loaded: {len(self.scene_data)} actions")
             return True
+            
         except Exception as e:
-            print(f"Error loading scene: {e}")
+            print(f"❌ Error loading scene: {e}")
             self.scene_data = None
             return False
     
     def start_scene(self):
         if not self.scene_data:
-            print("No scene is loaded")
+            print("❌ No scene is loaded")
             return False
         
         self.start_time = time.time()
+        self.executed_actions = set()
+        print("🎬 Scene started")
         return True
     
     def get_current_actions(self, mqtt_client):
@@ -744,15 +765,90 @@ class SceneParser:
         current_time = time.time() - self.start_time
         actions = []
         
-        for action in self.scene_data:
-            if action["timestamp"] <= current_time < action["timestamp"] + 0.1:
+        for i, action in enumerate(self.scene_data):
+            action_id = f"{i}_{action['timestamp']}"
+            
+            # Check if action should execute now and hasn't been executed yet
+            if (action["timestamp"] <= current_time and 
+                action_id not in self.executed_actions):
+                
                 actions.append(action)
-                # Publish to MQTT
-                mqtt_client.publish(action["topic"], action["message"], retain=False)
+                self.executed_actions.add(action_id)
+                
+                # Handle audio commands locally
+                if action["topic"].endswith("/audio"):
+                    self._handle_audio_command(action["message"])
+                else:
+                    # Publish other commands to MQTT
+                    if mqtt_client:
+                        mqtt_client.publish(action["topic"], action["message"], retain=False)
         
         return actions
+    
+    def _handle_audio_command(self, message):
+        if not self.audio_handler:
+            print("⚠️  No audio handler available")
+            return
+        
+        try:
+            # Parse different audio command formats
+            if message.startswith("PLAY:"):
+                # Format: PLAY:filename.mp3 or PLAY:filename.mp3:volume
+                parts = message.split(":")
+                filename = parts[1]
+                volume = float(parts[2]) if len(parts) > 2 else 0.7
+                self.audio_handler.play_audio_with_volume(filename, volume)
+                
+            elif message.startswith("PLAY_"):
+                # Legacy format: PLAY_WELCOME -> welcome.wav/mp3/ogg
+                self.audio_handler.play_audio(message)
+                
+            elif message == "STOP":
+                self.audio_handler.stop_audio()
+                
+            elif message == "PAUSE":
+                self.audio_handler.pause_audio()
+                
+            elif message == "RESUME":
+                self.audio_handler.resume_audio()
+                
+            elif message.startswith("VOLUME:"):
+                # Format: VOLUME:0.5
+                volume = float(message.split(":")[1])
+                self.audio_handler.set_volume(volume)
+                
+            else:
+                # Direct filename
+                self.audio_handler.play_audio(message)
+                
+        except Exception as e:
+            print(f"❌ Error handling audio command '{message}': {e}")
+    
+    def get_scene_duration(self):
+        if not self.scene_data:
+            return 0
+        return max(action["timestamp"] for action in self.scene_data)
+    
+    def get_scene_progress(self):
+        if not self.scene_data or not self.start_time:
+            return 0.0
+        
+        current_time = time.time() - self.start_time
+        total_duration = self.get_scene_duration()
+        
+        if total_duration <= 0:
+            return 1.0
+        
+        return min(1.0, current_time / total_duration)
+    
+    def is_scene_complete(self):
+        if not self.scene_data or not self.start_time:
+            return False
+        
+        current_time = time.time() - self.start_time
+        return current_time > self.get_scene_duration()
 
-# Example usage
+# Example usage and testing
 if __name__ == "__main__":
     # Get the directory where this script is located
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -762,37 +858,59 @@ if __name__ == "__main__":
     
     print(f"Looking for scene file at: {scene_file}")
     
-    # Add the utils directory to Python path for importing mqtt_client
+    # Add the utils directory to Python path for importing other modules
     utils_dir = os.path.dirname(__file__)
     if utils_dir not in sys.path:
         sys.path.insert(0, utils_dir)
     
     try:
         from mqtt_client import MQTTClient
+        from audio_handler import AudioHandler
         
-        parser = SceneParser()
+        audio_dir = os.path.join(script_dir, "..", "audio")
+        audio_handler = AudioHandler(audio_dir)
+        parser = SceneParser(audio_handler)
+        
         if parser.load_scene(scene_file):
-            print("Scene loaded successfully!")
+            print("✅ Scene loaded successfully!")
+            print(f"Scene duration: {parser.get_scene_duration()} seconds")
+            
+            # Try to connect to MQTT
             mqtt_client = MQTTClient("localhost", use_logging=True)
-            if mqtt_client.connect():
-                print("Connected to MQTT broker")
-                parser.start_scene()
-                # Simulate scene playback
-                for i in range(15):
-                    actions = parser.get_current_actions(mqtt_client)
-                    if actions:
-                        print(f"[{i}s] Executing actions: {actions}")
-                    time.sleep(1)
-                mqtt_client.disconnect()
-                print("Scene playback completed")
+            mqtt_connected = mqtt_client.connect()
+            
+            if mqtt_connected:
+                print("✅ Connected to MQTT broker")
             else:
-                print("Failed to connect to MQTT broker")
+                print("⚠️  No MQTT broker - running in simulation mode")
+                mqtt_client = None
+            
+            parser.start_scene()
+            
+            # Simulate scene playback
+            while not parser.is_scene_complete():
+                actions = parser.get_current_actions(mqtt_client)
+                if actions:
+                    progress = parser.get_scene_progress() * 100
+                    print(f"[{progress:.1f}%] Executing {len(actions)} actions:")
+                    for action in actions:
+                        print(f"  📡 {action['topic']} = {action['message']}")
+                
+                time.sleep(0.1)
+            
+            print("✅ Scene playback completed")
+            
+            if mqtt_connected:
+                mqtt_client.disconnect()
+            audio_handler.cleanup()
+            
         else:
-            print("Failed to load scene file")
+            print("❌ Failed to load scene file")
             print(f"Make sure the file exists at: {scene_file}")
+            
     except ImportError as e:
-        print(f"Error importing mqtt_client: {e}")
-        print("Make sure mqtt_client.py is in the same directory") 
+        print(f"❌ Error importing modules: {e}")
+        print("Make sure mqtt_client.py and audio_handler.py are in the utils directory")
 
 """
     create_file(f"{base_dir}/raspberry_pi/utils/scene_parser.py", scene_parser)
@@ -913,7 +1031,7 @@ if __name__ == "__main__":
     
 
     button_handler_improved = """
-    #!/usr/bin/env python3
+#!/usr/bin/env python3
 import time
 import atexit
 
@@ -1045,13 +1163,185 @@ if __name__ == "__main__":
                 button.check_button_polling()
             time.sleep(0.1)
     except KeyboardInterrupt:
-        print("Test completed")
+        print("\nTest completed")
     finally:
         button.cleanup()
-
     """
     create_file(f"{base_dir}/raspberry_pi/utils/button_handler_improved.py", button_handler_improved)
 
+    audio_handler = """
+    #!/usr/bin/env python3
+import pygame
+import os
+import sys
+
+class AudioHandler:
+    def __init__(self, audio_dir):
+        self.audio_dir = audio_dir
+        self.currently_playing = None
+        
+        # Initialize pygame mixer with better settings for various formats
+        try:
+            pygame.mixer.pre_init(frequency=22050, size=-16, channels=2, buffer=512)
+            pygame.mixer.init()
+            print("✅ Audio handler initialized successfully")
+        except Exception as e:
+            print(f"❌ Error initializing pygame mixer: {e}")
+            sys.exit(1)
+    
+    def play_audio(self, audio_file):
+        try:
+            # Check if it's a direct filename or a command
+            if audio_file.startswith("PLAY_"):
+                # Legacy support - extract filename from command
+                filename = audio_file.replace("PLAY_", "").lower()
+                # Try different extensions
+                for ext in ['.wav', '.mp3', '.ogg']:
+                    test_file = filename + ext
+                    full_path = os.path.join(self.audio_dir, test_file)
+                    if os.path.exists(full_path):
+                        audio_file = test_file
+                        break
+                else:
+                    print(f"❌ Audio file not found for command: {audio_file}")
+                    return False
+            
+            full_path = os.path.join(self.audio_dir, audio_file)
+            
+            if not os.path.exists(full_path):
+                print(f"❌ Audio file not found: {full_path}")
+                return False
+            
+            # Check file extension
+            _, ext = os.path.splitext(audio_file.lower())
+            if ext not in ['.wav', '.mp3', '.ogg']:
+                print(f"⚠️  Unsupported audio format: {ext}")
+                print("Supported formats: .wav, .mp3, .ogg")
+                return False
+            
+            # Stop any currently playing audio
+            if self.currently_playing:
+                pygame.mixer.music.stop()
+            
+            pygame.mixer.music.load(full_path)
+            pygame.mixer.music.play()
+            self.currently_playing = audio_file
+            print(f"🎵 Playing audio: {audio_file}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error playing audio {audio_file}: {e}")
+            return False
+    
+    def play_audio_with_volume(self, audio_file, volume=0.7):
+        if self.play_audio(audio_file):
+            pygame.mixer.music.set_volume(volume)
+            print(f"🔊 Volume set to {volume}")
+            return True
+        return False
+    
+    def is_playing(self):
+        return pygame.mixer.music.get_busy()
+    
+    def pause_audio(self):
+        try:
+            if self.currently_playing and self.is_playing():
+                pygame.mixer.music.pause()
+                print(f"⏸️  Paused audio: {self.currently_playing}")
+                return True
+        except Exception as e:
+            print(f"❌ Error pausing audio: {e}")
+        return False
+    
+    def resume_audio(self):
+        try:
+            pygame.mixer.music.unpause()
+            print(f"▶️  Resumed audio: {self.currently_playing}")
+            return True
+        except Exception as e:
+            print(f"❌ Error resuming audio: {e}")
+            return False
+    
+    def stop_audio(self):
+        try:
+            if self.currently_playing:
+                pygame.mixer.music.stop()
+                print(f"⏹️  Stopped audio: {self.currently_playing}")
+                self.currently_playing = None
+            return True
+        except Exception as e:
+            print(f"❌ Error stopping audio: {e}")
+            return False
+    
+    def set_volume(self, volume):
+        try:
+            volume = max(0.0, min(1.0, volume))  # Clamp between 0 and 1
+            pygame.mixer.music.set_volume(volume)
+            print(f"🔊 Volume set to {volume}")
+            return True
+        except Exception as e:
+            print(f"❌ Error setting volume: {e}")
+            return False
+    
+    def list_audio_files(self):
+        try:
+            if not os.path.exists(self.audio_dir):
+                print(f"❌ Audio directory not found: {self.audio_dir}")
+                return []
+            
+            supported_extensions = ['.wav', '.mp3', '.ogg']
+            audio_files = []
+            
+            for file in os.listdir(self.audio_dir):
+                _, ext = os.path.splitext(file.lower())
+                if ext in supported_extensions:
+                    audio_files.append(file)
+            
+            return sorted(audio_files)
+        except Exception as e:
+            print(f"❌ Error listing audio files: {e}")
+            return []
+    
+    def cleanup(self):
+        try:
+            self.stop_audio()
+            pygame.mixer.quit()
+            print("🧹 Audio handler cleaned up")
+        except Exception as e:
+            print(f"❌ Error during audio cleanup: {e}")
+
+# Example usage and testing
+if __name__ == "__main__":
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    audio_dir = os.path.join(script_dir, "..", "audio")
+    
+    print(f"Audio directory: {audio_dir}")
+    
+    audio_handler = AudioHandler(audio_dir)
+    
+    # List available audio files
+    print("\n📁 Available audio files:")
+    files = audio_handler.list_audio_files()
+    if files:
+        for i, file in enumerate(files, 1):
+            print(f"  {i}. {file}")
+    else:
+        print("  No audio files found")
+    
+    # Test audio playback if files exist
+    if files:
+        print(f"\n🎵 Testing playback of first file: {files[0]}")
+        audio_handler.play_audio_with_volume(files[0], 0.5)
+        
+        import time
+        print("Playing for 5 seconds...")
+        time.sleep(5)
+        
+        audio_handler.stop_audio()
+    
+    audio_handler.cleanup()
+    """
+    create_file(f"{base_dir}/raspberry_pi/utils/button_handler_improved.py", audio_handler)
     # Create main Python script for Raspberry Pi
     main_script = """
 #!/usr/bin/env python3
@@ -1069,6 +1359,7 @@ if script_dir not in sys.path:
 try:
     from utils.mqtt_client import MQTTClient
     from utils.scene_parser import SceneParser
+    from utils.audio_handler import AudioHandler
 except ImportError as e:
     print(f"Import error: {e}")
     print("Make sure you're running from the raspberry_pi directory")
@@ -1076,8 +1367,8 @@ except ImportError as e:
 
 # Import improved button handler or fall back to simulation
 try:
-        from utils.button_handler_improved import ImprovedButtonHandler as ButtonHandler
-        print("✅ Using improved button handler")
+    from utils.button_handler_improved import ImprovedButtonHandler as ButtonHandler
+    print("✅ Using improved button handler")
 except ImportError:
     print("⚠️  Button handler not available, using simulation")
     
@@ -1118,11 +1409,18 @@ class FixedMuseumController:
         broker_ip = self.config['MQTT']['BrokerIP']
         button_pin = int(self.config['GPIO']['ButtonPin'])
         self.room_id = self.config['Room']['ID']
-        self.scenes_dir = self.config['Scenes']['Directory']
+        # Use absolute path for scenes directory
+        self.scenes_dir = "/home/admin/Documents/GitHub/museum-system/raspberry_pi/scenes"
+        self.audio_dir = os.path.join(os.path.dirname(__file__), "audio")
         
         print(f"🏛️  Museum Controller for Room: {self.room_id}")
         print(f"📡 MQTT Broker: {broker_ip}")
         print(f"🔘 Button Pin: GPIO {button_pin}")
+        print(f"🎵 Audio Directory: {self.audio_dir}")
+        print(f"📂 Scenes Directory: {self.scenes_dir}")
+        
+        # Ensure scenes directory exists
+        os.makedirs(self.scenes_dir, exist_ok=True)
         
         # Initialize components with error handling
         try:
@@ -1132,7 +1430,13 @@ class FixedMuseumController:
             self.mqtt_client = None
         
         try:
-            self.scene_parser = SceneParser()
+            self.audio_handler = AudioHandler(self.audio_dir)
+        except Exception as e:
+            print(f"❌ Audio handler initialization failed: {e}")
+            self.audio_handler = None
+        
+        try:
+            self.scene_parser = SceneParser(self.audio_handler)
         except Exception as e:
             print(f"❌ Scene parser initialization failed: {e}")
             self.scene_parser = None
@@ -1161,7 +1465,10 @@ class FixedMuseumController:
             'ID': 'room1'
         }
         config['Scenes'] = {
-            'Directory': 'scenes'
+            'Directory': '/home/admin/Documents/GitHub/museum-system/raspberry_pi/scenes'
+        }
+        config['Audio'] = {
+            'Directory': 'audio'
         }
         
         # Create config directory if it doesn't exist
@@ -1234,6 +1541,7 @@ class FixedMuseumController:
             {"timestamp": 10.0, "topic": f"{self.room_id}/light", "message": "OFF"}
         ]
         
+        # Ensure the room-specific directory exists
         os.makedirs(os.path.dirname(scene_path), exist_ok=True)
         
         with open(scene_path, 'w') as f:
@@ -1341,6 +1649,8 @@ class FixedMuseumController:
             self.button_handler.cleanup()
         if self.mqtt_client and self.connected_to_broker:
             self.mqtt_client.disconnect()
+        if self.audio_handler:
+            self.audio_handler.cleanup()
         
         print("👋 Museum controller stopped")
 
@@ -1361,98 +1671,6 @@ if __name__ == "__main__":
 
     create_file(f"{base_dir}/raspberry_pi/main.py", main_script)
     os.chmod(f"{base_dir}/raspberry_pi/main.py", 0o755)  # Make executable
-    
-    # Create architecture documentation
-    arch_doc = """# Museum Automation System Architecture
-
-## System Overview
-
-The automated museum system uses a distributed architecture with MQTT communication:
-
-- **MQTT Broker**: Central communication hub
-- **Raspberry Pi Controllers**: One per room, manages scene playback
-- **ESP32 Devices**: Control hardware (lights, audio, motors)
-
-## Communication Flow
-
-1. User presses button in a room
-2. Raspberry Pi loads the corresponding scene from JSON file
-3. Raspberry Pi publishes MQTT messages according to scene timestamps
-4. ESP32 devices receive messages and control physical hardware
-
-## MQTT Topics Structure
-
-Topics follow a hierarchical structure: `room_id/device_type`
-
-Examples:
-- `room1/light`
-- `room1/audio`
-- `room2/motor`
-
-## Hardware Components
-
-### Raspberry Pi
-- Controls the scene playback
-- Connects to network via Ethernet
-- Communicates with button input
-- Manages JSON scene files
-
-### ESP32 Devices
-- Connect to network via Ethernet (using ESP32-Ethernet-Kit)
-- Subscribe to MQTT topics
-- Control physical hardware components
-"""
-    create_file(f"{base_dir}/docs/architecture.md", arch_doc)
-    
-    # Create MQTT topics documentation
-    topics_doc = """# MQTT Topics Structure
-
-## Topic Convention
-
-All topics follow the pattern: `room_id/device_type`
-
-## Standard Topics
-
-### Light Control
-- Topic: `roomX/light`
-- Messages:
-  - `ON`: Turn on all lights
-  - `OFF`: Turn off all lights
-  - `BLINK`: Blink lights sequence
-
-### Audio Control
-- Topic: `roomX/audio`
-- Messages:
-  - `PLAY_WELCOME`: Play welcome audio file
-  - `PLAY_INFO`: Play information audio file
-  - `STOP`: Stop audio playback
-
-### Motor Control
-- Topic: `roomX/motor`
-- Messages:
-  - `START`: Start motor movement
-  - `STOP`: Stop motor movement
-  - `SPEED:X`: Set motor speed (where X is a value)
-
-## Room-Specific Examples
-
-### Room 1
-- `room1/light`
-- `room1/audio`
-
-### Room 2
-- `room2/light`
-- `room2/motor`
-
-## Adding New Topics
-
-When adding new functionality:
-1. Follow the naming convention
-2. Document the topic and messages
-3. Ensure all devices are configured for the new topics
-"""
-    create_file(f"{base_dir}/docs/mqtt_topics.md", topics_doc)
-    
     print("\nProject structure created successfully!")
     print(f"Project created at: {os.path.abspath(base_dir)}")
     print("\nNext steps:")

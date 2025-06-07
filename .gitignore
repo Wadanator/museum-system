@@ -43,3 +43,35 @@ Thumbs.db
 
 # Project specific
 mosquitto.db
+
+# Museum System - Log files
+logs/
+*.log
+/var/log/museum/
+raspberry_pi/logs/
+
+# Museum System - Audio files (if large)
+raspberry_pi/audio/*.wav
+raspberry_pi/audio/*.mp3
+raspberry_pi/audio/*.ogg
+!raspberry_pi/audio/README.md
+
+# Museum System - Config files with sensitive data
+raspberry_pi/config/config.ini
+!raspberry_pi/config/config.ini.example
+
+# Museum System - Scene files (optional - remove if you want to track them)
+# raspberry_pi/scenes/
+
+# Museum System - Service files
+*.service
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Backup files
+*.bak
+*.backup
+*~
