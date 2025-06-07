@@ -1,18 +1,45 @@
 [Unit]
-Description=Museum Automation Service
-After=network.target mosquitto.service
-Wants=mosquitto.service
+Description=Museum Automation System - Bulletproof Edition
+After=network.target network-online.target mosquitto.service
+Wants=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=10
 
 [Service]
-ExecStart=/usr/bin/python3 /home/pi/museum-system/raspberry_pi/main.py
-WorkingDirectory=/home/pi/museum-system/raspberry_pi
+Type=simple
+ExecStart=/usr/bin/python3 /home/admin/Documents/GitHub/museum-system/raspberry_pi/main.py
+WorkingDirectory=/home/admin/Documents/GitHub/museum-system/raspberry_pi
+
+# Logging with rotation
 StandardOutput=append:/var/log/museum-system.log
 StandardError=append:/var/log/museum-system-error.log
+
+# BULLETPROOF RESTART SETTINGS
 Restart=always
-RestartSec=10
-StartLimitInterval=200
-StartLimitBurst=5
-User=pi
+RestartSec=5
+RestartForceExitStatus=1 2 3 4 5 6 7 8 9 130 131 132 133 134 135 136 137 138 139 255
+
+# Watchdog settings - restart if no heartbeat for 30 seconds
+WatchdogSec=30
+NotifyAccess=main
+
+# Resource limits to prevent system overload
+MemoryLimit=512M
+CPUQuota=50%
+
+# User and permissions
+User=admin
+Group=admin
+SupplementaryGroups=gpio,audio,dialout
+
+# Environment
+Environment=PYTHONPATH=/home/admin/Documents/GitHub/museum-system/raspberry_pi
+Environment=PYTHONUNBUFFERED=1
+
+# Kill settings - force kill if graceful shutdown takes too long
+TimeoutStopSec=30
+KillMode=mixed
+KillSignal=SIGTERM
 
 [Install]
 WantedBy=multi-user.target

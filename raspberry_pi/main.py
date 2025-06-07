@@ -1,188 +1,263 @@
 #!/usr/bin/env python3
 
-import os
-import time
-import configparser
-import sys
+import os, time, configparser, sys, logging, signal, threading
+from datetime import datetime
+from watchdog import subprocess
 
-# Add the current directory to Python path
+# Add current directory to Python path
 script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
 
+# Clean logging setup
+def setup_logging():
+    class CleanFormatter(logging.Formatter):
+        def format(self, record):
+            timestamp = datetime.now().strftime('%H:%M:%S')
+            level = record.levelname.ljust(7)
+            return f"[{timestamp}] {level} {record.getMessage()}"
+    
+    logger = logging.getLogger('museum')
+    logger.setLevel(logging.DEBUG)
+    
+    # Console
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(CleanFormatter())
+    logger.addHandler(console_handler)
+    
+    # Log files
+    log_dir = os.path.expanduser("~/Documents/GitHub/museum-system/logs")
+    os.makedirs(log_dir, exist_ok=True)
+    
+    for level, filename in [(logging.INFO, 'museum-info.log'), 
+                           (logging.WARNING, 'museum-warnings.log'), 
+                           (logging.ERROR, 'museum-errors.log')]:
+        handler = logging.FileHandler(f"{log_dir}/{filename}")
+        handler.setLevel(level)
+        handler.setFormatter(CleanFormatter())
+        logger.addHandler(handler)
+    
+    return logger
+
+log = setup_logging()
+
+# Import components
 try:
+    from utils.systemd_watchdog import SystemdWatchdog
     from utils.mqtt_client import MQTTClient
     from utils.scene_parser import SceneParser
     from utils.audio_handler import AudioHandler
+    log.info("Core modules loaded")
 except ImportError as e:
-    print(f"Import error: {e}")
-    print("Make sure you're running from the raspberry_pi directory")
+    log.error(f"Import failed: {e}")
     sys.exit(1)
 
-# Import improved button handler or fall back to simulation
+# Button handler with fallback
 try:
     from utils.button_handler_improved import ImprovedButtonHandler as ButtonHandler
-    print("✅ Using improved button handler")
+    log.info("Button handler loaded")
 except ImportError:
-    print("⚠️  Button handler not available, using simulation")
-    
+    log.warning("Using mock button")
     class MockButtonHandler:
         def __init__(self, pin):
             self.pin = pin
             self.callback = None
-            print(f"Mock button handler created for GPIO {pin}")
-        
-        def set_callback(self, callback):
-            self.callback = callback
-        
-        def simulate_press(self):
-            if self.callback:
-                print("🔘 Simulated button press")
-                self.callback()
-        
-        def cleanup(self):
-            pass
-    
+        def set_callback(self, callback): self.callback = callback
+        def simulate_press(self): 
+            if self.callback: self.callback()
+        def cleanup(self): pass
     ButtonHandler = MockButtonHandler
 
-class FixedMuseumController:
+class MuseumController:
     def __init__(self, config_file=None):
+        # Config loading
         if config_file is None:
             config_file = os.path.join(os.path.dirname(__file__), "config", "config.ini")
         
         if not os.path.exists(config_file):
-            print(f"❌ Config file not found: {config_file}")
-            print("Creating default config...")
+            log.error(f"Config missing: {config_file}")
             self.create_default_config(config_file)
         
-        # Load configuration
         self.config = configparser.ConfigParser()
         self.config.read(config_file)
         
-        # Get configuration values
+        # Config values
         broker_ip = self.config['MQTT']['BrokerIP']
         button_pin = int(self.config['GPIO']['ButtonPin'])
         self.room_id = self.config['Room']['ID']
-        # Use absolute path for scenes directory
+        self.json_file_name = self.config['Json']['json_file_name']
         self.scenes_dir = "/home/admin/Documents/GitHub/museum-system/raspberry_pi/scenes"
         self.audio_dir = os.path.join(os.path.dirname(__file__), "audio")
         
-        print(f"🏛️  Museum Controller for Room: {self.room_id}")
-        print(f"📡 MQTT Broker: {broker_ip}")
-        print(f"🔘 Button Pin: GPIO {button_pin}")
-        print(f"🎵 Audio Directory: {self.audio_dir}")
-        print(f"📂 Scenes Directory: {self.scenes_dir}")
-        
-        # Ensure scenes directory exists
+        log.info(f"Room: {self.room_id}, MQTT: {broker_ip}, GPIO: {button_pin}")
         os.makedirs(self.scenes_dir, exist_ok=True)
         
-        # Initialize components with error handling
-        try:
-            self.mqtt_client = MQTTClient(broker_ip, client_id=f"rpi_room_{self.room_id}", use_logging=True)
-        except Exception as e:
-            print(f"❌ MQTT client initialization failed: {e}")
-            self.mqtt_client = None
+        # Components init
+        self.watchdog = SystemdWatchdog(logger=log)
+        self.shutdown_requested = False
+        signal.signal(signal.SIGTERM, self._signal_handler)
+        signal.signal(signal.SIGINT, self._signal_handler)
         
-        try:
-            self.audio_handler = AudioHandler(self.audio_dir)
-        except Exception as e:
-            print(f"❌ Audio handler initialization failed: {e}")
-            self.audio_handler = None
+        # Init with error handling
+        self.mqtt_client = self._safe_init(lambda: MQTTClient(broker_ip, client_id=f"rpi_room_{self.room_id}", use_logging=True), "MQTT")
+        self.audio_handler = self._safe_init(lambda: AudioHandler(self.audio_dir), "Audio")
+        self.scene_parser = self._safe_init(lambda: SceneParser(self.audio_handler), "Scene parser")
+        self.button_handler = self._safe_init(lambda: ButtonHandler(button_pin), "Button")
         
-        try:
-            self.scene_parser = SceneParser(self.audio_handler)
-        except Exception as e:
-            print(f"❌ Scene parser initialization failed: {e}")
-            self.scene_parser = None
-        
-        try:
-            self.button_handler = ButtonHandler(button_pin)
+        if self.button_handler:
             self.button_handler.set_callback(self.on_button_press)
-        except Exception as e:
-            print(f"❌ Button handler initialization failed: {e}")
-            self.button_handler = None
         
         # State
         self.scene_running = False
         self.connected_to_broker = False
+        self.last_heartbeat = time.time()
+        self.health_check_interval = 30
+    
+    def _safe_init(self, init_func, name):
+        try:
+            return init_func()
+        except Exception as e:
+            log.error(f"{name} init failed: {e}")
+            return None
+    
+    def _signal_handler(self, signum, frame):
+        log.info(f"Signal {signum} received, shutting down...")
+        self.shutdown_requested = True
     
     def create_default_config(self, config_file):
         config = configparser.ConfigParser()
-        config['MQTT'] = {
-            'BrokerIP': 'localhost',
-            'Port': '1883'
-        }
-        config['GPIO'] = {
-            'ButtonPin': '17'
-        }
-        config['Room'] = {
-            'ID': 'room1'
-        }
-        config['Scenes'] = {
-            'Directory': '/home/admin/Documents/GitHub/museum-system/raspberry_pi/scenes'
-        }
-        config['Audio'] = {
-            'Directory': 'audio'
-        }
+        config['MQTT'] = {'BrokerIP': 'localhost', 'Port': '1883'}
+        config['GPIO'] = {'ButtonPin': '17'}
+        config['Room'] = {'ID': 'room1'}
+        config['Scenes'] = {'Directory': '/home/admin/Documents/GitHub/museum-system/raspberry_pi/scenes'}
+        config['Audio'] = {'Directory': 'audio'}
         
-        # Create config directory if it doesn't exist
         os.makedirs(os.path.dirname(config_file), exist_ok=True)
-        
         with open(config_file, 'w') as f:
             config.write(f)
-        
-        print(f"✅ Created default config: {config_file}")
+        log.info(f"Default config created: {config_file}")
     
     def test_mqtt_connection(self):
         if not self.mqtt_client:
+            log.error("MQTT client missing")
             return False
         
-        # Try current broker
-        if self.mqtt_client.connect(timeout=3):
-            self.connected_to_broker = True
-            print("✅ Connected to MQTT broker")
-            return True
+        broker_ip = self.config['MQTT']['BrokerIP']
         
-        print("❌ Failed to connect to configured broker")
+        # Try main broker
+        for attempt in range(1, 11):
+            if self.shutdown_requested: return False
+            log.info(f"MQTT attempt {attempt}/10 to {broker_ip}")
+            
+            try:
+                if self.mqtt_client.connect(timeout=10):
+                    self.connected_to_broker = True
+                    log.info(f"MQTT connected on attempt {attempt}")
+                    return True
+            except Exception as e:
+                log.warning(f"Attempt {attempt} failed: {e}")
+            
+            if attempt < 10:
+                for _ in range(5):
+                    if self.shutdown_requested: return False
+                    time.sleep(1)
         
-        # Try localhost as fallback
-        if self.config['MQTT']['BrokerIP'] != 'localhost':
-            print("🔄 Trying localhost as fallback...")
+        # Try localhost fallback
+        if broker_ip != 'localhost' and not self.shutdown_requested:
+            log.info("Trying localhost fallback")
             self.mqtt_client.broker_host = 'localhost'
-            if self.mqtt_client.connect(timeout=3):
-                self.connected_to_broker = True
-                print("✅ Connected to localhost broker")
-                return True
+            
+            for attempt in range(1, 11):
+                if self.shutdown_requested: return False
+                try:
+                    if self.mqtt_client.connect(timeout=10):
+                        self.connected_to_broker = True
+                        log.info(f"Localhost connected on attempt {attempt}")
+                        return True
+                except Exception as e:
+                    log.warning(f"Localhost attempt {attempt} failed: {e}")
+                
+                if attempt < 10:
+                    for _ in range(5):
+                        if self.shutdown_requested: return False
+                        time.sleep(1)
         
-        print("❌ No MQTT broker accessible")
+        log.error("MQTT completely unavailable")
         return False
+    
+    def send_ready_notification(self):
+        try:
+            os.system('systemd-notify READY=1')
+            log.info("Systemd READY sent")
+        except Exception as e:
+            log.warning(f"Systemd notify failed: {e}")
+    
+    def perform_health_check(self):
+        try:
+            self.last_heartbeat = time.time()
+            issues = []
+            
+            if not self.connected_to_broker: issues.append("MQTT down")
+            if not self.mqtt_client: issues.append("MQTT missing")
+            
+            # Watchdog check
+            ws = self.watchdog.get_status()
+            if ws['enabled']:
+                if ws['status'] == 'stalled':
+                    issues.append(f"WD stalled: {ws['message']}")
+                elif ws['status'] == 'degraded':
+                    issues.append(f"WD degraded: {ws['message']}")
+            
+            # Memory check
+            try:
+                import psutil
+                if psutil.virtual_memory().percent > 90:
+                    issues.append(f"High mem")
+            except ImportError:
+                pass
+            
+            if issues:
+                log.warning(f"Health: {len(issues)} issues: {', '.join(issues)}")
+                return False
+            else:
+                if not hasattr(self, '_hc_count'): self._hc_count = 0
+                self._hc_count += 1
+                if self._hc_count % 10 == 0:
+                    if ws['enabled']:
+                        log.info(f"Health #{self._hc_count}: OK (WD: {ws['heartbeat_count']} beats)")
+                    else:
+                        log.info(f"Health #{self._hc_count}: OK")
+                return True
+                
+        except Exception as e:
+            log.error(f"Health check failed: {e}")
+            return False
     
     def on_button_press(self):
         if self.scene_running:
-            print("⚠️  Scene already running, ignoring button press")
+            log.warning("Scene running, ignoring button")
             return
-        
-        print("🔘 Button pressed! Starting default scene...")
+        log.info("Button pressed, starting scene")
         self.start_default_scene()
     
     def start_default_scene(self):
-        scene_path = os.path.join(self.scenes_dir, self.room_id, "intro.json")
+        scene_path = os.path.join(self.scenes_dir, self.room_id, self.json_file_name)
         
         if not os.path.exists(scene_path):
-            print(f"❌ Scene file not found: {scene_path}")
+            log.warning(f"Scene missing: {scene_path}")
             self.create_default_scene(scene_path)
         
         if not self.scene_parser:
-            print("❌ Scene parser not available")
+            log.error("Scene parser unavailable")
             return
         
-        print(f"🎬 Loading scene: {scene_path}")
+        log.info(f"Loading: {scene_path}")
         if self.scene_parser.load_scene(scene_path):
             self.scene_running = True
             self.scene_parser.start_scene()
             self.run_scene()
         else:
-            print("❌ Failed to load scene")
+            log.error("Scene load failed")
     
     def create_default_scene(self, scene_path):
         import json
@@ -195,129 +270,171 @@ class FixedMuseumController:
             {"timestamp": 10.0, "topic": f"{self.room_id}/light", "message": "OFF"}
         ]
         
-        # Ensure the room-specific directory exists
         os.makedirs(os.path.dirname(scene_path), exist_ok=True)
-        
         with open(scene_path, 'w') as f:
             json.dump(default_scene, f, indent=2)
-        
-        print(f"✅ Created default scene: {scene_path}")
+        log.info(f"Default scene created: {scene_path}")
     
     def run_scene(self):
         if not self.scene_parser.scene_data:
-            print("❌ No scene data to run")
+            log.error("No scene data")
             return
         
         start_time = time.time()
         max_time = max(action["timestamp"] for action in self.scene_parser.scene_data)
+        log.info(f"Scene duration: {max_time}s")
         
-        print(f"🎬 Playing scene, duration: {max_time} seconds")
-        
-        while time.time() - start_time <= max_time + 1:
+        while time.time() - start_time <= max_time + 1 and not self.shutdown_requested:
             actions = self.scene_parser.get_current_actions(self.mqtt_client if self.connected_to_broker else None)
             
             if actions:
                 current_time = time.time() - start_time
                 for action in actions:
-                    print(f"[{current_time:.1f}s] 🎭 {action['topic']} = {action['message']}")
-                    
-                    # If MQTT is not connected, just simulate the action
-                    if not self.connected_to_broker:
-                        print(f"    (Simulated - no MQTT connection)")
+                    status = "" if self.connected_to_broker else " (sim)"
+                    log.info(f"[{current_time:.1f}s] {action['topic']} = {action['message']}{status}")
             
             time.sleep(0.1)
         
-        print("✅ Scene completed")
+        log.info("Scene completed")
         self.scene_running = False
     
     def run_interactive_mode(self):
-        print("\n🎮 Interactive Mode")
-        print("Commands:")
-        print("  'b' or 'button' - Simulate button press")
-        print("  's' or 'scene' - Start default scene")
-        print("  'q' or 'quit' - Exit")
+        log.info("Interactive mode: 'b'=button, 's'=scene, 'status', 'watchdog', 'q'=quit")
         
-        while True:
+        while not self.shutdown_requested:
             try:
                 cmd = input("\n> ").strip().lower()
                 
-                if cmd in ['q', 'quit', 'exit']:
-                    break
-                elif cmd in ['b', 'button']:
-                    self.on_button_press()
-                elif cmd in ['s', 'scene']:
-                    self.start_default_scene()
+                if cmd in ['q', 'quit', 'exit']: break
+                elif cmd in ['b', 'button']: self.on_button_press()
+                elif cmd in ['s', 'scene']: self.start_default_scene()
                 elif cmd == 'status':
-                    print(f"MQTT Connected: {self.connected_to_broker}")
-                    print(f"Scene Running: {self.scene_running}")
-                    print(f"Room ID: {self.room_id}")
+                    ws = self.watchdog.get_status()
+                    log.info(f"MQTT: {self.connected_to_broker}, Scene: {self.scene_running}, Room: {self.room_id}")
+                    log.info(f"Watchdog: {'enabled' if ws['enabled'] else 'disabled'}")
+                elif cmd == 'watchdog':
+                    ws = self.watchdog.get_status()
+                    if ws['enabled']:
+                        log.info(f"WD: {ws['status']}, Beats: {ws['heartbeat_count']}, Uptime: {ws['uptime_seconds']/60:.1f}m")
+                elif cmd == 'health':
+                    healthy = self.perform_health_check()
+                    log.info(f"Health: {'OK' if healthy else 'ISSUES'}")
                 elif cmd == 'help':
-                    print("Available commands: button, scene, status, quit")
+                    log.info("Commands: button/b, scene/s, status, watchdog, health, quit/q")
                 else:
-                    print("Unknown command. Type 'help' for available commands.")
+                    log.warning("Unknown cmd. Type 'help'")
                     
-            except KeyboardInterrupt:
-                break
-            except EOFError:
-                break
+            except (KeyboardInterrupt, EOFError): break
     
     def run(self):
-        print("🚀 Starting Museum Controller...")
+        log.info("Starting Enhanced Museum Controller")
         
-        # Test MQTT connection
-        mqtt_ok = self.test_mqtt_connection()
+        self.watchdog.start()
         
-        if mqtt_ok:
-            print("✅ System ready with MQTT")
-        else:
-            print("⚠️  System ready without MQTT (simulation mode)")
+        if not self.test_mqtt_connection():
+            if self.shutdown_requested: return
+            log.error("CRITICAL: No MQTT connection")
+            sys.exit(1)
         
-        print(f"🏛️  Museum controller for {self.room_id} is running")
+        self.send_ready_notification()
+        log.info(f"System ready - {self.room_id} operational")
         
-        # Check if we have a working button handler
-        if hasattr(self.button_handler, 'use_polling') and self.button_handler.use_polling:
-            print("🔘 Using button polling mode")
-            print("💡 Press Ctrl+C to enter interactive mode")
-            
-            try:
-                while True:
-                    if self.button_handler:
-                        self.button_handler.check_button_polling()
-                    time.sleep(0.1)
-            except KeyboardInterrupt:
-                print("\n🎮 Switching to interactive mode...")
+        last_health = time.time()
+        last_mqtt = time.time()
+        
+        # Check for polling mode
+        use_polling = hasattr(self.button_handler, 'use_polling') and self.button_handler.use_polling
+        
+        try:
+            while not self.shutdown_requested:
+                current_time = time.time()
+                
+                # Health checks
+                if current_time - last_health > self.health_check_interval:
+                    self.perform_health_check()
+                    last_health = current_time
+                
+                # MQTT checks
+                if current_time - last_mqtt > 15:
+                    self.check_mqtt_status()
+                    last_mqtt = current_time
+                
+                # Button polling if needed
+                if use_polling and self.button_handler:
+                    self.button_handler.check_button_polling()
+                
+                time.sleep(0.1)
+                
+        except KeyboardInterrupt:
+            if not self.shutdown_requested:
+                log.info("Interactive mode")
                 self.run_interactive_mode()
-        else:
-            print("🔘 Using button interrupt mode")
-            print("💡 Press the button or Ctrl+C for interactive mode")
-            
-            try:
-                while True:
-                    time.sleep(0.1)
-            except KeyboardInterrupt:
-                print("\n🎮 Switching to interactive mode...")
-                self.run_interactive_mode()
         
-        # Cleanup
-        if self.button_handler:
-            self.button_handler.cleanup()
+        self.cleanup()
+    
+    def cleanup(self):
+        log.info("Cleanup started")
+        self.watchdog.stop()
+        
+        for component, name in [(self.button_handler, "Button"), 
+                               (self.audio_handler, "Audio")]:
+            if component:
+                try:
+                    component.cleanup()
+                    log.info(f"{name} cleaned")
+                except Exception as e:
+                    log.error(f"{name} cleanup error: {e}")
+        
         if self.mqtt_client and self.connected_to_broker:
-            self.mqtt_client.disconnect()
-        if self.audio_handler:
-            self.audio_handler.cleanup()
+            try:
+                self.mqtt_client.disconnect()
+                log.info("MQTT disconnected")
+            except Exception as e:
+                log.error(f"MQTT disconnect error: {e}")
         
-        print("👋 Museum controller stopped")
+        log.info("Controller stopped cleanly")
+    
+    def check_mqtt_status(self):
+        if not self.mqtt_client: return
+        
+        was_connected = self.connected_to_broker
+        
+        try:
+            currently_connected = self.mqtt_client.is_connected()
+            if hasattr(self.mqtt_client.client, 'is_connected'):
+                currently_connected = currently_connected and self.mqtt_client.client.is_connected()
+        except Exception as e:
+            log.error(f"MQTT status check error: {e}")
+            currently_connected = False
+        
+        self.connected_to_broker = currently_connected
+        
+        # Log only changes
+        if was_connected and not currently_connected:
+            log.warning("MQTT lost")
+        elif not was_connected and currently_connected:
+            log.info("MQTT restored")
+        
+        # Reconnect if needed
+        if not currently_connected and not self.shutdown_requested:
+            if self.mqtt_client.connect(timeout=5):
+                log.info("MQTT reconnected")
+                self.connected_to_broker = True
 
 def main():
-    print("🏛️  Fixed Museum Automation System")
-    print("=" * 40)
+    log.info("Enhanced Museum System Starting")
+    log.info("="*40)
     
+    controller = None
     try:
-        controller = FixedMuseumController()
+        controller = MuseumController()
         controller.run()
     except Exception as e:
-        print(f"❌ Critical error: {e}")
-        print("💡 Try running the diagnostic script first")
+        log.error(f"Critical error: {e}")
+        if controller: controller.cleanup()
+        sys.exit(1)
+    finally:
+        if controller: controller.cleanup()
 
 if __name__ == "__main__":
     main()
