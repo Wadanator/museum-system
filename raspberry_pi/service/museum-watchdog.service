@@ -1,0 +1,17 @@
+[Unit]
+Description=Museum System Watchdog
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/admin/Documents/GitHub/museum-system/raspberry_pi/watchdog.py
+WorkingDirectory=/home/admin/Documents/GitHub/museum-system/raspberry_pi
+Restart=always
+RestartSec=10
+User=admin
+Group=admin
+Environment=PYTHONPATH=/home/admin/Documents/GitHub/museum-system/raspberry_pi
+
+[Install]
+WantedBy=multi-user.target

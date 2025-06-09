@@ -8,7 +8,9 @@ echo "=================================================="
 SERVICE_NAME="museum-system"
 PROJECT_DIR="/home/admin/Documents/GitHub/museum-system"
 SERVICE_FILE="$PROJECT_DIR/raspberry_pi/service/museum_service.service"
+WATCHDOG_SERVICE_FILE="$PROJECT_DIR/raspberry_pi/service/museum-watchdog.service"
 SYSTEM_SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME.service"
+SYSTEM_WATCHDOG_FILE="/etc/systemd/system/museum-watchdog.service"
 WATCHDOG_SCRIPT="$PROJECT_DIR/raspberry_pi/watchdog.py"
 
 # Check if project directory exists
@@ -21,7 +23,7 @@ fi
 # Create service directory if it doesn't exist
 mkdir -p "$PROJECT_DIR/raspberry_pi/service"
 
-echo "📝 Creating BULLETPROOF service file..."
+echo "📝 Creating BULLETPROOF service file for museum-system..."
 cat > "$SERVICE_FILE" << 'EOF'
 [Unit]
 Description=Museum Automation System - Bulletproof Edition
@@ -70,7 +72,30 @@ KillSignal=SIGTERM
 WantedBy=multi-user.target
 EOF
 
-echo "✅ Enhanced service file created"
+echo "✅ Enhanced museum-system service file created"
+
+echo "📝 Creating watchdog service file in service directory..."
+cat > "$WATCHDOG_SERVICE_FILE" << 'EOF'
+[Unit]
+Description=Museum System Watchdog
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/admin/Documents/GitHub/museum-system/raspberry_pi/watchdog.py
+WorkingDirectory=/home/admin/Documents/GitHub/museum-system/raspberry_pi
+Restart=always
+RestartSec=10
+User=admin
+Group=admin
+Environment=PYTHONPATH=/home/admin/Documents/GitHub/museum-system/raspberry_pi
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+echo "✅ Watchdog service file created in $WATCHDOG_SERVICE_FILE"
 
 echo "📝 Creating system watchdog script..."
 cat > "$WATCHDOG_SCRIPT" << 'EOF'
@@ -124,9 +149,9 @@ log = setup_logging()
 class MuseumWatchdog:
     def __init__(self):
         self.service_name = "museum-system"
-        self.check_interval = 30  # Check every 30 seconds
+        self.check_interval = 10  # Check every 10 seconds
         self.max_memory_mb = 256  # Restart if using more than 256MB
-        self.max_cpu_percent = 80  # Restart if CPU usage consistently high
+        self.max_cpu_percent = 50  # Restart if CPU usage consistently high
         self.high_cpu_count = 0
         self.restart_count = 0
         self.max_restarts_per_hour = 10
@@ -291,35 +316,14 @@ EOF
 # Make watchdog executable
 chmod +x "$WATCHDOG_SCRIPT"
 
-echo "📝 Creating watchdog service..."
-cat > "/tmp/museum-watchdog.service" << 'EOF'
-[Unit]
-Description=Museum System Watchdog
-After=network.target
-StartLimitIntervalSec=0
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/python3 /home/admin/Documents/GitHub/museum-system/raspberry_pi/watchdog.py
-WorkingDirectory=/home/admin/Documents/GitHub/museum-system/raspberry_pi
-Restart=always
-RestartSec=10
-User=admin
-Group=admin
-Environment=PYTHONPATH=/home/admin/Documents/GitHub/museum-system/raspberry_pi
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
 # Install both services
 echo "📋 Installing services..."
 sudo cp "$SERVICE_FILE" "$SYSTEM_SERVICE_FILE"
-sudo cp "/tmp/museum-watchdog.service" "/etc/systemd/system/museum-watchdog.service"
+sudo cp "$WATCHDOG_SERVICE_FILE" "$SYSTEM_WATCHDOG_FILE"
 
 # Set proper permissions
 sudo chmod 644 "$SYSTEM_SERVICE_FILE"
-sudo chmod 644 "/etc/systemd/system/museum-watchdog.service"
+sudo chmod 644 "$SYSTEM_WATCHDOG_FILE"
 
 # Create log files with proper permissions
 echo "📝 Setting up log files..."

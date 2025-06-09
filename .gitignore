@@ -62,8 +62,6 @@ raspberry_pi/audio/*.ogg
 # Museum System - Scene files (optional - remove if you want to track them)
  raspberry_pi/scenes/
 
-# Museum System - Service files
-*.service
 
 # Temporary files
 *.tmp

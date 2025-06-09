@@ -2,23 +2,24 @@
 import pygame
 import os
 import sys
+import logging
 
 class AudioHandler:
-    def __init__(self, audio_dir):
+    def __init__(self, audio_dir, logger=None):
         self.audio_dir = audio_dir
         self.currently_playing = None
+        self.logger = logger or logging.getLogger(__name__)
         
         # Initialize pygame mixer with better settings for various formats
         try:
             pygame.mixer.pre_init(frequency=22050, size=-16, channels=2, buffer=512)
             pygame.mixer.init()
-            print("✅ Audio handler initialized successfully")
+            self.logger.info("Audio handler initialized successfully")
         except Exception as e:
-            print(f"❌ Error initializing pygame mixer: {e}")
+            self.logger.error(f"Error initializing pygame mixer: {e}")
             sys.exit(1)
     
     def play_audio(self, audio_file):
-        """Play an audio file from the audio directory. Supports WAV, MP3, OGG formats."""
         try:
             # Check if it's a direct filename or a command
             if audio_file.startswith("PLAY_"):
@@ -32,20 +33,20 @@ class AudioHandler:
                         audio_file = test_file
                         break
                 else:
-                    print(f"❌ Audio file not found for command: {audio_file}")
+                    self.logger.warning(f"Audio file not found for command: {audio_file}")
                     return False
             
             full_path = os.path.join(self.audio_dir, audio_file)
             
             if not os.path.exists(full_path):
-                print(f"❌ Audio file not found: {full_path}")
+                self.logger.warning(f"Audio file not found: {full_path}")
                 return False
             
             # Check file extension
             _, ext = os.path.splitext(audio_file.lower())
             if ext not in ['.wav', '.mp3', '.ogg']:
-                print(f"⚠️  Unsupported audio format: {ext}")
-                print("Supported formats: .wav, .mp3, .ogg")
+                self.logger.error(f"Unsupported audio format: {ext}")
+                self.logger.info("Supported formats: .wav, .mp3, .ogg")
                 return False
             
             # Stop any currently playing audio
@@ -55,18 +56,18 @@ class AudioHandler:
             pygame.mixer.music.load(full_path)
             pygame.mixer.music.play()
             self.currently_playing = audio_file
-            print(f"🎵 Playing audio: {audio_file}")
+            self.logger.info(f"Playing audio: {audio_file}")
             return True
             
         except Exception as e:
-            print(f"❌ Error playing audio {audio_file}: {e}")
+            self.logger.error(f"Error playing audio {audio_file}: {e}")
             return False
     
     def play_audio_with_volume(self, audio_file, volume=0.7):
         """Play audio file with specified volume (0.0 to 1.0)."""
         if self.play_audio(audio_file):
             pygame.mixer.music.set_volume(volume)
-            print(f"🔊 Volume set to {volume}")
+            self.logger.debug(f"Volume set to {volume}")
             return True
         return False
     
@@ -79,20 +80,20 @@ class AudioHandler:
         try:
             if self.currently_playing and self.is_playing():
                 pygame.mixer.music.pause()
-                print(f"⏸️  Paused audio: {self.currently_playing}")
+                self.logger.info(f"Paused audio: {self.currently_playing}")
                 return True
         except Exception as e:
-            print(f"❌ Error pausing audio: {e}")
+            self.logger.error(f"Error pausing audio: {e}")
         return False
     
     def resume_audio(self):
         """Resume paused audio."""
         try:
             pygame.mixer.music.unpause()
-            print(f"▶️  Resumed audio: {self.currently_playing}")
+            self.logger.info(f"Resumed audio: {self.currently_playing}")
             return True
         except Exception as e:
-            print(f"❌ Error resuming audio: {e}")
+            self.logger.error(f"Error resuming audio: {e}")
             return False
     
     def stop_audio(self):
@@ -100,11 +101,11 @@ class AudioHandler:
         try:
             if self.currently_playing:
                 pygame.mixer.music.stop()
-                print(f"⏹️  Stopped audio: {self.currently_playing}")
+                self.logger.info(f"Stopped audio: {self.currently_playing}")
                 self.currently_playing = None
             return True
         except Exception as e:
-            print(f"❌ Error stopping audio: {e}")
+            self.logger.error(f"Error stopping audio: {e}")
             return False
     
     def set_volume(self, volume):
@@ -112,17 +113,17 @@ class AudioHandler:
         try:
             volume = max(0.0, min(1.0, volume))  # Clamp between 0 and 1
             pygame.mixer.music.set_volume(volume)
-            print(f"🔊 Volume set to {volume}")
+            self.logger.debug(f"Volume set to {volume}")
             return True
         except Exception as e:
-            print(f"❌ Error setting volume: {e}")
+            self.logger.error(f"Error setting volume: {e}")
             return False
     
     def list_audio_files(self):
         """List all supported audio files in the audio directory."""
         try:
             if not os.path.exists(self.audio_dir):
-                print(f"❌ Audio directory not found: {self.audio_dir}")
+                self.logger.warning(f"Audio directory not found: {self.audio_dir}")
                 return []
             
             supported_extensions = ['.wav', '.mp3', '.ogg']
@@ -135,7 +136,7 @@ class AudioHandler:
             
             return sorted(audio_files)
         except Exception as e:
-            print(f"❌ Error listing audio files: {e}")
+            self.logger.error(f"Error listing audio files: {e}")
             return []
     
     def cleanup(self):
@@ -143,9 +144,9 @@ class AudioHandler:
         try:
             self.stop_audio()
             pygame.mixer.quit()
-            print("🧹 Audio handler cleaned up")
+            self.logger.info("Audio handler cleaned up")
         except Exception as e:
-            print(f"❌ Error during audio cleanup: {e}")
+            self.logger.error(f"Error during audio cleanup: {e}")
 
 # Example usage and testing
 if __name__ == "__main__":
@@ -157,7 +158,7 @@ if __name__ == "__main__":
     audio_handler = AudioHandler(audio_dir)
     
     # List available audio files
-    print("\n📁 Available audio files:")
+    print("Available audio files:")
     files = audio_handler.list_audio_files()
     if files:
         for i, file in enumerate(files, 1):
@@ -167,7 +168,7 @@ if __name__ == "__main__":
     
     # Test audio playback if files exist
     if files:
-        print(f"\n🎵 Testing playback of first file: {files[0]}")
+        print(f"\nTesting playback of first file: {files[0]}")
         audio_handler.play_audio_with_volume(files[0], 0.5)
         
         import time
