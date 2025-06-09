@@ -3,13 +3,15 @@ import json
 import time
 import os
 import sys
+import logging
 
 class SceneParser:
-    def __init__(self, audio_handler=None):
+    def __init__(self, audio_handler=None, logger=None):
         self.scene_data = None
         self.start_time = None
         self.audio_handler = audio_handler
         self.executed_actions = set()  # Track executed actions to avoid duplicates
+        self.logger = logger or logging.getLogger(__name__)
     
     def load_scene(self, scene_file):
         """Load scene from JSON file."""
@@ -22,32 +24,32 @@ class SceneParser:
             
             # Validate scene data
             if not isinstance(self.scene_data, list):
-                print("❌ Scene data must be a list of actions")
+                self.logger.error("Scene data must be a list of actions")
                 return False
             
             # Validate each action
             for i, action in enumerate(self.scene_data):
                 if not all(key in action for key in ['timestamp', 'topic', 'message']):
-                    print(f"❌ Action {i} missing required fields (timestamp, topic, message)")
+                    self.logger.error(f"Action {i} missing required fields (timestamp, topic, message)")
                     return False
             
-            print(f"✅ Scene loaded: {len(self.scene_data)} actions")
+            self.logger.info(f"Scene loaded: {len(self.scene_data)} actions")
             return True
             
         except Exception as e:
-            print(f"❌ Error loading scene: {e}")
+            self.logger.error(f"Failed to load scene: {e}")
             self.scene_data = None
             return False
     
     def start_scene(self):
         """Start scene playback."""
         if not self.scene_data:
-            print("❌ No scene is loaded")
+            self.logger.error("No scene is loaded")
             return False
         
         self.start_time = time.time()
         self.executed_actions = set()
-        print("🎬 Scene started")
+        self.logger.info("Scene started")
         return True
     
     def get_current_actions(self, mqtt_client):
@@ -81,7 +83,7 @@ class SceneParser:
     def _handle_audio_command(self, message):
         """Handle audio-specific commands."""
         if not self.audio_handler:
-            print("⚠️  No audio handler available")
+            self.logger.warning("No audio handler available")
             return
         
         try:
@@ -116,7 +118,7 @@ class SceneParser:
                 self.audio_handler.play_audio(message)
                 
         except Exception as e:
-            print(f"❌ Error handling audio command '{message}': {e}")
+            self.logger.error(f"Failed to handle audio command '{message}': {e}")
     
     def get_scene_duration(self):
         """Get total duration of the scene."""
@@ -169,7 +171,7 @@ if __name__ == "__main__":
         parser = SceneParser(audio_handler)
         
         if parser.load_scene(scene_file):
-            print("✅ Scene loaded successfully!")
+            print("Scene loaded successfully")
             print(f"Scene duration: {parser.get_scene_duration()} seconds")
             
             # Try to connect to MQTT
@@ -177,9 +179,9 @@ if __name__ == "__main__":
             mqtt_connected = mqtt_client.connect()
             
             if mqtt_connected:
-                print("✅ Connected to MQTT broker")
+                print("Connected to MQTT broker")
             else:
-                print("⚠️  No MQTT broker - running in simulation mode")
+                print("WARNING: No MQTT broker - running in simulation mode")
                 mqtt_client = None
             
             parser.start_scene()
@@ -191,20 +193,20 @@ if __name__ == "__main__":
                     progress = parser.get_scene_progress() * 100
                     print(f"[{progress:.1f}%] Executing {len(actions)} actions:")
                     for action in actions:
-                        print(f"  📡 {action['topic']} = {action['message']}")
+                        print(f"  MQTT: {action['topic']} = {action['message']}")
                 
                 time.sleep(0.1)
             
-            print("✅ Scene playback completed")
+            print("Scene playback completed")
             
             if mqtt_connected:
                 mqtt_client.disconnect()
             audio_handler.cleanup()
             
         else:
-            print("❌ Failed to load scene file")
+            print("ERROR: Failed to load scene file")
             print(f"Make sure the file exists at: {scene_file}")
             
     except ImportError as e:
-        print(f"❌ Error importing modules: {e}")
+        print(f"ERROR: Failed to import modules: {e}")
         print("Make sure mqtt_client.py and audio_handler.py are in the utils directory")

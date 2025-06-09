@@ -1,0 +1,27 @@
+[
+  {
+    "timestamp": 0,
+    "topic": "room1/audio",
+    "message": "PLAY:welcome.wav:1.0"
+  },
+  {
+    "timestamp": 3,
+    "topic": "room1/wall",
+    "message": "BLINK"
+  },
+  {
+    "timestamp": 4,
+    "topic": "room1/wall",
+    "message": "ON"
+  },
+  {
+    "timestamp": 5,
+    "topic": "room1/wall",
+    "message": "STATUS"
+  },
+  {
+    "timestamp": 6,
+    "topic": "room1/wall",
+    "message": "OFF"
+  }
+]

@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
-import os, time, configparser, sys, logging, signal, threading
+import os, time, configparser, sys, logging, signal, json
 from datetime import datetime
-from watchdog import subprocess
 
 # Add current directory to Python path
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -99,8 +98,10 @@ class MuseumController:
         signal.signal(signal.SIGINT, self._signal_handler)
         
         # Init with error handling
-        self.mqtt_client = self._safe_init(lambda: MQTTClient(broker_ip, client_id=f"rpi_room_{self.room_id}", use_logging=True), "MQTT")
-        self.audio_handler = self._safe_init(lambda: AudioHandler(self.audio_dir), "Audio")
+        self.mqtt_client = self._safe_init(
+        lambda: MQTTClient(broker_ip, client_id=f"rpi_room_{self.room_id}", use_logging=False, logger=log),
+        "MQTT")
+        self.audio_handler = self._safe_init(lambda: AudioHandler(self.audio_dir, logger=log), "Audio")
         self.scene_parser = self._safe_init(lambda: SceneParser(self.audio_handler), "Scene parser")
         self.button_handler = self._safe_init(lambda: ButtonHandler(button_pin), "Button")
         
@@ -260,7 +261,6 @@ class MuseumController:
             log.error("Scene load failed")
     
     def create_default_scene(self, scene_path):
-        import json
         
         default_scene = [
             {"timestamp": 0, "topic": f"{self.room_id}/light", "message": "ON"},
@@ -293,38 +293,11 @@ class MuseumController:
                     status = "" if self.connected_to_broker else " (sim)"
                     log.info(f"[{current_time:.1f}s] {action['topic']} = {action['message']}{status}")
             
-            time.sleep(0.1)
+            time.sleep(0.13)
         
         log.info("Scene completed")
         self.scene_running = False
     
-    def run_interactive_mode(self):
-        log.info("Interactive mode: 'b'=button, 's'=scene, 'status', 'watchdog', 'q'=quit")
-        
-        while not self.shutdown_requested:
-            try:
-                cmd = input("\n> ").strip().lower()
-                
-                if cmd in ['q', 'quit', 'exit']: break
-                elif cmd in ['b', 'button']: self.on_button_press()
-                elif cmd in ['s', 'scene']: self.start_default_scene()
-                elif cmd == 'status':
-                    ws = self.watchdog.get_status()
-                    log.info(f"MQTT: {self.connected_to_broker}, Scene: {self.scene_running}, Room: {self.room_id}")
-                    log.info(f"Watchdog: {'enabled' if ws['enabled'] else 'disabled'}")
-                elif cmd == 'watchdog':
-                    ws = self.watchdog.get_status()
-                    if ws['enabled']:
-                        log.info(f"WD: {ws['status']}, Beats: {ws['heartbeat_count']}, Uptime: {ws['uptime_seconds']/60:.1f}m")
-                elif cmd == 'health':
-                    healthy = self.perform_health_check()
-                    log.info(f"Health: {'OK' if healthy else 'ISSUES'}")
-                elif cmd == 'help':
-                    log.info("Commands: button/b, scene/s, status, watchdog, health, quit/q")
-                else:
-                    log.warning("Unknown cmd. Type 'help'")
-                    
-            except (KeyboardInterrupt, EOFError): break
     
     def run(self):
         log.info("Starting Enhanced Museum Controller")
@@ -366,9 +339,8 @@ class MuseumController:
                 time.sleep(0.1)
                 
         except KeyboardInterrupt:
-            if not self.shutdown_requested:
-                log.info("Interactive mode")
-                self.run_interactive_mode()
+            log.info("Shutdown requested by user (KeyboardInterrupt)")
+            self.shutdown_requested = True
         
         self.cleanup()
     

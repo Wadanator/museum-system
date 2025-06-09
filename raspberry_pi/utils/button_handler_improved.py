@@ -82,7 +82,7 @@ class ImprovedButtonHandler:
                 self.callback()
     
     def check_button_polling(self):
-        """Call this method in your main loop if using polling"""
+        ###Call this method in your main loop if using polling###
         if not self.use_polling or not GPIO_AVAILABLE:
             return
             

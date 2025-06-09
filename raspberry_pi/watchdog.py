@@ -48,14 +48,14 @@ log = setup_logging()
 class MuseumWatchdog:
     def __init__(self):
         self.service_name = "museum-system"
-        self.check_interval = 10  # Check every 10 seconds
+        self.check_interval = 15  # Check every 15 seconds
         self.max_memory_mb = 256  # Restart if using more than 256MB
-        self.max_cpu_percent = 50  # Restart if CPU usage consistently high
+        self.max_cpu_percent = 45  # Restart if CPU usage consistently high
         self.high_cpu_count = 0
         self.restart_count = 0
         self.max_restarts_per_hour = 10
         self.last_health_log_time = 0
-        self.health_log_interval = 300  # Log health status every 5 minutes max
+        self.health_log_interval = 1200  # Log health status every 20 minutes max
         
     def is_service_running(self):
         """Check if the museum service is running"""
