@@ -130,35 +130,7 @@ class MQTTClient:
 # Example usage and testing
 if __name__ == "__main__":
     # Set up logging same as first code
-    def setup_logging():
-        class CleanFormatter(logging.Formatter):
-            def format(self, record):
-                timestamp = datetime.now().strftime('%H:%M:%S')
-                level = record.levelname.ljust(7)
-                return f"[{timestamp}] {level} {record.getMessage()}"
-        
-        logger = logging.getLogger('museum')
-        logger.setLevel(logging.DEBUG)
-        
-        # Console
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setFormatter(CleanFormatter())
-        logger.addHandler(console_handler)
-        
-        # Log files
-        log_dir = os.path.expanduser("~/Documents/GitHub/museum-system/logs")
-        os.makedirs(log_dir, exist_ok=True)
-        
-        for level, filename in [(logging.INFO, 'museum-info.log'), 
-                               (logging.WARNING, 'museum-warnings.log'), 
-                               (logging.ERROR, 'museum-errors.log')]:
-            handler = logging.FileHandler(f"{log_dir}/{filename}")
-            handler.setLevel(level)
-            handler.setFormatter(CleanFormatter())
-            logger.addHandler(handler)
-        
-        return logger
-
+    from utils.logging_setup import setup_logging
     log = setup_logging()
     
     # Test the MQTT client

@@ -1,0 +1,4 @@
+Pozrieť si rozdielny LOGGING v main a SCENE_PARSER a podobne file
+nastaviť to na logger=None!
+-------------------------------------
+

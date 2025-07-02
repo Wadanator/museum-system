@@ -8,11 +8,41 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
 
-from utils.logging_setup import setup_logging
+# Clean logging setup
+def setup_logging():
+    class CleanFormatter(logging.Formatter):
+        def format(self, record):
+            timestamp = datetime.now().strftime('%H:%M:%S')
+            level = record.levelname.ljust(7)
+            return f"[{timestamp}] {level} {record.getMessage()}"
+    
+    logger = logging.getLogger('museum')
+    logger.setLevel(logging.DEBUG)
+    
+    # Console
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setFormatter(CleanFormatter())
+    logger.addHandler(console_handler)
+    
+    # Log files
+    log_dir = os.path.expanduser("~/Documents/GitHub/museum-system/logs")
+    os.makedirs(log_dir, exist_ok=True)
+    
+    for level, filename in [(logging.INFO, 'museum-info.log'), 
+                           (logging.WARNING, 'museum-warnings.log'), 
+                           (logging.ERROR, 'museum-errors.log')]:
+        handler = logging.FileHandler(f"{log_dir}/{filename}")
+        handler.setLevel(level)
+        handler.setFormatter(CleanFormatter())
+        logger.addHandler(handler)
+    
+    return logger
+
 log = setup_logging()
 
 # Import components
 try:
+    from utils.systemd_watchdog import SystemdWatchdog
     from utils.mqtt_client import MQTTClient
     from utils.scene_parser import SceneParser
     from utils.audio_handler import AudioHandler
@@ -21,13 +51,21 @@ except ImportError as e:
     log.error(f"Import failed: {e}")
     sys.exit(1)
 
-# Button handler
+# Button handler with fallback
 try:
-    from utils.button_handler_improved import ButtonHandler
+    from utils.button_handler_improved import ImprovedButtonHandler as ButtonHandler
     log.info("Button handler loaded")
-except ImportError as e:
-    log.error(f"Button handler import failed: {e}")
-    sys.exit(1)
+except ImportError:
+    log.warning("Using mock button")
+    class MockButtonHandler:
+        def __init__(self, pin):
+            self.pin = pin
+            self.callback = None
+        def set_callback(self, callback): self.callback = callback
+        def simulate_press(self): 
+            if self.callback: self.callback()
+        def cleanup(self): pass
+    ButtonHandler = MockButtonHandler
 
 class MuseumController:
     def __init__(self, config_file=None):
@@ -52,11 +90,12 @@ class MuseumController:
         
         log.info(f"Room: {self.room_id}, MQTT: {broker_ip}, GPIO: {button_pin}")
         os.makedirs(self.scenes_dir, exist_ok=True)
-        self.main_loop_sleep = 0.5        # Increased from 0.1s to 0.5s
+        self.main_loop_sleep = 0.5        # Increased from 0.1s to 1.0s
         self.mqtt_check_interval = 60     # Increased from 15s to 60s
-        self.scene_processing_sleep = 0.20 # Increased from 0.13s to 0.20s
+        self.scene_processing_sleep = 0.20 # Increased from 0.13s to 0.25s
         
-        # Signal handlers
+        # Components init
+        self.watchdog = SystemdWatchdog(logger=log)
         self.shutdown_requested = False
         signal.signal(signal.SIGTERM, self._signal_handler)
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -67,7 +106,7 @@ class MuseumController:
         "MQTT")
         self.audio_handler = self._safe_init(lambda: AudioHandler(self.audio_dir, logger=log), "Audio")
         self.scene_parser = self._safe_init(lambda: SceneParser(self.audio_handler), "Scene parser")
-        self.button_handler = self._safe_init(lambda: ButtonHandler(button_pin, logger=log), "Button")
+        self.button_handler = self._safe_init(lambda: ButtonHandler(button_pin), "Button")
         
         if self.button_handler:
             self.button_handler.set_callback(self.on_button_press)
@@ -92,12 +131,10 @@ class MuseumController:
     def create_default_config(self, config_file):
         config = configparser.ConfigParser()
         config['MQTT'] = {'BrokerIP': 'localhost', 'Port': '1883'}
-        config['GPIO'] = {'ButtonPin': '27'}
+        config['GPIO'] = {'ButtonPin': '17'}
         config['Room'] = {'ID': 'room1'}
         config['Scenes'] = {'Directory': '/home/admin/Documents/GitHub/museum-system/raspberry_pi/scenes'}
         config['Audio'] = {'Directory': 'audio'}
-        config['System'] = {'health_check_interval': '30'}
-        config['Json'] = {'json_file_name': 'default_scene.json'}
         
         os.makedirs(os.path.dirname(config_file), exist_ok=True)
         with open(config_file, 'w') as f:
@@ -167,6 +204,14 @@ class MuseumController:
             if not self.connected_to_broker: issues.append("MQTT down")
             if not self.mqtt_client: issues.append("MQTT missing")
             
+            # Watchdog check
+            ws = self.watchdog.get_status()
+            if ws['enabled']:
+                if ws['status'] == 'stalled':
+                    issues.append(f"WD stalled: {ws['message']}")
+                elif ws['status'] == 'degraded':
+                    issues.append(f"WD degraded: {ws['message']}")
+            
             # Memory check
             try:
                 import psutil
@@ -182,7 +227,10 @@ class MuseumController:
                 if not hasattr(self, '_hc_count'): self._hc_count = 0
                 self._hc_count += 1
                 if self._hc_count % 50 == 0:
-                    log.info(f"Health #{self._hc_count}: OK")
+                    if ws['enabled']:
+                        log.info(f"Health #{self._hc_count}: OK (WD: {ws['heartbeat_count']} beats)")
+                    else:
+                        log.info(f"Health #{self._hc_count}: OK")
                 return True
                 
         except Exception as e:
@@ -193,6 +241,7 @@ class MuseumController:
         if self.scene_running:
             log.warning("Scene running, ignoring button")
             return
+        log.info("Button pressed, starting scene")
         self.start_default_scene()
     
     def start_default_scene(self):
@@ -252,8 +301,11 @@ class MuseumController:
         log.info("Scene completed")
         self.scene_running = False
     
+    
     def run(self):
-        log.info("Starting Museum Controller")
+        log.info("Starting Enhanced Museum Controller")
+        
+        self.watchdog.start()
         
         if not self.test_mqtt_connection():
             if self.shutdown_requested: return
@@ -297,6 +349,7 @@ class MuseumController:
     
     def cleanup(self):
         log.info("Cleanup started")
+        self.watchdog.stop()
         
         for component, name in [(self.button_handler, "Button"), 
                                (self.audio_handler, "Audio")]:
@@ -344,7 +397,7 @@ class MuseumController:
                 self.connected_to_broker = True
 
 def main():
-    log.info("Museum System Starting")
+    log.info("Enhanced Museum System Starting")
     log.info("="*40)
     
     controller = None

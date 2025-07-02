@@ -27,7 +27,7 @@ class SystemdWatchdog:
         Args:
             logger: Optional logger instance. If None, uses default logging.
         """
-        self.log = logger if logger else logging.getLogger(__name__)
+        self.logger = logger if logger else logging.getLogger(__name__)
         
         # Watchdog state
         self.enabled = False
@@ -49,11 +49,11 @@ class SystemdWatchdog:
         watchdog_pid = os.environ.get('WATCHDOG_PID')
         notify_socket = os.environ.get('NOTIFY_SOCKET')
         
-        self.log.info("Initializing systemd watchdog...")
-        self.log.info(f"WATCHDOG_USEC: {watchdog_usec}")
-        self.log.info(f"WATCHDOG_PID: {watchdog_pid}")
-        self.log.info(f"NOTIFY_SOCKET: {notify_socket}")
-        self.log.info(f"Current PID: {os.getpid()}")
+        self.logger.info("Initializing systemd watchdog...")
+        self.logger.info(f"WATCHDOG_USEC: {watchdog_usec}")
+        self.logger.info(f"WATCHDOG_PID: {watchdog_pid}")
+        self.logger.info(f"NOTIFY_SOCKET: {notify_socket}")
+        self.logger.info(f"Current PID: {os.getpid()}")
         
         if watchdog_usec:
             try:
@@ -62,46 +62,46 @@ class SystemdWatchdog:
                 self.interval = watchdog_timeout / 2.0  # 50% safety margin
                 self.enabled = True
                 
-                self.log.info("Systemd watchdog ENABLED")
-                self.log.info(f"  - Watchdog timeout: {watchdog_timeout:.1f}s")
-                self.log.info(f"  - Heartbeat interval: {self.interval:.1f}s (50% safety margin)")
+                self.logger.info("Systemd watchdog ENABLED")
+                self.logger.info(f"  - Watchdog timeout: {watchdog_timeout:.1f}s")
+                self.logger.info(f"  - Heartbeat interval: {self.interval:.1f}s (50% safety margin)")
                 
                 # Validate the interval is reasonable
                 if self.interval < 1.0:
-                    self.log.warning(f"Very short watchdog interval ({self.interval:.1f}s) - system may be unstable")
+                    self.logger.warning(f"Very short watchdog interval ({self.interval:.1f}s) - system may be unstable")
                 elif self.interval > 60.0:
-                    self.log.warning(f"Very long watchdog interval ({self.interval:.1f}s) - slow failure detection")
+                    self.logger.warning(f"Very long watchdog interval ({self.interval:.1f}s) - slow failure detection")
                     
             except (ValueError, TypeError) as e:
-                self.log.error(f"Invalid WATCHDOG_USEC value '{watchdog_usec}': {e}")
-                self.log.error("Watchdog DISABLED due to invalid configuration")
+                self.logger.error(f"Invalid WATCHDOG_USEC value '{watchdog_usec}': {e}")
+                self.logger.error("Watchdog DISABLED due to invalid configuration")
                 self.enabled = False
         else:
-            self.log.info("No systemd watchdog configured (WATCHDOG_USEC not set)")
-            self.log.info("Running without watchdog supervision")
+            self.logger.info("No systemd watchdog configured (WATCHDOG_USEC not set)")
+            self.logger.info("Running without watchdog supervision")
             
             # Optional: Enable test mode for development
             # Uncomment the lines below to enable watchdog in non-systemd environments
-            # self.log.warning("Enabling test mode watchdog")
+            # self.logger.warning("Enabling test mode watchdog")
             # self.interval = 15.0  # 15 second heartbeat
             # self.enabled = True
     
     def start(self):
         """Start the watchdog heartbeat timer."""
         if not self.enabled:
-            self.log.info("Watchdog start requested but watchdog is disabled")
+            self.logger.info("Watchdog start requested but watchdog is disabled")
             return
         
         if self.running:
-            self.log.warning("Watchdog already running")
+            self.logger.warning("Watchdog already running")
             return
         
         self.running = True
         self.start_time = time.time()
         self.last_heartbeat_time = time.time()
         
-        self.log.info("Starting systemd watchdog supervision")
-        self.log.info(f"   Initial heartbeat in {self.interval:.1f} seconds")
+        self.logger.info("Starting systemd watchdog supervision")
+        self.logger.info(f"   Initial heartbeat in {self.interval:.1f} seconds")
         
         # Send immediate heartbeat to signal we're starting
         self._send_heartbeat()
@@ -110,25 +110,25 @@ class SystemdWatchdog:
         """Stop the watchdog heartbeat timer."""
         if self.timer:
             self.timer.cancel()
-            self.log.info("Watchdog timer cancelled")
+            self.logger.info("Watchdog timer cancelled")
             
         self.running = False
         
         if self.enabled and self.start_time:
             uptime = time.time() - self.start_time
-            self.log.info("Systemd watchdog supervision STOPPED")
-            self.log.info(f"   Total uptime: {uptime:.1f}s")
-            self.log.info(f"   Total heartbeats: {self.heartbeat_count}")
-            self.log.info(f"   Failed heartbeats: {self.failed_heartbeats}")
+            self.logger.info("Systemd watchdog supervision STOPPED")
+            self.logger.info(f"   Total uptime: {uptime:.1f}s")
+            self.logger.info(f"   Total heartbeats: {self.heartbeat_count}")
+            self.logger.info(f"   Failed heartbeats: {self.failed_heartbeats}")
             
             if self.failed_heartbeats > 0:
                 failure_rate = (self.failed_heartbeats / max(self.heartbeat_count, 1)) * 100
-                self.log.warning(f"   Heartbeat failure rate: {failure_rate:.1f}%")
+                self.logger.warning(f"   Heartbeat failure rate: {failure_rate:.1f}%")
     
     def _send_heartbeat(self):
         """Send a watchdog heartbeat notification to systemd."""
         if not self.running:
-            self.log.debug("Heartbeat cancelled - watchdog not running")
+            self.logger.debug("Heartbeat cancelled - watchdog not running")
             return
         
         try:
@@ -141,27 +141,27 @@ class SystemdWatchdog:
                 
                 # Detailed logging based on heartbeat count
                 if self.heartbeat_count == 1:
-                    self.log.info("First watchdog heartbeat sent successfully")
+                    self.logger.info("First watchdog heartbeat sent successfully")
                 elif self.heartbeat_count <= 5:
-                    self.log.info(f"Watchdog heartbeat #{self.heartbeat_count} - system healthy")
+                    self.logger.info(f"Watchdog heartbeat #{self.heartbeat_count} - system healthy")
                 else:
-                    self.log.debug(f"Watchdog heartbeat #{self.heartbeat_count} at {datetime.now().strftime('%H:%M:%S')}")
+                    self.logger.debug(f"Watchdog heartbeat #{self.heartbeat_count} at {datetime.now().strftime('%H:%M:%S')}")
                 
                 # Log milestone heartbeats at INFO level
                 if self.heartbeat_count % 20 == 0:  # Every ~5 minutes at 15s intervals
                     uptime = current_time - self.start_time if self.start_time else 0
-                    self.log.info(f"Watchdog milestone: {self.heartbeat_count} heartbeats, {uptime/60:.1f}min uptime")
+                    self.logger.info(f"Watchdog milestone: {self.heartbeat_count} heartbeats, {uptime/60:.1f}min uptime")
                 
             else:
                 # All notification methods failed
                 self.failed_heartbeats += 1
-                self.log.error(f"Watchdog heartbeat FAILED - all methods unsuccessful")
-                self.log.error(f"   Failed heartbeat #{self.failed_heartbeats}")
+                self.logger.error(f"Watchdog heartbeat FAILED - all methods unsuccessful")
+                self.logger.error(f"   Failed heartbeat #{self.failed_heartbeats}")
                 
                 # Log critical failure pattern
                 if self.failed_heartbeats >= 3:
-                    self.log.critical(f"CRITICAL: {self.failed_heartbeats} consecutive watchdog failures!")
-                    self.log.critical("   Check systemd configuration and systemd-notify availability")
+                    self.logger.critical(f"CRITICAL: {self.failed_heartbeats} consecutive watchdog failures!")
+                    self.logger.critical("   Check systemd configuration and systemd-notify availability")
             
             # Schedule next heartbeat regardless of success/failure
             if self.running:
@@ -171,9 +171,9 @@ class SystemdWatchdog:
                 
         except Exception as e:
             self.failed_heartbeats += 1
-            self.log.error(f"Watchdog heartbeat EXCEPTION: {e}")
-            self.log.error(f"   Exception type: {type(e).__name__}")
-            self.log.error(f"   Failed heartbeat #{self.failed_heartbeats}")
+            self.logger.error(f"Watchdog heartbeat EXCEPTION: {e}")
+            self.logger.error(f"   Exception type: {type(e).__name__}")
+            self.logger.error(f"   Failed heartbeat #{self.failed_heartbeats}")
             
             # Still schedule next heartbeat to keep trying
             if self.running:
@@ -192,12 +192,12 @@ class SystemdWatchdog:
         try:
             result = os.system('systemd-notify WATCHDOG=1 2>/dev/null')
             if result == 0:
-                self.log.debug("Used systemd-notify command")
+                self.logger.debug("Used systemd-notify command")
                 return True
             else:
-                self.log.debug(f"systemd-notify command failed with exit code: {result}")
+                self.logger.debug(f"systemd-notify command failed with exit code: {result}")
         except Exception as e:
-            self.log.debug(f"systemd-notify command exception: {e}")
+            self.logger.debug(f"systemd-notify command exception: {e}")
         
         # Method 2: Try direct socket communication (fallback)
         try:
@@ -207,10 +207,10 @@ class SystemdWatchdog:
                 sock = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
                 sock.sendto(b'WATCHDOG=1', notify_socket)
                 sock.close()
-                self.log.debug("Used direct socket notification")
+                self.logger.debug("Used direct socket notification")
                 return True
         except Exception as e:
-            self.log.debug(f"Direct socket notification failed: {e}")
+            self.logger.debug(f"Direct socket notification failed: {e}")
         
         # Method 3: Check if systemd-notify is available
         try:
@@ -222,10 +222,10 @@ class SystemdWatchdog:
                 result = subprocess.run(['systemd-notify', 'WATCHDOG=1'], 
                                       capture_output=True, timeout=5)
                 if result.returncode == 0:
-                    self.log.debug("Used subprocess systemd-notify")
+                    self.logger.debug("Used subprocess systemd-notify")
                     return True
         except Exception as e:
-            self.log.debug(f"Subprocess systemd-notify failed: {e}")
+            self.logger.debug(f"Subprocess systemd-notify failed: {e}")
         
         # All methods failed
         return False
@@ -297,10 +297,10 @@ class SystemdWatchdog:
             bool: True if heartbeat was sent successfully.
         """
         if not self.enabled:
-            self.log.warning("Cannot force heartbeat - watchdog disabled")
+            self.logger.warning("Cannot force heartbeat - watchdog disabled")
             return False
         
-        self.log.info("Forcing immediate watchdog heartbeat")
+        self.logger.info("Forcing immediate watchdog heartbeat")
         return self._try_send_notification()
     
     def __enter__(self):

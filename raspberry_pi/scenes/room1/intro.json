@@ -10,11 +10,6 @@
     "message": "PLAY:welcome.wav:1.0"
   },
   {
-    "timestamp": 0,
-    "topic": "room1/video",
-    "message": "PLAY:intro.mp4"
-  },
-  {
     "timestamp": 1,
     "topic": "room1/light",
     "message": "BLINK"
@@ -55,11 +50,6 @@
     "message": "PAUSE"
   },
   {
-    "timestamp": 3,
-    "topic": "room1/speaker",
-    "message": "PLAY:sound1.wav"
-  },
-  {
     "timestamp": 4,
     "topic": "room1/light",
     "message": "DIM:50"
@@ -93,11 +83,6 @@
     "timestamp": 6,
     "topic": "room1/light",
     "message": "STROBE"
-  },
-  {
-    "timestamp": 6,
-    "topic": "room1/audio",
-    "message": "PLAY:ambient.wav:0.5"
   },
   {
     "timestamp": 6,
@@ -261,11 +246,6 @@
   },
   {
     "timestamp": 17,
-    "topic": "room1/audio",
-    "message": "PLAY:music.wav:0.7"
-  },
-  {
-    "timestamp": 17,
     "topic": "room1/door",
     "message": "LOCK"
   },
@@ -273,11 +253,6 @@
     "timestamp": 18,
     "topic": "room1/light",
     "message": "COLOR:PURPLE"
-  },
-  {
-    "timestamp": 18,
-    "topic": "room1/video",
-    "message": "PLAY:video2.mp4"
   },
   {
     "timestamp": 18,
@@ -398,11 +373,6 @@
     "timestamp": 26,
     "topic": "room1/display",
     "message": "SHOW:info3.png"
-  },
-  {
-    "timestamp": 26,
-    "topic": "room1/speaker",
-    "message": "PLAY:sound2.wav"
   },
   {
     "timestamp": 27,
