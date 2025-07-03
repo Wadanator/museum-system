@@ -1,27 +1,27 @@
 [
   {
+    "message": "PLAY:welcome.wav:0.9",
     "timestamp": 0,
-    "topic": "room1/audio",
-    "message": "PLAY:welcome.wav:1.0"
+    "topic": "room1/audio"
   },
   {
+    "message": "BLINK",
     "timestamp": 3,
-    "topic": "room1/wall",
-    "message": "BLINK"
+    "topic": "room1/wall"
   },
   {
+    "message": "ON",
     "timestamp": 4,
-    "topic": "room1/wall",
-    "message": "ON"
+    "topic": "room1/wall"
   },
   {
+    "message": "STATUS",
     "timestamp": 5,
-    "topic": "room1/wall",
-    "message": "STATUS"
+    "topic": "room1/wall"
   },
   {
+    "message": "OFF",
     "timestamp": 6,
-    "topic": "room1/wall",
-    "message": "OFF"
+    "topic": "room1/wall"
   }
 ]

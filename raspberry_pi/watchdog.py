@@ -13,19 +13,9 @@ import psutil
 import logging
 from datetime import datetime
 
-# Clean logging setup (matching museum system)
 from utils.logging_setup import setup_logging
 
-# FIXED: Force fresh logging setup for watchdog process
 log = setup_logging(log_level=logging.INFO)
-
-# Add immediate test to verify logging works
-print("=== WATCHDOG STARTUP TEST ===")
-print("Console print: Watchdog starting up")
-log.info("LOG TEST: Watchdog logging test - INFO level")
-log.warning("LOG TEST: Watchdog logging test - WARNING level") 
-log.error("LOG TEST: Watchdog logging test - ERROR level")
-print("=== END STARTUP TEST ===")
 
 class MuseumWatchdog:
     def __init__(self):
@@ -43,7 +33,6 @@ class MuseumWatchdog:
         log.warning("MuseumWatchdog initialized - monitoring will begin shortly")
         
     def is_service_running(self):
-        """Check if the museum service is running"""
         try:
             result = subprocess.run(
                 ['systemctl', 'is-active', self.service_name],
@@ -58,7 +47,6 @@ class MuseumWatchdog:
             return False
     
     def get_service_process(self):
-        """Find the museum system process"""
         try:
             for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
                 if proc.info['cmdline'] and 'main.py' in ' '.join(proc.info['cmdline']):
@@ -70,7 +58,6 @@ class MuseumWatchdog:
         return None
     
     def check_process_health(self):
-        """Check if the process is consuming too many resources"""
         proc = self.get_service_process()
         if not proc:
             return False, "Process not found"
@@ -103,7 +90,6 @@ class MuseumWatchdog:
             return False, f"Error checking health: {e}"
     
     def restart_service(self, reason):
-        """Restart the museum service"""
         self.restart_count += 1
         log.warning(f"Restarting service (#{self.restart_count}) - Reason: {reason}")
         
@@ -141,10 +127,6 @@ class MuseumWatchdog:
         while True:
             try:
                 loop_count += 1
-                
-                # Log every 10 loops for debugging (remove this later)
-                if loop_count % 10 == 0:
-                    log.info(f"Watchdog loop #{loop_count} - still monitoring")
                 
                 # Check if service is running
                 service_running = self.is_service_running()

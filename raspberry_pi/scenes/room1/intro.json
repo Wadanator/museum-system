@@ -1,442 +1,419 @@
 [
   {
+    "message": "ON",
     "timestamp": 0,
-    "topic": "room1/light",
-    "message": "ON"
+    "topic": "room1/light"
   },
   {
+    "message": "PLAY:welcome.wav:1.0",
     "timestamp": 0,
-    "topic": "room1/audio",
-    "message": "PLAY:welcome.wav:1.0"
+    "topic": "room1/audio"
   },
+
+  {"timestamp": 0, "topic": "room1/video", "message": "PLAY_VIDEO:test.mp4"},
+
   {
+    "message": "BLINK",
     "timestamp": 1,
-    "topic": "room1/light",
-    "message": "BLINK"
+    "topic": "room1/light"
   },
   {
+    "message": "ACTIVATE",
     "timestamp": 1,
-    "topic": "room1/sensor",
-    "message": "ACTIVATE"
+    "topic": "room1/sensor"
   },
   {
+    "message": "SHOW:info1.png",
     "timestamp": 1,
-    "topic": "room1/display",
-    "message": "SHOW:info1.png"
+    "topic": "room1/display"
   },
   {
+    "message": "OFF",
     "timestamp": 2,
-    "topic": "room1/light",
-    "message": "OFF"
+    "topic": "room1/light"
   },
   {
+    "message": "VOLUME:0.8",
     "timestamp": 2,
-    "topic": "room1/audio",
-    "message": "VOLUME:0.8"
+    "topic": "room1/audio"
   },
   {
+    "message": "ROTATE:90",
     "timestamp": 2,
-    "topic": "room1/motor",
-    "message": "ROTATE:90"
+    "topic": "room1/motor"
   },
   {
+    "message": "ON",
     "timestamp": 3,
-    "topic": "room1/light",
-    "message": "ON"
+    "topic": "room1/light"
   },
   {
-    "timestamp": 3,
-    "topic": "room1/video",
-    "message": "PAUSE"
-  },
-  {
+    "message": "DIM:50",
     "timestamp": 4,
-    "topic": "room1/light",
-    "message": "DIM:50"
+    "topic": "room1/light"
   },
   {
+    "message": "ON",
     "timestamp": 4,
-    "topic": "room1/projector",
-    "message": "ON"
+    "topic": "room1/projector"
   },
   {
+    "message": "SPEED:3",
     "timestamp": 4,
-    "topic": "room1/fan",
-    "message": "SPEED:3"
+    "topic": "room1/fan"
   },
   {
+    "message": "BLINK",
     "timestamp": 5,
-    "topic": "room1/light",
-    "message": "BLINK"
+    "topic": "room1/light"
   },
   {
+    "message": "UNLOCK",
     "timestamp": 5,
-    "topic": "room1/video",
-    "message": "RESUME"
+    "topic": "room1/door"
   },
   {
-    "timestamp": 5,
-    "topic": "room1/door",
-    "message": "UNLOCK"
-  },
-  {
+    "message": "STROBE",
     "timestamp": 6,
-    "topic": "room1/light",
-    "message": "STROBE"
+    "topic": "room1/light"
   },
   {
+    "message": "SET_TEMP:22",
     "timestamp": 6,
-    "topic": "room1/heater",
-    "message": "SET_TEMP:22"
+    "topic": "room1/heater"
   },
   {
+    "message": "COLOR:RED",
     "timestamp": 7,
-    "topic": "room1/light",
-    "message": "COLOR:RED"
+    "topic": "room1/light"
   },
   {
+    "message": "CLOSE",
     "timestamp": 7,
-    "topic": "room1/curtains",
-    "message": "CLOSE"
+    "topic": "room1/curtains"
   },
   {
+    "message": "ARMED",
     "timestamp": 7,
-    "topic": "room1/alarm",
-    "message": "ARMED"
+    "topic": "room1/alarm"
   },
   {
+    "message": "COLOR:BLUE",
     "timestamp": 8,
-    "topic": "room1/light",
-    "message": "COLOR:BLUE"
+    "topic": "room1/light"
   },
   {
+    "message": "SHOW:info2.png",
     "timestamp": 8,
-    "topic": "room1/display",
-    "message": "SHOW:info2.png"
+    "topic": "room1/display"
   },
   {
+    "message": "START",
     "timestamp": 8,
-    "topic": "room1/pump",
-    "message": "START"
+    "topic": "room1/pump"
   },
   {
+    "message": "COLOR:GREEN",
     "timestamp": 9,
-    "topic": "room1/light",
-    "message": "COLOR:GREEN"
+    "topic": "room1/light"
   },
   {
+    "message": "POSITION:180",
     "timestamp": 9,
-    "topic": "room1/video",
-    "message": "SEEK:30"
+    "topic": "room1/servo"
   },
   {
-    "timestamp": 9,
-    "topic": "room1/servo",
-    "message": "POSITION:180"
-  },
-  {
+    "message": "RAINBOW",
     "timestamp": 10,
-    "topic": "room1/light",
-    "message": "RAINBOW"
+    "topic": "room1/light"
   },
+
   {
+    "timestamp": 10.0, "topic": "room1/video", "message": "STOP_VIDEO"},
+
+  {
+    "message": "VOLUME:1.0",
     "timestamp": 10,
-    "topic": "room1/audio",
-    "message": "VOLUME:1.0"
+    "topic": "room1/audio"
   },
   {
+    "message": "ON",
     "timestamp": 10,
-    "topic": "room1/relay1",
-    "message": "ON"
+    "topic": "room1/relay1"
   },
   {
+    "message": "FADE_IN:5",
     "timestamp": 11,
-    "topic": "room1/light",
-    "message": "FADE_IN:5"
+    "topic": "room1/light"
   },
   {
+    "message": "RECORD_START",
     "timestamp": 11,
-    "topic": "room1/camera",
-    "message": "RECORD_START"
+    "topic": "room1/camera"
   },
   {
+    "message": "ON",
     "timestamp": 11,
-    "topic": "room1/relay2",
-    "message": "ON"
+    "topic": "room1/relay2"
   },
   {
+    "message": "FADE_OUT:3",
     "timestamp": 12,
-    "topic": "room1/light",
-    "message": "FADE_OUT:3"
+    "topic": "room1/light"
   },
   {
+    "message": "ROTATE:270",
     "timestamp": 12,
-    "topic": "room1/motor",
-    "message": "ROTATE:270"
+    "topic": "room1/motor"
   },
   {
+    "message": "BEEP:3",
     "timestamp": 12,
-    "topic": "room1/buzzer",
-    "message": "BEEP:3"
+    "topic": "room1/buzzer"
   },
   {
+    "message": "PULSE",
     "timestamp": 13,
-    "topic": "room1/light",
-    "message": "PULSE"
+    "topic": "room1/light"
   },
   {
+    "message": "BRIGHTNESS:80",
     "timestamp": 13,
-    "topic": "room1/projector",
-    "message": "BRIGHTNESS:80"
+    "topic": "room1/projector"
   },
   {
+    "message": "OPEN",
     "timestamp": 13,
-    "topic": "room1/valve",
-    "message": "OPEN"
+    "topic": "room1/valve"
   },
   {
+    "message": "FLASH:FAST",
     "timestamp": 14,
-    "topic": "room1/light",
-    "message": "FLASH:FAST"
+    "topic": "room1/light"
   },
   {
+    "message": "SPEED:5",
     "timestamp": 14,
-    "topic": "room1/fan",
-    "message": "SPEED:5"
+    "topic": "room1/fan"
   },
   {
+    "message": "LOWER",
     "timestamp": 14,
-    "topic": "room1/screen",
-    "message": "LOWER"
+    "topic": "room1/screen"
   },
   {
+    "message": "OFF",
     "timestamp": 15,
-    "topic": "room1/light",
-    "message": "OFF"
+    "topic": "room1/light"
   },
   {
+    "message": "STOP",
     "timestamp": 15,
-    "topic": "room1/video",
-    "message": "STOP"
+    "topic": "room1/audio"
   },
   {
-    "timestamp": 15,
-    "topic": "room1/audio",
-    "message": "STOP"
-  },
-  {
+    "message": "ON",
     "timestamp": 16,
-    "topic": "room1/light",
-    "message": "ON"
+    "topic": "room1/light"
   },
   {
+    "message": "CLEAR",
     "timestamp": 16,
-    "topic": "room1/display",
-    "message": "CLEAR"
+    "topic": "room1/display"
   },
   {
+    "message": "OPEN",
     "timestamp": 16,
-    "topic": "room1/curtains",
-    "message": "OPEN"
+    "topic": "room1/curtains"
   },
   {
+    "message": "COLOR:YELLOW",
     "timestamp": 17,
-    "topic": "room1/light",
-    "message": "COLOR:YELLOW"
+    "topic": "room1/light"
   },
   {
+    "message": "LOCK",
     "timestamp": 17,
-    "topic": "room1/door",
-    "message": "LOCK"
+    "topic": "room1/door"
   },
   {
+    "message": "COLOR:PURPLE",
     "timestamp": 18,
-    "topic": "room1/light",
-    "message": "COLOR:PURPLE"
+    "topic": "room1/light"
   },
   {
+    "message": "STOP",
     "timestamp": 18,
-    "topic": "room1/pump",
-    "message": "STOP"
+    "topic": "room1/pump"
   },
   {
+    "message": "COLOR:ORANGE",
     "timestamp": 19,
-    "topic": "room1/light",
-    "message": "COLOR:ORANGE"
+    "topic": "room1/light"
   },
   {
+    "message": "POSITION:0",
     "timestamp": 19,
-    "topic": "room1/servo",
-    "message": "POSITION:0"
+    "topic": "room1/servo"
   },
   {
+    "message": "OFF",
     "timestamp": 19,
-    "topic": "room1/relay1",
-    "message": "OFF"
+    "topic": "room1/relay1"
   },
   {
+    "message": "STROBE:SLOW",
     "timestamp": 20,
-    "topic": "room1/light",
-    "message": "STROBE:SLOW"
+    "topic": "room1/light"
   },
   {
+    "message": "RECORD_STOP",
     "timestamp": 20,
-    "topic": "room1/camera",
-    "message": "RECORD_STOP"
+    "topic": "room1/camera"
   },
   {
+    "message": "OFF",
     "timestamp": 20,
-    "topic": "room1/heater",
-    "message": "OFF"
+    "topic": "room1/heater"
   },
   {
+    "message": "DIM:25",
     "timestamp": 21,
-    "topic": "room1/light",
-    "message": "DIM:25"
+    "topic": "room1/light"
   },
   {
+    "message": "VOLUME:0.3",
     "timestamp": 21,
-    "topic": "room1/audio",
-    "message": "VOLUME:0.3"
+    "topic": "room1/audio"
   },
   {
+    "message": "OFF",
     "timestamp": 21,
-    "topic": "room1/relay2",
-    "message": "OFF"
+    "topic": "room1/relay2"
   },
   {
+    "message": "BRIGHT:100",
     "timestamp": 22,
-    "topic": "room1/light",
-    "message": "BRIGHT:100"
+    "topic": "room1/light"
   },
   {
+    "message": "OFF",
     "timestamp": 22,
-    "topic": "room1/projector",
-    "message": "OFF"
+    "topic": "room1/projector"
   },
   {
+    "message": "CLOSE",
     "timestamp": 22,
-    "topic": "room1/valve",
-    "message": "CLOSE"
+    "topic": "room1/valve"
   },
   {
+    "message": "FLICKER",
     "timestamp": 23,
-    "topic": "room1/light",
-    "message": "FLICKER"
+    "topic": "room1/light"
   },
   {
+    "message": "OFF",
     "timestamp": 23,
-    "topic": "room1/fan",
-    "message": "OFF"
+    "topic": "room1/fan"
   },
   {
+    "message": "RAISE",
     "timestamp": 23,
-    "topic": "room1/screen",
-    "message": "RAISE"
+    "topic": "room1/screen"
   },
   {
+    "message": "COLOR:CYAN",
     "timestamp": 24,
-    "topic": "room1/light",
-    "message": "COLOR:CYAN"
+    "topic": "room1/light"
   },
   {
+    "message": "ROTATE:45",
     "timestamp": 24,
-    "topic": "room1/motor",
-    "message": "ROTATE:45"
+    "topic": "room1/motor"
   },
   {
+    "message": "BEEP:1",
     "timestamp": 24,
-    "topic": "room1/buzzer",
-    "message": "BEEP:1"
+    "topic": "room1/buzzer"
   },
   {
+    "message": "COLOR:MAGENTA",
     "timestamp": 25,
-    "topic": "room1/light",
-    "message": "COLOR:MAGENTA"
+    "topic": "room1/light"
   },
   {
+    "message": "DISARMED",
     "timestamp": 25,
-    "topic": "room1/video",
-    "message": "PAUSE"
+    "topic": "room1/alarm"
   },
   {
-    "timestamp": 25,
-    "topic": "room1/alarm",
-    "message": "DISARMED"
-  },
-  {
+    "message": "WAVE_EFFECT",
     "timestamp": 26,
-    "topic": "room1/light",
-    "message": "WAVE_EFFECT"
+    "topic": "room1/light"
   },
   {
+    "message": "SHOW:info3.png",
     "timestamp": 26,
-    "topic": "room1/display",
-    "message": "SHOW:info3.png"
+    "topic": "room1/display"
   },
   {
+    "message": "BREATHE",
     "timestamp": 27,
-    "topic": "room1/light",
-    "message": "BREATHE"
+    "topic": "room1/light"
   },
   {
+    "message": "FADE_IN:3",
     "timestamp": 27,
-    "topic": "room1/audio",
-    "message": "FADE_IN:3"
+    "topic": "room1/audio"
   },
   {
+    "message": "SWEEP:0:180",
     "timestamp": 27,
-    "topic": "room1/servo",
-    "message": "SWEEP:0:180"
+    "topic": "room1/servo"
   },
   {
+    "message": "SPARKLE",
     "timestamp": 28,
-    "topic": "room1/light",
-    "message": "SPARKLE"
+    "topic": "room1/light"
   },
   {
+    "message": "AUTO_LOCK:30",
     "timestamp": 28,
-    "topic": "room1/video",
-    "message": "RESUME"
+    "topic": "room1/door"
   },
   {
-    "timestamp": 28,
-    "topic": "room1/door",
-    "message": "AUTO_LOCK:30"
-  },
-  {
+    "message": "THEATER_MODE",
     "timestamp": 29,
-    "topic": "room1/light",
-    "message": "THEATER_MODE"
+    "topic": "room1/light"
   },
   {
+    "message": "HALF_CLOSE",
     "timestamp": 29,
-    "topic": "room1/curtains",
-    "message": "HALF_CLOSE"
+    "topic": "room1/curtains"
   },
   {
+    "message": "ON",
     "timestamp": 29,
-    "topic": "room1/projector",
-    "message": "ON"
+    "topic": "room1/projector"
   },
   {
+    "message": "CONCERT_MODE",
     "timestamp": 30,
-    "topic": "room1/light",
-    "message": "CONCERT_MODE"
+    "topic": "room1/light"
   },
   {
+    "message": "BASS_BOOST:ON",
     "timestamp": 30,
-    "topic": "room1/audio",
-    "message": "BASS_BOOST:ON"
+    "topic": "room1/audio"
   },
   {
+    "message": "OSCILLATE:ON",
     "timestamp": 30,
-    "topic": "room1/fan",
-    "message": "OSCILLATE:ON"
+    "topic": "room1/fan"
   },
   {
+    "message": "DISCO_BALL",
     "timestamp": 31,
-    "topic": "room1/light",
-    "message": "DISCO_BALL"
+    "topic": "room1/light"
   }
 ]
