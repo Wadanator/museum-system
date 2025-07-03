@@ -1,6 +1,6 @@
 /*
  * ESP32 WiFi MQTT Client for Museum Automation
- * Simplified version with basic LED status indicators
+ * Simplified version without LED status indicators
  */
 
 #include <WiFi.h>
@@ -20,7 +20,6 @@ const char* mqtt_topic = "room1/wall";
 const char* client_id = "esp32_wifi_controller";
 
 // Hardware pins
-const int LED_PIN = 2;
 const int MOTOR_PIN = 4;
 
 // Global objects
@@ -41,11 +40,6 @@ int wifiAttempts = 0;
 int mqttAttempts = 0;
 const int MAX_WIFI_ATTEMPTS = 5;
 const int MAX_MQTT_ATTEMPTS = 5;
-
-// LED blink control
-unsigned long lastLedBlink = 0;
-bool ledState = false;
-int blinkCount = 0;
 
 // Debug print function
 void debugPrint(String message) {
@@ -204,53 +198,12 @@ void checkConnections() {
   }
 }
 
-// Update LED status
-void updateStatusLed() {
-  unsigned long currentTime = millis();
-  
-  if (wifi_connected && mqtt_connected) {
-    // Both connected - LED off
-    digitalWrite(LED_PIN, LOW);
-    return;
-  }
-  
-  if (!wifi_connected && !mqtt_connected) {
-    // Both disconnected - double blink (2 quick blinks, pause)
-    if (currentTime - lastLedBlink > 150) {
-      if (blinkCount < 4) {
-        ledState = !ledState;
-        digitalWrite(LED_PIN, ledState);
-        blinkCount++;
-      } else if (currentTime - lastLedBlink > 1000) {
-        blinkCount = 0;
-      }
-      lastLedBlink = currentTime;
-    }
-  } else if (!wifi_connected) {
-    // WiFi down - slow blink
-    if (currentTime - lastLedBlink > 1000) {
-      ledState = !ledState;
-      digitalWrite(LED_PIN, ledState);
-      lastLedBlink = currentTime;
-    }
-  } else if (!mqtt_connected) {
-    // MQTT down - fast blink
-    if (currentTime - lastLedBlink > 250) {
-      ledState = !ledState;
-      digitalWrite(LED_PIN, ledState);
-      lastLedBlink = currentTime;
-    }
-  }
-}
-
 void setup() {
   Serial.begin(115200);
   Serial.println("ESP32 Motor Controller Starting...");
   debugPrint("=== ESP32 Motor Controller Starting ===");
   
-  pinMode(LED_PIN, OUTPUT);
   pinMode(MOTOR_PIN, OUTPUT);
-  digitalWrite(LED_PIN, LOW);
   digitalWrite(MOTOR_PIN, LOW);
   debugPrint("Hardware initialized");
   
@@ -281,8 +234,6 @@ void loop() {
   if (mqtt_connected && client.connected()) {
     client.loop();
   }
-  
-  updateStatusLed();
   
   delay(50);
 }

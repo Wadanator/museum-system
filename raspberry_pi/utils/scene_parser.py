@@ -6,10 +6,11 @@ import sys
 import logging
 
 class SceneParser:
-    def __init__(self, audio_handler=None, logger=None):
+    def __init__(self, audio_handler=None, video_handler=None, logger=None):
         self.scene_data = None
         self.start_time = None
         self.audio_handler = audio_handler
+        self.video_handler = video_handler
         self.executed_actions = set()  # Track executed actions to avoid duplicates
         self.logger = logger or logging.getLogger(__name__)
     
@@ -73,6 +74,9 @@ class SceneParser:
                 # Handle audio commands locally
                 if action["topic"].endswith("/audio"):
                     self._handle_audio_command(action["message"])
+                # Handle video commands locally
+                elif action["topic"].endswith("/video"):
+                    self._handle_video_command(action["message"])
                 else:
                     # Publish other commands to MQTT
                     if mqtt_client:
@@ -97,7 +101,7 @@ class SceneParser:
                 
             elif message.startswith("PLAY_"):
                 # Legacy format: PLAY_WELCOME -> welcome.wav/mp3/ogg
-                self.audio_handler.play_audio(message)
+                self.audio_handler.play_audio(message.replace("PLAY_", ""))
                 
             elif message == "STOP":
                 self.audio_handler.stop_audio()
@@ -119,6 +123,39 @@ class SceneParser:
                 
         except Exception as e:
             self.logger.error(f"Failed to handle audio command '{message}': {e}")
+    
+    def _handle_video_command(self, message):
+        """Handle video-specific commands."""
+        if not self.video_handler:
+            self.logger.warning("No video handler available")
+            return
+        
+        try:
+            if message.startswith("PLAY_VIDEO:"):
+                # Format: PLAY_VIDEO:filename.mp4
+                filename = message.split(":")[1]
+                self.video_handler.play_video(filename)
+                
+            elif message == "STOP_VIDEO":
+                self.video_handler.stop_video()
+                
+            elif message == "PAUSE":
+                self.video_handler.pause_video()
+                
+            elif message == "RESUME":
+                self.video_handler.resume_video()
+                
+            elif message.startswith("SEEK:"):
+                # Format: SEEK:seconds
+                seconds = float(message.split(":")[1])
+                self.video_handler.seek_video(seconds)
+                
+            else:
+                # Direct filename
+                self.video_handler.play_video(message)
+                
+        except Exception as e:
+            self.logger.error(f"Failed to handle video command '{message}': {e}")
     
     def get_scene_duration(self):
         """Get total duration of the scene."""
@@ -165,10 +202,13 @@ if __name__ == "__main__":
     try:
         from mqtt_client import MQTTClient
         from audio_handler import AudioHandler
+        from video_handler import VideoHandler
         
         audio_dir = os.path.join(script_dir, "..", "audio")
+        video_dir = os.path.join(script_dir, "..", "videos")
         audio_handler = AudioHandler(audio_dir)
-        parser = SceneParser(audio_handler)
+        video_handler = VideoHandler(video_dir)
+        parser = SceneParser(audio_handler, video_handler)
         
         if parser.load_scene(scene_file):
             print("Scene loaded successfully")
@@ -202,6 +242,7 @@ if __name__ == "__main__":
             if mqtt_connected:
                 mqtt_client.disconnect()
             audio_handler.cleanup()
+            video_handler.cleanup()
             
         else:
             print("ERROR: Failed to load scene file")
@@ -209,4 +250,4 @@ if __name__ == "__main__":
             
     except ImportError as e:
         print(f"ERROR: Failed to import modules: {e}")
-        print("Make sure mqtt_client.py and audio_handler.py are in the utils directory")
+        print("Make sure mqtt_client.py, audio_handler.py, and video_handler.py are in the utils directory")
