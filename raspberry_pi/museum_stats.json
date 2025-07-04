@@ -1,0 +1,20 @@
+{
+  "scene_executions": {},
+  "scene_history": [],
+  "system_stats": {
+    "total_uptime": 0,
+    "total_restarts": 2,
+    "first_started": "2025-07-04T23:10:30.529608",
+    "last_restart": "2025-07-04T23:11:06.764229"
+  },
+  "mqtt_stats": {
+    "messages_sent": 0,
+    "connection_failures": 0,
+    "total_connect_time": 0
+  },
+  "dashboard_stats": {
+    "page_views": 0,
+    "unique_sessions": [],
+    "log_exports": 0
+  }
+}

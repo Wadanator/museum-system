@@ -1,0 +1,9 @@
+pygame
+RPi.GPIO
+configparser
+paho-mqtt
+flask
+flask-socketio
+werkzeug
+psutil
+simple-websocket

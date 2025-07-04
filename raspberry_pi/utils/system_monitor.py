@@ -16,7 +16,6 @@ class SystemMonitor:
         """Send systemd ready notification"""
         try:
             os.system('systemd-notify READY=1')
-            self.log.info("Systemd READY sent")
             return True
         except Exception as e:
             self.log.warning(f"Systemd notify failed: {e}")

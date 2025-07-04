@@ -12,8 +12,8 @@ ExecStart=/usr/bin/python3 /home/admin/Documents/GitHub/museum-system/raspberry_
 WorkingDirectory=/home/admin/Documents/GitHub/museum-system/raspberry_pi
 
 # Logging with rotation
-StandardOutput=append:/var/log/museum-system.log
-StandardError=append:/var/log/museum-system-error.log
+StandardOutput=inherit
+StandardError=inherit
 
 # BULLETPROOF RESTART SETTINGS
 Restart=always

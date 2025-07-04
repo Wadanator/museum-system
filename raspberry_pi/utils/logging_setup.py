@@ -10,7 +10,7 @@ _logger_initialized = False
 
 def setup_logging(log_level=logging.INFO, log_dir=None, max_file_size=10*1024*1024, 
                   backup_count=5, daily_backup_days=30, console_colors=True,
-                  file_logging=True, console_logging=True, log_format='detailed',
+                  file_logging=True, console_logging=False, log_format='detailed',
                   component_log_levels=None):
     """
     Setup comprehensive logging with console and file handlers.
@@ -176,10 +176,6 @@ def setup_logging(log_level=logging.INFO, log_dir=None, max_file_size=10*1024*10
     
     # Log startup message
     logger.info(f"Logging initialized - Level: {logging.getLevelName(log_level)}")
-    if file_logging:
-        logger.info(f"Log directory: {log_dir}")
-        logger.info(f"Log files: museum.log (all), museum-warnings.log (warnings), museum-errors.log (errors), museum-daily.log (daily)")
-    
     # Setup exception handler for uncaught exceptions
     def handle_exception(exc_type, exc_value, exc_traceback):
         if issubclass(exc_type, KeyboardInterrupt):

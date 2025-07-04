@@ -10,11 +10,14 @@ class AudioHandler:
         self.currently_playing = None
         self.logger = logger or logging.getLogger(__name__)
         
+        # Force ALSA to use 3.5mm jack (analog audio)
+        os.environ["ALSA_DEFAULT_PCM"] = "hw:0,0"
+        
         # Initialize pygame mixer with better settings for various formats
         try:
             pygame.mixer.pre_init(frequency=22050, size=-16, channels=2, buffer=512)
             pygame.mixer.init()
-            self.logger.info("Audio handler initialized successfully")
+            self.logger.info("Audio handler initialized with 3.5mm jack output")
         except Exception as e:
             self.logger.error(f"Error initializing pygame mixer: {e}")
             sys.exit(1)
@@ -56,7 +59,7 @@ class AudioHandler:
             pygame.mixer.music.load(full_path)
             pygame.mixer.music.play()
             self.currently_playing = audio_file
-            self.logger.info(f"Playing audio: {audio_file}")
+            self.logger.info(f"Playing audio: {audio_file} through 3.5mm jack")
             return True
             
         except Exception as e:
@@ -169,12 +172,10 @@ if __name__ == "__main__":
     # Test audio playback if files exist
     if files:
         print(f"\nTesting playback of first file: {files[0]}")
-        audio_handler.play_audio_with_volume(files[0], 0.5)
-        
+        audio_handler.play_audio_with_volume(files[0], 1.0)  # Use maximum volume for test
         import time
         print("Playing for 5 seconds...")
         time.sleep(5)
-        
         audio_handler.stop_audio()
     
     audio_handler.cleanup()

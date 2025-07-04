@@ -100,7 +100,7 @@ class SceneParser:
                 self.audio_handler.play_audio_with_volume(filename, volume)
                 
             elif message.startswith("PLAY_"):
-                # Legacy format: PLAY_WELCOME -> welcome.wav/mp3/ogg
+                # Legacy format: PLAY_WELCOME -> welcome.mp3/mp3/ogg
                 self.audio_handler.play_audio(message.replace("PLAY_", ""))
                 
             elif message == "STOP":
