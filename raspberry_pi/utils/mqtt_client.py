@@ -2,19 +2,15 @@
 import paho.mqtt.client as mqtt
 import json
 import time
-import logging
-import sys
-import os
-from datetime import datetime
+from utils.logging_setup import get_logger
 
 class MQTTClient:
-    def __init__(self, broker_host, broker_port=1883, client_id=None, use_logging=True, logger=None):
+    def __init__(self, broker_host, broker_port=1883, client_id=None, logger=None):
         self.broker_host = broker_host
         self.broker_port = broker_port
-        self.use_logging = use_logging
         self.connected = False
-        # Use provided logger or fallback to default
-        self.logger = logger if logger else logging.getLogger('museum')
+        # Use provided logger or get component-specific logger
+        self.logger = logger if logger else get_logger('mqtt')
         
         # Fix for paho-mqtt 2.0+ compatibility
         try:
@@ -36,25 +32,20 @@ class MQTTClient:
     def _on_connect(self, client, userdata, flags, rc):
         if rc == 0:
             self.connected = True
-            if self.use_logging:
-                self.logger.info(f"Connected to MQTT broker at {self.broker_host}:{self.broker_port}")
+            self.logger.info(f"Connected to MQTT broker at {self.broker_host}:{self.broker_port}")
         else:
             self.connected = False
-            if self.use_logging:
-                self.logger.error(f"Failed to connect to MQTT broker. Return code: {rc}")
+            self.logger.error(f"Failed to connect to MQTT broker. Return code: {rc}")
     
     def _on_disconnect(self, client, userdata, rc):
         self.connected = False
-        if self.use_logging:
-            self.logger.warning(f"Disconnected from MQTT broker. Return code: {rc}")
+        self.logger.info(f"Disconnected from MQTT broker. Return code: {rc}")
     
     def _on_message(self, client, userdata, msg):
-        if self.use_logging:
-            self.logger.info(f"Received message: {msg.topic} - {msg.payload.decode()}")
+        self.logger.debug(f"Received message: {msg.topic} - {msg.payload.decode()}")
     
     def _on_publish(self, client, userdata, mid):
-        if self.use_logging:
-            self.logger.info(f"Message published with ID: {mid}")
+        self.logger.debug(f"Message published with ID: {mid}")
     
     def connect(self, timeout=10):
         try:
@@ -66,25 +57,22 @@ class MQTTClient:
             while not self.connected and (time.time() - start_time) < timeout:
                 time.sleep(0.1)
             
-            if not self.connected and self.use_logging:
+            if not self.connected:
                 self.logger.error(f"Connection timeout after {timeout}s")
             return self.connected
         except Exception as e:
-            if self.use_logging:
-                self.logger.error(f"Error connecting to MQTT broker: {e}")
+            self.logger.error(f"Error connecting to MQTT broker: {e}")
             return False
     
     def disconnect(self):
         if self.connected:
             self.client.loop_stop()
             self.client.disconnect()
-            if self.use_logging:
-                self.logger.info("MQTT disconnected")
+            self.logger.info("MQTT disconnected")
     
     def publish(self, topic, message, qos=0, retain=False):
         if not self.connected:
-            if self.use_logging:
-                self.logger.warning("Not connected to MQTT broker")
+            self.logger.warning("Not connected to MQTT broker")
             return False
         
         try:
@@ -94,34 +82,30 @@ class MQTTClient:
             
             result = self.client.publish(topic, message, qos, retain)
             
-            if self.use_logging and result.rc == mqtt.MQTT_ERR_SUCCESS:
-                self.logger.info(f"Publishing to {topic}: {message}")
-            
-            if result.rc != mqtt.MQTT_ERR_SUCCESS and self.use_logging:
+            if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                self.logger.debug(f"Publishing to {topic}: {message}")
+            else:
                 self.logger.error(f"Failed to publish to {topic}: RC {result.rc}")
             
             return result.rc == mqtt.MQTT_ERR_SUCCESS
         except Exception as e:
-            if self.use_logging:
-                self.logger.error(f"Error publishing message: {e}")
+            self.logger.error(f"Error publishing message: {e}")
             return False
     
     def subscribe(self, topic, qos=0):
         if not self.connected:
-            if self.use_logging:
-                self.logger.warning("Not connected to MQTT broker")
+            self.logger.warning("Not connected to MQTT broker")
             return False
         
         try:
             result = self.client.subscribe(topic, qos)
-            if self.use_logging and result[0] == mqtt.MQTT_ERR_SUCCESS:
+            if result[0] == mqtt.MQTT_ERR_SUCCESS:
                 self.logger.info(f"Subscribed to topic: {topic}")
-            elif self.use_logging:
+            else:
                 self.logger.error(f"Failed to subscribe to {topic}: RC {result[0]}")
             return result[0] == mqtt.MQTT_ERR_SUCCESS
         except Exception as e:
-            if self.use_logging:
-                self.logger.error(f"Error subscribing to topic: {e}")
+            self.logger.error(f"Error subscribing to topic: {e}")
             return False
     
     def is_connected(self):
@@ -129,15 +113,14 @@ class MQTTClient:
 
 # Example usage and testing
 if __name__ == "__main__":
-    # Set up logging same as first code
     from utils.logging_setup import setup_logging
-    log = setup_logging()
+    logger = setup_logging()
     
     # Test the MQTT client
-    client = MQTTClient("localhost", use_logging=True, logger=log)
+    client = MQTTClient("localhost", logger=logger)
     
     if client.connect():
-        log.info("Connection successful!")
+        logger.info("Connection successful!")
         
         # Test publishing
         test_message = {"device": "test", "value": 42, "timestamp": time.time()}
@@ -150,7 +133,7 @@ if __name__ == "__main__":
         time.sleep(2)
         
         client.disconnect()
-        log.info("Test completed")
+        logger.info("Test completed")
     else:
-        log.error("Failed to connect to MQTT broker")
-        log.info("Make sure your MQTT broker is running on localhost:1883")
+        logger.error("Failed to connect to MQTT broker")
+        logger.info("Make sure your MQTT broker is running on localhost:1883")

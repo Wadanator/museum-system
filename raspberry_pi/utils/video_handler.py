@@ -105,6 +105,7 @@ class VideoHandler:
 
     def _check_process_health(self):
         if time.time() - self.last_health_check < self.health_check_interval:
+            self.logger.debug("MPV process and IPC socket healthy")
             return True
         self.last_health_check = time.time()
 
@@ -123,6 +124,7 @@ class VideoHandler:
 
     def _restart_mpv(self):
         if time.time() - self.last_restart_time < self.restart_cooldown or self.restart_count >= self.max_restart_attempts:
+            self.logger.critical(f"Cannot restart MPV: exceeded {self.max_restart_attempts} attempts or in cooldown")
             return False
         self.restart_count += 1
         self.last_restart_time = time.time()

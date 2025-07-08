@@ -21,7 +21,7 @@ class ConfigManager:
             self.create_default_config()
         
         self.config.read(config_file)
-        self.log.info(f"Config loaded from: {config_file}")
+        self.log.info(f"Config loaded from: {self.config_file}")
     
     def create_default_config(self):
         config = configparser.ConfigParser()
@@ -80,8 +80,7 @@ class ConfigManager:
             'console_colors': 'true',
             'file_logging': 'true',
             'console_logging': 'true',
-            'log_format': 'detailed',
-            'component_log_levels': 'mqtt:WARNING,audio:INFO,button:INFO,video:INFO'
+            'log_format': 'detailed'
         }
         
         os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
@@ -102,8 +101,7 @@ class ConfigManager:
                 'console_colors': True,
                 'file_logging': True,
                 'console_logging': True,
-                'log_format': 'detailed',
-                'component_log_levels': {}
+                'log_format': 'detailed'
             }
         
         logging_section = self.config['Logging']
@@ -122,16 +120,6 @@ class ConfigManager:
         
         max_file_size = int(logging_section.get('max_file_size_mb', '10')) * 1024 * 1024
         
-        component_levels = {}
-        component_str = logging_section.get('component_log_levels', '')
-        if component_str:
-            for item in component_str.split(','):
-                if ':' in item:
-                    component, level = item.strip().split(':', 1)
-                    level_upper = level.upper()
-                    if level_upper in log_level_map:
-                        component_levels[component.strip()] = log_level_map[level_upper]
-        
         return {
             'log_level': log_level,
             'log_directory': log_dir,
@@ -141,8 +129,7 @@ class ConfigManager:
             'console_colors': logging_section.get('console_colors', 'true').lower() == 'true',
             'file_logging': logging_section.get('file_logging', 'true').lower() == 'true',
             'console_logging': logging_section.get('console_logging', 'true').lower() == 'true',
-            'log_format': logging_section.get('log_format', 'detailed'),
-            'component_log_levels': component_levels
+            'log_format': logging_section.get('log_format', 'detailed')
         }
     
     def get_all_config(self):

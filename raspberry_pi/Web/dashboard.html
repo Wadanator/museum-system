@@ -4,16 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Time Machine Dashboard</title>
-    <link rel="stylesheet" href="/static/style.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.1/socket.io.js"></script>
-    <script src="/static/script.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/base.css">
+    <link rel="stylesheet" href="/static/css/layout.css">
+    <link rel="stylesheet" href="/static/css/components.css">
+    <link rel="stylesheet" href="/static/css/utilities.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
+    <script src="/static/js/script.js" defer></script>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>Time Machine Dashboard</h1>
-            <p>Real-time monitoring and control interface</p>
-            <button class="btn btn-danger" onclick="restartSystem()">Hard Reset</button>
+            <p>Real-time monitoring and control interface for your museum experience</p>
+            <div class="header-actions">
+                <button class="btn btn-danger" onclick="restartSystem()">🔄 Hard Reset</button>
+                <button class="btn btn-secondary" onclick="restartService()">🔄 Restart Service</button>
+            </div>
         </div>
 
         <div class="status-grid">
@@ -56,17 +63,17 @@
                     </div>
                 </div>
                 <div class="log-actions">
-                    <button class="btn btn-secondary btn-small" onclick="clearLogs()">🗑️ Clear</button>
-                    <button class="btn btn-secondary btn-small" onclick="exportLogs()">📤 Export</button>
-                    <button class="btn btn-secondary btn-small" id="autoScrollBtn" onclick="toggleAutoScroll()">📜 Auto-scroll</button>
+                    <button class="btn btn-secondary" onclick="clearLogs()">🗑️ Clear</button>
+                    <button class="btn btn-secondary" onclick="toggleAutoScroll()">📜 Auto-scroll</button>
+                    <button class="btn btn-primary" onclick="exportLogs()">📤 Export</button>
                 </div>
             </div>
             <div class="log-stats">
-                <span class="stat-item debug">DEBUG: <span id="debugCount">0</span></span>
-                <span class="stat-item info">INFO: <span id="infoCount">0</span></span>
-                <span class="stat-item warning">WARN: <span id="warningCount">0</span></span>
-                <span class="stat-item error">ERROR: <span id="errorCount">0</span></span>
-                <span class="stat-item critical">CRITICAL: <span id="criticalCount">0</span></span>
+                <div class="stat-item debug">DEBUG: <span id="debugCount">0</span></div>
+                <div class="stat-item info">INFO: <span id="infoCount">0</span></div>
+                <div class="stat-item warning">WARN: <span id="warningCount">0</span></div>
+                <div class="stat-item error">ERROR: <span id="errorCount">0</span></div>
+                <div class="stat-item critical">CRITICAL: <span id="criticalCount">0</span></div>
             </div>
             <div class="log-container" id="logContainer">
                 <div class="log-entry info">
@@ -92,33 +99,27 @@
 
         <div id="editor" class="tab-content">
             <h2>Scene Editor</h2>
-            <select id="sceneSelect">
+            <select class="scene-select" id="sceneSelect">
                 <option value="">Select a scene to edit</option>
             </select>
-            <div class="editor-container">
-                <textarea class="scene-editor" id="sceneEditor"></textarea>
-                <div class="log-actions">
-                    <button class="btn btn-success" onclick="saveScene()">💾 Save Scene</button>
-                    <button class="btn btn-primary" onclick="createNewScene()">➕ New Scene</button>
-                    <button class="btn btn-secondary" onclick="validateScene()">✅ Validate</button>
-                </div>
+            <textarea class="scene-editor" id="sceneEditor"></textarea>
+            <div class="editor-actions">
+                <button class="btn btn-success" onclick="saveScene()">💾 Save Scene</button>
+                <button class="btn btn-primary" onclick="createNewScene()">➕ New Scene</button>
+                <button class="btn btn-secondary" onclick="validateScene()">✅ Validate</button>
             </div>
         </div>
 
         <div id="stats" class="tab-content">
             <h2>System Statistics</h2>
-            <div class="status-grid">
-                <div class="status-card">
+            <div class="stats-grid">
+                <div class="stats-card">
                     <h3>Total Scenes Played</h3>
-                    <div class="status-value" id="totalScenesPlayed">0</div>
+                    <div class="stat-value" id="totalScenesPlayed">0</div>
                 </div>
-                <div class="status-card">
-                    <h3>Connection Events</h3>
-                    <div class="status-value" id="connectionEvents">0</div>
-                </div>
-                <div class="status-card">
+                <div class="stats-card">
                     <h3>Total Uptime</h3>
-                    <div class="status-value" id="totalUptime">0h 0m 0s</div>
+                    <div class="stat-value" id="totalUptime">0h 0m 0s</div>
                 </div>
             </div>
             <h3>Scene Play Counts</h3>
@@ -132,7 +133,7 @@
             </div>
         </div>
 
-        <div id="notification" class="notification"></div>
+        <div class="notification" id="notification"></div>
     </div>
 </body>
 </html>

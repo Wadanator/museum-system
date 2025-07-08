@@ -81,7 +81,7 @@ class MuseumWatchdog:
             current_time = time.time()
             if (current_time - self.last_health_log_time > self.health_log_interval or 
                 memory_mb > self.max_memory_mb * 0.8 or cpu_percent > self.max_cpu_percent * 0.8):
-                log.info(f"Health check: CPU {cpu_percent:.1f}%, Memory {memory_mb:.1f}MB")
+                log.debug(f"Health check: CPU {cpu_percent:.1f}%, Memory {memory_mb:.1f}MB")
                 self.last_health_log_time = current_time
             
             return True, f"Healthy - CPU: {cpu_percent:.1f}%, Memory: {memory_mb:.1f}MB"

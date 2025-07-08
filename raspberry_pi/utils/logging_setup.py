@@ -10,8 +10,7 @@ _logger_initialized = False
 
 def setup_logging(log_level=logging.INFO, log_dir=None, max_file_size=10*1024*1024, 
                   backup_count=5, daily_backup_days=30, console_colors=True,
-                  file_logging=True, console_logging=False, log_format='detailed',
-                  component_log_levels=None):
+                  file_logging=True, console_logging=False, log_format='detailed'):
     """
     Setup comprehensive logging with console and file handlers.
     
@@ -31,7 +30,6 @@ def setup_logging(log_level=logging.INFO, log_dir=None, max_file_size=10*1024*10
         file_logging: Enable file logging (default: True)
         console_logging: Enable console logging (default: True)
         log_format: Log format style - 'simple', 'detailed', 'json' (default: 'detailed')
-        component_log_levels: Dict of component-specific log levels (default: None)
     """
     
     class CleanFormatter(logging.Formatter):
@@ -167,15 +165,9 @@ def setup_logging(log_level=logging.INFO, log_dir=None, max_file_size=10*1024*10
         daily_handler.setFormatter(CleanFormatter(use_colors=False, format_style=log_format))
         logger.addHandler(daily_handler)
     
-    # Set component-specific log levels
-    if component_log_levels:
-        for component, level in component_log_levels.items():
-            component_logger = logging.getLogger(f'museum.{component}')
-            component_logger.setLevel(level)
-            logger.info(f"Set {component} log level to {logging.getLevelName(level)}")
-    
     # Log startup message
     logger.info(f"Logging initialized - Level: {logging.getLevelName(log_level)}")
+    
     # Setup exception handler for uncaught exceptions
     def handle_exception(exc_type, exc_value, exc_traceback):
         if issubclass(exc_type, KeyboardInterrupt):
@@ -198,8 +190,7 @@ def setup_logging_from_config(config_dict):
         console_colors=config_dict.get('console_colors', True),
         file_logging=config_dict.get('file_logging', True),
         console_logging=config_dict.get('console_logging', True),
-        log_format=config_dict.get('log_format', 'detailed'),
-        component_log_levels=config_dict.get('component_log_levels', {})
+        log_format=config_dict.get('log_format', 'detailed')
     )
 
 def get_logger(name=None):

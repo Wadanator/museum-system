@@ -1,9 +1,9 @@
 {
-  "total_scenes_played": 3,
+  "total_scenes_played": 43,
   "scene_play_counts": {
-    "test.json": 3
+    "test.json": 41,
+    "intro.json": 2
   },
-  "connection_events": 29,
-  "total_uptime": 1432.3759179115295,
-  "last_start_time": 1751668464.4156177
+  "total_uptime": 330583.43602752686,
+  "last_start_time": 1752009330.4715037
 }

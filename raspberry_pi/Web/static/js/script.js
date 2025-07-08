@@ -53,6 +53,11 @@ function showTab(tabName) {
         loadScenes();
     } else if (tabName === 'stats') {
         loadStats();
+    } else if (tabName === 'editor') {
+        const sceneSelect = document.getElementById('sceneSelect');
+        if (sceneSelect.value) {
+            loadSceneForEditing(sceneSelect.value);
+        }
     }
 }
 
@@ -113,13 +118,12 @@ function updateStatus() {
 // Statistics update
 function updateStats(stats) {
     document.getElementById('totalScenesPlayed').textContent = stats.total_scenes_played || 0;
-    document.getElementById('connectionEvents').textContent = stats.connection_events || 0;
     
     const totalUptime = stats.total_uptime || 0;
-        const hours = Math.floor(totalUptime / 3600);
-        const minutes = Math.floor((totalUptime % 3600) / 60);
-        const seconds = Math.floor(totalUptime % 60); // Round down to whole seconds
-        document.getElementById('totalUptime').textContent = `${hours}h ${minutes}m ${seconds}s`;
+    const hours = Math.floor(totalUptime / 3600);
+    const minutes = Math.floor((totalUptime % 3600) / 60);
+    const seconds = Math.floor(totalUptime % 60);
+    document.getElementById('totalUptime').textContent = `${hours}h ${minutes}m ${seconds}s`;
     
     const sceneStatsList = document.getElementById('sceneStatsList');
     sceneStatsList.innerHTML = '';
@@ -222,14 +226,34 @@ function clearLogs() {
 }
 
 function exportLogs() {
-    window.open('/api/logs/export', '_blank');
+    fetch('/api/logs/export')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to export logs');
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `museum_logs_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            showNotification('Logs exported successfully', 'success');
+        })
+        .catch(error => {
+            showNotification('Error exporting logs: ' + error.message, 'error');
+        });
 }
 
 function toggleAutoScroll() {
     autoScroll = !autoScroll;
     const button = event.target;
     button.textContent = autoScroll ? '📜 Auto-scroll' : '📜 Manual';
-    button.style.background = autoScroll ? '#6c757d' : '#ffc107';
+    button.style.background = autoScroll ? '' : '#ffc107';
 }
 
 // Scene management
@@ -292,6 +316,8 @@ function loadSceneForEditing(sceneName) {
         .then(data => {
             if (data.error) {
                 showNotification(data.error, 'error');
+                document.getElementById('sceneEditor').value = '';
+                currentScene = '';
             } else {
                 document.getElementById('sceneEditor').value = JSON.stringify(data, null, 2);
                 currentScene = sceneName;
@@ -393,9 +419,29 @@ function restartSystem() {
     }
 }
 
+function restartService() {
+    if (confirm('Are you sure you want to restart the museum-system service? This will interrupt current operations.')) {
+        fetch('/api/system/service/restart', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Service is restarting...', 'success');
+                } else {
+                    showNotification(data.error || 'Failed to restart service', 'error');
+                }
+            })
+            .catch(error => {
+                showNotification('Error communicating with server: ' + error.message, 'error');
+            });
+    }
+}
+
 document.getElementById('sceneSelect').addEventListener('change', function() {
     if (this.value) {
         loadSceneForEditing(this.value);
+    } else {
+        document.getElementById('sceneEditor').value = '';
+        currentScene = '';
     }
 });
 

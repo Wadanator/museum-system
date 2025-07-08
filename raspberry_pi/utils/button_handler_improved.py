@@ -35,3 +35,31 @@ class ButtonHandler:
     
     def cleanup(self):
         GPIO.cleanup()
+
+if __name__ == "__main__":
+    import logging
+    Button_pin = 27
+    # Set up logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    # Example callback function
+    def button_callback():
+        print("Button was pressed!")
+
+    # Create ButtonHandler instance
+    try:
+        button = ButtonHandler(pin=Button_pin, debounce_time=300, logger=logger)
+        button.set_callback(button_callback)
+        
+        print(f"Testing button on GPIO {Button_pin}. Press the button or Ctrl+C to exit.")
+        
+        # Main loop for testing
+        while True:
+            button.check_button_polling()
+            time.sleep(0.01)  # Small sleep to prevent CPU overuse
+            
+    except KeyboardInterrupt:
+        print("\nExiting test...")
+    finally:
+        button.cleanup()

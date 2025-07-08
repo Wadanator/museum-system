@@ -88,7 +88,7 @@ class MuseumController:
         
         # Initialize components with error handling
         self.mqtt_client = self._safe_init(
-            lambda: MQTTClient(self.config['broker_ip'], client_id=f"rpi_room_{self.room_id}", use_logging=False, logger=log),
+            lambda: MQTTClient(self.config['broker_ip'], client_id=f"rpi_room_{self.room_id}", logger=log),
             "MQTT Client")
         self.audio_handler = self._safe_init(
             lambda: AudioHandler(self.audio_dir, logger=log), 
@@ -148,7 +148,7 @@ class MuseumController:
             if self.shutdown_requested: 
                 return False
             
-            log.info(f"MQTT connection attempt {attempt}/{self.mqtt_retry_attempts} to {broker_ip}")
+            log.debug(f"MQTT connection attempt {attempt}/{self.mqtt_retry_attempts} to {broker_ip}")
             
             try:
                 if self.mqtt_client.connect(timeout=self.mqtt_connect_timeout):
@@ -179,7 +179,7 @@ class MuseumController:
     
     def on_button_press(self):
         if self.scene_running:
-            log.warning("Scene already running, ignoring button press")
+            log.info("Scene already running, ignoring button press")
             return
         
         if not self.connected_to_broker:
@@ -196,8 +196,7 @@ class MuseumController:
         scene_path = os.path.join(self.scenes_dir, self.room_id, self.json_file_name)
         
         if not os.path.exists(scene_path):
-            log.warning(f"Scene file not found: {scene_path}")
-            self.create_default_scene(scene_path)
+            log.critical(f"Scene file not found: {scene_path}")
         
         if not self.scene_parser:
             log.error("Scene parser not available")
@@ -210,24 +209,6 @@ class MuseumController:
             self.run_scene()
         else:
             log.error("Failed to load scene")
-    
-    def create_default_scene(self, scene_path):
-        default_scene = [
-            {"timestamp": 0, "topic": f"{self.room_id}/light", "message": "ON"},
-            {"timestamp": 2.0, "topic": f"{self.room_id}/audio", "message": "PLAY_WELCOME"},
-            {"timestamp": 5.0, "topic": f"{self.room_id}/light", "message": "BLINK"},
-            {"timestamp": 8.0, "topic": f"{self.room_id}/audio", "message": "STOP"},
-            {"timestamp": 10.0, "topic": f"{self.room_id}/light", "message": "OFF"},
-            {"timestamp": 12.0, "topic": f"{self.room_id}/video", "message": "PLAY_VIDEO:test.mp4"},
-            {"timestamp": 20.0, "topic": f"{self.room_id}/video", "message": "STOP_VIDEO"}
-        ]
-        
-        os.makedirs(os.path.dirname(scene_path), exist_ok=True)
-        
-        with open(scene_path, 'w') as f:
-            json.dump(default_scene, f, indent=2)
-        
-        log.info(f"Created default scene: {scene_path}")
     
     def run_scene(self):
         if not self.scene_parser.scene_data:
@@ -310,7 +291,7 @@ class MuseumController:
         if not self.test_mqtt_connection():
             if self.shutdown_requested: 
                 return
-            log.error("CRITICAL: Unable to establish MQTT connection")
+            log.critical("CRITICAL: Unable to establish MQTT connection")
             sys.exit(1)
         
         self.system_monitor.send_ready_notification()
