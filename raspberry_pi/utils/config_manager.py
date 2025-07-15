@@ -4,12 +4,13 @@ import os
 import configparser
 import logging
 from pathlib import Path
+from utils.logging_setup import get_logger
 
 class ConfigManager:
     def __init__(self, config_file=None, logger=None):
-        self.log = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger('config')
         
-        # Set default config file path
+        # Set config file path
         if config_file is None:
             script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             config_file = os.path.join(script_dir, "config", "config.ini")
@@ -17,91 +18,23 @@ class ConfigManager:
         self.config_file = config_file
         self.config = configparser.ConfigParser()
         
-        # Create config if it doesn't exist
+        # Load config file
         if not os.path.exists(config_file):
-            self.log.error(f"Config missing: {config_file}")
-            self.create_default_config()
+            self.logger.critical(f"Config file not found: {config_file}")
+            raise FileNotFoundError(f"Configuration file missing: {config_file}")
         
-        # Load configuration
         self.config.read(config_file)
-        self.log.info(f"Config loaded from: {config_file}")
-    
-    def create_default_config(self):
-        """Create a default configuration file"""
-        config = configparser.ConfigParser()
-        
-        config['MQTT'] = {
-            'BrokerIP': '192.168.0.127',
-            'Port': '1883'
-        }
-        
-        config['GPIO'] = {
-            'ButtonPin': '27'
-        }
-        
-        config['Room'] = {
-            'ID': 'room1'
-        }
-        
-        config['Scenes'] = {
-            'Directory': 'scenes'
-        }
-        
-        config['Audio'] = {
-            'Directory': 'audio'
-        }
-        
-        config['System'] = {
-            'health_check_interval': '30',
-            'main_loop_sleep': '0.5',
-            'mqtt_check_interval': '60',
-            'scene_processing_sleep': '0.20'
-        }
-        
-        config['Json'] = {
-            'json_file_name': 'intro.json'
-        }
-        
-        config['Logging'] = {
-            'log_level': 'INFO',
-            'log_directory': '',
-            'max_file_size_mb': '10',
-            'backup_count': '5',
-            'daily_backup_days': '30',
-            'console_colors': 'true',
-            'file_logging': 'true',
-            'console_logging': 'true',
-            'log_format': 'detailed',
-            'component_log_levels': 'mqtt:WARNING,audio:INFO,button:DEBUG'
-        }
-        
-        # Create directory and write config file
-        os.makedirs(os.path.dirname(self.config_file), exist_ok=True)
-        with open(self.config_file, 'w') as f:
-            config.write(f)
-        
-        self.log.info(f"Default config created: {self.config_file}")
+        self.logger.info(f"Config loaded from: {self.config_file}")
     
     def get_logging_config(self):
-        """Get logging configuration values"""
+        """Extract and validate logging configuration."""
         if not self.config.has_section('Logging'):
-            self.log.warning("Logging section not found in config, using defaults")
-            return {
-                'log_level': logging.INFO,
-                'log_directory': None,
-                'max_file_size': 10 * 1024 * 1024,
-                'backup_count': 5,
-                'daily_backup_days': 30,
-                'console_colors': True,
-                'file_logging': True,
-                'console_logging': True,
-                'log_format': 'detailed',
-                'component_log_levels': {}
-            }
+            self.logger.error("Logging section not found in config file!")
+            raise ValueError("Missing Logging section in configuration")
         
         logging_section = self.config['Logging']
         
-        # Convert log level string to logging constant
+        # Map log levels
         log_level_map = {
             'DEBUG': logging.DEBUG,
             'INFO': logging.INFO,
@@ -109,25 +42,18 @@ class ConfigManager:
             'ERROR': logging.ERROR,
             'CRITICAL': logging.CRITICAL
         }
-        log_level = log_level_map.get(logging_section.get('log_level', 'INFO').upper(), logging.INFO)
+        
+        log_level = log_level_map.get(
+            logging_section.get('log_level', 'INFO').upper(), 
+            logging.INFO
+        )
         
         # Handle log directory
         log_dir = logging_section.get('log_directory', '').strip()
         log_dir = Path(log_dir) if log_dir else None
         
-        # Convert file size from MB to bytes
+        # Convert file size to bytes
         max_file_size = int(logging_section.get('max_file_size_mb', '10')) * 1024 * 1024
-        
-        # Parse component log levels
-        component_levels = {}
-        component_str = logging_section.get('component_log_levels', '')
-        if component_str:
-            for item in component_str.split(','):
-                if ':' in item:
-                    component, level = item.strip().split(':', 1)
-                    level_upper = level.upper()
-                    if level_upper in log_level_map:
-                        component_levels[component.strip()] = log_level_map[level_upper]
         
         return {
             'log_level': log_level,
@@ -138,39 +64,60 @@ class ConfigManager:
             'console_colors': logging_section.get('console_colors', 'true').lower() == 'true',
             'file_logging': logging_section.get('file_logging', 'true').lower() == 'true',
             'console_logging': logging_section.get('console_logging', 'true').lower() == 'true',
-            'log_format': logging_section.get('log_format', 'detailed'),
-            'component_log_levels': component_levels
+            'log_format': logging_section.get('log_format', 'detailed')
         }
     
     def get_all_config(self):
-        """Get all configuration as a single dictionary"""
+        """Get all configuration values with proper type conversion."""
         script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         
-        return {
-            # MQTT
-            'broker_ip': self.config['MQTT']['BrokerIP'],
-            'port': int(self.config['MQTT']['Port']),
+        # Configuration mapping with type conversion
+        config_map = {
+            # MQTT settings
+            'broker_ip': (self.config['MQTT']['broker_ip'], str),
+            'port': (self.config['MQTT']['port'], int),
             
-            # GPIO
-            'button_pin': int(self.config['GPIO']['ButtonPin']),
+            # GPIO settings
+            'button_pin': (self.config['GPIO']['button_pin'], int),
+            'debounce_time': (self.config['GPIO'].get('debounce_time', '300'), int),
             
-            # Room
-            'room_id': self.config['Room']['ID'],
+            # Room settings
+            'room_id': (self.config['Room']['room_id'], str),
+            'json_file_name': (self.config['Json']['json_file_name'], str),
             
-            # System
-            'health_check_interval': int(self.config['System'].get('health_check_interval', '30')),
-            'main_loop_sleep': float(self.config['System'].get('main_loop_sleep', '0.5')),
-            'mqtt_check_interval': int(self.config['System'].get('mqtt_check_interval', '60')),
-            'scene_processing_sleep': float(self.config['System'].get('scene_processing_sleep', '0.20')),
+            # System timing settings
+            'health_check_interval': (self.config['System'].get('health_check_interval', '60'), int),
+            'main_loop_sleep': (self.config['System'].get('main_loop_sleep', '1'), float),
+            'mqtt_check_interval': (self.config['System'].get('mqtt_check_interval', '60'), int),
+            'scene_processing_sleep': (self.config['System'].get('scene_processing_sleep', '0.20'), float),
+            'web_dashboard_port': (self.config['System'].get('web_dashboard_port', '5000'), int),
+            'scene_buffer_time': (self.config['System'].get('scene_buffer_time', '1'), float),
             
-            # JSON
-            'json_file_name': self.config['Json']['json_file_name'],
+            # MQTT connection settings
+            'mqtt_retry_attempts': (self.config['System'].get('mqtt_retry_attempts', '5'), int),
+            'mqtt_retry_sleep': (self.config['System'].get('mqtt_retry_sleep', '2'), float),
+            'mqtt_connect_timeout': (self.config['System'].get('mqtt_connect_timeout', '10'), int),
+            'mqtt_reconnect_timeout': (self.config['System'].get('mqtt_reconnect_timeout', '5'), int),
+            'mqtt_reconnect_sleep': (self.config['System'].get('mqtt_reconnect_sleep', '0.5'), float),
             
-            # Directories - now using config values properly
-            'scenes_dir': os.path.join(script_dir, self.config['Scenes']['Directory']),
-            'audio_dir': os.path.join(script_dir, self.config['Audio']['Directory']),
-            'video_dir': os.path.join(script_dir, self.config['Video']['Directory']),
-            
-            # Logging (merged)
-            **self.get_logging_config()
+            # Video settings
+            'ipc_socket': (self.config['Video']['ipc_socket'], str),
+            'black_image': (self.config['Video']['black_image'], str),
         }
+        
+        # Convert values to proper types
+        result = {}
+        for key, (value, type_converter) in config_map.items():
+            result[key] = type_converter(value)
+        
+        # Add directory paths
+        result.update({
+            'scenes_dir': os.path.join(script_dir, self.config['Scenes']['directory']),
+            'audio_dir': os.path.join(script_dir, self.config['Audio']['directory']),
+            'video_dir': os.path.join(script_dir, self.config['Video']['directory']),
+        })
+        
+        # Add logging configuration
+        result.update(self.get_logging_config())
+        
+        return result

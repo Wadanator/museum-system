@@ -5,13 +5,15 @@
     "topic": "room1/light"
   },
   {
-    "message": "PLAY:welcome.wav:1.0",
+    "message": "PLAY:welcome.mp3:1.0",
     "timestamp": 0,
     "topic": "room1/audio"
   },
-
-  {"timestamp": 0, "topic": "room1/video", "message": "PLAY_VIDEO:test.mp4"},
-
+  {
+    "message": "PLAY_VIDEO:ghost.mp4",
+    "timestamp": 0,
+    "topic": "room1/video"
+  },
   {
     "message": "BLINK",
     "timestamp": 1,
@@ -127,10 +129,11 @@
     "timestamp": 10,
     "topic": "room1/light"
   },
-
   {
-    "timestamp": 10.0, "topic": "room1/video", "message": "STOP_VIDEO"},
-
+    "message": "STOP_VIDEO",
+    "timestamp": 10,
+    "topic": "room1/video"
+  },
   {
     "message": "VOLUME:1.0",
     "timestamp": 10,

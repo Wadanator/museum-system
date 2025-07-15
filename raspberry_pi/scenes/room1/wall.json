@@ -1,6 +1,6 @@
 [
   {
-    "message": "PLAY:welcome.wav:0.9",
+    "message": "PLAY:welcome.mp3:0.9",
     "timestamp": 0,
     "topic": "room1/audio"
   },

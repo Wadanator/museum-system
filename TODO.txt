@@ -1,3 +1,24 @@
 Shut down - MQTT to run off all things in case of restart etc
 
 Watchdog pings GOOGLE but it shouldnt
+
+GET RID OF MPV and black.png from config adn parser
+
+
+
+
+
+
+StandardOutput=append:/var/log/museum-system.log
+StandardError=append:/var/log/museum-system-error.log
+edited to 
+StandardOutput=inherit
+StandardError=inherit
+
+
+
+sudo apt install mpv
+sudo apt install mosquitto mosquitto-clients
+sudo systemctl enable mosquitto
+sudo systemctl start mosquitto
+sudo apt install systemd

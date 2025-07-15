@@ -2,29 +2,39 @@
 import paho.mqtt.client as mqtt
 import json
 import time
-import logging
-import sys
-import os
-from datetime import datetime
+import threading
+from utils.logging_setup import get_logger
 
 class MQTTClient:
-    def __init__(self, broker_host, broker_port=1883, client_id=None, use_logging=True, logger=None):
+    def __init__(self, broker_host, broker_port=1883, client_id=None, logger=None, 
+                 retry_attempts=3, retry_sleep=5, connect_timeout=10, 
+                 reconnect_timeout=30, reconnect_sleep=5, check_interval=60):
         self.broker_host = broker_host
         self.broker_port = broker_port
-        self.use_logging = use_logging
         self.connected = False
-        # Use provided logger or fallback to default
-        self.logger = logger if logger else logging.getLogger('museum')
+        self.logger = logger or get_logger('mqtt')
+        self.connected_devices = {}
+        
+        # Connection parameters
+        self.retry_attempts = retry_attempts
+        self.retry_sleep = retry_sleep
+        self.connect_timeout = connect_timeout
+        self.reconnect_timeout = reconnect_timeout
+        self.reconnect_sleep = reconnect_sleep
+        self.check_interval = check_interval
+        
+        # State management
+        self.shutdown_requested = False
+        self.connection_lost_callback = None
+        self.connection_restored_callback = None
         
         # Fix for paho-mqtt 2.0+ compatibility
         try:
-            # Try the new API first (paho-mqtt 2.0+)
             self.client = mqtt.Client(
                 client_id=client_id,
                 callback_api_version=mqtt.CallbackAPIVersion.VERSION1
             )
         except TypeError:
-            # Fallback to old API (paho-mqtt 1.x)
             self.client = mqtt.Client(client_id=client_id)
         
         # Set up callbacks
@@ -33,124 +43,194 @@ class MQTTClient:
         self.client.on_message = self._on_message
         self.client.on_publish = self._on_publish
     
+    def set_connection_callbacks(self, lost_callback=None, restored_callback=None):
+        """Set callbacks for connection state changes."""
+        self.connection_lost_callback = lost_callback
+        self.connection_restored_callback = restored_callback
+    
     def _on_connect(self, client, userdata, flags, rc):
         if rc == 0:
+            was_connected = self.connected
             self.connected = True
-            if self.use_logging:
-                self.logger.info(f"Connected to MQTT broker at {self.broker_host}:{self.broker_port}")
+            self.logger.info(f"Connected to MQTT broker at {self.broker_host}:{self.broker_port}")
+            # Subscribe to device status topic
+            self.subscribe("devices/+/status")
+            if not was_connected and self.connection_restored_callback:
+                self.connection_restored_callback()
         else:
             self.connected = False
-            if self.use_logging:
-                self.logger.error(f"Failed to connect to MQTT broker. Return code: {rc}")
+            self.logger.error(f"Failed to connect to MQTT broker. Return code: {rc}")
     
     def _on_disconnect(self, client, userdata, rc):
+        was_connected = self.connected
         self.connected = False
-        if self.use_logging:
-            self.logger.warning(f"Disconnected from MQTT broker. Return code: {rc}")
+        self.logger.info(f"Disconnected from MQTT broker. Return code: {rc}")
+        if was_connected and self.connection_lost_callback:
+            self.connection_lost_callback()
     
     def _on_message(self, client, userdata, msg):
-        if self.use_logging:
-            self.logger.info(f"Received message: {msg.topic} - {msg.payload.decode()}")
+        try:
+            topic_parts = msg.topic.split('/')
+            if len(topic_parts) == 3 and topic_parts[0] == 'devices' and topic_parts[2] == 'status':
+                device_id = topic_parts[1]
+                status = msg.payload.decode()
+                if (device_id in self.connected_devices and 
+                    self.connected_devices[device_id]['status'] == 'online' and 
+                    status == 'offline'):
+                    self.logger.warning(f"Device {device_id} disconnected")
+                self.connected_devices[device_id] = {
+                    'status': status,
+                    'last_updated': time.time()
+                }
+                self.logger.debug(f"Device {device_id} status: {status}")
+        except Exception as e:
+            self.logger.error(f"Error processing message on {msg.topic}: {e}")
+    
+    def get_connected_devices(self):
+        """Return the list of connected devices."""
+        return {
+            device_id: info for device_id, info in self.connected_devices.items()
+            if info['status'] == 'online'
+        }
     
     def _on_publish(self, client, userdata, mid):
-        if self.use_logging:
-            self.logger.info(f"Message published with ID: {mid}")
+        self.logger.debug(f"Message published with ID: {mid}")
     
     def connect(self, timeout=10):
         try:
             self.client.connect(self.broker_host, self.broker_port, timeout)
             self.client.loop_start()
             
-            # Wait for connection to be established
             start_time = time.time()
             while not self.connected and (time.time() - start_time) < timeout:
                 time.sleep(0.1)
             
-            if not self.connected and self.use_logging:
+            if not self.connected:
                 self.logger.error(f"Connection timeout after {timeout}s")
             return self.connected
         except Exception as e:
-            if self.use_logging:
-                self.logger.error(f"Error connecting to MQTT broker: {e}")
+            self.logger.error(f"Error connecting to MQTT broker: {e}")
             return False
+    
+    def connect_with_retry(self, use_fallback=False):
+        """Connect to MQTT broker with retry logic and fallback."""
+        for attempt in range(self.retry_attempts):
+            if self.shutdown_requested:
+                return False
+            
+            self.logger.info(f"MQTT connection attempt {attempt + 1}/{self.retry_attempts}")
+            
+            if self.connect(self.connect_timeout):
+                return True
+            
+            if attempt < self.retry_attempts - 1:
+                self.logger.warning(f"Connection failed, retrying in {self.retry_sleep}s...")
+                time.sleep(self.retry_sleep)
+        
+        if use_fallback:
+            self.logger.warning("Primary connection failed, attempting fallback...")
+            fallback_hosts = ["192.168.1.100", "localhost", "127.0.0.1"]
+            
+            for host in fallback_hosts:
+                if host == self.broker_host:
+                    continue
+                
+                self.logger.info(f"Trying fallback host: {host}")
+                original_host = self.broker_host
+                self.broker_host = host
+                
+                if self.connect(self.connect_timeout):
+                    self.logger.info(f"Connected to fallback host: {host}")
+                    return True
+                
+                self.broker_host = original_host
+        
+        return False
+    
+    def check_and_reconnect(self):
+        """Check connection and reconnect if needed."""
+        if not self.connected:
+            self.logger.warning("MQTT connection lost, attempting to reconnect...")
+            if self.connect_with_retry():
+                self.logger.info("MQTT connection restored")
+                return True
+            else:
+                self.logger.error("Failed to restore MQTT connection")
+                return False
+        return True
     
     def disconnect(self):
         if self.connected:
             self.client.loop_stop()
             self.client.disconnect()
-            if self.use_logging:
-                self.logger.info("MQTT disconnected")
+            self.logger.info("MQTT disconnected")
     
     def publish(self, topic, message, qos=0, retain=False):
         if not self.connected:
-            if self.use_logging:
-                self.logger.warning("Not connected to MQTT broker")
+            self.logger.warning("Not connected to MQTT broker")
             return False
         
         try:
-            # Convert message to JSON string if it's a dict
             if isinstance(message, dict):
                 message = json.dumps(message)
             
             result = self.client.publish(topic, message, qos, retain)
             
-            if self.use_logging and result.rc == mqtt.MQTT_ERR_SUCCESS:
-                self.logger.info(f"Publishing to {topic}: {message}")
-            
-            if result.rc != mqtt.MQTT_ERR_SUCCESS and self.use_logging:
+            if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                self.logger.debug(f"Publishing to {topic}: {message}")
+            else:
                 self.logger.error(f"Failed to publish to {topic}: RC {result.rc}")
             
             return result.rc == mqtt.MQTT_ERR_SUCCESS
         except Exception as e:
-            if self.use_logging:
-                self.logger.error(f"Error publishing message: {e}")
+            self.logger.error(f"Error publishing message: {e}")
             return False
     
     def subscribe(self, topic, qos=0):
         if not self.connected:
-            if self.use_logging:
-                self.logger.warning("Not connected to MQTT broker")
+            self.logger.warning("Not connected to MQTT broker")
             return False
         
         try:
             result = self.client.subscribe(topic, qos)
-            if self.use_logging and result[0] == mqtt.MQTT_ERR_SUCCESS:
+            if result[0] == mqtt.MQTT_ERR_SUCCESS:
                 self.logger.info(f"Subscribed to topic: {topic}")
-            elif self.use_logging:
+            else:
                 self.logger.error(f"Failed to subscribe to {topic}: RC {result[0]}")
             return result[0] == mqtt.MQTT_ERR_SUCCESS
         except Exception as e:
-            if self.use_logging:
-                self.logger.error(f"Error subscribing to topic: {e}")
+            self.logger.error(f"Error subscribing to topic: {e}")
             return False
     
     def is_connected(self):
         return self.connected
+    
+    def cleanup(self):
+        """Clean up MQTT resources."""
+        self.shutdown_requested = True
+        self.connected_devices.clear()
+        self.disconnect()
+        self.logger.info("MQTT client cleaned up")
 
 # Example usage and testing
 if __name__ == "__main__":
-    # Set up logging same as first code
     from utils.logging_setup import setup_logging
-    log = setup_logging()
+    logger = setup_logging()
     
-    # Test the MQTT client
-    client = MQTTClient("localhost", use_logging=True, logger=log)
+    client = MQTTClient("localhost", logger=logger)
     
     if client.connect():
-        log.info("Connection successful!")
+        logger.info("Connection successful!")
         
-        # Test publishing
         test_message = {"device": "test", "value": 42, "timestamp": time.time()}
         client.publish("test/topic", test_message)
         
-        # Test subscribing
         client.subscribe("test/topic")
         
-        # Keep alive for a bit
         time.sleep(2)
         
         client.disconnect()
-        log.info("Test completed")
+        logger.info("Test completed")
     else:
-        log.error("Failed to connect to MQTT broker")
-        log.info("Make sure your MQTT broker is running on localhost:1883")
+        logger.error("Failed to connect to MQTT broker")
+        logger.info("Make sure your MQTT broker is running on localhost:1883")

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Museum System JSON Generator</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 transition-colors duration-300">
+    <div class="container mx-auto p-6 max-w-4xl">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800 dark:text-white">🏛️ Museum System JSON Generator</h1>
+            <button id="theme-toggle" class="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white" title="Toggle Dark/Light Mode">
+                <i class="fas fa-moon"></i>
+            </button>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6">
+            <div class="mb-4">
+                <label for="room" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Miestnosť:</label>
+                <select id="room" class="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:text-white">
+                    <option value="room1">Room 1</option>
+                    <option value="room2">Room 2</option>
+                    <option value="room3">Room 3</option>
+                    <option value="room4">Room 4</option>
+                    <option value="room5">Room 5</option>
+                </select>
+            </div>
+
+            <div class="mb-4">
+                <label for="timestamp" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Časová značka (sekundy):</label>
+                <input type="number" id="timestamp" min="0" value="0" class="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:text-white">
+            </div>
+
+            <div class="mb-4">
+                <label for="topic" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Topic:</label>
+                <select id="topic" onchange="toggleCustomTopic(); toggleControls(); updateMessageOptions();" class="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:text-white">
+                    <option value="light">Light</option>
+                    <option value="motor">Motor</option>
+                    <option value="audio">Audio</option>
+                    <option value="video">Video</option>
+                    <option value="custom">Vlastný topic</option>
+                </select>
+            </div>
+
+            <div id="custom-topic-section" class="mb-4 hidden">
+                <label for="custom-topic" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Vlastný topic:</label>
+                <input type="text" id="custom-topic" placeholder="napr. custom" class="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:text-white">
+            </div>
+
+            <div id="message-section" class="mb-4">
+                <label for="message" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Správa:</label>
+                <select id="message" class="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:text-white">
+                    <option value="ON">ON</option>
+                    <option value="OFF">OFF</option>
+                </select>
+                <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">Ak zadáte vlastnú správu, použije sa namiesto vybranej možnosti</p>
+                <input type="text" id="custom-message" placeholder="Vlastná správa (napr. SPEED:50)" class="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:text-white">
+            </div>
+
+            <div id="audio-controls" class="mb-4 hidden">
+                <h2 class="text-lg font-semibold text-gray-800 dark:text-white">🎵 Audio príkazy:</h2>
+                <div class="grid grid-cols-1 gap-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Audio akcia:</label>
+                    <select id="audio-action" class="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:text-white">
+                        <option value="PLAY">PLAY</option>
+                        <option value="STOP">STOP</option>
+                        <option value="PAUSE">PAUSE</option>
+                        <option value="RESUME">RESUME</option>
+                        <option value="VOLUME">VOLUME</option>
+                    </select>
+                    <div id="audio-play-fields" class="mt-2">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Názov súboru (pre PLAY):</label>
+                        <input type="text" id="audio-filename" placeholder="Napr. welcome.mp3" class="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:text-white">
+                    </div>
+                    <div id="audio-volume-field" class="mt-2">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Hlasitosť (pre PLAY alebo VOLUME):</label>
+                        <input type="range" id="audio-volume" min="0" max="1" step="0.1" value="0.7" class="mt-1 w-full">
+                        <span id="audio-volume-value" class="text-sm text-gray-500 dark:text-gray-400">0.7</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="video-controls" class="mb-4 hidden">
+                <h2 class="text-lg font-semibold text-gray-800 dark:text-white">🎥 Video príkazy:</h2>
+                <div class="grid grid-cols-1 gap-2">
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Video akcia:</label>
+                    <select id="video-action" class="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:text-white">
+                        <option value="PLAY_VIDEO">PLAY_VIDEO</option>
+                        <option value="STOP_VIDEO">STOP_VIDEO</option>
+                        <option value="PAUSE">PAUSE</option>
+                        <option value="RESUME">RESUME</option>
+                        <option value="SEEK">SEEK</option>
+                    </select>
+                    <div id="video-play-fields" class="mt-2">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Názov súboru (pre PLAY_VIDEO):</label>
+                        <input type="text" id="video-filename" placeholder="Napr. ghost.mp4" class="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:text-white">
+                    </div>
+                    <div id="video-seek-field" class="mt-2">
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Čas (sekundy, pre SEEK):</label>
+                        <input type="number" id="video-seek" min="0" step="1" value="0" class="mt-1 block w-full p-2 border rounded-md dark:bg-gray-700 dark:text-white">
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-4">
+                <button id="add-command-btn" onclick="addCommand()" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 w-full" title="Add or update a command">
+                    <i class="fas fa-plus mr-2"></i> <span id="add-command-text">Pridať príkaz</span>
+                </button>
+                <button id="cancel-edit-btn" onclick="cancelEdit()" class="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 w-full hidden" title="Cancel editing">
+                    <i class="fas fa-times mr-2"></i> Zrušiť úpravu
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-white">📋 Zoznam príkazov</h2>
+            <ul id="command-list" class="mt-4 space-y-2"></ul>
+        </div>
+
+        <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+            <h2 class="text-lg font-semibold text-gray-800 dark:text-white">📄 JSON výstup</h2>
+            <textarea id="json-output" rows="10" readonly class="mt-4 w-full p-2 border rounded-md dark:bg-gray-700 dark:text-white font-mono"></textarea>
+            <div class="flex flex-wrap gap-4 mt-4">
+                <button onclick="generateJson()" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600" title="Generate JSON from commands">
+                    <i class="fas fa-sync-alt mr-2"></i> Generovať JSON
+                </button>
+                <button onclick="downloadJson()" class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600" title="Download JSON file">
+                    <i class="fas fa-download mr-2"></i> Stiahnuť JSON
+                </button>
+                <button onclick="clearAll()" class="bg-red-500 text-white px-4 py-2 rounded-md hover:bg-red-600" title="Clear all commands and JSON">
+                    <i class="fas fa-trash mr-2"></i> Vymazať všetko
+                </button>
+                <input type="file" id="load-json" accept=".json" onchange="loadJson()" class="hidden">
+                <label for="load-json" class="bg-purple-500 text-white px-4 py-2 rounded-md hover:bg-purple-600 cursor-pointer" title="Load JSON file">
+                    <i class="fas fa-upload mr-2"></i> Načítať JSON
+                </label>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

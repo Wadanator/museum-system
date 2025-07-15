@@ -1,0 +1,42 @@
+[
+  {
+    "message": "ON",
+    "timestamp": 0,
+    "topic": "room1/light"
+  },
+  {
+    "message": "PLAY:welcome.mp3:0.7",
+    "timestamp": 0,
+    "topic": "room1/audio"
+  },
+  {
+    "message": "START",
+    "timestamp": 1,
+    "topic": "room1/motor"
+  },
+  {
+    "message": "PLAY_VIDEO:ghost2.mp4",
+    "timestamp": 3,
+    "topic": "room1/video"
+  },
+  {
+    "message": "OFF",
+    "timestamp": 6,
+    "topic": "room1/light"
+  },
+  {
+    "message": "STOP",
+    "timestamp": 7,
+    "topic": "room1/motor"
+  },
+  {
+    "message": "STOP_VIDEO",
+    "timestamp": 12,
+    "topic": "room1/video"
+  },
+  {
+    "message": "STOP",
+    "timestamp": 10,
+    "topic": "room1/audio"
+  }
+]
