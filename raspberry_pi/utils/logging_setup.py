@@ -5,44 +5,24 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-# Global variable to track logger initialization
-_logger_initialized = False
+def get_default_log_dir():
+    """Get the default log directory relative to the project root."""
+    script_dir = Path(__file__).resolve().parent
+    return script_dir.parent / "logs"
 
 def setup_logging(log_level=logging.INFO, log_dir=None, max_file_size=10*1024*1024, 
-                  backup_count=5, daily_backup_days=30, console_colors=True,
-                  file_logging=True, console_logging=False, log_format='detailed'):
+                 backup_count=5, daily_backup_days=30, console_colors=True,
+                 file_logging=True, console_logging=False, log_format='detailed'):
     """
     Setup comprehensive logging with console and file handlers.
-    
-    Creates 4 separate log files:
-    - museum.log (all levels)
-    - museum-warnings.log (warnings only)
-    - museum-errors.log (errors and critical only)
-    - museum-daily.log (daily rotating, info and above)
-    
-    Args:
-        log_level: Default logging level (default: INFO)
-        log_dir: Custom log directory path (default: ~/Documents/GitHub/museum-system/logs)
-        max_file_size: Max file size before rotation in bytes (default: 10MB)
-        backup_count: Number of backup files to keep (default: 5)
-        daily_backup_days: Days to keep daily logs (default: 30)
-        console_colors: Enable console colors (default: True)
-        file_logging: Enable file logging (default: True)
-        console_logging: Enable console logging (default: True)
-        log_format: Log format style - 'simple', 'detailed', 'json' (default: 'detailed')
+    Creates 4 log files: main, warnings, errors, and daily rotating logs.
     """
     
     class CleanFormatter(logging.Formatter):
-        """Custom formatter with color support and multiple format options."""
-        
-        # ANSI color codes
+        """Custom formatter with color support and multiple format styles."""
         COLORS = {
-            'DEBUG': '\033[36m',    # Cyan
-            'INFO': '\033[32m',     # Green
-            'WARNING': '\033[33m',  # Yellow
-            'ERROR': '\033[31m',    # Red
-            'CRITICAL': '\033[35m', # Magenta
-            'RESET': '\033[0m'      # Reset
+            'DEBUG': '\033[36m', 'INFO': '\033[32m', 'WARNING': '\033[33m',
+            'ERROR': '\033[31m', 'CRITICAL': '\033[35m', 'RESET': '\033[0m'
         }
         
         def __init__(self, use_colors=False, format_style='detailed'):
@@ -51,6 +31,13 @@ def setup_logging(log_level=logging.INFO, log_dir=None, max_file_size=10*1024*10
             self.format_style = format_style
         
         def format(self, record):
+            # Extract and format module name
+            module = record.name.split('.')[-1] if '.' in record.name else record.name
+            if module.startswith('utils.'):
+                module = module.split('.')[-1]
+            module = module[:12].ljust(12)
+            
+            # Format based on style
             if self.format_style == 'simple':
                 message = f"{record.levelname}: {record.getMessage()}"
             elif self.format_style == 'json':
@@ -58,7 +45,7 @@ def setup_logging(log_level=logging.INFO, log_dir=None, max_file_size=10*1024*10
                 log_obj = {
                     'timestamp': datetime.now().isoformat(),
                     'level': record.levelname,
-                    'module': record.name,
+                    'module': module.strip(),
                     'message': record.getMessage()
                 }
                 if record.exc_info:
@@ -67,16 +54,15 @@ def setup_logging(log_level=logging.INFO, log_dir=None, max_file_size=10*1024*10
             else:  # detailed
                 timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
                 level = record.levelname.ljust(8)
-                module = record.name.split('.')[-1][:12].ljust(12)
                 message = f"[{timestamp}] {level} {module} {record.getMessage()}"
             
-            # Add colors for console (not for JSON format)
+            # Apply colors for console output
             if self.use_colors and self.format_style != 'json' and record.levelname in self.COLORS:
                 color = self.COLORS[record.levelname]
                 reset = self.COLORS['RESET']
                 message = f"{color}{message}{reset}"
             
-            # Add exception info if present (not for JSON format)
+            # Add exception info if present
             if record.exc_info and self.format_style != 'json':
                 message += '\n' + self.formatException(record.exc_info)
             
@@ -84,7 +70,6 @@ def setup_logging(log_level=logging.INFO, log_dir=None, max_file_size=10*1024*10
     
     class LevelFilter(logging.Filter):
         """Filter to only allow specific log levels."""
-        
         def __init__(self, level):
             super().__init__()
             self.level = level
@@ -92,62 +77,57 @@ def setup_logging(log_level=logging.INFO, log_dir=None, max_file_size=10*1024*10
         def filter(self, record):
             return record.levelno == self.level
     
-    # Get or create logger
+    # Initialize logger
     logger = logging.getLogger('museum')
-    
-    # Prevent duplicate handlers if called multiple times
-    if logger.handlers:
+    if logger.handlers:  # Prevent duplicate handlers
         return logger
     
     logger.setLevel(log_level)
-    logger.propagate = False  # Prevent duplicate logs
+    logger.propagate = False
     
-    # Console handler
+    # Setup console handler
     if console_logging:
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(log_level)
         console_handler.setFormatter(CleanFormatter(use_colors=console_colors, format_style=log_format))
         logger.addHandler(console_handler)
     
-    # File logging
+    # Setup file logging
     if file_logging:
-        # Setup log directory
-        if log_dir is None:
-            log_dir = Path.home() / "Documents" / "GitHub" / "museum-system" / "logs"
-        else:
-            log_dir = Path(log_dir)
-        
+        # Create log directories
+        log_dir = Path(log_dir) if log_dir else get_default_log_dir()
         log_dir.mkdir(parents=True, exist_ok=True)
+        daily_log_dir = log_dir / "daily"
+        daily_log_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Log directory info
+        logger_temp = logging.getLogger('museum.setup')
+        logger_temp.info(f"Main log directory: {log_dir.resolve()}")
+        logger_temp.info(f"Daily log directory: {daily_log_dir.resolve()}")
         
         # Main rotating log file (all levels)
         main_handler = logging.handlers.RotatingFileHandler(
-            log_dir / 'museum.log',
-            maxBytes=max_file_size,
-            backupCount=backup_count,
-            encoding='utf-8'
+            log_dir / 'museum.log', maxBytes=max_file_size, 
+            backupCount=backup_count, encoding='utf-8'
         )
         main_handler.setLevel(logging.DEBUG)
         main_handler.setFormatter(CleanFormatter(use_colors=False, format_style=log_format))
         logger.addHandler(main_handler)
         
-        # Warning-only log file with rotation
+        # Warning-only log file
         warning_handler = logging.handlers.RotatingFileHandler(
-            log_dir / 'museum-warnings.log',
-            maxBytes=max_file_size,
-            backupCount=backup_count,
-            encoding='utf-8'
+            log_dir / 'museum-warnings.log', maxBytes=max_file_size,
+            backupCount=backup_count, encoding='utf-8'
         )
         warning_handler.setLevel(logging.WARNING)
         warning_handler.addFilter(LevelFilter(logging.WARNING))
         warning_handler.setFormatter(CleanFormatter(use_colors=False, format_style=log_format))
         logger.addHandler(warning_handler)
         
-        # Error-only log file with rotation
+        # Error-only log file
         error_handler = logging.handlers.RotatingFileHandler(
-            log_dir / 'museum-errors.log',
-            maxBytes=max_file_size,
-            backupCount=backup_count,
-            encoding='utf-8'
+            log_dir / 'museum-errors.log', maxBytes=max_file_size,
+            backupCount=backup_count, encoding='utf-8'
         )
         error_handler.setLevel(logging.ERROR)
         error_handler.setFormatter(CleanFormatter(use_colors=False, format_style=log_format))
@@ -155,11 +135,8 @@ def setup_logging(log_level=logging.INFO, log_dir=None, max_file_size=10*1024*10
         
         # Daily rotating log file
         daily_handler = logging.handlers.TimedRotatingFileHandler(
-            log_dir / 'museum-daily.log',
-            when='midnight',
-            interval=1,
-            backupCount=daily_backup_days,
-            encoding='utf-8'
+            daily_log_dir / 'museum-daily.log', when='midnight', interval=1,
+            backupCount=daily_backup_days, encoding='utf-8'
         )
         daily_handler.setLevel(logging.INFO)
         daily_handler.setFormatter(CleanFormatter(use_colors=False, format_style=log_format))
@@ -168,7 +145,7 @@ def setup_logging(log_level=logging.INFO, log_dir=None, max_file_size=10*1024*10
     # Log startup message
     logger.info(f"Logging initialized - Level: {logging.getLevelName(log_level)}")
     
-    # Setup exception handler for uncaught exceptions
+    # Setup global exception handler
     def handle_exception(exc_type, exc_value, exc_traceback):
         if issubclass(exc_type, KeyboardInterrupt):
             sys.__excepthook__(exc_type, exc_value, exc_traceback)
@@ -176,11 +153,10 @@ def setup_logging(log_level=logging.INFO, log_dir=None, max_file_size=10*1024*10
         logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
     
     sys.excepthook = handle_exception
-    
     return logger
 
 def setup_logging_from_config(config_dict):
-    """Setup logging using configuration dictionary"""
+    """Setup logging using configuration dictionary."""
     return setup_logging(
         log_level=config_dict.get('log_level', logging.INFO),
         log_dir=config_dict.get('log_directory'),
@@ -198,35 +174,3 @@ def get_logger(name=None):
     if name:
         return logging.getLogger(f'museum.{name}')
     return logging.getLogger('museum')
-
-# Convenience function for testing
-def test_logging():
-    """Test function to demonstrate logging capabilities."""
-    logger = setup_logging(log_level=logging.DEBUG)
-    
-    logger.debug("Debug message - detailed diagnostic info")
-    logger.info("Info message - general information")
-    logger.warning("Warning message - something unusual happened")
-    logger.error("Error message - something went wrong")
-    logger.critical("Critical message - serious error occurred")
-    
-    # Test child logger
-    child_logger = get_logger('test_module')
-    child_logger.info("Message from child logger")
-    child_logger.warning("Warning from child logger")
-    child_logger.error("Error from child logger")
-    
-    # Test exception logging
-    try:
-        1 / 0
-    except Exception:
-        logger.exception("Exception occurred during division")
-    
-    print("\nLog files created:")
-    print("- museum.log (all levels)")
-    print("- museum-warnings.log (warnings only)")
-    print("- museum-errors.log (errors and critical)")
-    print("- museum-daily.log (daily rotation, info+)")
-
-if __name__ == "__main__":
-    test_logging()

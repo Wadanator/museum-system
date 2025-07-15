@@ -67,7 +67,7 @@ dashboard.html      Web dashboard HTML template
 web_dashboard.py    Web dashboard Python script  
 
 audio_handler.py            Audio control module  
-button_handler_improved.py  Improved button handling module  
+button_handlers.py  Improved button handling module  
 config_manager.py           Configuration management module  
 logging_setup.py            Logging setup module  
 mqtt_client.py              MQTT client module  

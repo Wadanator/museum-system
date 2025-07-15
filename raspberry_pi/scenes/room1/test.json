@@ -15,7 +15,7 @@
     "topic": "room1/motor"
   },
   {
-    "message": "PLAY_VIDEO:ghost.mp4",
+    "message": "PLAY_VIDEO:ghost2.mp4",
     "timestamp": 3,
     "topic": "room1/video"
   },

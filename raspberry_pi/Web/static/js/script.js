@@ -129,6 +129,7 @@ function updateStats(stats) {
     sceneStatsList.innerHTML = '';
     
     if (stats.scene_play_counts && Object.keys(stats.scene_play_counts).length > 0) {
+        const maxPlays = Math.max(...Object.values(stats.scene_play_counts), 1); // Avoid division by zero
         Object.entries(stats.scene_play_counts).forEach(([sceneName, count]) => {
             const statDiv = document.createElement('div');
             statDiv.className = 'scene-item';
@@ -136,6 +137,9 @@ function updateStats(stats) {
                 <div class="scene-info">
                     <h4>${sceneName}</h4>
                     <p>Played: ${count} times</p>
+                    <div class="play-count">
+                        <div class="play-count-bar" style="width: ${(count / maxPlays) * 100}%"></div>
+                    </div>
                 </div>
             `;
             sceneStatsList.appendChild(statDiv);
@@ -146,6 +150,33 @@ function updateStats(stats) {
                 <div class="scene-info">
                     <h4>No statistics available</h4>
                     <p>No scenes have been played yet</p>
+                </div>
+            </div>
+        `;
+    }
+
+    // Update connected devices
+    const deviceList = document.getElementById('deviceList');
+    deviceList.innerHTML = '';
+    if (stats.connected_devices && Object.keys(stats.connected_devices).length > 0) {
+        Object.entries(stats.connected_devices).forEach(([deviceId, info]) => {
+            const deviceDiv = document.createElement('div');
+            deviceDiv.className = 'scene-item device';
+            deviceDiv.innerHTML = `
+                <div class="scene-info">
+                    <h4>Device: ${deviceId}</h4>
+                    <div class="device-status ${info.status.toLowerCase()}">${info.status}</div>
+                    <p>Last Updated: ${new Date(info.last_updated * 1000).toLocaleString()}</p>
+                </div>
+            `;
+            deviceList.appendChild(deviceDiv);
+        });
+    } else {
+        deviceList.innerHTML = `
+            <div class="scene-item device">
+                <div class="scene-info">
+                    <h4>No devices connected</h4>
+                    <p>No devices are currently connected to the MQTT broker</p>
                 </div>
             </div>
         `;
@@ -446,4 +477,5 @@ document.getElementById('sceneSelect').addEventListener('change', function() {
 });
 
 setInterval(updateStatus, 5000);
+setInterval(loadStats, 5000);
 updateStatus();

@@ -13,6 +13,38 @@ from typing import Dict, List, Optional
 from flask import Flask, jsonify, request, send_file, send_from_directory
 from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
+from utils.logging_setup import get_logger
+
+
+def get_project_root():
+    """
+    Get the project root directory by finding the directory that contains
+    the characteristic files/folders of the museum-system project.
+    
+    Returns:
+        Path: The project root directory
+    """
+    # Start from the current file's directory
+    current_path = Path(__file__).resolve().parent
+    
+    # Look for characteristic files/folders that indicate project root
+    project_markers = [
+        'README.md',
+        'raspberry_pi',
+        'esp32',
+        'docs',
+        'broker'
+    ]
+    
+    # Walk up the directory tree
+    for parent in [current_path] + list(current_path.parents):
+        # Check if this directory contains our project markers
+        if all((parent / marker).exists() for marker in project_markers[:2]):  # README.md and raspberry_pi
+            return parent
+    
+    # Fallback: use the parent directory of the raspberry_pi folder
+    # (since web_dashboard.py is in raspberry_pi/Web/)
+    return current_path.parent.parent
 
 
 class Config:
@@ -20,8 +52,11 @@ class Config:
     SECRET_KEY = 'museum_controller_secret'
     MAX_LOG_ENTRIES = 1000
     DEFAULT_PORT = 5000
-    LOG_DIR = Path.home() / "Documents" / "GitHub" / "museum-system" / "logs"
-    STATS_FILE = Path.home() / "Documents" / "GitHub" / "museum-system" / "raspberry_pi" / "Web" / "stats.json"
+    
+    # Use relative paths based on project root
+    _PROJECT_ROOT = get_project_root()
+    LOG_DIR = _PROJECT_ROOT / "raspberry_pi" / "logs"  # Updated path
+    STATS_FILE = _PROJECT_ROOT / "raspberry_pi" / "Web" / "stats.json"
     SCENES_DIR = './scenes'
 
 
@@ -34,10 +69,16 @@ class WebLogHandler(logging.Handler):
         self.setFormatter(logging.Formatter('%(name)s - %(levelname)s - %(message)s'))
 
     def emit(self, record):
+        # Extract the last meaningful part of the logger name
+        module = record.name.split('.')[-1] if '.' in record.name else record.name
+        if module.startswith('utils.'):
+            module = module.split('.')[-1]  # Handle utils.<module> case
+        module = module.strip()  # No padding for web display
+        
         log_entry = {
             'timestamp': datetime.fromtimestamp(record.created).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
             'level': record.levelname,
-            'module': record.name.split('.')[-1] if '.' in record.name else record.name,
+            'module': module,
             'message': record.getMessage()
         }
         if record.exc_info:
@@ -160,7 +201,7 @@ class RouteHandler:
 
             with open(scene_path, 'w') as f:
                 json.dump(scene_data, f, indent=2)
-            logging.getLogger('museum').info(f"Scene '{scene_name}' saved successfully")
+            logging.getLogger('WEB').info(f"Scene '{scene_name}' saved successfully")
             return jsonify({'success': True, 'message': f'Scene {scene_name} saved successfully'})
         except Exception as e:
             return self._error_response(f"Error saving scene {scene_name}: {e}")
@@ -176,7 +217,7 @@ class RouteHandler:
 
             def run_scene_thread():
                 try:
-                    logging.getLogger('museum').info(f"Starting scene: {scene_name}")
+                    logging.getLogger('WEB').info(f"Starting scene: {scene_name}")
                     if hasattr(self.controller, 'scene_parser') and self.controller.scene_parser:
                         if self.controller.scene_parser.load_scene(str(scene_path)):
                             self.controller.scene_running = True
@@ -202,7 +243,7 @@ class RouteHandler:
         try:
             if hasattr(self.controller, 'scene_running'):
                 self.controller.scene_running = False
-                logging.getLogger('museum').info("Scene stopped by user")
+                logging.getLogger('WEB').info("Scene stopped by user")
             if hasattr(self.controller, 'scene_parser') and self.controller.scene_parser:
                 if hasattr(self.controller.scene_parser, 'stop_scene'):
                     self.controller.scene_parser.stop_scene()
@@ -215,7 +256,7 @@ class RouteHandler:
 
     def shutdown_system(self):
         try:
-            logging.getLogger('museum').info("System shutdown requested")
+            logging.getLogger('WEB').info("System shutdown requested")
             self.dashboard.save_stats()
             if hasattr(self.controller, 'shutdown_requested'):
                 self.controller.shutdown_requested = True
@@ -265,7 +306,7 @@ class RouteHandler:
 
     def _system_command(self, command: List[str], operation: str):
         try:
-            logging.getLogger('museum').info(f"{operation} requested via web dashboard")
+            logging.getLogger('WEB').info(f"{operation} requested via web dashboard")
             self.dashboard.save_stats()
             subprocess.run(command, check=True, capture_output=True, text=True)
             return jsonify({'success': True, 'message': f'{operation} initiated'})
@@ -291,6 +332,7 @@ class WebDashboard:
     """Web dashboard for museum system control."""
     def __init__(self, controller):
         self.controller = controller
+        self.log = get_logger('web')
         self.app = Flask(__name__)
         self.app.config['SECRET_KEY'] = Config.SECRET_KEY
         self.app.config['ENV'] = 'production'
@@ -307,7 +349,8 @@ class WebDashboard:
             'total_scenes_played': 0,
             'scene_play_counts': {},
             'total_uptime': 0,
-            'last_start_time': time.time()
+            'last_start_time': time.time(),
+            'connected_devices': {}
         }
         self._setup_logging()
         self._load_stats()
@@ -327,6 +370,7 @@ class WebDashboard:
         """Load recent logs from file."""
         try:
             if not Config.LOG_DIR.exists():
+                self.log.info(f"Log directory does not exist: {Config.LOG_DIR}")
                 return
             main_log = Config.LOG_DIR / 'museum.log'
             if main_log.exists():
@@ -340,14 +384,18 @@ class WebDashboard:
                                 self.log_buffer.append({
                                     'timestamp': timestamp[1:],
                                     'level': level.strip(),
-                                    'module': module.strip(),
+                                    'module': module.strip(),  # Remove padding for web display
                                     'message': message,
                                     'from_file': True
                                 })
-                            except Exception:
+                            except ValueError:
+                                # Handle malformed log lines
                                 continue
+                    self.log.info(f"Loaded {len([log for log in self.log_buffer if log.get('from_file')])} log entries from file")
+            else:
+                self.log.info(f"Main log file does not exist: {main_log}")
         except Exception as e:
-            logging.getLogger('museum').error(f"Error loading existing logs: {e}")
+            self.log.error(f"Error loading existing logs: {e}")
 
     def _load_stats(self):
         """Load stats from file."""
@@ -359,8 +407,12 @@ class WebDashboard:
                         'total_scenes_played': loaded_stats.get('total_scenes_played', 0),
                         'scene_play_counts': loaded_stats.get('scene_play_counts', {}),
                         'total_uptime': loaded_stats.get('total_uptime', 0),
-                        'last_start_time': time.time()
+                        'last_start_time': time.time(),
+                        'connected_devices': {}
                     })
+                    logging.getLogger('WEB').info(f"Loaded stats from: {Config.STATS_FILE}")
+            else:
+                logging.getLogger('WEB').info(f"Stats file does not exist, using defaults: {Config.STATS_FILE}")
         except Exception as e:
             logging.getLogger('museum').error(f"Error loading stats: {e}")
 
@@ -370,7 +422,10 @@ class WebDashboard:
             Config.STATS_FILE.parent.mkdir(parents=True, exist_ok=True)
             self.update_stats()
             with open(Config.STATS_FILE, 'w') as f:
-                json.dump(self.stats, f, indent=2)
+                # Exclude connected_devices from saved stats as it's transient
+                save_stats = {k: v for k, v in self.stats.items() if k != 'connected_devices'}
+                json.dump(save_stats, f, indent=2)
+            logging.getLogger('museum').debug(f"Stats saved to: {Config.STATS_FILE}")
         except Exception as e:
             logging.getLogger('museum').error(f"Error saving stats: {e}")
 
@@ -378,6 +433,8 @@ class WebDashboard:
         """Update running stats."""
         self.stats['total_uptime'] += time.time() - self.stats['last_start_time']
         self.stats['last_start_time'] = time.time()
+        if hasattr(self.controller, 'mqtt_client') and self.controller.mqtt_client:
+            self.stats['connected_devices'] = self.controller.mqtt_client.get_connected_devices()
 
     def update_scene_stats(self, scene_name: str):
         """Update scene-specific stats."""
@@ -401,7 +458,9 @@ class WebDashboard:
 
     def run(self, host: str = '0.0.0.0', port: int = Config.DEFAULT_PORT, debug: bool = False):
         """Start the web dashboard."""
-        logging.getLogger('museum').info(f"Starting web dashboard on {host}:{port}")
+        logging.getLogger('WEB').info(f"Starting web dashboard on {host}:{port}")
+        logging.getLogger('WEB').info(f"Project root: {Config._PROJECT_ROOT}")
+        
         import warnings
         warnings.filterwarnings('ignore', message='.*Werkzeug.*production.*')
         os.environ['FLASK_ENV'] = 'production'
@@ -430,5 +489,5 @@ def start_web_dashboard(controller, port: int = Config.DEFAULT_PORT) -> WebDashb
     
     thread = threading.Thread(target=run_dashboard, daemon=True)
     thread.start()
-    logging.getLogger('museum').info(f"Web dashboard started on port {port}")
+    logging.getLogger('WEB').info(f"Web dashboard started on port {port}")
     return dashboard

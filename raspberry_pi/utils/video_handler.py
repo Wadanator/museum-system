@@ -8,6 +8,7 @@ import time
 import psutil
 import signal
 from threading import Lock
+from utils.logging_setup import get_logger
 
 class VideoHandler:
     def __init__(self, video_dir=None, ipc_socket=None, black_image=None, logger=None):
@@ -15,15 +16,16 @@ class VideoHandler:
         self.video_dir = video_dir or os.path.join(script_dir, "..", "videos")
         self.ipc_socket = ipc_socket or "/tmp/mpv_socket"
         self.black_image = os.path.join(self.video_dir, black_image or "black.png")
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger or get_logger('video')
         self.process = None
         self.currently_playing = None
         self.process_lock = Lock()
         self.last_health_check = time.time()
-        self.health_check_interval = 30
+        self.health_check_interval = 60
         self.max_restart_attempts = 3
         self.restart_count = 0
         self.restart_cooldown = 60
+        self.last_restart_time = 0
 
         os.makedirs(self.video_dir, exist_ok=True)
         self._ensure_black_image()
@@ -35,7 +37,7 @@ class VideoHandler:
             try:
                 import pygame
                 pygame.init()
-                surface = pygame.Surface((1920, 1080))
+                surface = pygame.Surface((640, 480))  # Smaller resolution
                 surface.fill((0, 0, 0))
                 pygame.image.save(surface, self.black_image)
                 pygame.quit()
@@ -47,13 +49,22 @@ class VideoHandler:
         if os.path.exists(self.ipc_socket):
             try:
                 os.remove(self.ipc_socket)
+                self.logger.info(f"Removed stale socket: {self.ipc_socket}")
+            except PermissionError:
+                self.logger.error(f"Permission denied when removing socket: {self.ipc_socket}")
             except Exception as e:
-                self.logger.warning(f"Socket cleanup failed: {e}")
+                self.logger.error(f"Socket cleanup failed: {e}")
 
     def _kill_existing_mpv_processes(self):
         for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
             if proc.info['name'] == 'mpv' and any(self.ipc_socket in arg for arg in (proc.info['cmdline'] or [])):
                 proc.kill()
+
+    def _check_tmp_permissions(self):
+        if not os.access('/tmp', os.W_OK):
+            self.logger.error("No write permissions in /tmp")
+            return False
+        return True
 
     def _start_mpv(self):
         with self.process_lock:
@@ -61,32 +72,41 @@ class VideoHandler:
                 self.logger.error(f"Black image missing: {self.black_image}")
                 return False
 
+            if not self._check_tmp_permissions():
+                return False
+
             self._stop_current_process()
             self._cleanup_socket()
             self._kill_existing_mpv_processes()
             time.sleep(0.5)
 
+            # Optimized MPV command for Raspberry Pi performance
             cmd = [
-                'mpv', '--fs', '--no-osc', '--no-osd-bar', '--vo=drm', '--loop-file=inf',
+                'mpv', '--fs', '--no-osc', '--no-osd-bar', '--vo=gpu',
+                '--hwdec=rpi4-mmal',  # Use RPi4 hardware acceleration (change to v4l2m2m if needed)
+                '--cache=no',  # Disable cache to save RAM
+                '--demuxer-max-bytes=3M',  # Small buffer for low memory usage
+                '--profile=low-latency',  # Optimize for responsive playback
+                '--loop-file=inf',
                 '--no-input-default-bindings', '--input-conf=/dev/null', '--quiet',
-                '--no-terminal', '--hwdec=auto', '--cache=yes', '--demuxer-max-bytes=50M',
-                '--demuxer-max-back-bytes=25M', f'--input-ipc-server={self.ipc_socket}',
+                '--no-terminal', 
+                f'--input-ipc-server={self.ipc_socket}',
                 self.black_image
             ]
 
             try:
+                self.logger.debug(f"Starting mpv with command: {' '.join(cmd)}")
                 self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=os.setsid)
-                time.sleep(1)
-                if self.process.poll() is not None:
-                    self.logger.error("MPV process failed to start")
-                    return False
-                if not os.path.exists(self.ipc_socket):
-                    self.logger.error("IPC socket not created")
-                    self._stop_current_process()
-                    return False
-                self.currently_playing = os.path.basename(self.black_image)
-                self.restart_count = 0
-                return True
+                for _ in range(5):
+                    time.sleep(1)
+                    if os.path.exists(self.ipc_socket):
+                        self.currently_playing = os.path.basename(self.black_image)
+                        self.restart_count = 0
+                        self.logger.info("MPV process started and IPC socket created")
+                        return True
+                self.logger.error("IPC socket not created after retries")
+                self._stop_current_process()
+                return False
             except Exception as e:
                 self.logger.error(f"MPV start error: {e}")
                 self.process = None
@@ -113,11 +133,10 @@ class VideoHandler:
             if not self.process or self.process.poll() is not None or not os.path.exists(self.ipc_socket):
                 return self._restart_mpv()
             try:
-                sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-                sock.settimeout(2)
-                sock.connect(self.ipc_socket)
-                sock.send(b'{"command": ["get_property", "pause"]}\n')
-                sock.close()
+                with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+                    sock.settimeout(2)
+                    sock.connect(self.ipc_socket)
+                    sock.send(b'{"command": ["get_property", "pause"]}\n')
                 return True
             except:
                 return self._restart_mpv()
@@ -136,12 +155,11 @@ class VideoHandler:
         if not self._check_process_health():
             return False
         try:
-            sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-            sock.settimeout(5)
-            sock.connect(self.ipc_socket)
-            sock.send(json.dumps({"command": command}).encode('utf-8') + b"\n")
-            sock.recv(1024)
-            sock.close()
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+                sock.settimeout(5)
+                sock.connect(self.ipc_socket)
+                sock.send(json.dumps({"command": command}).encode('utf-8') + b"\n")
+                sock.recv(1024)
             return True
         except Exception as e:
             self.logger.error(f"IPC command failed: {e}")
@@ -179,11 +197,6 @@ class VideoHandler:
 
     def is_playing(self):
         return self.process and self.currently_playing != os.path.basename(self.black_image) and self.process.poll() is None
-
-    def force_restart(self):
-        self.restart_count = 0
-        self.last_restart_time = 0
-        return self._restart_mpv()
 
     def cleanup(self):
         self._stop_current_process()
