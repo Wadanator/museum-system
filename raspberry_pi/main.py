@@ -246,7 +246,7 @@ class MuseumController:
         log.info("Starting Museum Controller")
         
         # Establish MQTT connection
-        if not self.mqtt_client or not self.mqtt_client.connect_with_retry(use_fallback=True):
+        if not self.mqtt_client or not self.mqtt_client.connect_with_retry():
             if self.shutdown_requested:
                 return
             log.critical("CRITICAL: Unable to establish MQTT connection")

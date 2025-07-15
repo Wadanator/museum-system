@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  museum-system:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    privileged: true  # Required for GPIO access
+    volumes:
+      - ./audio:/app/audio
+      - ./videos:/app/videos
+      - ./scenes:/app/scenes
+      - ./logs:/app/logs
+      - ./config:/app/config
+      - ./Web:/app/Web
+      - ./utils:/app/utils
+      - ./main.py:/app/main.py
+      - ./requirements.txt:/app/requirements.txt
+    ports:
+      - "5000:5000"  # Web dashboard
+      - "1883:1883"  # MQTT
+      - "2222:22"    # SSH
+    devices:
+      - "/dev/gpiomem:/dev/gpiomem"  # GPIO access
+      - "/dev/snd:/dev/snd"          # Audio access
+    restart: always
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - mqtt-broker
+    networks:
+      - museum-network
+
+  mqtt-broker:
+    image: eclipse-mosquitto:2.0
+    volumes:
+      - ./broker/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    ports:
+      - "1883:1883"
+    restart: always
+    networks:
+      - museum-network
+
+networks:
+  museum-network:
+    driver: bridge

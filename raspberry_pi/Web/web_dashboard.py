@@ -15,49 +15,17 @@ from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
 from utils.logging_setup import get_logger
 
-
-def get_project_root():
-    """
-    Get the project root directory by finding the directory that contains
-    the characteristic files/folders of the museum-system project.
-    
-    Returns:
-        Path: The project root directory
-    """
-    # Start from the current file's directory
-    current_path = Path(__file__).resolve().parent
-    
-    # Look for characteristic files/folders that indicate project root
-    project_markers = [
-        'README.md',
-        'raspberry_pi',
-        'esp32',
-        'docs',
-        'broker'
-    ]
-    
-    # Walk up the directory tree
-    for parent in [current_path] + list(current_path.parents):
-        # Check if this directory contains our project markers
-        if all((parent / marker).exists() for marker in project_markers[:2]):  # README.md and raspberry_pi
-            return parent
-    
-    # Fallback: use the parent directory of the raspberry_pi folder
-    # (since web_dashboard.py is in raspberry_pi/Web/)
-    return current_path.parent.parent
-
-
 class Config:
     """Centralized configuration for the WebDashboard."""
     SECRET_KEY = 'museum_controller_secret'
     MAX_LOG_ENTRIES = 1000
     DEFAULT_PORT = 5000
     
-    # Use relative paths based on project root
-    _PROJECT_ROOT = get_project_root()
-    LOG_DIR = _PROJECT_ROOT / "raspberry_pi" / "logs"  # Updated path
-    STATS_FILE = _PROJECT_ROOT / "raspberry_pi" / "Web" / "stats.json"
-    SCENES_DIR = './scenes'
+    # Use paths relative to the script's location
+    _BASE_DIR = Path(__file__).resolve().parent.parent
+    LOG_DIR = _BASE_DIR / "logs"
+    STATS_FILE = _BASE_DIR / "Web" / "stats.json"
+    SCENES_DIR = _BASE_DIR / "scenes"
 
 
 class WebLogHandler(logging.Handler):
@@ -459,7 +427,7 @@ class WebDashboard:
     def run(self, host: str = '0.0.0.0', port: int = Config.DEFAULT_PORT, debug: bool = False):
         """Start the web dashboard."""
         logging.getLogger('WEB').info(f"Starting web dashboard on {host}:{port}")
-        logging.getLogger('WEB').info(f"Project root: {Config._PROJECT_ROOT}")
+        logging.getLogger('WEB').info(f"Project root: {Config._BASE_DIR}")
         
         import warnings
         warnings.filterwarnings('ignore', message='.*Werkzeug.*production.*')

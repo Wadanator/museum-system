@@ -112,8 +112,8 @@ class MQTTClient:
             self.logger.error(f"Error connecting to MQTT broker: {e}")
             return False
     
-    def connect_with_retry(self, use_fallback=False):
-        """Connect to MQTT broker with retry logic and fallback."""
+    def connect_with_retry(self):
+        """Connect to MQTT broker with retry logic."""
         for attempt in range(self.retry_attempts):
             if self.shutdown_requested:
                 return False
@@ -126,24 +126,6 @@ class MQTTClient:
             if attempt < self.retry_attempts - 1:
                 self.logger.warning(f"Connection failed, retrying in {self.retry_sleep}s...")
                 time.sleep(self.retry_sleep)
-        
-        if use_fallback:
-            self.logger.warning("Primary connection failed, attempting fallback...")
-            fallback_hosts = ["192.168.1.100", "localhost", "127.0.0.1"]
-            
-            for host in fallback_hosts:
-                if host == self.broker_host:
-                    continue
-                
-                self.logger.info(f"Trying fallback host: {host}")
-                original_host = self.broker_host
-                self.broker_host = host
-                
-                if self.connect(self.connect_timeout):
-                    self.logger.info(f"Connected to fallback host: {host}")
-                    return True
-                
-                self.broker_host = original_host
         
         return False
     
