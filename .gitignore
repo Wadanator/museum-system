@@ -72,3 +72,4 @@ raspberry_pi/audio/*.ogg
 *.bak
 *.backup
 *~
+raspberry_pi/Web/stats.json
