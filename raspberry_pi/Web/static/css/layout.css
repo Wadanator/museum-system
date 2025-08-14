@@ -35,3 +35,96 @@
     gap: 24px;
     margin-bottom: 32px;
 }
+
+.scene-list {
+    display: grid;
+    gap: 24px;
+    margin-bottom: 32px;
+}
+
+/* Mobile Responsive Design */
+@media (max-width: 768px) {
+    body {
+        padding: 10px;
+    }
+    
+    .container {
+        padding: 16px;
+        margin: 0;
+        border-radius: 12px;
+        min-height: calc(100vh - 20px);
+    }
+    
+    .header {
+        margin-bottom: 24px;
+        padding-bottom: 16px;
+    }
+    
+    .header h1 {
+        font-size: 1.8rem;
+        margin-bottom: 8px;
+    }
+    
+    .header p {
+        font-size: 0.95rem;
+    }
+    
+    .header-actions {
+        flex-direction: column;
+        gap: 12px;
+        margin-top: 12px;
+    }
+    
+    .status-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+    
+    .scene-list {
+        gap: 16px;
+        margin-bottom: 24px;
+    }
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 5px;
+    }
+    
+    .container {
+        padding: 12px;
+        margin: 0;
+        border-radius: 8px;
+        min-height: calc(100vh - 10px);
+    }
+    
+    .header h1 {
+        font-size: 1.5rem;
+    }
+    
+    .header p {
+        font-size: 0.9rem;
+    }
+    
+    .status-grid {
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    
+    .stats-grid {
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    
+    .scene-list {
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+}

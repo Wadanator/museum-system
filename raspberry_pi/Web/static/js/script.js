@@ -1,268 +1,154 @@
 const socket = io();
-let currentScene = '';
-let autoScroll = true;
-let activeFilters = new Set(['debug', 'info', 'warning', 'error', 'critical']);
-let logCounts = {
-    debug: 0,
-    info: 0,
-    warning: 0,
-    error: 0,
-    critical: 0
-};
+let currentScene = '', currentCommand = '', autoScroll = true;
+const activeFilters = new Set(['debug', 'info', 'warning', 'error', 'critical']);
+const logCounts = { debug: 0, info: 0, warning: 0, error: 0, critical: 0 };
 
-// Socket event handlers
-socket.on('connect', function() {
+socket.on('connect', () => {
     console.log('Connected to server');
-    updateStatus();
-    loadScenes();
-    loadStats();
+    updateAll();
+    loadResourceList('scenes', 'sceneList', 'sceneSelect', runScene, editScene);
+    loadResourceList('commands', 'commandList', 'commandSelect', runCommand, editCommand);
 });
 
-socket.on('new_log', function(logEntry) {
-    addLogEntry(logEntry);
-});
-
-socket.on('log_history', function(logs) {
-    const logContainer = document.getElementById('logContainer');
-    logContainer.innerHTML = '';
-    logCounts = { debug: 0, info: 0, warning: 0, error: 0, critical: 0 };
-    logs.forEach(log => addLogEntry(log));
+socket.on('new_log', addLogEntry);
+socket.on('log_history', logs => {
+    document.getElementById('logContainer').innerHTML = '';
+    Object.assign(logCounts, { debug: 0, info: 0, warning: 0, error: 0, critical: 0 });
+    logs.forEach(addLogEntry);
     updateLogStats();
 });
-
-socket.on('logs_cleared', function() {
-    const logContainer = document.getElementById('logContainer');
-    logContainer.innerHTML = '';
-    logCounts = { debug: 0, info: 0, warning: 0, error: 0, critical: 0 };
+socket.on('logs_cleared', () => {
+    document.getElementById('logContainer').innerHTML = '';
+    Object.assign(logCounts, { debug: 0, info: 0, warning: 0, error: 0, critical: 0 });
     updateLogStats();
 });
-
-socket.on('stats_update', function(stats) {
-    updateStats(stats);
+socket.on('stats_update', updateStats);
+socket.on('command_executed', ({ success, command, error }) => {
+    showNotification(success ? `Command '${command}' executed successfully` : `Command '${command}' failed: ${error}`, success ? 'success' : 'error');
 });
 
-// Tab switching
 function showTab(tabName) {
-    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-    
-    event.target.classList.add('active');
+    document.querySelectorAll('.tab, .tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelector(`.tab[onclick="showTab('${tabName}')"]`).classList.add('active');
     document.getElementById(tabName).classList.add('active');
-    
     if (tabName === 'scenes') {
-        loadScenes();
+        loadResourceList('scenes', 'sceneList', 'sceneSelect', runScene, editScene);
+        // Ensure the editor is ready if a scene is selected
+        const selectedScene = document.getElementById('sceneSelect').value;
+        if (selectedScene) loadSceneForEditing(selectedScene);
     } else if (tabName === 'stats') {
         loadStats();
-    } else if (tabName === 'editor') {
-        const sceneSelect = document.getElementById('sceneSelect');
-        if (sceneSelect.value) {
-            loadSceneForEditing(sceneSelect.value);
-        }
+    } else if (tabName === 'commands') {
+        loadResourceList('commands', 'commandList', 'commandSelect', runCommand, editCommand);
     }
 }
 
-// Log level filtering
 function toggleLogLevel(level) {
     const button = document.querySelector(`.filter-btn[data-level="${level}"]`);
-    
-    if (activeFilters.has(level)) {
-        activeFilters.delete(level);
-        button.classList.remove('active');
-    } else {
-        activeFilters.add(level);
-        button.classList.add('active');
-    }
-    
+    activeFilters[activeFilters.has(level) ? 'delete' : 'add'](level);
+    button.classList.toggle('active');
     applyLogFilters();
 }
 
 function applyLogFilters() {
-    const logEntries = document.querySelectorAll('.log-entry');
-    
-    logEntries.forEach(entry => {
-        const level = entry.classList.contains('debug') ? 'debug' :
-                     entry.classList.contains('info') ? 'info' :
-                     entry.classList.contains('warning') ? 'warning' :
-                     entry.classList.contains('error') ? 'error' :
-                     entry.classList.contains('critical') ? 'critical' : 'info';
-        
-        if (activeFilters.has(level)) {
-            entry.classList.remove('hidden');
-        } else {
-            entry.classList.add('hidden');
-        }
+    document.querySelectorAll('.log-entry').forEach(entry => {
+        const level = Array.from(entry.classList).find(cls => activeFilters.has(cls)) || 'info';
+        entry.classList.toggle('hidden', !activeFilters.has(level));
     });
 }
 
-// Status update
 function updateStatus() {
     fetch('/api/status')
-        .then(response => response.json())
-        .then(data => {
-            document.getElementById('roomId').textContent = data.room_id;
-            document.getElementById('sceneStatus').textContent = data.scene_running ? 'Running' : 'Idle';
-            document.getElementById('sceneStatus').className = data.scene_running ? 'status-value pulse' : 'status-value';
-            
-            const mqttStatus = document.getElementById('mqttStatus');
-            mqttStatus.textContent = data.mqtt_connected ? 'Connected' : 'Disconnected';
-            mqttStatus.className = data.mqtt_connected ? 'status-value status-connected' : 'status-value status-disconnected';
-            
-            const uptime = Math.floor(data.uptime);
-            const hours = Math.floor(uptime / 3600);
-            const minutes = Math.floor((uptime % 3600) / 60);
-            const seconds = uptime % 60;
-            document.getElementById('uptime').textContent = `${hours}h ${minutes}m ${seconds}s`;
+        .then(res => res.json())
+        .then(({ room_id, scene_running, mqtt_connected, uptime }) => {
+            document.getElementById('roomId').textContent = room_id;
+            document.getElementById('sceneStatus').textContent = scene_running ? 'Running' : 'Idle';
+            document.getElementById('sceneStatus').className = `status-value${scene_running ? ' pulse' : ''}`;
+            document.getElementById('mqttStatus').textContent = mqtt_connected ? 'Connected' : 'Disconnected';
+            document.getElementById('mqttStatus').className = `status-value status-${mqtt_connected ? 'connected' : 'disconnected'}`;
+
+            const [h, m, s] = [
+                Math.floor(uptime / 3600),
+                Math.floor((uptime % 3600) / 60),
+                Math.floor(uptime % 60)
+            ];
+            document.getElementById('uptime').textContent = `${h}h ${m}m ${s}s`;
         });
 }
 
-// Statistics update
-function updateStats(stats) {
-    document.getElementById('totalScenesPlayed').textContent = stats.total_scenes_played || 0;
-    
-    const totalUptime = stats.total_uptime || 0;
-    const hours = Math.floor(totalUptime / 3600);
-    const minutes = Math.floor((totalUptime % 3600) / 60);
-    const seconds = Math.floor(totalUptime % 60);
-    document.getElementById('totalUptime').textContent = `${hours}h ${minutes}m ${seconds}s`;
-    
+function updateStats({ total_scenes_played = 0, total_uptime = 0, scene_play_counts = {}, connected_devices = {} }) {
+    document.getElementById('totalScenesPlayed').textContent = total_scenes_played;
+    const [h, m, s] = [
+        Math.floor(total_uptime / 3600),
+        Math.floor((total_uptime % 3600) / 60),
+        Math.floor(total_uptime % 60)
+    ];
+    document.getElementById('totalUptime').textContent = `${h}h ${m}m ${s}s`;
+
     const sceneStatsList = document.getElementById('sceneStatsList');
-    sceneStatsList.innerHTML = '';
-    
-    if (stats.scene_play_counts && Object.keys(stats.scene_play_counts).length > 0) {
-        const maxPlays = Math.max(...Object.values(stats.scene_play_counts), 1); // Avoid division by zero
-        Object.entries(stats.scene_play_counts).forEach(([sceneName, count]) => {
-            const statDiv = document.createElement('div');
-            statDiv.className = 'scene-item';
-            statDiv.innerHTML = `
-                <div class="scene-info">
-                    <h4>${sceneName}</h4>
-                    <p>Played: ${count} times</p>
-                    <div class="play-count">
-                        <div class="play-count-bar" style="width: ${(count / maxPlays) * 100}%"></div>
-                    </div>
-                </div>
-            `;
-            sceneStatsList.appendChild(statDiv);
-        });
-    } else {
-        sceneStatsList.innerHTML = `
+    sceneStatsList.innerHTML = Object.entries(scene_play_counts).length
+        ? Object.entries(scene_play_counts).map(([name, count]) => `
             <div class="scene-item">
                 <div class="scene-info">
-                    <h4>No statistics available</h4>
-                    <p>No scenes have been played yet</p>
+                    <h4>${name}</h4>
+                    <p>Played: ${count} times</p>
                 </div>
-            </div>
-        `;
-    }
+            </div>`).join('')
+        : '<div class="scene-item"><div class="scene-info"><h4>No statistics available</h4><p>No scenes have been played yet</p></div></div>';
 
-    // Update connected devices
     const deviceList = document.getElementById('deviceList');
-    deviceList.innerHTML = '';
-    if (stats.connected_devices && Object.keys(stats.connected_devices).length > 0) {
-        Object.entries(stats.connected_devices).forEach(([deviceId, info]) => {
-            const deviceDiv = document.createElement('div');
-            deviceDiv.className = 'scene-item device';
-            deviceDiv.innerHTML = `
-                <div class="scene-info">
-                    <h4>Device: ${deviceId}</h4>
-                    <div class="device-status ${info.status.toLowerCase()}">${info.status}</div>
-                    <p>Last Updated: ${new Date(info.last_updated * 1000).toLocaleString()}</p>
-                </div>
-            `;
-            deviceList.appendChild(deviceDiv);
-        });
-    } else {
-        deviceList.innerHTML = `
+    deviceList.innerHTML = Object.entries(connected_devices).length
+        ? Object.entries(connected_devices).map(([id, { status, last_updated }]) => `
             <div class="scene-item device">
                 <div class="scene-info">
-                    <h4>No devices connected</h4>
-                    <p>No devices are currently connected to the MQTT broker</p>
+                    <h4>Device: ${id}</h4>
+                    <div class="device-status ${status.toLowerCase()}">${status}</div>
+                    <p>Last Updated: ${new Date(last_updated * 1000).toLocaleString()}</p>
                 </div>
-            </div>
-        `;
-    }
+            </div>`).join('')
+        : '<div class="scene-item device"><div class="scene-info"><h4>No devices connected</h4><p>No devices are currently connected to the MQTT broker</p></div></div>';
 }
 
 function loadStats() {
-    fetch('/api/stats')
-        .then(response => response.json())
-        .then(data => updateStats(data));
+    fetch('/api/stats').then(res => res.json()).then(updateStats);
 }
 
-// Log handling
-function addLogEntry(logEntry) {
+function addLogEntry({ timestamp, level, module = 'system', message }) {
     const logContainer = document.getElementById('logContainer');
+    level = level.toLowerCase();
+    if (logCounts[level] !== undefined) logCounts[level]++;
     const logDiv = document.createElement('div');
-    const level = logEntry.level.toLowerCase();
-    
-    logDiv.className = `log-entry ${level}`;
-    
-    if (logCounts.hasOwnProperty(level)) {
-        logCounts[level]++;
-    }
-    
-    if (!activeFilters.has(level)) {
-        logDiv.classList.add('hidden');
-    }
-    
-    logDiv.innerHTML = `
-        <span class="log-timestamp">${logEntry.timestamp}</span>
-        <span class="log-level ${level}">${logEntry.level}</span>
-        <span class="log-module">${logEntry.module || 'system'}</span>
-        <span>${logEntry.message}</span>
-    `;
-    
+    logDiv.className = `log-entry ${level}${activeFilters.has(level) ? '' : ' hidden'}`;
+    logDiv.innerHTML = `<span class="log-timestamp">${timestamp}</span><span class="log-level ${level}">${level}</span><span class="log-module">${module}</span><span>${message}</span>`;
     logContainer.appendChild(logDiv);
-    
-    if (autoScroll) {
-        logContainer.scrollTop = logContainer.scrollHeight;
-    }
-    
+    if (autoScroll) logContainer.scrollTop = logContainer.scrollHeight;
     while (logContainer.children.length > 500) {
-        const firstChild = logContainer.firstChild;
-        const firstLevel = firstChild.classList.contains('debug') ? 'debug' :
-                          firstChild.classList.contains('info') ? 'info' :
-                          firstChild.classList.contains('warning') ? 'warning' :
-                          firstChild.classList.contains('error') ? 'error' :
-                          firstChild.classList.contains('critical') ? 'critical' : 'info';
-        if (logCounts.hasOwnProperty(firstLevel)) {
-            logCounts[firstLevel]--;
-        }
-        logContainer.removeChild(firstChild);
+        const firstLevel = Array.from(logContainer.firstChild.classList).find(cls => logCounts[cls]) || 'info';
+        logCounts[firstLevel]--;
+        logContainer.removeChild(logContainer.firstChild);
     }
-    
     updateLogStats();
 }
 
 function updateLogStats() {
-    document.getElementById('debugCount').textContent = logCounts.debug;
-    document.getElementById('infoCount').textContent = logCounts.info;
-    document.getElementById('warningCount').textContent = logCounts.warning;
-    document.getElementById('errorCount').textContent = logCounts.error;
-    document.getElementById('criticalCount').textContent = logCounts.critical;
+    ['debug', 'info', 'warning', 'error', 'critical'].forEach(level => {
+        document.getElementById(`${level}Count`).textContent = logCounts[level];
+    });
 }
 
 function clearLogs() {
     if (confirm('Are you sure you want to clear all logs?')) {
         fetch('/api/logs/clear', { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showNotification('Logs cleared successfully', 'success');
-                } else {
-                    showNotification('Failed to clear logs', 'error');
-                }
-            });
+            .then(res => res.json())
+            .then(({ success }) => showNotification(success ? 'Logs cleared successfully' : 'Failed to clear logs', success ? 'success' : 'error'));
     }
 }
 
 function exportLogs() {
     fetch('/api/logs/export')
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Failed to export logs');
-            }
-            return response.blob();
+        .then(res => {
+            if (!res.ok) throw new Error('Failed to export logs');
+            return res.blob();
         })
         .then(blob => {
             const url = window.URL.createObjectURL(blob);
@@ -275,111 +161,94 @@ function exportLogs() {
             window.URL.revokeObjectURL(url);
             showNotification('Logs exported successfully', 'success');
         })
-        .catch(error => {
-            showNotification('Error exporting logs: ' + error.message, 'error');
-        });
+        .catch(err => showNotification(`Error exporting logs: ${err.message}`, 'error'));
 }
 
 function toggleAutoScroll() {
     autoScroll = !autoScroll;
-    const button = event.target;
-    button.textContent = autoScroll ? '📜 Auto-scroll' : '📜 Manual';
-    button.style.background = autoScroll ? '' : '#ffc107';
+    event.target.textContent = autoScroll ? '📜 Auto-scroll' : '📜 Manual';
+    event.target.style.background = autoScroll ? '' : '#ffc107';
 }
 
-// Scene management
-function loadScenes() {
-    fetch('/api/scenes')
-        .then(response => response.json())
-        .then(scenes => {
-            const sceneList = document.getElementById('sceneList');
-            const sceneSelect = document.getElementById('sceneSelect');
-            
-            sceneList.innerHTML = '';
-            sceneSelect.innerHTML = '<option value="">Select a scene to edit</option>';
-            
-            scenes.forEach(scene => {
-                const sceneDiv = document.createElement('div');
-                sceneDiv.className = 'scene-item';
-                sceneDiv.innerHTML = `
-                    <div class="scene-info">
-                        <h4>${scene.name}</h4>
-                        <p>Modified: ${new Date(scene.modified * 1000).toLocaleString()}</p>
-                    </div>
-                    <div class="scene-actions">
-                        <button class="btn btn-primary" onclick="runScene('${scene.name}')">▶️ Run</button>
-                        <button class="btn btn-secondary" onclick="editScene('${scene.name}')">✏️ Edit</button>
-                    </div>
-                `;
-                sceneList.appendChild(sceneDiv);
-                
-                const option = document.createElement('option');
-                option.value = scene.name;
-                option.textContent = scene.name;
-                sceneSelect.appendChild(option);
-            });
+function loadResourceList(type, listId, selectId, runFn, editFn) {
+    fetch(`/api/${type}`)
+        .then(res => res.json())
+        .then(items => {
+            const list = document.getElementById(listId);
+            const select = document.getElementById(selectId);
+            list.innerHTML = items.length
+                ? type === 'commands'
+                    ? Object.entries(items.reduce((groups, item) => {
+                        const [deviceType = 'other'] = item.name.split('_');
+                        (groups[deviceType] = groups[deviceType] || []).push(item);
+                        return groups;
+                    }, {})).sort().map(([deviceType, commands]) => `
+                        <div class="command-group">
+                            <h3 class="command-group-title">${deviceType.toUpperCase()} Commands</h3>
+                            ${commands.map(({ name }) => `
+                                <div class="command-item">
+                                    <div class="command-info"><h4>${name}</h4></div>
+                                    <div class="command-actions">
+                                        <button class="btn btn-${type === 'commands' ? 'warning' : 'primary'}" onclick="${runFn.name}('${name}')">⚡ Execute</button>
+                                        <button class="btn btn-secondary" onclick="${editFn.name}('${name}')">✏️ Edit</button>
+                                    </div>
+                                </div>`).join('')}
+                        </div>`).join('')
+                    : items.map(({ name }) => `
+                        <div class="scene-item">
+                            <div class="scene-info"><h4>${name}</h4></div>
+                            <div class="scene-actions">
+                                <button class="btn btn-primary" onclick="${runFn.name}('${name}')">▶️ Run</button>
+                                <button class="btn btn-secondary" onclick="${editFn.name}('${name}')">✏️ Edit</button>
+                            </div>
+                        </div>`).join('')
+                : `<div class="${type}-item"><div class="${type}-info"><h4>No ${type} available</h4><p>No ${type} have been loaded yet</p></div></div>`;
+            select.innerHTML = `<option value="">Select a ${type.slice(0, -1)} to edit</option>` + items.map(({ name }) => `<option value="${name}">${name}</option>`).join('');
         });
 }
 
 function runScene(sceneName) {
     fetch(`/api/run_scene/${sceneName}`, { method: 'POST' })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showNotification(data.message, 'success');
-                updateStatus();
-                loadStats();
-            } else {
-                showNotification(data.error, 'error');
-            }
+        .then(res => res.json())
+        .then(({ success, message, error }) => {
+            if (success) {
+                showNotification(message, 'success');
+                updateAll();
+            } else showNotification(error, 'error');
         });
 }
 
 function editScene(sceneName) {
-    showTab('editor');
+    if (!document.getElementById('scenes').classList.contains('active')) showTab('scenes');
     document.getElementById('sceneSelect').value = sceneName;
     loadSceneForEditing(sceneName);
 }
 
 function loadSceneForEditing(sceneName) {
     fetch(`/api/scene/${sceneName}`)
-        .then(response => response.json())
+        .then(res => res.json())
         .then(data => {
-            if (data.error) {
-                showNotification(data.error, 'error');
-                document.getElementById('sceneEditor').value = '';
-                currentScene = '';
-            } else {
-                document.getElementById('sceneEditor').value = JSON.stringify(data, null, 2);
-                currentScene = sceneName;
-            }
+            document.getElementById('sceneEditor').value = data.error ? '' : JSON.stringify(data, null, 2);
+            currentScene = data.error ? '' : sceneName;
+            if (data.error) showNotification(data.error, 'error');
         });
 }
 
 function saveScene() {
     const sceneName = document.getElementById('sceneSelect').value || currentScene;
-    if (!sceneName) {
-        showNotification('Please select or name a scene', 'error');
-        return;
-    }
-
+    if (!sceneName) return showNotification('Please select or name a scene', 'error');
     try {
         const sceneData = JSON.parse(document.getElementById('sceneEditor').value);
-        
         fetch(`/api/scene/${sceneName}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(sceneData)
         })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showNotification(data.message, 'success');
-                loadScenes();
-            } else {
-                showNotification(data.error, 'error');
-            }
-        });
+            .then(res => res.json())
+            .then(({ success, message, error }) => {
+                showNotification(success ? message : error, success ? 'success' : 'error');
+                if (success) loadResourceList('scenes', 'sceneList', 'sceneSelect', runScene, editScene);
+            });
     } catch (e) {
         showNotification('Invalid JSON format', 'error');
     }
@@ -395,27 +264,87 @@ function createNewScene() {
             {"timestamp": 5.0, "topic": "room/light", "message": "OFF"}
         ], null, 2);
         currentScene = sceneName;
+        if (!document.getElementById('scenes').classList.contains('active')) showTab('scenes');
     }
 }
 
 function validateScene() {
     try {
         const sceneData = JSON.parse(document.getElementById('sceneEditor').value);
-        if (Array.isArray(sceneData)) {
-            let valid = true;
-            for (let action of sceneData) {
-                if (!action.hasOwnProperty('timestamp') || !action.hasOwnProperty('topic') || !action.hasOwnProperty('message')) {
-                    valid = false;
-                    break;
-                }
-            }
-            if (valid) {
-                showNotification('Scene is valid!', 'success');
-            } else {
-                showNotification('Invalid scene format: missing required fields', 'error');
-            }
+        if (Array.isArray(sceneData) && sceneData.every(a => 'timestamp' in a && 'topic' in a && 'message' in a)) {
+            showNotification('Scene is valid!', 'success');
         } else {
-            showNotification('Scene must be an array of actions', 'error');
+            showNotification('Invalid scene format: missing required fields', 'error');
+        }
+    } catch (e) {
+        showNotification('Invalid JSON format', 'error');
+    }
+}
+
+function runCommand(commandName) {
+    if (confirm(`Execute command "${commandName}"? This will immediately send the command to devices.`)) {
+        fetch(`/api/run_command/${commandName}`, { method: 'POST' })
+            .then(res => res.json())
+            .then(({ success, message, error }) => {
+                showNotification(success ? message : error, success ? 'success' : 'error');
+                if (success) updateStatus();
+            });
+    }
+}
+
+function editCommand(commandName) {
+    if (!document.getElementById('commands').classList.contains('active')) showTab('commands');
+    document.getElementById('commandSelect').value = commandName;
+    loadCommandForEditing(commandName);
+}
+
+function loadCommandForEditing(commandName) {
+    fetch(`/api/command/${commandName}`)
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById('commandEditor').value = data.error ? '' : JSON.stringify(data, null, 2);
+            currentCommand = data.error ? '' : commandName;
+            if (data.error) showNotification(data.error, 'error');
+        });
+}
+
+function saveCommand() {
+    const commandName = document.getElementById('commandSelect').value || currentCommand;
+    if (!commandName) return showNotification('Please select or name a command', 'error');
+    try {
+        const commandData = JSON.parse(document.getElementById('commandEditor').value);
+        fetch(`/api/command/${commandName}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(commandData)
+        })
+            .then(res => res.json())
+            .then(({ success, message, error }) => {
+                showNotification(success ? message : error, success ? 'success' : 'error');
+                if (success) loadResourceList('commands', 'commandList', 'commandSelect', runCommand, editCommand);
+            });
+    } catch (e) {
+        showNotification('Invalid JSON format', 'error');
+    }
+}
+
+function createNewCommand() {
+    const commandName = prompt('Enter command name (e.g., motor_stop, light_on, audio_stop):');
+    if (commandName) {
+        document.getElementById('commandSelect').value = '';
+        document.getElementById('commandEditor').value = JSON.stringify([{"timestamp": 0, "topic": "room1/device", "message": "COMMAND"}], null, 2);
+        currentCommand = commandName;
+        showNotification('Enter command details and click Save Command', 'info');
+    }
+}
+
+function validateCommand() {
+    try {
+        const commandData = JSON.parse(document.getElementById('commandEditor').value);
+        if (Array.isArray(commandData) && commandData.every(a => 'timestamp' in a && 'topic' in a && 'message' in a)) {
+            showNotification('Command is valid!', 'success');
+        } else {
+            showNotification('Invalid command format: missing required fields', 'error');
         }
     } catch (e) {
         showNotification('Invalid JSON format', 'error');
@@ -426,56 +355,48 @@ function showNotification(message, type) {
     const notification = document.getElementById('notification');
     notification.textContent = message;
     notification.className = `notification ${type} show`;
-    
-    setTimeout(() => {
-        notification.classList.remove('show');
-    }, 3000);
+    setTimeout(() => notification.classList.remove('show'), 3000);
 }
 
 function restartSystem() {
     if (confirm('Are you sure you want to perform a hard reset? This will reboot the Raspberry Pi and interrupt all operations.')) {
         fetch('/api/system/restart', { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showNotification('System is restarting...', 'success');
-                    document.querySelector('button[onclick="restartSystem()"]').disabled = true;
-                } else {
-                    showNotification(data.error || 'Failed to initiate reset', 'error');
-                }
+            .then(res => res.json())
+            .then(({ success, error }) => {
+                showNotification(success ? 'System is restarting...' : error || 'Failed to initiate reset', success ? 'success' : 'error');
+                if (success) document.querySelector('button[onclick="restartSystem()"]').disabled = true;
             })
-            .catch(error => {
-                showNotification('Error communicating with server: ' + error.message, 'error');
-            });
+            .catch(err => showNotification(`Error communicating with server: ${err.message}`, 'error'));
     }
 }
 
 function restartService() {
     if (confirm('Are you sure you want to restart the museum-system service? This will interrupt current operations.')) {
         fetch('/api/system/service/restart', { method: 'POST' })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showNotification('Service is restarting...', 'success');
-                } else {
-                    showNotification(data.error || 'Failed to restart service', 'error');
-                }
-            })
-            .catch(error => {
-                showNotification('Error communicating with server: ' + error.message, 'error');
-            });
+            .then(res => res.json())
+            .then(({ success, error }) => showNotification(success ? 'Service is restarting...' : error || 'Failed to restart service', success ? 'success' : 'error'))
+            .catch(err => showNotification(`Error communicating with server: ${err.message}`, 'error'));
     }
 }
 
+function updateAll() {
+    updateStatus();
+    loadStats();
+}
+
 document.getElementById('sceneSelect').addEventListener('change', function() {
-    if (this.value) {
-        loadSceneForEditing(this.value);
-    } else {
-        document.getElementById('sceneEditor').value = '';
-        currentScene = '';
-    }
+    const value = this.value;
+    document.getElementById('sceneEditor').value = '';
+    if (value) loadSceneForEditing(value);
+    else currentScene = '';
 });
 
-setInterval(updateStatus, 5000);
-setInterval(loadStats, 5000);
-updateStatus();
+document.getElementById('commandSelect').addEventListener('change', function() {
+    const value = this.value;
+    const editor = document.getElementById('commandEditor');
+    editor.value = '';
+    if (value) loadCommandForEditing(value);
+    else currentCommand = '';
+});
+
+setInterval(updateAll, 5000);

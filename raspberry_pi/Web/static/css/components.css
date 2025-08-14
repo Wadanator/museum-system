@@ -1,3 +1,24 @@
+/* Existing styles from components.css */
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+
+.pulse {
+    animation: pulse 2s infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.spin {
+    animation: spin 1s linear infinite;
+}
+
+/* Header */
 .header h1 {
     font-size: 2.5rem;
     font-weight: 700;
@@ -15,6 +36,7 @@
     margin: 0 auto;
 }
 
+/* Status Card */
 .status-card {
     background: linear-gradient(135deg, #ffffff, #f9fafb);
     padding: 24px;
@@ -68,6 +90,7 @@
     border-radius: 6px;
 }
 
+/* Tabs */
 .tabs {
     display: flex;
     gap: 12px;
@@ -122,6 +145,7 @@
     margin-bottom: 24px;
 }
 
+/* Log Controls */
 .log-controls {
     display: flex;
     gap: 24px;
@@ -175,6 +199,7 @@
 .filter-btn.error.active { background: linear-gradient(90deg, #ef4444, #dc2626); }
 .filter-btn.critical.active { background: linear-gradient(90deg, #8b5cf6, #7c3aed); }
 
+/* Log Container */
 .log-container {
     height: 450px;
     overflow-y: auto;
@@ -243,72 +268,46 @@
     gap: 12px;
 }
 
-.scene-list {
-    display: grid;
-    gap: 24px;
-    margin-bottom: 32px;
-}
-
+/* Scene Item */
 .scene-item {
     background: linear-gradient(145deg, #ffffff, #f8fafc);
     padding: 20px;
     border-radius: 12px;
     border: 1px solid #e5e7eb;
     display: flex;
-    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
     transition: all 0.3s ease;
-    position: relative;
-    overflow: hidden;
 }
 
 .scene-item:hover {
     transform: translateY(-4px);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
-    background: linear-gradient(145deg, #f9fafb, #f1f5f9);
-}
-
-.scene-item::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 70%);
-    pointer-events: none;
-}
-
-.scene-info {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);
 }
 
 .scene-info h4 {
-    font-size: 1.2rem;
+    font-size: 1.25rem; /* Increased for better visibility */
     font-weight: 600;
-    color: #1f2937;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    color: #111827;
+    margin-bottom: 8px;
 }
 
-.scene-info h4::before {
-    content: '🎭'; /* Icon for Scene Play Counts */
-    font-size: 1.2rem;
+/* Command Item Specific Styling */
+.command-item h4 {
+    font-size: 1.5rem; /* Larger font size for command names */
+    font-weight: 700;
+    color: #111827;
+    background: linear-gradient(90deg, #3b82f6, #2563eb);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
 }
 
-.scene-item.device .scene-info h4::before {
-    content: '📱'; /* Icon for Connected Devices */
+.command-info p {
+    font-size: 1rem;
+    color: #6b7280;
 }
 
-.scene-info p {
-    font-size: 0.95rem;
-    color: #4b5563;
-    margin: 0;
-}
-
-/* Progress bar for Scene Play Counts */
 .scene-info .play-count {
     width: 100%;
     height: 8px;
@@ -325,7 +324,6 @@
     transition: width 0.5s ease;
 }
 
-/* Device status indicator */
 .scene-info .device-status {
     display: inline-flex;
     align-items: center;
@@ -355,6 +353,7 @@
     background: currentColor;
 }
 
+/* Buttons */
 .btn {
     padding: 12px 24px;
     border: none;
@@ -413,6 +412,7 @@
     font-size: 0.8rem;
 }
 
+/* Scene Select */
 .scene-select {
     width: 100%;
     padding: 12px;
@@ -428,6 +428,7 @@
     border-color: #3b82f6;
 }
 
+/* Scene Editor */
 .scene-editor {
     width: 100%;
     height: 350px;
@@ -453,6 +454,7 @@
     margin-top: 24px;
 }
 
+/* Stats Card */
 .stats-card {
     background: linear-gradient(135deg, #ffffff, #f9fafb);
     padding: 24px;
@@ -482,6 +484,7 @@
     -webkit-text-fill-color: transparent;
 }
 
+/* Notification */
 .notification {
     position: fixed;
     top: 32px;
@@ -511,6 +514,7 @@
     background: linear-gradient(90deg, #ef4444, #dc2626);
 }
 
+/* Log Stats */
 .log-stats {
     display: flex;
     gap: 16px;
@@ -534,3 +538,376 @@
 .stat-item.warning { background: linear-gradient(90deg, #fef3c7, #fde68a); }
 .stat-item.error { background: linear-gradient(90deg, #fee2e2, #fecaca); }
 .stat-item.critical { background: linear-gradient(90deg, #ede9fe, #ddd6fe); }
+
+/* Status Indicators */
+.status-dot {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    margin-right: 6px;
+    background: #ccc;
+    vertical-align: middle;
+}
+
+.status-dot.online {
+    background: #28a745;
+}
+
+.status-dot.offline {
+    background: #dc3545;
+}
+
+.spinner {
+    border: 3px solid #eee;
+    border-top: 3px solid #007bff;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    animation: spin 1s linear infinite;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 6px;
+}
+
+.loading-text {
+    vertical-align: middle;
+}
+
+/* Mobile Responsive Design */
+@media (max-width: 768px) {
+    /* Header */
+    .header h1 {
+        font-size: 1.8rem;
+    }
+    
+    .header p {
+        font-size: 0.95rem;
+    }
+    
+    /* Status Cards */
+    .status-card {
+        padding: 16px;
+    }
+    
+    .status-card h3 {
+        font-size: 1.1rem;
+        margin-bottom: 8px;
+    }
+    
+    .status-value {
+        font-size: 1.3rem;
+    }
+    
+    /* Tabs */
+    .tabs {
+        gap: 8px;
+        padding: 8px;
+        margin-bottom: 24px;
+    }
+    
+    .tab {
+        padding: 10px 8px;
+        font-size: 0.9rem;
+    }
+    
+    .tab-content {
+        padding: 20px 16px;
+    }
+    
+    .tab-content h2 {
+        font-size: 1.5rem;
+        margin-bottom: 20px;
+    }
+    
+    /* Log Controls */
+    .log-controls {
+        flex-direction: column;
+        gap: 16px;
+        align-items: stretch;
+    }
+    
+    .log-filter-group {
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-start;
+    }
+    
+    .filter-buttons {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        width: 100%;
+    }
+    
+    .filter-btn {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+        text-align: center;
+    }
+    
+    .log-actions {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        width: 100%;
+    }
+    
+    /* Log Container */
+    .log-container {
+        height: 300px;
+        padding: 16px;
+        font-size: 0.8rem;
+    }
+    
+    .log-entry {
+        padding: 12px;
+        margin-bottom: 8px;
+    }
+    
+    .log-timestamp {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 0.7rem;
+    }
+    
+    .log-level {
+        min-width: 50px;
+        font-size: 0.8rem;
+    }
+    
+    .log-module {
+        min-width: 80px;
+        font-size: 0.7rem;
+    }
+    
+    /* Log Stats */
+    .log-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+    
+    .stat-item {
+        padding: 6px 8px;
+        font-size: 0.8rem;
+        text-align: center;
+    }
+    
+    /* Scene Items */
+    .scene-item {
+        padding: 16px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .scene-info h4 {
+        font-size: 1.1rem;
+    }
+    
+    .command-item h4 {
+        font-size: 1.2rem;
+    }
+    
+    /* Buttons */
+    .btn {
+        padding: 10px 16px;
+        font-size: 0.85rem;
+        justify-content: center;
+    }
+    
+    .btn-small {
+        padding: 6px 12px;
+        font-size: 0.75rem;
+    }
+    
+    /* Scene Editor */
+    .scene-editor {
+        height: 250px;
+        padding: 16px;
+        font-size: 0.8rem;
+    }
+    
+    .editor-actions {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+    }
+    
+    /* Stats Cards */
+    .stats-card {
+        padding: 16px;
+    }
+    
+    .stats-card h3 {
+        font-size: 1.1rem;
+        margin-bottom: 8px;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+    }
+    
+    /* Notification */
+    .notification {
+        top: 16px;
+        right: 16px;
+        left: 16px;
+        padding: 12px 16px;
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Header */
+    .header h1 {
+        font-size: 1.5rem;
+    }
+    
+    .header p {
+        font-size: 0.85rem;
+    }
+    
+    /* Status Cards */
+    .status-card {
+        padding: 12px;
+    }
+    
+    .status-card h3 {
+        font-size: 1rem;
+        margin-bottom: 6px;
+    }
+    
+    .status-value {
+        font-size: 1.2rem;
+    }
+    
+    /* Tabs */
+    .tabs {
+        gap: 4px;
+        padding: 6px;
+        margin-bottom: 20px;
+    }
+    
+    .tab {
+        padding: 8px 6px;
+        font-size: 0.8rem;
+        border-radius: 8px;
+    }
+    
+    .tab-content {
+        padding: 16px 12px;
+    }
+    
+    .tab-content h2 {
+        font-size: 1.3rem;
+        margin-bottom: 16px;
+    }
+    
+    /* Log Controls */
+    .filter-buttons {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 6px;
+    }
+    
+    .filter-btn {
+        padding: 6px 8px;
+        font-size: 0.7rem;
+    }
+    
+    .log-actions {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+    
+    /* Log Container */
+    .log-container {
+        height: 250px;
+        padding: 12px;
+        font-size: 0.75rem;
+    }
+    
+    .log-entry {
+        padding: 8px;
+        margin-bottom: 6px;
+    }
+    
+    /* Log Stats */
+    .log-stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 6px;
+    }
+    
+    .stat-item {
+        padding: 4px 6px;
+        font-size: 0.7rem;
+    }
+    
+    /* Scene Items */
+    .scene-item {
+        padding: 12px;
+        gap: 8px;
+    }
+    
+    .scene-info h4 {
+        font-size: 1rem;
+    }
+    
+    .command-item h4 {
+        font-size: 1.1rem;
+    }
+    
+    /* Buttons */
+    .btn {
+        padding: 8px 12px;
+        font-size: 0.8rem;
+    }
+    
+    .btn-small {
+        padding: 4px 8px;
+        font-size: 0.7rem;
+    }
+    
+    /* Scene Editor */
+    .scene-editor {
+        height: 200px;
+        padding: 12px;
+        font-size: 0.75rem;
+    }
+    
+    .editor-actions {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
+    
+    /* Stats Cards */
+    .stats-card {
+        padding: 12px;
+    }
+    
+    .stats-card h3 {
+        font-size: 1rem;
+        margin-bottom: 6px;
+    }
+    
+    .stat-value {
+        font-size: 1.3rem;
+    }
+    
+    /* Notification */
+    .notification {
+        top: 12px;
+        right: 12px;
+        left: 12px;
+        padding: 10px 12px;
+        font-size: 0.8rem;
+    }
+    
+    /* Scene Select */
+    .scene-select {
+        padding: 10px;
+        font-size: 0.9rem;
+        margin-bottom: 16px;
+    }
+}

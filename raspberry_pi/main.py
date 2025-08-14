@@ -6,7 +6,7 @@ import signal
 import time
 from datetime import datetime
 
-# Setup path and initialize configuration
+# Configure Python path for module imports
 script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
@@ -14,13 +14,13 @@ if script_dir not in sys.path:
 from utils.config_manager import ConfigManager
 from utils.logging_setup import setup_logging_from_config, get_logger
 
-# Initialize config and logging
+# Initialize configuration and logging
 config_manager = ConfigManager()
 logging_config = config_manager.get_logging_config()
 log = setup_logging_from_config(logging_config)
 log = get_logger('main')
 
-# Import core modules with error handling
+# Import core system modules
 try:
     from utils.mqtt_client import MQTTClient
     from utils.scene_parser import SceneParser
@@ -35,33 +35,34 @@ except ImportError as e:
     sys.exit(1)
 
 class MuseumController:
+    """Main controller for the museum system, managing all components and operations."""
     def __init__(self, config_manager):
         self.config_manager = config_manager
         self.config = config_manager.get_all_config()
         
-        # Extract commonly used config values
+        # Extract commonly used configuration values
         self._extract_config_values()
         
-        # Initialize system monitor and log startup
+        # Initialize system monitor and log startup details
         self.system_monitor = SystemMonitor(health_check_interval=self.config['health_check_interval'])
         self.system_monitor.log_startup_info(self.room_id, self.config['broker_ip'], self.config['button_pin'])
         
-        # Setup signal handlers for graceful shutdown
+        # Set up signal handlers for graceful shutdown
         self._setup_signal_handlers()
         
-        # Initialize all components
+        # Initialize all system components
         self._initialize_components()
         
-        # Initialize state tracking
+        # Track system state
         self.scene_running = False
         self.connected_to_broker = False
-        self.start_time = time.time()
+        self.start_time = time.monotonic()
         
-        # Setup web dashboard if available
+        # Start the web dashboard
         self._setup_web_dashboard()
-    
+
     def _extract_config_values(self):
-        """Extract frequently used config values for easier access."""
+        """Extract frequently used configuration values for convenient access."""
         config_keys = [
             'room_id', 'json_file_name', 'scenes_dir', 'audio_dir', 'video_dir',
             'ipc_socket', 'black_image', 'web_dashboard_port', 'scene_buffer_time',
@@ -69,20 +70,20 @@ class MuseumController:
         ]
         for key in config_keys:
             setattr(self, key, self.config[key])
-    
+
     def _setup_signal_handlers(self):
-        """Configure signal handlers for graceful shutdown."""
+        """Configure signal handlers for SIGTERM and SIGINT to ensure graceful shutdown."""
         self.shutdown_requested = False
         self._cleaned_up = False
         signal.signal(signal.SIGTERM, self._signal_handler)
         signal.signal(signal.SIGINT, self._signal_handler)
-    
+
     def _initialize_components(self):
-        """Initialize all system components with error handling."""
-        # Initialize MQTT client
+        """Initialize system components with error handling."""
+        # Set up MQTT client
         self.mqtt_client = self._init_mqtt_client()
         
-        # Initialize other components with safe initialization
+        # Initialize other components
         components = [
             ('audio_handler', lambda: AudioHandler(self.audio_dir), "Audio Handler"),
             ('video_handler', lambda: VideoHandler(self.video_dir, self.ipc_socket, self.black_image), "Video Handler"),
@@ -93,12 +94,12 @@ class MuseumController:
         for attr_name, init_func, name in components:
             setattr(self, attr_name, self._safe_init(init_func, name))
         
-        # Set button callback if button handler is available
+        # Configure button callback if available
         if self.button_handler:
             self.button_handler.set_callback(self.on_button_press)
-    
+
     def _init_mqtt_client(self):
-        """Initialize MQTT client with connection callbacks."""
+        """Initialize the MQTT client with connection callbacks."""
         try:
             client = MQTTClient(
                 broker_host=self.config['broker_ip'],
@@ -120,45 +121,45 @@ class MuseumController:
         except Exception as e:
             log.error(f"MQTT Client initialization failed: {e}")
             return None
-    
+
     def _safe_init(self, init_func, name):
-        """Safely initialize component with error handling."""
+        """Safely initialize a component, logging any errors."""
         try:
             return init_func()
         except Exception as e:
             log.error(f"{name} initialization failed: {e}")
             return None
-    
+
     def _setup_web_dashboard(self):
-        """Initialize web dashboard if available."""
+        """Start the web dashboard if available."""
         self.web_dashboard = None
         if start_web_dashboard:
             try:
                 self.web_dashboard = start_web_dashboard(self, port=self.web_dashboard_port)
             except Exception as e:
                 log.warning(f"Web dashboard failed to start: {e}")
-    
+
     def _signal_handler(self, signum, frame):
-        """Handle shutdown signals."""
+        """Handle shutdown signals to initiate graceful cleanup."""
         log.warning(f"Received signal {signum}, initiating shutdown...")
         self.shutdown_requested = True
         if self.mqtt_client:
             self.mqtt_client.shutdown_requested = True
-    
+
     def _on_mqtt_connection_lost(self):
-        """Handle MQTT connection loss."""
+        """Handle loss of MQTT connection."""
         self.connected_to_broker = False
         log.warning("MQTT connection lost - system will continue with limited functionality")
-    
+
     def _on_mqtt_connection_restored(self):
-        """Handle MQTT connection restoration."""
+        """Handle restoration of MQTT connection."""
         self.connected_to_broker = True
         self.system_monitor.send_ready_notification()
         log.info(f"System ready - {self.room_id} operational")
         log.info("MQTT connection restored - full functionality available")
-    
+
     def on_button_press(self):
-        """Handle button press events."""
+        """Handle button press events to start the default scene."""
         if self.scene_running:
             log.info("Scene already running, ignoring button press")
             return
@@ -168,9 +169,9 @@ class MuseumController:
             return
         
         self.start_default_scene()
-    
+
     def start_default_scene(self):
-        """Start the default scene for this room."""
+        """Load and start the default scene for the current room."""
         if not self.connected_to_broker:
             log.error("Cannot start scene: MQTT not connected")
             return
@@ -192,9 +193,9 @@ class MuseumController:
             self.run_scene()
         else:
             log.error("Failed to load scene")
-    
+
     def run_scene(self):
-        """Execute the loaded scene with timing control."""
+        """Execute the loaded scene with precise timing control."""
         if not self.scene_parser.scene_data:
             log.error("No scene data available")
             return
@@ -203,7 +204,7 @@ class MuseumController:
         max_time = max(action["timestamp"] for action in self.scene_parser.scene_data)
         log.info(f"Starting scene execution (duration: {max_time}s)")
         
-        # Execute scene actions within time window
+        # Process scene actions within the specified time window
         while time.time() - start_time <= max_time + self.scene_buffer_time and not self.shutdown_requested:
             actions = self.scene_parser.get_current_actions(
                 self.mqtt_client if self.connected_to_broker else None
@@ -224,9 +225,9 @@ class MuseumController:
             self.video_handler.stop_video()
         
         self._update_scene_statistics()
-    
+
     def _update_scene_statistics(self):
-        """Update scene play statistics for web dashboard."""
+        """Update scene play statistics for the web dashboard."""
         if not self.web_dashboard:
             return
             
@@ -240,9 +241,9 @@ class MuseumController:
             log.info(f"Updated statistics for scene: {scene_name}")
         except Exception as e:
             log.error(f"Error updating stats for scene: {e}")
-    
+
     def run(self):
-        """Main application loop with health monitoring."""
+        """Run the main application loop with periodic health checks."""
         log.info("Starting Museum Controller")
         
         # Establish MQTT connection
@@ -263,16 +264,16 @@ class MuseumController:
             while not self.shutdown_requested:
                 current_time = time.time()
                 
-                # Perform periodic health check and MQTT reconnection
+                # Perform periodic health checks and MQTT reconnection
                 if current_time - last_health_check > self.system_monitor.health_check_interval:
                     self._perform_health_check()
                     last_health_check = current_time
                 
-                # Handle button polling if needed
+                # Poll button state if required
                 if use_polling and self.button_handler:
                     self.button_handler.check_button_polling()
                 
-                # Dynamic sleep based on scene state
+                # Adjust sleep time based on scene activity
                 sleep_time = self.main_loop_sleep if self.scene_running else (self.main_loop_sleep + 0.5)
                 time.sleep(sleep_time)
                 
@@ -283,25 +284,25 @@ class MuseumController:
             raise
         finally:
             self.cleanup()
-    
+
     def _perform_health_check(self):
-        """Perform system health check including MQTT reconnection."""
+        """Perform system health checks and manage MQTT reconnection."""
         if self.mqtt_client and not self.mqtt_client.check_and_reconnect():
             self.connected_to_broker = False
         elif self.mqtt_client and self.mqtt_client.is_connected():
             self.connected_to_broker = True
         
         self.system_monitor.perform_health_check(self.mqtt_client, self.connected_to_broker)
-    
+
     def cleanup(self):
-        """Clean up all resources gracefully."""
+        """Clean up all system resources gracefully."""
         if self._cleaned_up:
             return
         
         log.info("Initiating cleanup...")
         self._cleaned_up = True
         
-        # Stop MQTT client first
+        # Stop MQTT client
         if self.mqtt_client:
             self.mqtt_client.cleanup()
         
@@ -323,7 +324,7 @@ class MuseumController:
         log.info("Museum Controller stopped cleanly")
 
 def main():
-    """Main entry point."""
+    """Main entry point for the museum controller application."""
     controller = None
     try:
         controller = MuseumController(config_manager)

@@ -86,6 +86,35 @@ class AudioHandler:
             return True
         return False
 
+    def handle_command(self, message):
+        try:
+            if message.startswith("PLAY:"):
+                parts = message.split(":")
+                filename = parts[1]
+                volume = float(parts[2]) if len(parts) > 2 else 0.7
+                return self.play_audio_with_volume(filename, volume)
+                
+            elif message == "STOP":
+                return self.stop_audio()
+                
+            elif message == "PAUSE":
+                return self.pause_audio()
+                
+            elif message == "RESUME":
+                return self.resume_audio()
+                
+            elif message.startswith("VOLUME:"):
+                volume = float(message.split(":")[1])
+                return self.set_volume(volume)
+                
+            else:
+                # Handle direct filename or PLAY_ commands
+                return self.play_audio(message)
+                
+        except Exception as e:
+            self.logger.error(f"Failed to handle audio command '{message}': {e}")
+            return False
+
     # Public Audio Control Methods
     def is_playing(self):
         """Check if audio is currently playing."""

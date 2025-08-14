@@ -4,48 +4,58 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Time Machine Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Roboto+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/base.css">
     <link rel="stylesheet" href="/static/css/layout.css">
     <link rel="stylesheet" href="/static/css/components.css">
     <link rel="stylesheet" href="/static/css/utilities.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.js"></script>
-    <script src="/static/js/script.js" defer></script>
+    <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <h1>Time Machine Dashboard</h1>
-            <p>Real-time monitoring and control interface for your museum experience</p>
             <div class="header-actions">
                 <button class="btn btn-danger" onclick="restartSystem()">🔄 Hard Reset</button>
-                <button class="btn btn-secondary" onclick="restartService()">🔄 Restart Service</button>
+                <button class="btn btn-danger" onclick="restartService()">🔄 Restart Service</button>
             </div>
         </div>
 
         <div class="status-grid">
             <div class="status-card">
                 <h3>Room ID</h3>
-                <div class="status-value" id="roomId">Loading...</div>
+                <div class="status-value" id="roomId">
+                    <span class="spinner"></span>
+                    <span class="loading-text">Loading...</span>
+                </div>
             </div>
             <div class="status-card">
                 <h3>Scene Status</h3>
-                <div class="status-value" id="sceneStatus">Loading...</div>
+                <div class="status-value" id="sceneStatus">
+                    <span class="spinner"></span>
+                    <span class="loading-text">Loading...</span>
+                </div>
             </div>
             <div class="status-card">
                 <h3>MQTT Connection</h3>
-                <div class="status-value" id="mqttStatus">Loading...</div>
+                <div class="status-value" id="mqttStatus">
+                    <span class="spinner"></span>
+                    <span class="loading-text">Loading...</span>
+                </div>
             </div>
             <div class="status-card">
                 <h3>Uptime</h3>
-                <div class="status-value" id="uptime">Loading...</div>
+                <div class="status-value" id="uptime">
+                    <span class="spinner"></span>
+                    <span class="loading-text">Loading...</span>
+                </div>
             </div>
         </div>
 
         <div class="tabs">
-            <button class="tab active" onclick="showTab('logs')">📋 Live Logs</button>
+            <button class="tab" onclick="showTab('logs')">📋 Live Logs</button>
             <button class="tab" onclick="showTab('scenes')">🎭 Scene Manager</button>
-            <button class="tab" onclick="showTab('editor')">✏️ Scene Editor</button>
+            <button class="tab" onclick="showTab('commands')">🛠️ Commands</button>
             <button class="tab" onclick="showTab('stats')">📊 Statistics</button>
         </div>
 
@@ -63,9 +73,9 @@
                     </div>
                 </div>
                 <div class="log-actions">
-                    <button class="btn btn-secondary" onclick="clearLogs()">🗑️ Clear</button>
-                    <button class="btn btn-secondary" onclick="toggleAutoScroll()">📜 Auto-scroll</button>
-                    <button class="btn btn-primary" onclick="exportLogs()">📤 Export</button>
+                    <button class="btn btn-secondary" onclick="socket.emit('logs_cleared')">🗑️ Clear</button>
+                    <button class="btn btn-secondary" onclick="autoScroll = !autoScroll; this.textContent = autoScroll ? '📜 Auto-scroll' : '📜 No Auto-scroll'">📜 Auto-scroll</button>
+                    <button class="btn btn-secondary" onclick="window.location.href='/api/logs/export'">📤 Export</button>
                 </div>
             </div>
             <div class="log-stats">
@@ -95,18 +105,55 @@
                     </div>
                 </div>
             </div>
-        </div>
-
-        <div id="editor" class="tab-content">
             <h2>Scene Editor</h2>
-            <select class="scene-select" id="sceneSelect">
+            <select id="sceneSelect" class="scene-select">
                 <option value="">Select a scene to edit</option>
             </select>
-            <textarea class="scene-editor" id="sceneEditor"></textarea>
+            <textarea id="sceneEditor" class="scene-editor"></textarea>
             <div class="editor-actions">
-                <button class="btn btn-success" onclick="saveScene()">💾 Save Scene</button>
-                <button class="btn btn-primary" onclick="createNewScene()">➕ New Scene</button>
+                <button class="btn btn-primary" onclick="saveScene()">💾 Save Scene</button>
+                <button class="btn btn-success" onclick="createNewScene()">➕ New Scene</button>
                 <button class="btn btn-secondary" onclick="validateScene()">✅ Validate</button>
+            </div>
+        </div>
+
+        <div id="commands" class="tab-content">
+            <h2>Device Commands</h2>
+            <p>Execute single commands for quick fixes.</p>
+            <div class="editor-actions" style="margin-bottom: 24px;">
+                <button class="btn btn-success" onclick="createNewCommand()">➕ New Command</button>
+                <button class="btn btn-secondary" onclick="loadCommands()">🔄 Refresh</button>
+            </div>
+            <div class="scene-list" id="commandList">
+                <div class="scene-item">
+                    <div class="scene-info">
+                        <h4>Loading commands...</h4>
+                        <p>Please wait while we fetch the command list</p>
+                    </div>
+                </div>
+            </div>
+            <h3>Command Editor</h3>
+            <select id="commandSelect" class="scene-select">
+                <option value="">Select a command to edit</option>
+            </select>
+            <textarea id="commandEditor" class="scene-editor"></textarea>
+            <div class="editor-actions">
+                <button class="btn btn-primary" onclick="saveCommand()">💾 Save Command</button>
+                <button class="btn btn-secondary" onclick="validateCommand()">✅ Validate</button>
+            </div>
+            <div class="scene-item">
+                <div class="scene-info">
+                    <h4>Command Format:</h4>
+                    <pre>
+[
+  {
+    "timestamp": 0,
+    "topic": "room1/device",
+    "message": "COMMAND"
+  }
+]
+                    </pre>
+                </div>
             </div>
         </div>
 
@@ -133,7 +180,7 @@
             </div>
             <h3>Connected Devices</h3>
             <div class="scene-list" id="deviceList">
-                <div class="scene-item">
+                <div class="scene-item device">
                     <div class="scene-info">
                         <h4>Loading devices...</h4>
                         <p>Please wait while we fetch the device list</p>
@@ -142,7 +189,8 @@
             </div>
         </div>
 
-        <div class="notification" id="notification"></div>
+        <div id="notification" class="notification"></div>
     </div>
+    <script src="/static/js/script.js"></script>
 </body>
 </html>

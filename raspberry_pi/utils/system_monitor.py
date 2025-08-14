@@ -61,7 +61,7 @@ class SystemMonitor:
             else:
                 self._hc_count += 1
                 if self._hc_count % self.hc_log_period == 0:
-                    self.logger.info(f"Health #{self._hc_count}: OK")
+                    self.logger.debug(f"Health #{self._hc_count}: OK")
                 return True
         except Exception as e:
             self.logger.error(f"Health check failed: {e}")

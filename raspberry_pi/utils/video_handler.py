@@ -166,6 +166,34 @@ class VideoHandler:
             self._restart_mpv()
             return False
 
+    def handle_command(self, message):
+        """Handle video command messages from scene parser."""
+        try:
+            if message.startswith("PLAY_VIDEO:"):
+                filename = message.split(":", 1)[1]  # Use split(1) to handle colons in filenames
+                return self.play_video(filename)
+                
+            elif message == "STOP_VIDEO":
+                return self.stop_video()
+                
+            elif message == "PAUSE":
+                return self.pause_video()
+                
+            elif message == "RESUME":
+                return self.resume_video()
+                
+            elif message.startswith("SEEK:"):
+                seconds = float(message.split(":", 1)[1])
+                return self.seek_video(seconds)
+                
+            else:
+                # Handle direct filename
+                return self.play_video(message)
+                
+        except Exception as e:
+            self.logger.error(f"Failed to handle video command '{message}': {e}")
+            return False
+
     def play_video(self, video_file):
         full_path = os.path.join(self.video_dir, video_file)
         if not os.path.exists(full_path):

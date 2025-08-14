@@ -3,7 +3,9 @@ import json
 import time
 import os
 import logging
+import sys
 from utils.logging_setup import get_logger
+
 class SceneParser:
     def __init__(self, audio_handler=None, video_handler=None, logger=None):
         self.scene_data = None
@@ -73,70 +75,19 @@ class SceneParser:
         
         return actions
 
-    # Audio Command Handling
     def _handle_audio_command(self, message):
         if not self.audio_handler:
             self.logger.warning("No audio handler available")
-            return
-        
-        try:
-            if message.startswith("PLAY:"):
-                parts = message.split(":")
-                filename = parts[1]
-                volume = float(parts[2]) if len(parts) > 2 else 0.7
-                self.audio_handler.play_audio_with_volume(filename, volume)
-                
-            elif message.startswith("PLAY_"):
-                self.audio_handler.play_audio(message.replace("PLAY_", ""))
-                
-            elif message == "STOP":
-                self.audio_handler.stop_audio()
-                
-            elif message == "PAUSE":
-                self.audio_handler.pause_audio()
-                
-            elif message == "RESUME":
-                self.audio_handler.resume_audio()
-                
-            elif message.startswith("VOLUME:"):
-                volume = float(message.split(":")[1])
-                self.audio_handler.set_volume(volume)
-                
-            else:
-                self.audio_handler.play_audio(message)
-                
-        except Exception as e:
-            self.logger.error(f"Failed to handle audio command '{message}': {e}")
+            return False
+    
+        return self.audio_handler.handle_command(message)
 
-    # Video Command Handling
     def _handle_video_command(self, message):
         if not self.video_handler:
             self.logger.warning("No video handler available")
-            return
+            return False
         
-        try:
-            if message.startswith("PLAY_VIDEO:"):
-                filename = message.split(":")[1]
-                self.video_handler.play_video(filename)
-                
-            elif message == "STOP_VIDEO":
-                self.video_handler.stop_video()
-                
-            elif message == "PAUSE":
-                self.video_handler.pause_video()
-                
-            elif message == "RESUME":
-                self.video_handler.resume_video()
-                
-            elif message.startswith("SEEK:"):
-                seconds = float(message.split(":")[1])
-                self.video_handler.seek_video(seconds)
-                
-            else:
-                self.video_handler.play_video(message)
-                
-        except Exception as e:
-            self.logger.error(f"Failed to handle video command '{message}': {e}")
+        return self.video_handler.handle_command(message)
 
     # Scene Status
     def get_scene_duration(self):

@@ -89,14 +89,19 @@ class MuseumWatchdog:
             else:
                 self.high_cpu_count = 0
             
-            # Log health status more frequently for debugging
+            healthy = True
+            status = f"Healthy - CPU: {cpu_percent:.1f}%, Memory: {memory_mb:.1f}MB"
+            
+            # Only log if something is wrong (high resources or unhealthy)
             current_time = time.time()
-            if (current_time - self.last_health_log_time > self.health_log_interval or 
-                memory_mb > self.max_memory_mb * 0.8 or cpu_percent > self.max_cpu_percent * 0.8):
-                watchdog_log.info(f"Health check: CPU {cpu_percent:.1f}%, Memory {memory_mb:.1f}MB")
+            is_wrong = (memory_mb > self.max_memory_mb * 0.8 or 
+                        cpu_percent > self.max_cpu_percent * 0.8 or 
+                        not healthy)
+            if is_wrong and (current_time - self.last_health_log_time > 60):  # Avoid spam, min 60s between logs
+                watchdog_log.warning(f"Health check issue: CPU {cpu_percent:.1f}%, Memory {memory_mb:.1f}MB")  # Changed to warning level for issues
                 self.last_health_log_time = current_time
             
-            return True, f"Healthy - CPU: {cpu_percent:.1f}%, Memory: {memory_mb:.1f}MB"
+            return healthy, status
             
         except Exception as e:
             return False, f"Error checking health: {e}"
@@ -196,9 +201,7 @@ class MuseumWatchdog:
 
 if __name__ == "__main__":
     # Additional startup logging
-    print(f"Watchdog starting at {datetime.now()}")
     watchdog_log.info("=== WATCHDOG PROCESS STARTING ===")
-    
     watchdog = MuseumWatchdog()
     if len(sys.argv) > 1 and sys.argv[1] == "--test-restart":
         watchdog_log.warning("Running test mode: restarting service")
