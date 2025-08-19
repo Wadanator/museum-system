@@ -55,7 +55,6 @@ class MuseumController:
         
         # Track system state
         self.scene_running = False
-        self.connected_to_broker = False
         self.start_time = time.monotonic()
         
         # Start the web dashboard
@@ -148,12 +147,10 @@ class MuseumController:
 
     def _on_mqtt_connection_lost(self):
         """Handle loss of MQTT connection."""
-        self.connected_to_broker = False
         log.warning("MQTT connection lost - system will continue with limited functionality")
 
     def _on_mqtt_connection_restored(self):
         """Handle restoration of MQTT connection."""
-        self.connected_to_broker = True
         self.system_monitor.send_ready_notification()
         log.info(f"System ready - {self.room_id} operational")
         log.info("MQTT connection restored - full functionality available")
@@ -164,7 +161,7 @@ class MuseumController:
             log.info("Scene already running, ignoring button press")
             return
         
-        if not self.connected_to_broker:
+        if not self.mqtt_client or not self.mqtt_client.is_connected():
             log.error("Cannot start scene: MQTT not connected")
             return
         
@@ -172,7 +169,7 @@ class MuseumController:
 
     def start_default_scene(self):
         """Load and start the default scene for the current room."""
-        if not self.connected_to_broker:
+        if not self.mqtt_client or not self.mqtt_client.is_connected():
             log.error("Cannot start scene: MQTT not connected")
             return
         
@@ -195,7 +192,7 @@ class MuseumController:
             log.error("Failed to load scene")
 
     def run_scene(self):
-        """Execute the loaded scene with precise timing control."""
+        """Execute the loaded scene with precise timing control and MQTT feedback."""
         if not self.scene_parser.scene_data:
             log.error("No scene data available")
             return
@@ -204,22 +201,31 @@ class MuseumController:
         max_time = max(action["timestamp"] for action in self.scene_parser.scene_data)
         log.info(f"Starting scene execution (duration: {max_time}s)")
         
+        # Enable MQTT feedback tracking for the scene
+        if self.mqtt_client and hasattr(self.mqtt_client, 'enable_feedback_tracking'):
+            self.mqtt_client.enable_feedback_tracking()
+        
         # Process scene actions within the specified time window
         while time.time() - start_time <= max_time + self.scene_buffer_time and not self.shutdown_requested:
             actions = self.scene_parser.get_current_actions(
-                self.mqtt_client if self.connected_to_broker else None
+                self.mqtt_client if self.mqtt_client and self.mqtt_client.is_connected() else None
             )
             
             if actions:
                 current_time = time.time() - start_time
                 for action in actions:
-                    status = "" if self.connected_to_broker else " (simulation)"
+                    status = "" if self.mqtt_client and self.mqtt_client.is_connected() else " (simulation)"
                     log.info(f"[{current_time:.1f}s] {action['topic']} = {action['message']}{status}")
             
             time.sleep(self.scene_processing_sleep)
         
         # Clean up after scene completion
         log.info("Scene execution completed")
+        
+        # Disable MQTT feedback tracking
+        if self.mqtt_client and hasattr(self.mqtt_client, 'disable_feedback_tracking'):
+            self.mqtt_client.disable_feedback_tracking()
+        
         self.scene_running = False
         if self.video_handler:
             self.video_handler.stop_video()
@@ -247,27 +253,20 @@ class MuseumController:
         log.info("Starting Museum Controller")
         
         # Establish MQTT connection
-        if not self.mqtt_client or not self.mqtt_client.connect_with_retry():
+        if not self.mqtt_client or not self.mqtt_client.establish_initial_connection():
             if self.shutdown_requested:
                 return
             log.critical("CRITICAL: Unable to establish MQTT connection")
             sys.exit(1)
         
-        self.connected_to_broker = True
-        
         # Main loop with health checks and button polling
-        last_health_check = time.time()
         use_polling = (hasattr(self.button_handler, 'use_polling') and 
                       self.button_handler.use_polling if self.button_handler else False)
         
         try:
             while not self.shutdown_requested:
-                current_time = time.time()
-                
-                # Perform periodic health checks and MQTT reconnection
-                if current_time - last_health_check > self.system_monitor.health_check_interval:
-                    self._perform_health_check()
-                    last_health_check = current_time
+                # Perform periodic health checks (includes MQTT management)
+                self.system_monitor.perform_periodic_health_check(self.mqtt_client)
                 
                 # Poll button state if required
                 if use_polling and self.button_handler:
@@ -284,15 +283,6 @@ class MuseumController:
             raise
         finally:
             self.cleanup()
-
-    def _perform_health_check(self):
-        """Perform system health checks and manage MQTT reconnection."""
-        if self.mqtt_client and not self.mqtt_client.check_and_reconnect():
-            self.connected_to_broker = False
-        elif self.mqtt_client and self.mqtt_client.is_connected():
-            self.connected_to_broker = True
-        
-        self.system_monitor.perform_health_check(self.mqtt_client, self.connected_to_broker)
 
     def cleanup(self):
         """Clean up all system resources gracefully."""

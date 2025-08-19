@@ -50,13 +50,18 @@ class SceneParser:
         self.logger.info("Scene started")
         return True
 
-    # Action Processing
+    # Action Processing with MQTT Feedback Integration
     def get_current_actions(self, mqtt_client):
         if not self.scene_data or not self.start_time:
             return []
         
         current_time = time.time() - self.start_time
         actions = []
+        
+        # NEW: Enable MQTT feedback tracking when scene starts
+        if mqtt_client and hasattr(mqtt_client, 'enable_feedback_tracking'):
+            if not mqtt_client.feedback_enabled:
+                mqtt_client.enable_feedback_tracking()
         
         for i, action in enumerate(self.scene_data):
             action_id = f"{i}_{action['timestamp']}"
@@ -65,15 +70,26 @@ class SceneParser:
                 actions.append(action)
                 self.executed_actions.add(action_id)
                 
+                # Handle local audio/video (no MQTT feedback needed)
                 if action["topic"].endswith("/audio"):
                     self._handle_audio_command(action["message"])
                 elif action["topic"].endswith("/video"):
                     self._handle_video_command(action["message"])
                 else:
+                    # Send MQTT command (with automatic feedback tracking)
                     if mqtt_client:
-                        mqtt_client.publish(action["topic"], action["message"], retain=False)
+                        success = mqtt_client.publish(action["topic"], action["message"], retain=False)
+                        if not success:
+                            self.logger.error(f"Failed to publish MQTT message: {action['topic']}")
         
         return actions
+    
+    def stop_scene(self, mqtt_client=None):
+        """Stop the current scene and disable MQTT feedback tracking."""
+        if mqtt_client and hasattr(mqtt_client, 'disable_feedback_tracking'):
+            mqtt_client.disable_feedback_tracking()
+        
+        self.logger.info("Scene stopped")
 
     def _handle_audio_command(self, message):
         if not self.audio_handler:
@@ -113,64 +129,3 @@ class SceneParser:
         
         current_time = time.time() - self.start_time
         return current_time > self.get_scene_duration()
-
-if __name__ == "__main__":
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    scene_file = os.path.join(script_dir, "..", "scenes", "room1", "intro.json")
-    
-    print(f"Looking for scene file at: {scene_file}")
-    
-    utils_dir = os.path.dirname(__file__)
-    if utils_dir not in sys.path:
-        sys.path.insert(0, utils_dir)
-    
-    try:
-        from mqtt_client import MQTTClient
-        from audio_handler import AudioHandler
-        from video_handler import VideoHandler
-        
-        audio_dir = os.path.join(script_dir, "..", "audio")
-        video_dir = os.path.join(script_dir, "..", "videos")
-        audio_handler = AudioHandler(audio_dir)
-        video_handler = VideoHandler(video_dir)
-        parser = SceneParser(audio_handler, video_handler)
-        
-        if parser.load_scene(scene_file):
-            print("Scene loaded successfully")
-            print(f"Scene duration: {parser.get_scene_duration()} seconds")
-            
-            mqtt_client = MQTTClient("localhost", use_logging=True)
-            mqtt_connected = mqtt_client.connect()
-            
-            if mqtt_connected:
-                print("Connected to MQTT broker")
-            else:
-                print("WARNING: No MQTT broker - running in simulation mode")
-                mqtt_client = None
-            
-            parser.start_scene()
-            
-            while not parser.is_scene_complete():
-                actions = parser.get_current_actions(mqtt_client)
-                if actions:
-                    progress = parser.get_scene_progress() * 100
-                    print(f"[{progress:.1f}%] Executing {len(actions)} actions:")
-                    for action in actions:
-                        print(f"  MQTT: {action['topic']} = {action['message']}")
-                
-                time.sleep(0.1)
-            
-            print("Scene playback completed")
-            
-            if mqtt_connected:
-                mqtt_client.disconnect()
-            audio_handler.cleanup()
-            video_handler.cleanup()
-            
-        else:
-            print("ERROR: Failed to load scene file")
-            print(f"Make sure the file exists at: {scene_file}")
-            
-    except ImportError as e:
-        print(f"ERROR: Failed to import modules: {e}")
-        print("Make sure mqtt_client.py, audio_handler.py, and video_handler.py are in the utils directory")

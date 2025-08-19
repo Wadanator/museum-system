@@ -73,7 +73,7 @@
                     </div>
                 </div>
                 <div class="log-actions">
-                    <button class="btn btn-secondary" onclick="socket.emit('logs_cleared')">🗑️ Clear</button>
+                    <button class="btn btn-secondary" onclick="clearLogs()">🗑️ Clear</button>
                     <button class="btn btn-secondary" onclick="autoScroll = !autoScroll; this.textContent = autoScroll ? '📜 Auto-scroll' : '📜 No Auto-scroll'">📜 Auto-scroll</button>
                     <button class="btn btn-secondary" onclick="window.location.href='/api/logs/export'">📤 Export</button>
                 </div>
@@ -148,7 +148,7 @@
 [
   {
     "timestamp": 0,
-    "topic": "room1/device",
+    "topic": "roomnum/device",
     "message": "COMMAND"
   }
 ]

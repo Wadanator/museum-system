@@ -137,7 +137,7 @@ class RouteHandler:
         return jsonify({
             'room_id': getattr(self.controller, 'room_id', 'Unknown'),
             'scene_running': getattr(self.controller, 'scene_running', False),
-            'mqtt_connected': getattr(self.controller, 'connected_to_broker', False),
+            'mqtt_connected': self.controller.mqtt_client.is_connected() if self.controller.mqtt_client else False,
             'uptime': time.monotonic() - getattr(self.controller, 'start_time', time.monotonic()),
             'log_count': len(self.dashboard.log_buffer)
         })
@@ -206,21 +206,62 @@ class RouteHandler:
         """Save a new or updated scene file with validation."""
         try:
             scene_data = request.json
+            
+            if not scene_data:
+                return jsonify({'error': 'No scene data provided'}), 400
+                
             scenes_path = self._get_scenes_path()
             scenes_path.mkdir(parents=True, exist_ok=True)
+            
+            # Ensure .json extension
+            if not scene_name.endswith('.json'):
+                scene_name = scene_name + '.json'
+                
             scene_path = scenes_path / secure_filename(scene_name)
 
+            # Validate scene data structure
             if not isinstance(scene_data, list):
                 return jsonify({'error': 'Scene must be a list of actions'}), 400
-            if not all('timestamp' in a and 'topic' in a and 'message' in a for a in scene_data):
-                return jsonify({'error': 'Invalid action format'}), 400
+                
+            if len(scene_data) == 0:
+                return jsonify({'error': 'Scene cannot be empty'}), 400
 
+            # Validate each action
+            for i, action in enumerate(scene_data):
+                if not isinstance(action, dict):
+                    return jsonify({'error': f'Action {i+1} must be an object'}), 400
+                    
+                required_fields = ['timestamp', 'topic', 'message']
+                missing_fields = [field for field in required_fields if field not in action]
+                if missing_fields:
+                    return jsonify({'error': f'Action {i+1} missing required fields: {", ".join(missing_fields)}'}), 400
+                    
+                # Validate field types
+                if not isinstance(action['timestamp'], (int, float)):
+                    return jsonify({'error': f'Action {i+1}: timestamp must be a number'}), 400
+                if action['timestamp'] < 0:
+                    return jsonify({'error': f'Action {i+1}: timestamp cannot be negative'}), 400
+                if not isinstance(action['topic'], str) or not action['topic'].strip():
+                    return jsonify({'error': f'Action {i+1}: topic must be a non-empty string'}), 400
+                if not isinstance(action['message'], str):
+                    return jsonify({'error': f'Action {i+1}: message must be a string'}), 400
+
+            # Save the scene file
             with open(scene_path, 'w') as f:
                 json.dump(scene_data, f, indent=2)
-            logging.getLogger('WEB').info(f"Scene '{scene_name}' saved successfully")
-            return jsonify({'success': True, 'message': f'Scene {scene_name} saved successfully'})
+                
+            logging.getLogger('WEB').info(f"Scene '{scene_name}' saved successfully to {scene_path}")
+            return jsonify({
+                'success': True, 
+                'message': f'Scene {scene_name} saved successfully',
+                'path': str(scene_path)
+            })
+            
+        except json.JSONDecodeError as e:
+            return jsonify({'error': f'Invalid JSON data: {str(e)}'}), 400
         except Exception as e:
-            return self._error_response(f"Error saving scene {scene_name}: {e}")
+            logging.getLogger('museum').error(f"Error saving scene {scene_name}: {e}")
+            return jsonify({'error': f'Error saving scene {scene_name}: {str(e)}'}), 500
 
     def run_scene(self, scene_name: str):
         """Start a scene in a separate thread if none is currently running."""
@@ -391,8 +432,17 @@ class RouteHandler:
             logging.getLogger('museum').error(f"Error handling stats request: {e}")
 
     def _get_scenes_path(self) -> Path:
-        """Get the directory path for scene files."""
-        return Path(getattr(self.controller, 'scenes_dir', Config.SCENES_DIR)) / getattr(self.controller, 'room_id', 'default')
+        """Get the directory path for scene files, ensuring it exists."""
+        room_scenes_path = Path(getattr(self.controller, 'scenes_dir', Config.SCENES_DIR)) / getattr(self.controller, 'room_id', 'default')
+        
+        # Create the directory if it doesn't exist
+        try:
+            room_scenes_path.mkdir(parents=True, exist_ok=True)
+            logging.getLogger('WEB').debug(f"Scene directory ensured: {room_scenes_path}")
+        except Exception as e:
+            logging.getLogger('museum').error(f"Failed to create scenes directory {room_scenes_path}: {e}")
+            
+        return room_scenes_path
 
     def _get_scene_path(self, scene_name: str) -> Path:
         """Get the file path for a specific scene."""
@@ -560,25 +610,20 @@ class WebDashboard:
         return filtered_logs[-limit:] if len(filtered_logs) > limit else filtered_logs
 
     def run(self, host: str = '0.0.0.0', port: int = Config.DEFAULT_PORT, debug: bool = False):
-        """Start the Flask web server and SocketIO."""
         logging.getLogger('WEB').info(f"Starting web dashboard on {host}:{port}")
-        logging.getLogger('WEB').info(f"Project root: {Config._BASE_DIR}")
-        
-        import warnings
-        warnings.filterwarnings('ignore', message='.*Werkzeug.*production.*')
-        os.environ['FLASK_ENV'] = 'production'
-        try:
-            self.socketio.run(
-                self.app,
-                host=host,
-                port=port,
-                debug=debug,
-                use_reloader=False,
-                allow_unsafe_werkzeug=True
-            )
-        except Exception as e:
-            logging.getLogger('museum').error(f"Error starting web dashboard: {e}")
-            raise
+        while True: 
+            try:
+                self.socketio.run(
+                    self.app,
+                    host=host,
+                    port=port,
+                    debug=debug,
+                    use_reloader=False,
+                    allow_unsafe_werkzeug=True
+                )
+            except Exception as e:
+                logging.getLogger('WEB').error(f"WEB crashed: {e}. Restarting in 10s...")
+                time.sleep(10)
 
 def start_web_dashboard(controller, port: int = Config.DEFAULT_PORT) -> WebDashboard:
     """Start the web dashboard in a separate thread."""

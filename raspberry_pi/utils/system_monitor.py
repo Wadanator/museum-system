@@ -2,7 +2,6 @@
 
 import os
 import time
-import logging
 from utils.logging_setup import get_logger
 
 class SystemMonitor:
@@ -12,6 +11,7 @@ class SystemMonitor:
         self.last_heartbeat = time.time()
         self._hc_count = 0
         self.hc_log_period = 120
+        self.last_health_check = time.time()
     
     def send_ready_notification(self):
         """Send systemd ready notification"""
@@ -23,15 +23,18 @@ class SystemMonitor:
             return False
     
     def perform_health_check(self, mqtt_client=None, connected_to_broker=False):
+        """Perform comprehensive system health check"""
         try:
             self.last_heartbeat = time.time()
             issues = []
             
+            # Check MQTT connection status
             if not connected_to_broker:
                 issues.append("MQTT down")
             if not mqtt_client:
                 issues.append("MQTT missing")
             
+            # Check system resources if psutil is available
             try:
                 import psutil
                 mem = psutil.virtual_memory()
@@ -66,6 +69,52 @@ class SystemMonitor:
         except Exception as e:
             self.logger.error(f"Health check failed: {e}")
             return False
+    
+    def should_perform_health_check(self):
+        """Check if it's time to perform a health check"""
+        current_time = time.time()
+        if current_time - self.last_health_check > self.health_check_interval:
+            self.last_health_check = current_time
+            return True
+        return False
+    
+    def perform_periodic_health_check(self, mqtt_client=None):
+        """Perform periodic health check with MQTT connection management"""
+        if not self.should_perform_health_check():
+            return True
+        
+        connected_to_broker = False
+        
+        # Manage MQTT connection health if client is available
+        if mqtt_client:
+            connected_to_broker = mqtt_client.manage_connection_health()
+        
+        # Perform comprehensive health check
+        return self.perform_health_check(mqtt_client, connected_to_broker)
+    
+    def get_system_stats(self):
+        """Get current system statistics"""
+        stats = {
+            'timestamp': time.time(),
+            'uptime': time.time() - self.last_heartbeat,
+            'health_check_count': self._hc_count
+        }
+        
+        try:
+            import psutil
+            mem = psutil.virtual_memory()
+            stats.update({
+                'memory_mb': mem.used / 1024 / 1024,
+                'memory_percent': mem.percent,
+                'cpu_percent': psutil.cpu_percent(interval=0.1),
+                'disk_percent': (psutil.disk_usage('/').used / psutil.disk_usage('/').total) * 100
+            })
+        except ImportError:
+            self.logger.debug("psutil not available for system stats")
+        except Exception as e:
+            self.logger.warning(f"Error getting system stats: {e}")
+        
+        return stats
     
     def log_startup_info(self, room_id, broker_ip, button_pin):
         """Log system startup information"""

@@ -49,7 +49,6 @@ class VideoHandler:
         if os.path.exists(self.ipc_socket):
             try:
                 os.remove(self.ipc_socket)
-                self.logger.info(f"Removed stale socket: {self.ipc_socket}")
             except PermissionError:
                 self.logger.error(f"Permission denied when removing socket: {self.ipc_socket}")
             except Exception as e:

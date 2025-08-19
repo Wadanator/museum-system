@@ -51,8 +51,11 @@ function toggleLogLevel(level) {
 }
 
 function applyLogFilters() {
+    const possibleLevels = ['debug', 'info', 'warning', 'error', 'critical'];
     document.querySelectorAll('.log-entry').forEach(entry => {
-        const level = Array.from(entry.classList).find(cls => activeFilters.has(cls)) || 'info';
+        // Najdi skutečnou úroveň logu z jeho tříd (classList)
+        const level = Array.from(entry.classList).find(cls => possibleLevels.includes(cls)) || 'info';
+        // Skryj, pokud úroveň není v aktivních filtrech
         entry.classList.toggle('hidden', !activeFilters.has(level));
     });
 }
@@ -139,8 +142,20 @@ function updateLogStats() {
 function clearLogs() {
     if (confirm('Are you sure you want to clear all logs?')) {
         fetch('/api/logs/clear', { method: 'POST' })
-            .then(res => res.json())
-            .then(({ success }) => showNotification(success ? 'Logs cleared successfully' : 'Failed to clear logs', success ? 'success' : 'error'));
+            .then(res => {
+                if (!res.ok) {
+                    console.error('Clear logs failed with status:', res.status);
+                    throw new Error('Network response was not ok');
+                }
+                return res.json();
+            })
+            .then(({ success }) => {
+                showNotification(success ? 'Logs cleared successfully' : 'Failed to clear logs', success ? 'success' : 'error');
+            })
+            .catch(err => {
+                console.error('Error clearing logs:', err);
+                showNotification('Error clearing logs: ' + err.message, 'error');
+            });
     }
 }
 
@@ -235,49 +250,142 @@ function loadSceneForEditing(sceneName) {
 }
 
 function saveScene() {
-    const sceneName = document.getElementById('sceneSelect').value || currentScene;
-    if (!sceneName) return showNotification('Please select or name a scene', 'error');
+    const sceneSelect = document.getElementById('sceneSelect');
+    const sceneName = sceneSelect.value || currentScene;
+    
+    if (!sceneName) {
+        showNotification('Please select or create a scene first', 'error');
+        return;
+    }
+    
+    // Ensure .json extension
+    const finalSceneName = sceneName.endsWith('.json') ? sceneName : sceneName + '.json';
+    
     try {
         const sceneData = JSON.parse(document.getElementById('sceneEditor').value);
-        fetch(`/api/scene/${sceneName}`, {
+        
+        // Validate scene data structure
+        if (!Array.isArray(sceneData)) {
+            showNotification('Scene must be an array of actions', 'error');
+            return;
+        }
+        
+        // Validate each action has required fields
+        for (let i = 0; i < sceneData.length; i++) {
+            const action = sceneData[i];
+            if (!('timestamp' in action) || !('topic' in action) || !('message' in action)) {
+                showNotification(`Action ${i + 1} is missing required fields (timestamp, topic, message)`, 'error');
+                return;
+            }
+        }
+        
+        fetch(`/api/scene/${finalSceneName}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(sceneData)
         })
-            .then(res => res.json())
-            .then(({ success, message, error }) => {
-                showNotification(success ? message : error, success ? 'success' : 'error');
-                if (success) loadResourceList('scenes', 'sceneList', 'sceneSelect', runScene, editScene);
-            });
+        .then(res => res.json())
+        .then(({ success, message, error }) => {
+            if (success) {
+                showNotification(message, 'success');
+                currentScene = finalSceneName;
+                
+                // Update the select value to match saved name
+                sceneSelect.value = finalSceneName;
+                
+                // Reload the scene list to show the new/updated scene
+                loadResourceList('scenes', 'sceneList', 'sceneSelect', runScene, editScene);
+            } else {
+                showNotification(error, 'error');
+            }
+        })
+        .catch(err => {
+            showNotification(`Error saving scene: ${err.message}`, 'error');
+        });
     } catch (e) {
-        showNotification('Invalid JSON format', 'error');
+        showNotification('Invalid JSON format. Please check your syntax.', 'error');
     }
 }
 
 function createNewScene() {
-    const sceneName = prompt('Enter scene name:');
+    const sceneName = prompt('Enter scene name (include .json extension):');
     if (sceneName) {
-        document.getElementById('sceneSelect').value = '';
+        // Clear the select to indicate new scene
+        const sceneSelect = document.getElementById('sceneSelect');
+        sceneSelect.value = '';
+        
+        // Add new option to select temporarily
+        const newOption = document.createElement('option');
+        newOption.value = sceneName;
+        newOption.textContent = sceneName;
+        newOption.selected = true;
+        sceneSelect.appendChild(newOption);
+        
+        // Set up default scene content
         document.getElementById('sceneEditor').value = JSON.stringify([
-            {"timestamp": 0, "topic": "room/light", "message": "ON"},
-            {"timestamp": 2.0, "topic": "room/audio", "message": "PLAY_WELCOME"},
-            {"timestamp": 5.0, "topic": "room/light", "message": "OFF"}
+            {"timestamp": 0, "topic": "roomX/light", "message": "ON"},
+            {"timestamp": 2.0, "topic": "roomX/audio", "message": "PLAY_WELCOME"},
+            {"timestamp": 5.0, "topic": "roomX/light", "message": "OFF"}
         ], null, 2);
+        
         currentScene = sceneName;
-        if (!document.getElementById('scenes').classList.contains('active')) showTab('scenes');
+        
+        // Switch to scenes tab if not already active
+        if (!document.getElementById('scenes').classList.contains('active')) {
+            showTab('scenes');
+        }
+        
+        showNotification(`New scene "${sceneName}" created. Edit and save to persist.`, 'info');
     }
 }
 
 function validateScene() {
     try {
         const sceneData = JSON.parse(document.getElementById('sceneEditor').value);
-        if (Array.isArray(sceneData) && sceneData.every(a => 'timestamp' in a && 'topic' in a && 'message' in a)) {
-            showNotification('Scene is valid!', 'success');
+        
+        if (!Array.isArray(sceneData)) {
+            showNotification('Scene must be an array of actions', 'error');
+            return;
+        }
+        
+        if (sceneData.length === 0) {
+            showNotification('Scene cannot be empty', 'error');
+            return;
+        }
+        
+        const errors = [];
+        
+        sceneData.forEach((action, index) => {
+            // Check required fields
+            if (!('timestamp' in action)) {
+                errors.push(`Action ${index + 1}: Missing timestamp`);
+            } else if (typeof action.timestamp !== 'number') {
+                errors.push(`Action ${index + 1}: Timestamp must be a number`);
+            } else if (action.timestamp < 0) {
+                errors.push(`Action ${index + 1}: Timestamp cannot be negative`);
+            }
+            
+            if (!('topic' in action)) {
+                errors.push(`Action ${index + 1}: Missing topic`);
+            } else if (typeof action.topic !== 'string' || action.topic.trim() === '') {
+                errors.push(`Action ${index + 1}: Topic must be a non-empty string`);
+            }
+            
+            if (!('message' in action)) {
+                errors.push(`Action ${index + 1}: Missing message`);
+            } else if (typeof action.message !== 'string') {
+                errors.push(`Action ${index + 1}: Message must be a string`);
+            }
+        });
+        
+        if (errors.length > 0) {
+            showNotification(`Validation errors:\n${errors.join('\n')}`, 'error');
         } else {
-            showNotification('Invalid scene format: missing required fields', 'error');
+            const duration = Math.max(...sceneData.map(a => a.timestamp));
+            showNotification(`Scene is valid! Duration: ${duration}s, Actions: ${sceneData.length}`, 'success');
         }
     } catch (e) {
-        showNotification('Invalid JSON format', 'error');
+        showNotification(`Invalid JSON format: ${e.message}`, 'error');
     }
 }
 
