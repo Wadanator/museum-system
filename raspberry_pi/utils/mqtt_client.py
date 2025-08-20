@@ -28,9 +28,9 @@ class MQTTClient:
         self.connection_lost_callback = None
         self.connection_restored_callback = None
         
-        # NEW: Feedback tracking system
+        # FIXED: Feedback tracking system
         self.feedback_enabled = False  # Only during scene execution
-        self.pending_feedbacks = {}  # {message_id: {'topic': topic, 'timestamp': time, 'device_topic': device_topic}}
+        self.pending_feedbacks = {}  # {message_id: {'topic': topic, 'timestamp': time, 'status_topic': status_topic}}
         self.feedback_timeout = 1.0  # 1 second timeout
         
         # Fix for paho-mqtt 2.0+ compatibility
@@ -66,7 +66,7 @@ class MQTTClient:
             self.feedback_enabled = False
             # Log any remaining pending feedbacks as warnings
             for msg_id, info in self.pending_feedbacks.items():
-                self.logger.warning(f"Scene ended with pending feedback: {info['device_topic']}")
+                self.logger.warning(f"Scene ended with pending feedback: {info['topic']}")
             self.pending_feedbacks.clear()
             self.logger.debug("MQTT feedback tracking disabled")
     
@@ -90,17 +90,23 @@ class MQTTClient:
         return True
     
     def _get_status_topic(self, original_topic):
-        """Convert command topic to expected status topic."""
-        # Examples:
-        # "room1/led1/brightness" -> "room1/led1/status"  
-        # "devices/esp32_01/relay" -> "devices/esp32_01/status"
-        
+        """Get the status topic for feedback based on the original topic."""
         parts = original_topic.split('/')
-        if len(parts) >= 2:
-            # Replace last part with 'status'
+        
+        # Pre room topics (room1/light, room1/motor, room1/steam)
+        if len(parts) >= 2 and parts[0].startswith('room'):
+            room_name = parts[0]  # room1, room2, etc.
+            return f"{room_name}/status"
+        
+        # Pre device topics (devices/esp32_01/relay)
+        elif len(parts) >= 3 and parts[0] == 'devices':
+            device_id = parts[1]  # esp32_01, esp32_02, etc.
+            return f"devices/{device_id}/status"
+        
+        # Default case: return the last part as status
+        else:
             status_parts = parts[:-1] + ['status']
             return '/'.join(status_parts)
-        return original_topic + '/status'
     
     def _on_connect(self, client, userdata, flags, rc):
         if rc == 0:
@@ -108,11 +114,11 @@ class MQTTClient:
             self.connected = True
             self.logger.info(f"Connected to MQTT broker at {self.broker_host}:{self.broker_port}")
             
-            # Subscribe to device status topic
+            # Subscribe to device status topics
             self.subscribe("devices/+/status")
             
-            # Subscribe to all possible status topics for feedback
-            self.subscribe("+/+/status")  # room*/device*/status
+            # Subscribe to room status topics for feedback
+            self.subscribe("+/status")  # room1/status, room2/status, etc.
             self.subscribe("devices/+/status")  # devices/esp32_*/status
             
             if not was_connected and self.connection_restored_callback:
@@ -146,7 +152,7 @@ class MQTTClient:
                 }
                 self.logger.debug(f"Device {device_id} status: {payload}")
             
-            # NEW: Handle feedback messages during scene execution
+            # Handle feedback messages during scene execution
             if self.feedback_enabled and msg.topic.endswith('/status'):
                 self._handle_feedback_message(msg.topic, payload)
                 
@@ -159,17 +165,21 @@ class MQTTClient:
         
         # Find matching pending feedback
         for msg_id, info in list(self.pending_feedbacks.items()):
-            if info['device_topic'] == status_topic:
+            if info['status_topic'] == status_topic:
                 elapsed = current_time - info['timestamp']
                 
                 if payload.upper() == 'OK':
-                    self.logger.debug(f"✓ Feedback OK: {info['topic']} ({elapsed:.3f}s)")
+                    self.logger.info(f"✅ Feedback OK: {info['topic']} ({elapsed:.3f}s)")
                 else:
-                    self.logger.warning(f"✗ Feedback ERROR: {info['topic']} -> '{payload}' ({elapsed:.3f}s)")
+                    self.logger.warning(f"❌ Feedback ERROR: {info['topic']} -> '{payload}' ({elapsed:.3f}s)")
                 
                 # Remove from pending
                 del self.pending_feedbacks[msg_id]
                 return
+        
+        # If no matching pending feedback found, log it as unexpected
+        if self.feedback_enabled:
+            self.logger.debug(f"Unexpected feedback on {status_topic}: {payload}")
     
     def _check_pending_feedbacks(self):
         """Check for timed out feedback messages."""
@@ -188,7 +198,7 @@ class MQTTClient:
         for msg_id in timed_out:
             info = self.pending_feedbacks[msg_id]
             elapsed = current_time - info['timestamp']
-            self.logger.warning(f"✗ Feedback TIMEOUT: {info['topic']} (>{elapsed:.3f}s)")
+            self.logger.warning(f"⏰ Feedback TIMEOUT: {info['topic']} (>{elapsed:.3f}s)")
             del self.pending_feedbacks[msg_id]
     
     def get_connected_devices(self):
@@ -215,18 +225,18 @@ class MQTTClient:
             if result.rc == mqtt.MQTT_ERR_SUCCESS:
                 self.logger.debug(f"Publishing to {topic}: {message}")
                 
-                # NEW: Track feedback if enabled and applicable
+                # FIXED: Track feedback if enabled and applicable
                 if self._should_expect_feedback(topic):
                     status_topic = self._get_status_topic(topic)
                     msg_id = f"{topic}_{int(time.time()*1000)}"  # Unique ID
                     
                     self.pending_feedbacks[msg_id] = {
                         'topic': topic,
-                        'device_topic': status_topic, 
+                        'status_topic': status_topic, 
                         'timestamp': time.time()
                     }
                     
-                    self.logger.debug(f"Expecting feedback on: {status_topic}")
+                    self.logger.debug(f"📤 Sent: {topic} -> expecting feedback on: {status_topic}")
                     
                     # Start timeout check in background
                     def check_timeout():
@@ -243,7 +253,7 @@ class MQTTClient:
             self.logger.error(f"Error publishing message: {e}")
             return False
     
-    # ... rest of the existing methods remain unchanged ...
+    # ... rest of the methods remain unchanged ...
     def connect(self, timeout=10):
         try:
             self.client.connect(self.broker_host, self.broker_port, timeout)

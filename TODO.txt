@@ -4,21 +4,6 @@ Watchdog pings GOOGLE but it shouldnt
 
 GET RID OF MPV and black.png from config adn parser
 
-# Prompt pre implementáciu MQTT feedback systému
-
-Potrebujem implementovať jednoduchý ale spoľahlivý feedback systém pre moju Python aplikáciu, ktorá riadi múzejný systém cez MQTT. ESP32 zariadenia by mali potvrdzovať, či sa akcie skutočne vykonali.
-
-## Súčasný stav:
-- Python aplikácia posiela MQTT príkazy (napr. `room1/light` → `ON`)
-- ESP32 zariadenia dostávají príkazy a vykonávajú akcie
-- **PROBLÉM**: Neviem, či sa akcia skutočne vykonala
-
-## Požiadavky:
-1. **Jednoduchosť**: Minimálne zmeny v kóde, žiadne zložité databázy
-2. **Spoľahlivosť**: Detekcia timeoutov, zlyhané akcie
-3. **Monitoring**: Dashboard má vidieť stav zariadení
-4. **Rozšíriteľnosť**: Ľahko pridať nové typy feedback
-
 ## Navrhované riešenie:
 ESP32 zariadenia budú posielať potvrdenia na topicy typu:
 
