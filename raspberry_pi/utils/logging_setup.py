@@ -2,6 +2,7 @@ import os
 import logging
 import logging.handlers
 import sys
+import json
 from datetime import datetime
 from pathlib import Path
 
@@ -41,7 +42,6 @@ def setup_logging(log_level=logging.INFO, log_dir=None, max_file_size=10*1024*10
             if self.format_style == 'simple':
                 message = f"{record.levelname}: {record.getMessage()}"
             elif self.format_style == 'json':
-                import json
                 log_obj = {
                     'timestamp': datetime.now().isoformat(),
                     'level': record.levelname,

@@ -586,8 +586,15 @@ class WebDashboard:
         """Update runtime statistics including uptime and connected devices."""
         self.stats['total_uptime'] += time.monotonic() - self.stats['last_start_time']
         self.stats['last_start_time'] = time.monotonic()
-        if hasattr(self.controller, 'mqtt_client') and self.controller.mqtt_client:
-            self.stats['connected_devices'] = self.controller.mqtt_client.get_connected_devices()
+        
+        # Fix: Access device registry through the MQTT client structure
+        if (hasattr(self.controller, 'mqtt_client') and 
+            self.controller.mqtt_client and 
+            hasattr(self.controller, 'mqtt_device_registry') and
+            self.controller.mqtt_device_registry):
+            self.stats['connected_devices'] = self.controller.mqtt_device_registry.get_connected_devices()
+        else:
+            self.stats['connected_devices'] = {}
 
     def update_scene_stats(self, scene_name: str):
         """Increment scene play count and save stats."""

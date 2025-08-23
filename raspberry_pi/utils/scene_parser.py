@@ -59,9 +59,9 @@ class SceneParser:
         actions = []
         
         # NEW: Enable MQTT feedback tracking when scene starts
-        if mqtt_client and hasattr(mqtt_client, 'enable_feedback_tracking'):
-            if not mqtt_client.feedback_enabled:
-                mqtt_client.enable_feedback_tracking()
+        if mqtt_client and hasattr(mqtt_client, 'feedback_tracker'):
+            if mqtt_client.feedback_tracker and not mqtt_client.feedback_tracker.feedback_enabled:
+                mqtt_client.feedback_tracker.enable_feedback_tracking()
         
         for i, action in enumerate(self.scene_data):
             action_id = f"{i}_{action['timestamp']}"
@@ -86,8 +86,9 @@ class SceneParser:
     
     def stop_scene(self, mqtt_client=None):
         """Stop the current scene and disable MQTT feedback tracking."""
-        if mqtt_client and hasattr(mqtt_client, 'disable_feedback_tracking'):
-            mqtt_client.disable_feedback_tracking()
+        if mqtt_client and hasattr(mqtt_client, 'feedback_tracker'):
+            if mqtt_client.feedback_tracker:
+                mqtt_client.feedback_tracker.disable_feedback_tracking()
         
         self.logger.info("Scene stopped")
 

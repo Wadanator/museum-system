@@ -418,5 +418,10 @@
     "message": "DISCO_BALL",
     "timestamp": 31,
     "topic": "room1/light"
+  },
+  {
+    "message": "DISCO_BALL",
+    "timestamp": 200,
+    "topic": "room1/light"
   }
 ]

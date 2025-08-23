@@ -2,7 +2,6 @@
 import paho.mqtt.client as mqtt
 import json
 import time
-import threading
 from utils.logging_setup import get_logger
 
 class MQTTClient:
@@ -13,7 +12,6 @@ class MQTTClient:
         self.broker_port = broker_port
         self.connected = False
         self.logger = logger or get_logger('mqtt')
-        self.connected_devices = {}
         
         # Connection parameters
         self.retry_attempts = retry_attempts
@@ -28,10 +26,10 @@ class MQTTClient:
         self.connection_lost_callback = None
         self.connection_restored_callback = None
         
-        # FIXED: Feedback tracking system
-        self.feedback_enabled = False  # Only during scene execution
-        self.pending_feedbacks = {}  # {message_id: {'topic': topic, 'timestamp': time, 'status_topic': status_topic}}
-        self.feedback_timeout = 1.0  # 1 second timeout
+        # External handlers (will be injected)
+        self.message_handler = None
+        self.feedback_tracker = None
+        self.device_registry = None
         
         # Fix for paho-mqtt 2.0+ compatibility
         try:
@@ -48,65 +46,16 @@ class MQTTClient:
         self.client.on_message = self._on_message
         self.client.on_publish = self._on_publish
     
+    def set_handlers(self, message_handler=None, feedback_tracker=None, device_registry=None):
+        """Set external handlers for message processing."""
+        self.message_handler = message_handler
+        self.feedback_tracker = feedback_tracker
+        self.device_registry = device_registry
+    
     def set_connection_callbacks(self, lost_callback=None, restored_callback=None):
         """Set callbacks for connection state changes."""
         self.connection_lost_callback = lost_callback
         self.connection_restored_callback = restored_callback
-    
-    def enable_feedback_tracking(self):
-        """Enable feedback tracking during scene execution."""
-        if not self.feedback_enabled:
-            self.feedback_enabled = True
-            self.pending_feedbacks.clear()
-            self.logger.debug("MQTT feedback tracking enabled")
-    
-    def disable_feedback_tracking(self):
-        """Disable feedback tracking during idle mode."""
-        if self.feedback_enabled:
-            self.feedback_enabled = False
-            # Log any remaining pending feedbacks as warnings
-            for msg_id, info in self.pending_feedbacks.items():
-                self.logger.warning(f"Scene ended with pending feedback: {info['topic']}")
-            self.pending_feedbacks.clear()
-            self.logger.debug("MQTT feedback tracking disabled")
-    
-    def _should_expect_feedback(self, topic):
-        """Determine if we should expect feedback for this topic."""
-        if not self.feedback_enabled:
-            return False
-            
-        # Skip audio/video topics (handled by RPI locally)
-        if topic.endswith('/audio') or topic.endswith('/video'):
-            return False
-            
-        # Skip status topics (these are feedback messages themselves)
-        if topic.endswith('/status'):
-            return False
-            
-        # Skip device status topics
-        if '/status' in topic:
-            return False
-            
-        return True
-    
-    def _get_status_topic(self, original_topic):
-        """Get the status topic for feedback based on the original topic."""
-        parts = original_topic.split('/')
-        
-        # Pre room topics (room1/light, room1/motor, room1/steam)
-        if len(parts) >= 2 and parts[0].startswith('room'):
-            room_name = parts[0]  # room1, room2, etc.
-            return f"{room_name}/status"
-        
-        # Pre device topics (devices/esp32_01/relay)
-        elif len(parts) >= 3 and parts[0] == 'devices':
-            device_id = parts[1]  # esp32_01, esp32_02, etc.
-            return f"devices/{device_id}/status"
-        
-        # Default case: return the last part as status
-        else:
-            status_parts = parts[:-1] + ['status']
-            return '/'.join(status_parts)
     
     def _on_connect(self, client, userdata, flags, rc):
         if rc == 0:
@@ -114,12 +63,9 @@ class MQTTClient:
             self.connected = True
             self.logger.info(f"Connected to MQTT broker at {self.broker_host}:{self.broker_port}")
             
-            # Subscribe to device status topics
+            # Subscribe to status topics
             self.subscribe("devices/+/status")
-            
-            # Subscribe to room status topics for feedback
             self.subscribe("+/status")  # room1/status, room2/status, etc.
-            self.subscribe("devices/+/status")  # devices/esp32_*/status
             
             if not was_connected and self.connection_restored_callback:
                 self.connection_restored_callback()
@@ -135,78 +81,9 @@ class MQTTClient:
             self.connection_lost_callback()
     
     def _on_message(self, client, userdata, msg):
-        try:
-            topic_parts = msg.topic.split('/')
-            payload = msg.payload.decode().strip()
-            
-            # Handle device status messages for connection tracking
-            if len(topic_parts) == 3 and topic_parts[0] == 'devices' and topic_parts[2] == 'status':
-                device_id = topic_parts[1]
-                if (device_id in self.connected_devices and 
-                    self.connected_devices[device_id]['status'] == 'online' and 
-                    payload == 'offline'):
-                    self.logger.warning(f"Device {device_id} disconnected")
-                self.connected_devices[device_id] = {
-                    'status': payload,
-                    'last_updated': time.time()
-                }
-                self.logger.debug(f"Device {device_id} status: {payload}")
-            
-            # Handle feedback messages during scene execution
-            if self.feedback_enabled and msg.topic.endswith('/status'):
-                self._handle_feedback_message(msg.topic, payload)
-                
-        except Exception as e:
-            self.logger.error(f"Error processing message on {msg.topic}: {e}")
-    
-    def _handle_feedback_message(self, status_topic, payload):
-        """Process incoming status/feedback messages."""
-        current_time = time.time()
-        
-        # Find matching pending feedback
-        for msg_id, info in list(self.pending_feedbacks.items()):
-            if info['status_topic'] == status_topic:
-                elapsed = current_time - info['timestamp']
-                
-                if payload.upper() == 'OK':
-                    self.logger.info(f"✅ Feedback OK: {info['topic']} ({elapsed:.3f}s)")
-                else:
-                    self.logger.warning(f"❌ Feedback ERROR: {info['topic']} -> '{payload}' ({elapsed:.3f}s)")
-                
-                # Remove from pending
-                del self.pending_feedbacks[msg_id]
-                return
-        
-        # If no matching pending feedback found, log it as unexpected
-        if self.feedback_enabled:
-            self.logger.debug(f"Unexpected feedback on {status_topic}: {payload}")
-    
-    def _check_pending_feedbacks(self):
-        """Check for timed out feedback messages."""
-        if not self.feedback_enabled:
-            return
-            
-        current_time = time.time()
-        timed_out = []
-        
-        for msg_id, info in self.pending_feedbacks.items():
-            elapsed = current_time - info['timestamp']
-            if elapsed > self.feedback_timeout:
-                timed_out.append(msg_id)
-        
-        # Log timeouts and remove from pending
-        for msg_id in timed_out:
-            info = self.pending_feedbacks[msg_id]
-            elapsed = current_time - info['timestamp']
-            self.logger.warning(f"⏰ Feedback TIMEOUT: {info['topic']} (>{elapsed:.3f}s)")
-            del self.pending_feedbacks[msg_id]
-    
-    def get_connected_devices(self):
-        """Return the list of connected devices."""
-        return {
-            device_id: info for device_id, info in self.connected_devices.items()
-            if info['status'] == 'online'
-        }
+        """Delegate message handling to external handler."""
+        if self.message_handler:
+            self.message_handler.handle_message(msg)
     
     def _on_publish(self, client, userdata, mid):
         self.logger.debug(f"Message published with ID: {mid}")
@@ -225,26 +102,10 @@ class MQTTClient:
             if result.rc == mqtt.MQTT_ERR_SUCCESS:
                 self.logger.debug(f"Publishing to {topic}: {message}")
                 
-                # FIXED: Track feedback if enabled and applicable
-                if self._should_expect_feedback(topic):
-                    status_topic = self._get_status_topic(topic)
-                    msg_id = f"{topic}_{int(time.time()*1000)}"  # Unique ID
+                # Notify feedback tracker if available
+                if self.feedback_tracker:
+                    self.feedback_tracker.track_published_message(topic, message)
                     
-                    self.pending_feedbacks[msg_id] = {
-                        'topic': topic,
-                        'status_topic': status_topic, 
-                        'timestamp': time.time()
-                    }
-                    
-                    self.logger.debug(f"📤 Sent: {topic} -> expecting feedback on: {status_topic}")
-                    
-                    # Start timeout check in background
-                    def check_timeout():
-                        time.sleep(self.feedback_timeout + 0.1)  # Small buffer
-                        self._check_pending_feedbacks()
-                    
-                    threading.Thread(target=check_timeout, daemon=True).start()
-                
             else:
                 self.logger.error(f"Failed to publish to {topic}: RC {result.rc}")
             
@@ -253,7 +114,6 @@ class MQTTClient:
             self.logger.error(f"Error publishing message: {e}")
             return False
     
-    # ... rest of the methods remain unchanged ...
     def connect(self, timeout=10):
         try:
             self.client.connect(self.broker_host, self.broker_port, timeout)
@@ -342,7 +202,5 @@ class MQTTClient:
     def cleanup(self):
         """Clean up MQTT resources."""
         self.shutdown_requested = True
-        self.disable_feedback_tracking()  # Clean up feedback tracking
-        self.connected_devices.clear()
         self.disconnect()
         self.logger.info("MQTT client cleaned up")

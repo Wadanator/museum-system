@@ -22,7 +22,10 @@ log = get_logger('main')
 
 # Import core system modules
 try:
-    from utils.mqtt_client import MQTTClient
+    from utils.mqtt.mqtt_client import MQTTClient
+    from utils.mqtt.mqtt_message_handler import MQTTMessageHandler
+    from utils.mqtt.mqtt_feedback_tracker import MQTTFeedbackTracker
+    from utils.mqtt.mqtt_device_registry import MQTTDeviceRegistry
     from utils.scene_parser import SceneParser
     from utils.audio_handler import AudioHandler
     from utils.video_handler import VideoHandler
@@ -98,8 +101,9 @@ class MuseumController:
             self.button_handler.set_callback(self.on_button_press)
 
     def _init_mqtt_client(self):
-        """Initialize the MQTT client with connection callbacks."""
+        """Initialize the MQTT client with all handlers."""
         try:
+            # Initialize MQTT client
             client = MQTTClient(
                 broker_host=self.config['broker_ip'],
                 broker_port=self.config['port'],
@@ -112,10 +116,28 @@ class MuseumController:
                 check_interval=self.config['mqtt_check_interval']
             )
             
+            # Initialize handlers
+            self.mqtt_feedback_tracker = MQTTFeedbackTracker()
+            self.mqtt_device_registry = MQTTDeviceRegistry()
+            self.mqtt_message_handler = MQTTMessageHandler()
+            
+            # Connect handlers together
+            self.mqtt_message_handler.set_handlers(
+                feedback_tracker=self.mqtt_feedback_tracker,
+                device_registry=self.mqtt_device_registry
+            )
+            
+            client.set_handlers(
+                message_handler=self.mqtt_message_handler,
+                feedback_tracker=self.mqtt_feedback_tracker,
+                device_registry=self.mqtt_device_registry
+            )
+            
             client.set_connection_callbacks(
                 lost_callback=self._on_mqtt_connection_lost,
                 restored_callback=self._on_mqtt_connection_restored
             )
+            
             return client
         except Exception as e:
             log.error(f"MQTT Client initialization failed: {e}")
@@ -202,8 +224,9 @@ class MuseumController:
         log.info(f"Starting scene execution (duration: {max_time}s)")
         
         # Enable MQTT feedback tracking for the scene
-        if self.mqtt_client and hasattr(self.mqtt_client, 'enable_feedback_tracking'):
-            self.mqtt_client.enable_feedback_tracking()
+        if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
+            if self.mqtt_client.feedback_tracker:
+                self.mqtt_client.feedback_tracker.enable_feedback_tracking()
         
         # Process scene actions within the specified time window
         while time.time() - start_time <= max_time + self.scene_buffer_time and not self.shutdown_requested:
@@ -223,8 +246,9 @@ class MuseumController:
         log.info("Scene execution completed")
         
         # Disable MQTT feedback tracking
-        if self.mqtt_client and hasattr(self.mqtt_client, 'disable_feedback_tracking'):
-            self.mqtt_client.disable_feedback_tracking()
+        if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
+            if self.mqtt_client.feedback_tracker:
+                self.mqtt_client.feedback_tracker.disable_feedback_tracking()
         
         self.scene_running = False
         if self.video_handler:
@@ -264,10 +288,7 @@ class MuseumController:
                       self.button_handler.use_polling if self.button_handler else False)
         
         try:
-            while not self.shutdown_requested:
-                # Perform periodic health checks (includes MQTT management)
-                self.system_monitor.perform_periodic_health_check(self.mqtt_client)
-                
+            while not self.shutdown_requested:      
                 # Poll button state if required
                 if use_polling and self.button_handler:
                     self.button_handler.check_button_polling()
