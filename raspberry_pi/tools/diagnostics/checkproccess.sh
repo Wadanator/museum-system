@@ -1,1 +1,1 @@
-sudo systemctl status museum-watchdog
+sudo systemctl status museum-system

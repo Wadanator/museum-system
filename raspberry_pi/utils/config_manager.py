@@ -1,3 +1,5 @@
+# raspberry_pi/utils/config_manager.py - Updated with component log levels
+
 #!/usr/bin/env python3
 
 import os
@@ -38,6 +40,11 @@ class ConfigManager:
         }
         log_level = log_level_map.get(log_level_str, logging.INFO)
         
+        # Get component-specific log levels if LogLevels section exists
+        component_levels = {}
+        if self.config.has_section('LogLevels'):
+            component_levels = dict(self.config['LogLevels'].items())
+        
         return {
             'log_level': log_level,
             'log_directory': Path(section.get('log_directory', '').strip()) if section.get('log_directory') else None,
@@ -47,7 +54,8 @@ class ConfigManager:
             'console_colors': section.getboolean('console_colors', True),
             'file_logging': section.getboolean('file_logging', True),
             'console_logging': section.getboolean('console_logging', True),
-            'log_format': section.get('log_format', 'detailed')
+            'log_format': section.get('log_format', 'detailed'),
+            'component_levels': component_levels  # NEW: component-specific levels
         }
     
     def get_all_config(self):
