@@ -73,7 +73,7 @@ try:
     from Web.web_dashboard import start_web_dashboard
     # Only log this if main logger is at INFO level or below
     if log.isEnabledFor(logging.INFO):
-        log.info("Core modules imported successfully")
+        log.debug("Core modules imported successfully")
 except ImportError as e:
     log.critical(f"Failed to import core modules: {e}")
     sys.exit(1)
@@ -216,7 +216,7 @@ class MuseumController:
         """Handle restoration of MQTT connection."""
         self.system_monitor.send_ready_notification()
         log.info(f"System ready - {self.room_id} operational")
-        log.info("MQTT connection restored - full functionality available")
+        log.debug("MQTT connection restored - full functionality available")
 
     def on_button_press(self):
         """Handle button press events to start the default scene."""

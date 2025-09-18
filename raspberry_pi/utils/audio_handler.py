@@ -173,33 +173,38 @@ class AudioHandler:
             
         try:
             if message.startswith("PLAY:"):
+                # Handle PLAY:filename:volume
                 parts = message.split(":")
                 if len(parts) < 2:
-                    self.logger.warning(f"Invalid PLAY command format: {message}")
                     return False
                 filename = parts[1]
                 volume = float(parts[2]) if len(parts) > 2 else 0.7
                 return self.play_audio_with_volume(filename, volume)
                 
+            elif message.startswith("FADE_IN:"):
+                # Handle FADE_IN:duration - not implemented yet
+                self.logger.info(f"FADE_IN command not implemented: {message}")
+                return True  # Don't treat as error
+                
+            elif message.startswith("BASS_BOOST:"):
+                # Handle BASS_BOOST:ON/OFF - not implemented yet  
+                self.logger.info(f"BASS_BOOST command not implemented: {message}")
+                return True  # Don't treat as error
+                
             elif message == "STOP":
                 return self.stop_audio()
-                
             elif message == "PAUSE":
                 return self.pause_audio()
-                
             elif message == "RESUME":
                 return self.resume_audio()
-                
             elif message.startswith("VOLUME:"):
                 try:
                     volume = float(message.split(":")[1])
                     return self.set_volume(volume)
                 except (ValueError, IndexError):
-                    self.logger.warning(f"Invalid volume command: {message}")
                     return False
-                
             else:
-                # Handle direct filename or PLAY_ commands
+                # Handle direct filename
                 return self.play_audio(message)
                 
         except Exception as e:

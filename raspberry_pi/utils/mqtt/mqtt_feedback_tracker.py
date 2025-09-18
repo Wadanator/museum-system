@@ -9,7 +9,7 @@ class MQTTFeedbackTracker:
         
         # Feedback tracking system
         self.feedback_enabled = False  # Only during scene execution
-        self.pending_feedbacks = {}  # {message_id: {'topic': topic, 'timestamp': time, 'status_topic': status_topic}}
+        self.pending_feedbacks = {}  # {topic: {'topic': topic, 'timestamp': time, 'status_topic': status_topic}}
         self.feedback_timeout = feedback_timeout
     
     def enable_feedback_tracking(self):
@@ -24,8 +24,8 @@ class MQTTFeedbackTracker:
         if self.feedback_enabled:
             self.feedback_enabled = False
             # Log any remaining pending feedbacks as warnings
-            for msg_id, info in self.pending_feedbacks.items():
-                self.logger.warning(f"Scene ended with pending feedback: {info['topic']}")
+            for topic, info in self.pending_feedbacks.items():
+                self.logger.warning(f"Scene ended with pending feedback: {topic}")
             self.pending_feedbacks.clear()
             self.logger.debug("MQTT feedback tracking disabled")
     
@@ -35,19 +35,26 @@ class MQTTFeedbackTracker:
             return
         
         status_topic = self._get_status_topic(topic)
-        msg_id = f"{topic}_{int(time.time()*1000)}"  # Unique ID
         
-        self.pending_feedbacks[msg_id] = {
+        # Use topic as key to prevent duplicate tracking of same topic
+        current_time = time.time()
+        
+        # Remove any existing pending feedback for the same topic
+        if topic in self.pending_feedbacks:
+            del self.pending_feedbacks[topic]
+        
+        # Add new tracking entry using topic as key (prevents duplicates)
+        self.pending_feedbacks[topic] = {
             'topic': topic,
             'status_topic': status_topic, 
-            'timestamp': time.time()
+            'timestamp': current_time
         }
         
         self.logger.debug(f"📤 Sent: {topic} -> expecting feedback on: {status_topic}")
         
-        # Start timeout check in background
+        # Start timeout check in background (only one per topic now)
         def check_timeout():
-            time.sleep(self.feedback_timeout + 0.1)  # Small buffer
+            time.sleep(self.feedback_timeout + 0.1)
             self._check_pending_feedbacks()
         
         threading.Thread(target=check_timeout, daemon=True).start()
@@ -59,22 +66,26 @@ class MQTTFeedbackTracker:
             
         current_time = time.time()
         
-        # Find matching pending feedback
-        for msg_id, info in list(self.pending_feedbacks.items()):
+        # Find matching pending feedback by status_topic
+        topic_to_remove = None
+        for topic, info in self.pending_feedbacks.items():
             if info['status_topic'] == status_topic:
                 elapsed = current_time - info['timestamp']
                 
                 if payload.upper() == 'OK':
-                    self.logger.info(f"✅ Feedback OK: {info['topic']} ({elapsed:.3f}s)")
+                    self.logger.info(f"✅ Feedback OK: {topic} ({elapsed:.3f}s)")
                 else:
-                    self.logger.warning(f"❌ Feedback ERROR: {info['topic']} -> '{payload}' ({elapsed:.3f}s)")
+                    self.logger.warning(f"❌ Feedback ERROR: {topic} -> '{payload}' ({elapsed:.3f}s)")
                 
-                # Remove from pending
-                del self.pending_feedbacks[msg_id]
-                return
+                topic_to_remove = topic
+                break
         
-        # If no matching pending feedback found, log it as unexpected
-        self.logger.debug(f"Unexpected feedback on {status_topic}: {payload}")
+        # Remove the processed feedback
+        if topic_to_remove:
+            del self.pending_feedbacks[topic_to_remove]
+        else:
+            # If no matching pending feedback found, log it as unexpected
+            self.logger.debug(f"Unexpected feedback on {status_topic}: {payload}")
     
     def _should_expect_feedback(self, topic):
         """Determine if we should expect feedback for this topic."""
@@ -122,14 +133,16 @@ class MQTTFeedbackTracker:
         current_time = time.time()
         timed_out = []
         
-        for msg_id, info in self.pending_feedbacks.items():
+        # Find timed out entries
+        for topic, info in list(self.pending_feedbacks.items()):
             elapsed = current_time - info['timestamp']
             if elapsed > self.feedback_timeout:
-                timed_out.append(msg_id)
+                timed_out.append(topic)
         
-        # Log timeouts and remove from pending
-        for msg_id in timed_out:
-            info = self.pending_feedbacks[msg_id]
-            elapsed = current_time - info['timestamp']
-            self.logger.warning(f"⏰ Feedback TIMEOUT: {info['topic']} (>{elapsed:.3f}s)")
-            del self.pending_feedbacks[msg_id]
+        # Log timeouts and remove from pending (prevent race condition duplicates)
+        for topic in timed_out:
+            if topic in self.pending_feedbacks:  # Double-check it still exists
+                info = self.pending_feedbacks[topic]
+                elapsed = current_time - info['timestamp']
+                self.logger.warning(f"⏰ Feedback TIMEOUT: {topic} (>{elapsed:.3f}s)")
+                del self.pending_feedbacks[topic]
