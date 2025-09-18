@@ -421,7 +421,7 @@
   },
   {
     "message": "DISCO_BALL",
-    "timestamp": 200,
+    "timestamp": 32,
     "topic": "room1/light"
   }
 ]
