@@ -13,7 +13,6 @@ from typing import Dict, List, Optional
 from flask import Flask, jsonify, request, send_file, send_from_directory, Response
 from flask import request as flask_request  # Alias for clarity in SocketIO
 from flask_socketio import SocketIO, emit
-from werkzeug.utils import secure_filename
 from utils.logging_setup import get_logger
 from functools import wraps
 

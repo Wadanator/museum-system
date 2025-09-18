@@ -2,7 +2,6 @@
 import subprocess
 import os
 import logging
-import json
 import socket
 import time
 import psutil
@@ -95,7 +94,7 @@ class VideoHandler:
 
             try:
                 self.logger.debug(f"Starting mpv with command: {' '.join(cmd)}")
-                self.process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, preexec_fn=os.setsid)
+                self.process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, preexec_fn=os.setsid)
                 for _ in range(5):
                     time.sleep(1)
                     if os.path.exists(self.ipc_socket):

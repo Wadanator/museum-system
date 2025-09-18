@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import pygame
 import os
-import logging
 import time
 from utils.logging_setup import get_logger
 

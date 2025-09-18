@@ -4,7 +4,7 @@ import os
 import sys
 import signal
 import time
-from datetime import datetime
+import logging
 
 # Configure Python path for module imports
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -18,9 +18,48 @@ from utils.logging_setup import setup_logging_from_config, get_logger
 config_manager = ConfigManager()
 logging_config = config_manager.get_logging_config()
 log = setup_logging_from_config(logging_config)
+
+# EARLY LOG LEVEL SETUP - Apply component-specific levels BEFORE importing modules
+def apply_early_log_levels():
+    """Apply log levels early to suppress startup noise"""
+    level_map = {
+        'DEBUG': logging.DEBUG,
+        'INFO': logging.INFO, 
+        'WARNING': logging.WARNING,
+        'ERROR': logging.ERROR,
+        'CRITICAL': logging.CRITICAL
+    }
+    
+    # Get component levels from config
+    component_levels = logging_config.get('component_levels', {})
+    
+    # Apply early to prevent startup message noise
+    early_suppressions = {
+        'museum.main': 'WARNING',
+        'museum.audio': 'WARNING', 
+        'museum.video': 'WARNING',
+        'museum.mqtt': 'WARNING',
+        'museum.scene_parser': 'WARNING',
+        'museum.btn_handler': 'WARNING',
+        'museum.sys_monitor': 'ERROR',
+        'museum.config': 'ERROR',
+        'museum.setup': 'ERROR',
+    }
+    
+    # Merge with user config, user config takes precedence
+    all_levels = {**early_suppressions, **component_levels}
+    
+    for logger_name, level_str in all_levels.items():
+        level = level_map.get(level_str.upper(), logging.INFO)
+        logging.getLogger(logger_name).setLevel(level)
+
+# Apply early log filtering
+apply_early_log_levels()
+
+# Now get the properly configured logger
 log = get_logger('main')
 
-# Import core system modules
+# Import core system modules (now with proper log levels applied)
 try:
     from utils.mqtt.mqtt_client import MQTTClient
     from utils.mqtt.mqtt_message_handler import MQTTMessageHandler
@@ -32,7 +71,9 @@ try:
     from utils.system_monitor import SystemMonitor
     from utils.button_handler import ButtonHandler
     from Web.web_dashboard import start_web_dashboard
-    log.info("Core modules imported successfully")
+    # Only log this if main logger is at INFO level or below
+    if log.isEnabledFor(logging.INFO):
+        log.info("Core modules imported successfully")
 except ImportError as e:
     log.critical(f"Failed to import core modules: {e}")
     sys.exit(1)

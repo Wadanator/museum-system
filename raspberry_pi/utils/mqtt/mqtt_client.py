@@ -116,6 +116,9 @@ class MQTTClient:
     
     def connect(self, timeout=10):
         try:
+            if hasattr(self.client, '_sock') and self.client._sock:
+                self.client.disconnect()
+                
             self.client.connect(self.broker_host, self.broker_port, timeout)
             self.client.loop_start()
             
