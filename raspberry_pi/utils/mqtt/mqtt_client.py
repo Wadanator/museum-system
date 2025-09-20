@@ -6,10 +6,11 @@ from utils.logging_setup import get_logger
 
 class MQTTClient:
     def __init__(self, broker_host, broker_port=1883, client_id=None, logger=None, 
-                 retry_attempts=3, retry_sleep=5, connect_timeout=10, 
+                 room_id=None, retry_attempts=3, retry_sleep=5, connect_timeout=10, 
                  reconnect_timeout=30, reconnect_sleep=5, check_interval=60):
         self.broker_host = broker_host
         self.broker_port = broker_port
+        self.room_id = room_id
         self.connected = False
         self.logger = logger or get_logger('mqtt')
         
@@ -63,10 +64,10 @@ class MQTTClient:
             self.connected = True
             self.logger.info(f"Connected to MQTT broker at {self.broker_host}:{self.broker_port}")
             
-            # Subscribe to status topics
+            # Subscribe len na svoj room a device status
             self.subscribe("devices/+/status")
-            self.subscribe("+/status")  # room1/status, room2/status, etc.
-            self.subscribe("+/scene")   # room1/scene, room2/scene
+            self.subscribe(f"{self.room_id}/status")
+            self.subscribe(f"{self.room_id}/scene")
             
             if not was_connected and self.connection_restored_callback:
                 self.connection_restored_callback()

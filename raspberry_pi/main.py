@@ -144,11 +144,12 @@ class MuseumController:
     def _init_mqtt_client(self):
         """Initialize the MQTT client with all handlers."""
         try:
-            # Initialize MQTT client
+            # Initialize MQTT client s room_id
             client = MQTTClient(
                 broker_host=self.config['broker_ip'],
                 broker_port=self.config['port'],
                 client_id=f"rpi_room_{self.room_id}",
+                room_id=self.room_id,
                 retry_attempts=self.config['mqtt_retry_attempts'],
                 retry_sleep=self.config['mqtt_retry_sleep'],
                 connect_timeout=self.config['mqtt_connect_timeout'],
