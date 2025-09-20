@@ -109,7 +109,7 @@ function updateStats({ total_scenes_played = 0, total_uptime = 0, scene_play_cou
                     <p>Last Updated: ${new Date(last_updated * 1000).toLocaleString()}</p>
                 </div>
             </div>`).join('')
-        : '<div class="scene-item device"><div class="scene-info"><h4>No devices connected</h4><p>No devices are currently connected to the MQTT broker</p></div></div>';
+        : '<div class="scene-item device"><div class="scene-info"><h4>No devices connected</h4><p>No devices are currently connected to the MQTT broker, THERE SHOULD BE!!!</p></div></div>';
 }
 
 function loadStats() {

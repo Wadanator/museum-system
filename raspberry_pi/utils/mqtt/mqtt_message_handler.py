@@ -21,7 +21,7 @@ class MQTTMessageHandler:
         try:
             topic_parts = msg.topic.split('/')
             payload = msg.payload.decode().strip()
-            self.logger.warning(f"DEBUG: Received {msg.topic} = {payload}")
+            ##self.logger.warning(f"DEBUG: Received {msg.topic} = {payload}") ##DEBUG PRINT LEN
             
             # Handle device status messages
             if self._is_device_status_message(topic_parts):
@@ -62,5 +62,4 @@ class MQTTMessageHandler:
     
     def _is_button_command(self, topic, payload):
         """Check if message is a button/scene command from ESP32."""
-        return ((topic.endswith('/button') and payload.upper() == 'PRESS') or
-            (topic.endswith('/scene') and payload.upper() == 'START'))
+        return topic.endswith('/scene') and payload.upper() == 'START'

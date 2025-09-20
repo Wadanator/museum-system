@@ -66,6 +66,7 @@ class MQTTClient:
             # Subscribe to status topics
             self.subscribe("devices/+/status")
             self.subscribe("+/status")  # room1/status, room2/status, etc.
+            self.subscribe("+/scene")   # room1/scene, room2/scene
             
             if not was_connected and self.connection_restored_callback:
                 self.connection_restored_callback()

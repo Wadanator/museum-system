@@ -7,8 +7,8 @@
 const bool DEBUG = true;
 
 // WiFi
-const char* WIFI_SSID = "Majo-home";
-const char* WIFI_PASSWORD = "Mmajcher7680home";
+const char* WIFI_SSID = "Museum-Room1";
+const char* WIFI_PASSWORD = "88888888";
 
 // MQTT
 const char* MQTT_SERVER = "192.168.0.127";
