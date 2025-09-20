@@ -165,7 +165,8 @@ class MuseumController:
             # Connect handlers together
             self.mqtt_message_handler.set_handlers(
                 feedback_tracker=self.mqtt_feedback_tracker,
-                device_registry=self.mqtt_device_registry
+                device_registry=self.mqtt_device_registry,
+                button_callback=self.on_button_press
             )
             
             client.set_handlers(
