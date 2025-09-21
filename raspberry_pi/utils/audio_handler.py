@@ -5,15 +5,15 @@ import time
 from utils.logging_setup import get_logger
 
 class AudioHandler:
-    def __init__(self, audio_dir, logger=None):
+    def __init__(self, audio_dir, logger=None, max_init_attempts=3, init_retry_delay=5):
         self.audio_dir = audio_dir
         self.currently_playing = None
         self.logger = logger or get_logger('audio')
         self.audio_available = False
         self.initialization_attempts = 0
-        self.max_init_attempts = 3
+        self.max_init_attempts = max_init_attempts
+        self.init_retry_delay = init_retry_delay
         self.last_init_attempt = 0
-        self.init_retry_delay = 5  # seconds
         
         self._initialize_audio_system()
     

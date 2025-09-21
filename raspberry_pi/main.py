@@ -123,69 +123,84 @@ class MuseumController:
         signal.signal(signal.SIGINT, self._signal_handler)
 
     def _initialize_components(self):
-        """Initialize system components with error handling."""
-        # Set up MQTT client
-        self.mqtt_client = self._init_mqtt_client()
-        
-        # Initialize other components
-        components = [
-            ('audio_handler', lambda: AudioHandler(self.audio_dir), "Audio Handler"),
-            ('video_handler', lambda: VideoHandler(self.video_dir, self.ipc_socket, self.black_image), "Video Handler"),
-            ('scene_parser', lambda: SceneParser(self.audio_handler, self.video_handler), "Scene Parser"),
-            ('button_handler', lambda: ButtonHandler(self.config['button_pin'], debounce_time=self.debounce_time), "Button Handler")
-        ]
-        
-        for attr_name, init_func, name in components:
-            setattr(self, attr_name, self._safe_init(init_func, name))
-        
-        # Configure button callback if available
-        if self.button_handler:
-            self.button_handler.set_callback(self.on_button_press)
+            """Initialize system components with error handling."""
+            # Set up MQTT client
+            self.mqtt_client = self._init_mqtt_client()
+            
+            # Initialize other components
+            components = [
+                ('audio_handler', lambda: AudioHandler(
+                    self.audio_dir,
+                    max_init_attempts=self.config['audio_max_init_attempts'],
+                    init_retry_delay=self.config['audio_init_retry_delay']
+                ), "Audio Handler"),
+                ('video_handler', lambda: VideoHandler(
+                    self.video_dir, 
+                    self.ipc_socket, 
+                    self.black_image,
+                    health_check_interval=self.config['video_health_check_interval'],
+                    max_restart_attempts=self.config['video_max_restart_attempts'],
+                    restart_cooldown=self.config['video_restart_cooldown']
+                ), "Video Handler"),
+                ('scene_parser', lambda: SceneParser(self.audio_handler, self.video_handler), "Scene Parser"),
+                ('button_handler', lambda: ButtonHandler(self.config['button_pin'], debounce_time=self.debounce_time), "Button Handler")
+            ]
+            
+            for attr_name, init_func, name in components:
+                setattr(self, attr_name, self._safe_init(init_func, name))
+            
+            # Configure button callback if available
+            if self.button_handler:
+                self.button_handler.set_callback(self.on_button_press)
 
     def _init_mqtt_client(self):
-        """Initialize the MQTT client with all handlers."""
-        try:
-            # Initialize MQTT client s room_id
-            client = MQTTClient(
-                broker_host=self.config['broker_ip'],
-                broker_port=self.config['port'],
-                client_id=f"rpi_room_{self.room_id}",
-                room_id=self.room_id,
-                retry_attempts=self.config['mqtt_retry_attempts'],
-                retry_sleep=self.config['mqtt_retry_sleep'],
-                connect_timeout=self.config['mqtt_connect_timeout'],
-                reconnect_timeout=self.config['mqtt_reconnect_timeout'],
-                reconnect_sleep=self.config['mqtt_reconnect_sleep'],
-                check_interval=self.config['mqtt_check_interval']
-            )
-            
-            # Initialize handlers
-            self.mqtt_feedback_tracker = MQTTFeedbackTracker()
-            self.mqtt_device_registry = MQTTDeviceRegistry()
-            self.mqtt_message_handler = MQTTMessageHandler()
-            
-            # Connect handlers together
-            self.mqtt_message_handler.set_handlers(
-                feedback_tracker=self.mqtt_feedback_tracker,
-                device_registry=self.mqtt_device_registry,
-                button_callback=self.on_button_press
-            )
-            
-            client.set_handlers(
-                message_handler=self.mqtt_message_handler,
-                feedback_tracker=self.mqtt_feedback_tracker,
-                device_registry=self.mqtt_device_registry
-            )
-            
-            client.set_connection_callbacks(
-                lost_callback=self._on_mqtt_connection_lost,
-                restored_callback=self._on_mqtt_connection_restored
-            )
-            
-            return client
-        except Exception as e:
-            log.error(f"MQTT Client initialization failed: {e}")
-            return None
+            """Initialize the MQTT client with all handlers."""
+            try:
+                # Initialize MQTT client s room_id
+                client = MQTTClient(
+                    broker_host=self.config['broker_ip'],
+                    broker_port=self.config['port'],
+                    client_id=f"rpi_room_{self.room_id}",
+                    room_id=self.room_id,
+                    retry_attempts=self.config['mqtt_retry_attempts'],
+                    retry_sleep=self.config['mqtt_retry_sleep'],
+                    connect_timeout=self.config['mqtt_connect_timeout'],
+                    reconnect_timeout=self.config['mqtt_reconnect_timeout'],
+                    reconnect_sleep=self.config['mqtt_reconnect_sleep'],
+                    check_interval=self.config['mqtt_check_interval']
+                )
+                
+                # Initialize handlers
+                self.mqtt_feedback_tracker = MQTTFeedbackTracker(
+                    feedback_timeout=self.config['feedback_timeout']
+                )
+                self.mqtt_device_registry = MQTTDeviceRegistry(
+                    device_timeout=self.config['device_timeout']
+                )
+                self.mqtt_message_handler = MQTTMessageHandler()
+                
+                # Connect handlers together
+                self.mqtt_message_handler.set_handlers(
+                    feedback_tracker=self.mqtt_feedback_tracker,
+                    device_registry=self.mqtt_device_registry,
+                    button_callback=self.on_button_press
+                )
+                
+                client.set_handlers(
+                    message_handler=self.mqtt_message_handler,
+                    feedback_tracker=self.mqtt_feedback_tracker,
+                    device_registry=self.mqtt_device_registry
+                )
+                
+                client.set_connection_callbacks(
+                    lost_callback=self._on_mqtt_connection_lost,
+                    restored_callback=self._on_mqtt_connection_restored
+                )
+                
+                return client
+            except Exception as e:
+                log.error(f"MQTT Client initialization failed: {e}")
+                return None
 
     def _safe_init(self, init_func, name):
         """Safely initialize a component, logging any errors."""
@@ -354,7 +369,7 @@ class MuseumController:
         
         # Track time for periodic tasks
         last_device_cleanup = time.time()
-        device_cleanup_interval = 60  # Check every 60 seconds
+        device_cleanup_interval = self.config['device_cleanup_interval']
         
         # Main loop with health checks and button polling
         use_polling = (hasattr(self.button_handler, 'use_polling') and 

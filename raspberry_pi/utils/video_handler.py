@@ -11,7 +11,8 @@ from threading import Lock
 from utils.logging_setup import get_logger
 
 class VideoHandler:
-    def __init__(self, video_dir=None, ipc_socket=None, black_image=None, logger=None):
+    def __init__(self, video_dir=None, ipc_socket=None, black_image=None, logger=None, 
+                 health_check_interval=60, max_restart_attempts=3, restart_cooldown=60):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.video_dir = video_dir or os.path.join(script_dir, "..", "videos")
         self.ipc_socket = ipc_socket or "/tmp/mpv_socket"
@@ -20,11 +21,13 @@ class VideoHandler:
         self.process = None
         self.currently_playing = None
         self.process_lock = Lock()
+        
+        self.health_check_interval = health_check_interval
+        self.max_restart_attempts = max_restart_attempts
+        self.restart_cooldown = restart_cooldown
+        
         self.last_health_check = time.time()
-        self.health_check_interval = 60
-        self.max_restart_attempts = 3
         self.restart_count = 0
-        self.restart_cooldown = 60
         self.last_restart_time = 0
 
         os.makedirs(self.video_dir, exist_ok=True)

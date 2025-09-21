@@ -59,36 +59,51 @@ class ConfigManager:
         }
     
     def get_all_config(self):
-        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        result = {
-            # MQTT
-            'broker_ip': self.config.get('MQTT', 'broker_ip'),
-            'port': self.config.getint('MQTT', 'port'),
-            # GPIO
-            'button_pin': self.config.getint('GPIO', 'button_pin'),
-            'debounce_time': self.config.getint('GPIO', 'debounce_time', fallback=300),
-            # Room/Json
-            'room_id': self.config.get('Room', 'room_id'),
-            'json_file_name': self.config.get('Json', 'json_file_name'),
-            # System
-            'health_check_interval': self.config.getint('System', 'health_check_interval', fallback=60),
-            'main_loop_sleep': self.config.getfloat('System', 'main_loop_sleep', fallback=1.0),
-            'mqtt_check_interval': self.config.getint('System', 'mqtt_check_interval', fallback=60),
-            'scene_processing_sleep': self.config.getfloat('System', 'scene_processing_sleep', fallback=0.20),
-            'web_dashboard_port': self.config.getint('System', 'web_dashboard_port', fallback=5000),
-            'scene_buffer_time': self.config.getfloat('System', 'scene_buffer_time', fallback=1.0),
-            'mqtt_retry_attempts': self.config.getint('System', 'mqtt_retry_attempts', fallback=5),
-            'mqtt_retry_sleep': self.config.getfloat('System', 'mqtt_retry_sleep', fallback=2.0),
-            'mqtt_connect_timeout': self.config.getint('System', 'mqtt_connect_timeout', fallback=10),
-            'mqtt_reconnect_timeout': self.config.getint('System', 'mqtt_reconnect_timeout', fallback=5),
-            'mqtt_reconnect_sleep': self.config.getfloat('System', 'mqtt_reconnect_sleep', fallback=0.5),
-            # Video
-            'ipc_socket': self.config.get('Video', 'ipc_socket'),
-            'black_image': self.config.get('Video', 'black_image'),
-            # Paths
-            'scenes_dir': os.path.join(script_dir, self.config.get('Scenes', 'directory')),
-            'audio_dir': os.path.join(script_dir, self.config.get('Audio', 'directory')),
-            'video_dir': os.path.join(script_dir, self.config.get('Video', 'directory')),
-        }
-        result.update(self.get_logging_config())
-        return result
+            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            result = {
+                # MQTT
+                'broker_ip': self.config.get('MQTT', 'broker_ip'),
+                'port': self.config.getint('MQTT', 'port'),
+                'device_timeout': self.config.getint('MQTT', 'device_timeout', fallback=180),  # ADD THIS LINE
+                'feedback_timeout': self.config.getfloat('MQTT', 'feedback_timeout', fallback=1.0),  # ADD THIS LINE
+                
+                # GPIO
+                'button_pin': self.config.getint('GPIO', 'button_pin'),
+                'debounce_time': self.config.getint('GPIO', 'debounce_time', fallback=300),
+                
+                # Room/Json
+                'room_id': self.config.get('Room', 'room_id'),
+                'json_file_name': self.config.get('Json', 'json_file_name'),
+                
+                # System
+                'health_check_interval': self.config.getint('System', 'health_check_interval', fallback=60),
+                'main_loop_sleep': self.config.getfloat('System', 'main_loop_sleep', fallback=1.0),
+                'mqtt_check_interval': self.config.getint('System', 'mqtt_check_interval', fallback=60),
+                'scene_processing_sleep': self.config.getfloat('System', 'scene_processing_sleep', fallback=0.20),
+                'web_dashboard_port': self.config.getint('System', 'web_dashboard_port', fallback=5000),
+                'scene_buffer_time': self.config.getfloat('System', 'scene_buffer_time', fallback=1.0),
+                'mqtt_retry_attempts': self.config.getint('System', 'mqtt_retry_attempts', fallback=5),
+                'mqtt_retry_sleep': self.config.getfloat('System', 'mqtt_retry_sleep', fallback=2.0),
+                'mqtt_connect_timeout': self.config.getint('System', 'mqtt_connect_timeout', fallback=10),
+                'mqtt_reconnect_timeout': self.config.getint('System', 'mqtt_reconnect_timeout', fallback=5),
+                'mqtt_reconnect_sleep': self.config.getfloat('System', 'mqtt_reconnect_sleep', fallback=0.5),
+                'device_cleanup_interval': self.config.getint('System', 'device_cleanup_interval', fallback=60),  # ADD THIS LINE
+                
+                # Video
+                'ipc_socket': self.config.get('Video', 'ipc_socket'),
+                'black_image': self.config.get('Video', 'black_image'),
+                'video_health_check_interval': self.config.getint('Video', 'health_check_interval', fallback=60),  # ADD THIS LINE
+                'video_max_restart_attempts': self.config.getint('Video', 'max_restart_attempts', fallback=3),  # ADD THIS LINE
+                'video_restart_cooldown': self.config.getint('Video', 'restart_cooldown', fallback=60),  # ADD THIS LINE
+                
+                # Audio - ADD THESE 2 LINES
+                'audio_max_init_attempts': self.config.getint('Audio', 'max_init_attempts', fallback=3),
+                'audio_init_retry_delay': self.config.getint('Audio', 'init_retry_delay', fallback=5),
+                
+                # Paths
+                'scenes_dir': os.path.join(script_dir, self.config.get('Scenes', 'directory')),
+                'audio_dir': os.path.join(script_dir, self.config.get('Audio', 'directory')),
+                'video_dir': os.path.join(script_dir, self.config.get('Video', 'directory')),
+            }
+            result.update(self.get_logging_config())
+            return result
