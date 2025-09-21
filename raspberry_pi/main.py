@@ -71,7 +71,7 @@ try:
     from utils.video_handler import VideoHandler
     from utils.system_monitor import SystemMonitor
     from utils.button_handler import ButtonHandler
-    from Web.web_dashboard import start_web_dashboard
+    from Web import start_web_dashboard
     # Only log this if main logger is at INFO level or below
     if log.isEnabledFor(logging.INFO):
         log.debug("Core modules imported successfully")
@@ -84,7 +84,7 @@ class MuseumController:
     def __init__(self, config_manager):
         self.config_manager = config_manager
         self.config = config_manager.get_all_config()
-        
+        self.scene_lock = threading.Lock()
         # Extract commonly used configuration values
         self._extract_config_values()
         
@@ -223,13 +223,22 @@ class MuseumController:
 
     def on_button_press(self):
         """Handle button press events to start the default scene in a new thread."""
-        if self.scene_running:
-            log.info("Scene already running, ignoring button press")
-            return
+        # Thread-safe check and set scene_running
+        with self.scene_lock:
+            if self.scene_running:
+                log.info("Scene already running, ignoring button press")
+                return
+            self.scene_running = True  # Set immediately while locked
 
+        # Check MQTT connection
         if not self.mqtt_client or not self.mqtt_client.is_connected():
             log.error("Cannot start scene: MQTT not connected")
+            self.scene_running = False  # Reset if we can't start
             return
+
+        # Start scene in new thread
+        scene_thread = threading.Thread(target=self.start_default_scene, daemon=True)
+        scene_thread.start()
 
         scene_thread = threading.Thread(target=self.start_default_scene, daemon=True)
         scene_thread.start()
