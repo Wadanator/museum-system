@@ -1,11 +1,15 @@
+// ota_manager.h - FIXED VERSION
 #ifndef OTA_MANAGER_H
 #define OTA_MANAGER_H
 
-// Jednoduché OTA funkcie
+// OTA management functions
 void initializeOTA();
 void handleOTA();
+bool isOTAInProgress();
+void reinitializeOTAAfterWiFiReconnect();
 
-// OTA stav
+// OTA state
 extern bool otaInProgress;
+extern bool otaInitialized;
 
 #endif // OTA_MANAGER_H

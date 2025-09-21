@@ -32,7 +32,7 @@ const int MAX_MQTT_ATTEMPTS = 5;
 const int MQTT_KEEP_ALIVE = 15;
 
 // Watchdog Timer Configuration
-const unsigned long WDT_TIMEOUT = 30;
+const unsigned long WDT_TIMEOUT = 120;
 
 const char* OTA_HOSTNAME = "ESP32-Museum-Room1";  // Meno pre Arduino IDE
 const char* OTA_PASSWORD = "room1";               // Žiadne heslo pre jednoduchost
