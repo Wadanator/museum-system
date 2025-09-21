@@ -174,20 +174,24 @@ def setup_api_routes(dashboard):
     def run_scene(scene_name):
         """Start a scene in a separate thread if none is currently running."""
         try:
-            if getattr(controller, 'scene_running', False):
-                return jsonify({'error': 'Scene already running'}), 400
-
-            scene_path = get_scene_path(controller, scene_name)
-            if not scene_path.exists():
-                return jsonify({'error': 'Scene not found'}), 404
+            # ✅ Thread-safe check and set (same as button handler)
+            with controller.scene_lock:
+                if controller.scene_running:
+                    return jsonify({'error': 'Scene already running'}), 400
+                
+                scene_path = get_scene_path(controller, scene_name)
+                if not scene_path.exists():
+                    return jsonify({'error': 'Scene not found'}), 404
+                
+                # Set scene_running while locked
+                controller.scene_running = True
+                dashboard.log.info(f"Web dashboard starting scene: {scene_name}")
 
             def run_scene_thread():
                 """Thread function to execute a scene."""
                 try:
-                    dashboard.log.info(f"Starting scene: {scene_name}")
                     if hasattr(controller, 'scene_parser') and controller.scene_parser:
                         if controller.scene_parser.load_scene(str(scene_path)):
-                            controller.scene_running = True
                             controller.scene_parser.start_scene()
                             if hasattr(controller, 'run_scene'):
                                 controller.run_scene()
@@ -198,12 +202,15 @@ def setup_api_routes(dashboard):
                 except Exception as e:
                     dashboard.log.error(f"Error running scene {scene_name}: {e}")
                 finally:
+                    # ✅ Always clear scene_running when done
                     controller.scene_running = False
 
             thread = threading.Thread(target=run_scene_thread, daemon=True)
             thread.start()
             return jsonify({'success': True, 'message': f'Scene {scene_name} started'})
         except Exception as e:
+            # ✅ Clear scene_running on error
+            controller.scene_running = False
             return jsonify({'error': f"Error starting scene {scene_name}: {e}"}), 500
 
     @api_bp.route('/stop_scene', methods=['POST'])

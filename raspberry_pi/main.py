@@ -228,44 +228,44 @@ class MuseumController:
             if self.scene_running:
                 log.info("Scene already running, ignoring button press")
                 return
-            self.scene_running = True  # Set immediately while locked
+            
+            # Check MQTT connection before setting scene_running
+            if not self.mqtt_client or not self.mqtt_client.is_connected():
+                log.error("Cannot start scene: MQTT not connected")
+                return
+            
+            # Set scene_running only after all checks pass
+            self.scene_running = True
+            log.info("Button pressed - starting default scene")
 
-        # Check MQTT connection
-        if not self.mqtt_client or not self.mqtt_client.is_connected():
-            log.error("Cannot start scene: MQTT not connected")
-            self.scene_running = False  # Reset if we can't start
-            return
-
-        # Start scene in new thread
-        scene_thread = threading.Thread(target=self.start_default_scene, daemon=True)
-        scene_thread.start()
-
+        # Start scene in new thread (scene_running is already set)
         scene_thread = threading.Thread(target=self.start_default_scene, daemon=True)
         scene_thread.start()
 
     def start_default_scene(self):
         """Load and start the default scene for the current room."""
-        if self.scene_running:
-            log.debug("start_default_scene called, but scene is already marked as running.")
-            return
-
+        # Remove the problematic scene_running check - it's already set by on_button_press()
+        
         if not self.mqtt_client or not self.mqtt_client.is_connected():
             log.error("Cannot start scene: MQTT not connected")
+            self.scene_running = False  # Reset on error
             return
 
         scene_path = os.path.join(self.scenes_dir, self.room_id, self.json_file_name)
 
         if not os.path.exists(scene_path):
             log.critical(f"Scene file not found: {scene_path}")
+            self.scene_running = False  # Reset on error
             return
 
         if not self.scene_parser:
             log.error("Scene parser not available")
+            self.scene_running = False  # Reset on error
             return
 
         log.info(f"Loading scene: {scene_path}")
         if self.scene_parser.load_scene(scene_path):
-            self.scene_running = True
+            # scene_running is already True from on_button_press()
             try:
                 self.scene_parser.start_scene()
                 self.run_scene()
@@ -275,6 +275,7 @@ class MuseumController:
                 self.scene_running = False
         else:
             log.error("Failed to load scene")
+            self.scene_running = False
 
     def run_scene(self):
         """Execute the loaded scene with precise timing control and MQTT feedback."""
