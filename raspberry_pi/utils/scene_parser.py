@@ -32,7 +32,7 @@ class SceneParser:
                     self.logger.error(f"Action {i} missing required fields (timestamp, topic, message)")
                     return False
             
-            self.logger.info(f"Scene loaded: {len(self.scene_data)} actions")
+            self.logger.debug(f"Scene loaded: {len(self.scene_data)} actions")
             return True
             
         except Exception as e:

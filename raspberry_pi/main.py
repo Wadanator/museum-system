@@ -5,6 +5,7 @@ import sys
 import signal
 import time
 import logging
+import threading
 
 # Configure Python path for module imports
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -221,38 +222,48 @@ class MuseumController:
         log.debug("MQTT connection restored - full functionality available")
 
     def on_button_press(self):
-        """Handle button press events to start the default scene."""
+        """Handle button press events to start the default scene in a new thread."""
         if self.scene_running:
             log.info("Scene already running, ignoring button press")
             return
-        
+
         if not self.mqtt_client or not self.mqtt_client.is_connected():
             log.error("Cannot start scene: MQTT not connected")
             return
-        
-        self.start_default_scene()
+
+        scene_thread = threading.Thread(target=self.start_default_scene, daemon=True)
+        scene_thread.start()
 
     def start_default_scene(self):
         """Load and start the default scene for the current room."""
+        if self.scene_running:
+            log.debug("start_default_scene called, but scene is already marked as running.")
+            return
+
         if not self.mqtt_client or not self.mqtt_client.is_connected():
             log.error("Cannot start scene: MQTT not connected")
             return
-        
+
         scene_path = os.path.join(self.scenes_dir, self.room_id, self.json_file_name)
-        
+
         if not os.path.exists(scene_path):
             log.critical(f"Scene file not found: {scene_path}")
             return
-        
+
         if not self.scene_parser:
             log.error("Scene parser not available")
             return
-        
+
         log.info(f"Loading scene: {scene_path}")
         if self.scene_parser.load_scene(scene_path):
             self.scene_running = True
-            self.scene_parser.start_scene()
-            self.run_scene()
+            try:
+                self.scene_parser.start_scene()
+                self.run_scene()
+            except Exception as e:
+                log.error(f"An error occurred during scene execution: {e}")
+            finally:
+                self.scene_running = False
         else:
             log.error("Failed to load scene")
 
@@ -260,43 +271,48 @@ class MuseumController:
         """Execute the loaded scene with precise timing control and MQTT feedback."""
         if not self.scene_parser.scene_data:
             log.error("No scene data available")
+            self.scene_running = False 
             return
-        
+
         start_time = time.time()
         max_time = max(action["timestamp"] for action in self.scene_parser.scene_data)
         log.info(f"Starting scene execution (duration: {max_time}s)")
-        
+
         # Enable MQTT feedback tracking for the scene
         if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
             if self.mqtt_client.feedback_tracker:
                 self.mqtt_client.feedback_tracker.enable_feedback_tracking()
-        
+
         # Process scene actions within the specified time window
         while time.time() - start_time <= max_time + self.scene_buffer_time and not self.shutdown_requested:
+            if not self.scene_running:
+                log.info("Scene execution was stopped externally.")
+                break
+
             actions = self.scene_parser.get_current_actions(
                 self.mqtt_client if self.mqtt_client and self.mqtt_client.is_connected() else None
             )
-            
+
             if actions:
                 current_time = time.time() - start_time
                 for action in actions:
                     status = "" if self.mqtt_client and self.mqtt_client.is_connected() else " (simulation)"
                     log.info(f"[{current_time:.1f}s] {action['topic']} = {action['message']}{status}")
-            
+
             time.sleep(self.scene_processing_sleep)
-        
+
         # Clean up after scene completion
         log.info("Scene execution completed")
-        
+
         # Disable MQTT feedback tracking
         if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
             if self.mqtt_client.feedback_tracker:
                 self.mqtt_client.feedback_tracker.disable_feedback_tracking()
-        
-        self.scene_running = False
+
+        # self.scene_running = False 
         if self.video_handler:
             self.video_handler.stop_video()
-        
+
         self._update_scene_statistics()
 
     def _update_scene_statistics(self):
@@ -311,7 +327,7 @@ class MuseumController:
                 self.web_dashboard.stats['scene_play_counts'].get(scene_name, 0) + 1
             self.web_dashboard.save_stats()
             self.web_dashboard.socketio.emit('stats_update', self.web_dashboard.stats)
-            log.info(f"Updated statistics for scene: {scene_name}")
+            log.debug(f"Updated statistics for scene: {scene_name}")
         except Exception as e:
             log.error(f"Error updating stats for scene: {e}")
 
