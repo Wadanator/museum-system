@@ -351,15 +351,27 @@ class MuseumController:
             log.critical("CRITICAL: Unable to establish MQTT connection")
             sys.exit(1)
         
+        # Track time for periodic tasks
+        last_device_cleanup = time.time()
+        device_cleanup_interval = 60  # Check every 60 seconds
+        
         # Main loop with health checks and button polling
         use_polling = (hasattr(self.button_handler, 'use_polling') and 
-                      self.button_handler.use_polling if self.button_handler else False)
+                    self.button_handler.use_polling if self.button_handler else False)
         
         try:
             while not self.shutdown_requested:      
+                current_time = time.time()
+                
                 # Poll button state if required
                 if use_polling and self.button_handler:
                     self.button_handler.check_button_polling()
+                
+                # Periodic device cleanup (check for stale devices)
+                if current_time - last_device_cleanup >= device_cleanup_interval:
+                    if self.mqtt_device_registry:
+                        self.mqtt_device_registry.cleanup_stale_devices()
+                    last_device_cleanup = current_time
                 
                 # Adjust sleep time based on scene activity
                 sleep_time = self.main_loop_sleep if self.scene_running else (self.main_loop_sleep + 0.5)

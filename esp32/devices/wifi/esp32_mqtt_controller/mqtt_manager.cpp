@@ -108,6 +108,7 @@ void connectToMqtt() {
     lastMqttAttempt = currentTime;
     mqttAttempts++;
 
+    // IMPROVED: Set Last Will Testament to notify when device goes offline unexpectedly
     if (client.connect(CLIENT_ID, NULL, NULL, STATUS_TOPIC.c_str(), 0, true, "offline")) {
       Serial.println("MQTT connected");
       debugPrint("MQTT connected successfully");
@@ -138,7 +139,8 @@ void connectToMqtt() {
 
 void publishStatus() {
   unsigned long currentTime = millis();
-  if (mqttConnected && client.connected() && (currentTime - lastStatusPublish >= STATUS_PUBLISH_INTERVAL)) {
+  // IMPROVED: Send status more frequently (every 30 seconds)
+  if (mqttConnected && client.connected() && (currentTime - lastStatusPublish >= 30000)) {
     client.publish(STATUS_TOPIC.c_str(), "online", true);
     debugPrint("Published status: online to " + STATUS_TOPIC);
     lastStatusPublish = currentTime;
