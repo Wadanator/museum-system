@@ -37,4 +37,8 @@ extern const int MQTT_KEEP_ALIVE;
 // Watchdog Timer Configuration
 extern const unsigned long WDT_TIMEOUT;
 
+extern const char* OTA_HOSTNAME;
+extern const char* OTA_PASSWORD;
+extern const bool OTA_ENABLED;
+
 #endif
