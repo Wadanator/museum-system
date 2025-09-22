@@ -8,10 +8,21 @@ class MQTTDeviceRegistry:
         self.connected_devices = {}
         self.device_timeout = device_timeout  # Seconds after which device is considered offline
     
-    def update_device_status(self, device_id, status):
-        """Update device status and log changes."""
+    def update_device_status(self, device_id, status, is_retained=False):
+        """Update device status and log changes, ignoring stale retained 'online' messages."""
         current_time = time.time()
-        
+
+        if is_retained and status.lower() == 'online':
+            self.logger.debug(f"Ignoring stale retained 'online' status for {device_id}.")
+            
+            # Ensure the device is at least registered as offline if we've never seen it
+            if device_id not in self.connected_devices:
+                self.connected_devices[device_id] = {
+                    'status': 'offline',
+                    'last_updated': current_time
+                }
+            return
+
         # Get previous status if device existed
         previous_status = None
         if device_id in self.connected_devices:

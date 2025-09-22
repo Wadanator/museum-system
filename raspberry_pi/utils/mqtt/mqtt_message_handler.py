@@ -25,7 +25,12 @@ class MQTTMessageHandler:
             # Handle device status messages
             if self._is_device_status_message(topic_parts):
                 if self.device_registry:
-                    self.device_registry.update_device_status(topic_parts[1], payload)
+                    # Pass the msg.retain flag as a new argument
+                    self.device_registry.update_device_status(
+                        device_id=topic_parts[1], 
+                        status=payload, 
+                        is_retained=msg.retain
+                    )
                 return
             
             # Handle feedback messages
