@@ -45,11 +45,6 @@ class MQTTClient:
         self.connection_lost_callback = None
         self.connection_restored_callback = None
         
-        # === Log Spam Prevention ===
-        self.last_failure_log = 0
-        self.log_failure_interval = 60  # Log failure max once per 60 seconds
-        self.failure_count = 0
-        
         # === External Handlers (injected after initialization) ===
         self.message_handler = None
         self.feedback_tracker = None
@@ -99,13 +94,7 @@ class MQTTClient:
         if rc == 0:
             was_connected = self.connected
             self.connected = True
-            
-            # Reset failure count and log connection status
-            if self.failure_count > 0:
-                self.logger.info(f"MQTT connected to {self.broker_host}:{self.broker_port} (after {self.failure_count} failures)")
-                self.failure_count = 0
-            else:
-                self.logger.info(f"Connected to MQTT broker at {self.broker_host}:{self.broker_port}")
+            self.logger.info(f"MQTT connected to {self.broker_host}:{self.broker_port}")
             
             # Subscribe to topics
             self.subscribe("devices/+/status")
@@ -117,13 +106,7 @@ class MQTTClient:
                 self.connection_restored_callback()
         else:
             self.connected = False
-            self.failure_count += 1
-            
-            # Log failure only occasionally to prevent spam
-            current_time = time.time()
-            if current_time - self.last_failure_log > self.log_failure_interval:
-                self.logger.error(f"Failed to connect to MQTT broker. Return code: {rc} (failure #{self.failure_count})")
-                self.last_failure_log = current_time
+            self.logger.error(f"Failed to connect to MQTT broker. Return code: {rc}")
     
     def _on_disconnect(self, client, userdata, rc):
         """Handle disconnection from broker."""
@@ -208,29 +191,19 @@ class MQTTClient:
             while not self.connected and (time.time() - start_time) < timeout:
                 time.sleep(0.1)
             
-            if not self.connected:
-                self.failure_count += 1
-            
             return self.connected
             
         except Exception as e:
-            self.failure_count += 1
-            # Log exception only occasionally
-            current_time = time.time()
-            if current_time - self.last_failure_log > self.log_failure_interval:
-                self.logger.error(f"Error connecting to MQTT broker: {e}")
-                self.last_failure_log = current_time
+            self.logger.error(f"Error connecting to MQTT broker: {e}")
             return False
     
     def connect_with_retry(self):
-        """Connect to MQTT broker with retry logic and reduced logging."""
+        """Connect to MQTT broker with retry logic."""
         for attempt in range(self.retry_attempts):
             if self.shutdown_requested:
                 return False
             
-            # Log attempt only for first few attempts to prevent spam
-            if attempt == 0 or self.failure_count <= 3:
-                self.logger.info(f"MQTT connection attempt {attempt + 1}/{self.retry_attempts}")
+            self.logger.info(f"MQTT connection attempt {attempt + 1}/{self.retry_attempts}")
             
             if self.connect(self.connect_timeout):
                 return True
@@ -243,18 +216,14 @@ class MQTTClient:
     def establish_initial_connection(self):
         """Establish initial MQTT connection with error handling."""
         if not self.connect_with_retry():
-            # Only log critical error once
-            if self.failure_count >= self.retry_attempts:
-                self.logger.critical("CRITICAL: Unable to establish MQTT connection")
+            self.logger.critical("CRITICAL: Unable to establish MQTT connection")
             return False
         return True
     
     def check_and_reconnect(self):
-        """Check connection and reconnect if needed with reduced logging."""
+        """Check connection and reconnect if needed."""
         if not self.connected:
-            # Only log reconnection attempt occasionally
-            if self.failure_count <= 2:
-                self.logger.debug("MQTT connection lost, attempting to reconnect...")
+            self.logger.debug("MQTT connection lost, attempting to reconnect...")
             
             if self.connect_with_retry():
                 self.logger.info("MQTT connection restored")

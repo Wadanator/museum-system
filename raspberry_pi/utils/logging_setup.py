@@ -1,4 +1,4 @@
-# raspberry_pi/utils/logging_setup.py - Enhanced version with component-specific levels
+# raspberry_pi/utils/logging_setup.py - Zjednodušená verzia bez nefunkčného filtra
 
 import os
 import logging
@@ -80,32 +80,6 @@ def _apply_component_log_levels(component_levels):
     for logger_name, level_str in all_levels.items():
         level = level_map.get(level_str.upper(), logging.INFO)
         logging.getLogger(logger_name).setLevel(level)
-        
-    # Special handling for root logger to suppress unwanted messages
-    root_logger = logging.getLogger()
-    
-    # Add filter to suppress specific noisy messages
-    class NoiseFilter(logging.Filter):
-        def filter(self, record):
-            # Suppress these specific messages
-            noisy_messages = [
-                "GET /api/status HTTP/1.1",
-                "POST /api/logs HTTP/1.1", 
-                "Socket.IO connection established",
-                "Socket.IO connection dropped",
-                "werkzeug",
-                "Health check #",
-                "Device registry cleared",
-                "Feedback tracking enabled",
-                "Feedback tracking disabled"
-            ]
-            
-            message = record.getMessage()
-            return not any(noise in message for noise in noisy_messages)
-    
-    # Apply filter to all handlers
-    for handler in logging.getLogger('museum').handlers:
-        handler.addFilter(NoiseFilter())
 
 def setup_logging(log_level=logging.INFO, log_dir=None, max_file_size=10*1024*1024, 
                  backup_count=5, daily_backup_days=30, console_colors=True,
