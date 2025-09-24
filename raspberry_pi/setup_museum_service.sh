@@ -1,8 +1,29 @@
 #!/bin/bash
-# Setup Script for Museum System Auto-Start on New Raspberry Pi
+# Complete Museum System Setup Script
 
-echo "🏛️ Setting up Museum System Auto-Start"
-echo "===================================="
+echo "🏛️ Museum System - Complete Setup"
+echo "=================================="
+
+# Update system and install dependencies
+echo "📦 Aktualizujem systém..."
+sudo apt update
+sudo apt upgrade -y
+
+echo "📦 Inštalujem systémové balíčky..."
+sudo apt install -y python3 python3-pip git mosquitto mosquitto-clients mpv htop alsa-utils
+
+echo "🐍 Inštalujem Python dependencies..."
+pip3 install -r requirements.txt
+
+echo "🔧 Zapínam MQTT broker..."
+sudo systemctl enable mosquitto
+sudo systemctl start mosquitto
+
+echo "🔊 Nastavujem audio na 3.5mm jack..."
+sudo amixer cset numid=3 1 2>/dev/null || true
+
+echo ""
+echo "📋 Nastavujem systemd služby..."
 
 # Variables
 SERVICE_NAME="museum-system"
@@ -72,3 +93,12 @@ echo ""
 echo "🚀 To start now:"
 echo "  sudo systemctl start $SERVICE_NAME"
 echo "  sudo systemctl start $WATCHDOG_NAME"
+
+echo ""
+read -p "🚀 Spustiť služby teraz? (y/n): " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    sudo systemctl start $SERVICE_NAME
+    sudo systemctl start $WATCHDOG_NAME
+    echo "✅ Služby spustené!"
+fi

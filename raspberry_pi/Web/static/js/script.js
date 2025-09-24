@@ -1,15 +1,18 @@
 const socket = io();
 let currentScene = '', currentCommand = '', autoScroll = true;
+let sceneStartTime = null, sceneDuration = 0;
 const activeFilters = new Set(['debug', 'info', 'warning', 'error', 'critical']);
 const logCounts = { debug: 0, info: 0, warning: 0, error: 0, critical: 0 };
 
+// Pripojenie k serveru
 socket.on('connect', () => {
-    console.log('Connected to server');
-    updateAll();
+    console.log('Pripojené k serveru');
+    updateMainDashboard();
     loadResourceList('scenes', 'sceneList', 'sceneSelect', runScene, editScene);
     loadResourceList('commands', 'commandList', 'commandSelect', runCommand, editCommand);
 });
 
+// Event listenery
 socket.on('new_log', addLogEntry);
 socket.on('log_history', logs => {
     document.getElementById('logContainer').innerHTML = '';
@@ -24,24 +27,317 @@ socket.on('logs_cleared', () => {
 });
 socket.on('stats_update', updateStats);
 socket.on('command_executed', ({ success, command, error }) => {
-    showNotification(success ? `Command '${command}' executed successfully` : `Command '${command}' failed: ${error}`, success ? 'success' : 'error');
+    showNotification(success ? `Príkaz '${command}' vykonaný úspešne` : `Príkaz '${command}' zlyhal: ${error}`, success ? 'success' : 'error');
 });
 
-function showTab(tabName) {
-    document.querySelectorAll('.tab, .tab-content').forEach(el => el.classList.remove('active'));
-    document.querySelector(`.tab[onclick="showTab('${tabName}')"]`).classList.add('active');
-    document.getElementById(tabName).classList.add('active');
-    if (tabName === 'scenes') {
-        loadResourceList('scenes', 'sceneList', 'sceneSelect', runScene, editScene);
-        // Ensure the editor is ready if a scene is selected
-        const selectedScene = document.getElementById('sceneSelect').value;
-        if (selectedScene) loadSceneForEditing(selectedScene);
-    } else if (tabName === 'stats') {
-        loadStats();
-    } else if (tabName === 'commands') {
-        loadResourceList('commands', 'commandList', 'commandSelect', runCommand, editCommand);
+// =======================================
+// HLAVNÝ DASHBOARD - Nové funkcie
+// =======================================
+
+function updateMainDashboard() {
+    updateSystemStatus();
+    updateDeviceStatus();
+    // Aktualizuj progress aj keď nie je zobrazený - server povie či má byť
+    updateSceneProgress();
+}
+
+function updateSystemStatus() {
+    fetch('/api/status')
+        .then(res => res.json())
+        .then(data => {
+            const { room_id, scene_running, mqtt_connected, uptime } = data;
+            
+            // Aktualizuj hlavný status
+            updateMainStatus(scene_running, mqtt_connected);
+            
+            // Aktualizuj detailné stavy
+            updateRoomStatus(room_id);
+            updateMqttStatus(mqtt_connected);
+            updateSceneStatus(scene_running);
+            
+            // Aktualizuj ovládacie tlačidlá
+            updateControlButtons(scene_running, mqtt_connected);
+        })
+        .catch(err => {
+            console.error('Chyba pri načítaní stavu:', err);
+            updateMainStatus(false, false, true);
+        });
+}
+
+function updateMainStatus(sceneRunning, mqttConnected, hasError = false) {
+    const statusElement = document.getElementById('mainSystemStatus');
+    
+    if (hasError) {
+        statusElement.className = 'main-status error';
+        statusElement.innerHTML = `
+            <div class="status-icon">❌</div>
+            <div class="status-text">Chyba komunikácie</div>
+            <div class="status-description">Nemožno načítať stav systému</div>
+        `;
+        return;
+    }
+    
+    if (sceneRunning) {
+        statusElement.className = 'main-status running pulse';
+        statusElement.innerHTML = `
+            <div class="status-icon">🎭</div>
+            <div class="status-text">Scéna prebieha</div>
+            <div class="status-description">Predstavenie je v priebehu</div>
+        `;
+        showSceneProgress();
+    } else if (mqttConnected) {
+        statusElement.className = 'main-status ready';
+        statusElement.innerHTML = `
+            <div class="status-icon">✅</div>
+            <div class="status-text">Systém pripravený</div>
+            <div class="status-description">Môžete spustiť predstavenie</div>
+        `;
+        hideSceneProgress();
+    } else {
+        statusElement.className = 'main-status error';
+        statusElement.innerHTML = `
+            <div class="status-icon">⚠️</div>
+            <div class="status-text">Systém nedostupný</div>
+            <div class="status-description">Skontrolujte MQTT pripojenie</div>
+        `;
+        hideSceneProgress();
     }
 }
+
+function updateRoomStatus(roomId) {
+    const element = document.getElementById('roomStatus');
+    document.getElementById('roomId').textContent = roomId || 'Neznáma';
+    element.className = 'status-item good';
+}
+
+function updateMqttStatus(connected) {
+    const element = document.getElementById('mqttStatus');
+    const valueElement = document.getElementById('mqttConnection');
+    
+    if (connected) {
+        element.className = 'status-item good';
+        valueElement.textContent = 'Pripojené';
+    } else {
+        element.className = 'status-item error';
+        valueElement.textContent = 'Odpojené';
+    }
+}
+
+function updateSceneStatus(running) {
+    const element = document.getElementById('sceneStatus');
+    const valueElement = document.getElementById('sceneState');
+    
+    if (running) {
+        element.className = 'status-item warning';
+        valueElement.textContent = 'Prebieha';
+    } else {
+        element.className = 'status-item good';
+        valueElement.textContent = 'Pripravená';
+    }
+}
+
+function updateDeviceStatus() {
+    fetch('/api/stats')
+        .then(res => res.json())
+        .then(data => {
+            const connectedCount = Object.keys(data.connected_devices || {}).length;
+            const element = document.getElementById('deviceStatus');
+            const valueElement = document.getElementById('deviceCount');
+            
+            valueElement.textContent = `${connectedCount} pripojených`;
+            
+            if (connectedCount > 0) {
+                element.className = 'status-item good';
+            } else {
+                element.className = 'status-item warning';
+            }
+        })
+        .catch(err => {
+            const element = document.getElementById('deviceStatus');
+            element.className = 'status-item error';
+            document.getElementById('deviceCount').textContent = 'Chyba';
+        });
+}
+
+function updateControlButtons(sceneRunning, mqttConnected) {
+    const runBtn = document.getElementById('runMainSceneBtn');
+    const stopBtn = document.getElementById('stopSceneBtn');
+    
+    if (sceneRunning) {
+        runBtn.style.display = 'none';
+        stopBtn.style.display = 'block';
+    } else {
+        runBtn.style.display = 'block';
+        stopBtn.style.display = 'none';
+        runBtn.disabled = !mqttConnected;
+        
+        if (!mqttConnected) {
+            runBtn.innerHTML = `
+                <div class="button-icon">⚠️</div>
+                <div class="button-text">Systém nedostupný</div>
+                <div class="button-subtext">Skontrolujte MQTT pripojenie</div>
+            `;
+        } else {
+            runBtn.innerHTML = `
+                <div class="button-icon">▶️</div>
+                <div class="button-text">Spustiť hlavnú scénu</div>
+                <div class="button-subtext">Stlačte pre začatie predstavenia</div>
+            `;
+        }
+    }
+}
+
+// =======================================
+// PROGRESS BAR PRE SCÉNU
+// =======================================
+
+function showSceneProgress() {
+    const container = document.getElementById('sceneProgressContainer');
+    container.style.display = 'block';
+    // Nezapisujeme sceneStartTime tu - dostaneme ho z servera
+}
+
+function hideSceneProgress() {
+    const container = document.getElementById('sceneProgressContainer');
+    container.style.display = 'none';
+    sceneStartTime = null;
+    sceneDuration = 0;
+}
+
+function updateSceneProgress() {
+    // Získaj aktuálny progress zo servera namiesto počítania lokálne
+    fetch('/api/scene/progress')
+        .then(res => res.json())
+        .then(data => {
+            if (data.scene_running) {
+                const progress = Math.min(Math.max(data.progress * 100, 0), 100);
+                const remaining = Math.max(data.remaining_time || 0, 0);
+                
+                document.getElementById('sceneProgressBar').style.width = `${progress}%`;
+                document.getElementById('sceneProgressText').textContent = `${Math.round(progress)}%`;
+                
+                const minutes = Math.floor(remaining / 60);
+                const seconds = Math.floor(remaining % 60);
+                document.getElementById('sceneTimeRemaining').textContent = 
+                    `Zostáva: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+                
+                // Ak scéna skončila, skry progress bar
+                if (progress >= 100 || remaining <= 0) {
+                    setTimeout(() => {
+                        if (!data.scene_running) {
+                            hideSceneProgress();
+                        }
+                    }, 2000); // Počkaj 2 sekundy pred skrytím
+                }
+            } else {
+                hideSceneProgress();
+            }
+        })
+        .catch(err => {
+            console.error('Chyba pri získavaní scene progress:', err);
+            // Pri chybe skry progress bar
+            hideSceneProgress();
+        });
+}
+
+// =======================================
+// HLAVNÉ AKCIE
+// =======================================
+
+function runMainScene() {
+    if (confirm('Spustiť hlavnú scénu predstavenia?')) {
+        // Získaj názov hlavnej scény z konfigurácie alebo použij default
+        const mainSceneName = 'test.json'; // Môže sa načítať z API
+        
+        fetch(`/api/run_scene/${mainSceneName}`, { method: 'POST' })
+            .then(res => res.json())
+            .then(({ success, message, error }) => {
+                if (success) {
+                    showNotification(message, 'success');
+                    updateMainDashboard();
+                } else {
+                    showNotification(error, 'error');
+                }
+            })
+            .catch(err => {
+                showNotification('Chyba pri komunikácii so serverom', 'error');
+            });
+    }
+}
+
+function stopScene() {
+    if (confirm('Skutočne chcete zastaviť prebiehajúcu scénu?')) {
+        fetch('/api/stop_scene', { method: 'POST' })
+            .then(res => res.json())
+            .then(({ success, message, error }) => {
+                showNotification(success ? message : error, success ? 'success' : 'error');
+                if (success) updateMainDashboard();
+            })
+            .catch(err => {
+                showNotification('Chyba pri komunikácii so serverom', 'error');
+            });
+    }
+}
+
+function testSystem() {
+    showNotification('Spúšťam test systému...', 'info');
+    
+    // Test MQTT pripojenia
+    fetch('/api/status')
+        .then(res => res.json())
+        .then(data => {
+            if (data.mqtt_connected) {
+                showNotification('✅ Test úspešný - systém funguje správne', 'success');
+            } else {
+                showNotification('⚠️ MQTT pripojenie zlyhalo', 'error');
+            }
+        })
+        .catch(() => {
+            showNotification('❌ Test zlyhal - server neodpovedá', 'error');
+        });
+}
+
+// =======================================
+// TAB SYSTÉM
+// =======================================
+
+function showTab(tabName) {
+    // Skry všetky tab contents
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+    
+    // Zobraz vybraný tab
+    if (tabName === 'dashboard') {
+        // Pre dashboard tab, zobraz main-dashboard namiesto tab-content
+        document.querySelector('.main-dashboard').style.display = 'block';
+        document.querySelector('.tab[onclick="showTab(\'dashboard\')"]').classList.add('active');
+    } else {
+        // Skry main dashboard
+        document.querySelector('.main-dashboard').style.display = 'none';
+        
+        // Zobraz vybraný tab content
+        document.getElementById(tabName).classList.add('active');
+        document.querySelector(`.tab[onclick="showTab('${tabName}')"]`).classList.add('active');
+        
+        // Špecifické akcie pre rôzne taby
+        if (tabName === 'scenes') {
+            loadResourceList('scenes', 'sceneList', 'sceneSelect', runScene, editScene);
+        } else if (tabName === 'stats') {
+            loadStats();
+        } else if (tabName === 'commands') {
+            loadResourceList('commands', 'commandList', 'commandSelect', runCommand, editCommand);
+        }
+    }
+}
+
+// Inicializuj dashboard tab ako aktívny
+document.addEventListener('DOMContentLoaded', () => {
+    showTab('dashboard');
+});
+
+// =======================================
+// EXISTUJÚCE FUNKCIE - Nezmenené
+// =======================================
 
 function toggleLogLevel(level) {
     const button = document.querySelector(`.filter-btn[data-level="${level}"]`);
@@ -53,30 +349,9 @@ function toggleLogLevel(level) {
 function applyLogFilters() {
     const possibleLevels = ['debug', 'info', 'warning', 'error', 'critical'];
     document.querySelectorAll('.log-entry').forEach(entry => {
-        // Najdi skutečnou úroveň logu z jeho tříd (classList)
         const level = Array.from(entry.classList).find(cls => possibleLevels.includes(cls)) || 'info';
-        // Skryj, pokud úroveň není v aktivních filtrech
         entry.classList.toggle('hidden', !activeFilters.has(level));
     });
-}
-
-function updateStatus() {
-    fetch('/api/status')
-        .then(res => res.json())
-        .then(({ room_id, scene_running, mqtt_connected, uptime }) => {
-            document.getElementById('roomId').textContent = room_id;
-            document.getElementById('sceneStatus').textContent = scene_running ? 'Running' : 'Idle';
-            document.getElementById('sceneStatus').className = `status-value${scene_running ? ' pulse' : ''}`;
-            document.getElementById('mqttStatus').textContent = mqtt_connected ? 'Connected' : 'Disconnected';
-            document.getElementById('mqttStatus').className = `status-value status-${mqtt_connected ? 'connected' : 'disconnected'}`;
-
-            const [h, m, s] = [
-                Math.floor(uptime / 3600),
-                Math.floor((uptime % 3600) / 60),
-                Math.floor(uptime % 60)
-            ];
-            document.getElementById('uptime').textContent = `${h}h ${m}m ${s}s`;
-        });
 }
 
 function updateStats({ total_scenes_played = 0, total_uptime = 0, scene_play_counts = {}, connected_devices = {} }) {
@@ -94,22 +369,22 @@ function updateStats({ total_scenes_played = 0, total_uptime = 0, scene_play_cou
             <div class="scene-item">
                 <div class="scene-info">
                     <h4>${name}</h4>
-                    <p>Played: ${count} times</p>
+                    <p>Spustené: ${count} krát</p>
                 </div>
             </div>`).join('')
-        : '<div class="scene-item"><div class="scene-info"><h4>No statistics available</h4><p>No scenes have been played yet</p></div></div>';
+        : '<div class="scene-item"><div class="scene-info"><h4>Žiadne štatistiky</h4><p>Zatiaľ neboli spustené žiadne scény</p></div></div>';
 
     const deviceList = document.getElementById('deviceList');
     deviceList.innerHTML = Object.entries(connected_devices).length
         ? Object.entries(connected_devices).map(([id, { status, last_updated }]) => `
             <div class="scene-item device">
                 <div class="scene-info">
-                    <h4>Device: ${id}</h4>
-                    <div class="device-status ${status.toLowerCase()}">${status}</div>
-                    <p>Last Updated: ${new Date(last_updated * 1000).toLocaleString()}</p>
+                    <h4>Zariadenie: ${id}</h4>
+                    <div class="device-status ${status.toLowerCase()}">${status === 'online' ? 'Pripojené' : 'Odpojené'}</div>
+                    <p>Posledná aktualizácia: ${new Date(last_updated * 1000).toLocaleString()}</p>
                 </div>
             </div>`).join('')
-        : '<div class="scene-item device"><div class="scene-info"><h4>No devices connected</h4><p>No devices are currently connected to the MQTT broker, THERE SHOULD BE!!!</p></div></div>';
+        : '<div class="scene-item device"><div class="scene-info"><h4>Žiadne zariadenia</h4><p>Momentálne nie sú pripojené žiadne zariadenia</p></div></div>';
 }
 
 function loadStats() {
@@ -125,7 +400,9 @@ function addLogEntry({ timestamp, level, module = 'system', message }) {
     logDiv.innerHTML = `<span class="log-timestamp">${timestamp}</span><span class="log-level ${level}">${level}</span><span class="log-module">${module}</span><span>${message}</span>`;
     logContainer.appendChild(logDiv);
     if (autoScroll) logContainer.scrollTop = logContainer.scrollHeight;
-    while (logContainer.children.length > 500) {
+    
+    // Zvýšený limit na 1000 logov (z 500)
+    while (logContainer.children.length > 1000) {
         const firstLevel = Array.from(logContainer.firstChild.classList).find(cls => logCounts[cls]) || 'info';
         logCounts[firstLevel]--;
         logContainer.removeChild(logContainer.firstChild);
@@ -140,49 +417,13 @@ function updateLogStats() {
 }
 
 function clearLogs() {
-    if (confirm('Are you sure you want to clear all logs?')) {
+    if (confirm('Skutočne chcete vymazať všetky logy?')) {
         fetch('/api/logs/clear', { method: 'POST' })
-            .then(res => {
-                if (!res.ok) {
-                    console.error('Clear logs failed with status:', res.status);
-                    throw new Error('Network response was not ok');
-                }
-                return res.json();
-            })
+            .then(res => res.json())
             .then(({ success }) => {
-                showNotification(success ? 'Logs cleared successfully' : 'Failed to clear logs', success ? 'success' : 'error');
-            })
-            .catch(err => {
-                console.error('Error clearing logs:', err);
-                showNotification('Error clearing logs: ' + err.message, 'error');
+                showNotification(success ? 'Logy vymazané úspešne' : 'Chyba pri mazaní logov', success ? 'success' : 'error');
             });
     }
-}
-
-function exportLogs() {
-    fetch('/api/logs/export')
-        .then(res => {
-            if (!res.ok) throw new Error('Failed to export logs');
-            return res.blob();
-        })
-        .then(blob => {
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `museum_logs_${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            window.URL.revokeObjectURL(url);
-            showNotification('Logs exported successfully', 'success');
-        })
-        .catch(err => showNotification(`Error exporting logs: ${err.message}`, 'error'));
-}
-
-function toggleAutoScroll() {
-    autoScroll = !autoScroll;
-    event.target.textContent = autoScroll ? '📜 Auto-scroll' : '📜 Manual';
-    event.target.style.background = autoScroll ? '' : '#ffc107';
 }
 
 function loadResourceList(type, listId, selectId, runFn, editFn) {
@@ -192,33 +433,19 @@ function loadResourceList(type, listId, selectId, runFn, editFn) {
             const list = document.getElementById(listId);
             const select = document.getElementById(selectId);
             list.innerHTML = items.length
-                ? type === 'commands'
-                    ? Object.entries(items.reduce((groups, item) => {
-                        const [deviceType = 'other'] = item.name.split('_');
-                        (groups[deviceType] = groups[deviceType] || []).push(item);
-                        return groups;
-                    }, {})).sort().map(([deviceType, commands]) => `
-                        <div class="command-group">
-                            <h3 class="command-group-title">${deviceType.toUpperCase()} Commands</h3>
-                            ${commands.map(({ name }) => `
-                                <div class="command-item">
-                                    <div class="command-info"><h4>${name}</h4></div>
-                                    <div class="command-actions">
-                                        <button class="btn btn-${type === 'commands' ? 'warning' : 'primary'}" onclick="${runFn.name}('${name}')">⚡ Execute</button>
-                                        <button class="btn btn-secondary" onclick="${editFn.name}('${name}')">✏️ Edit</button>
-                                    </div>
-                                </div>`).join('')}
-                        </div>`).join('')
-                    : items.map(({ name }) => `
-                        <div class="scene-item">
-                            <div class="scene-info"><h4>${name}</h4></div>
-                            <div class="scene-actions">
-                                <button class="btn btn-primary" onclick="${runFn.name}('${name}')">▶️ Run</button>
-                                <button class="btn btn-secondary" onclick="${editFn.name}('${name}')">✏️ Edit</button>
-                            </div>
-                        </div>`).join('')
-                : `<div class="${type}-item"><div class="${type}-info"><h4>No ${type} available</h4><p>No ${type} have been loaded yet</p></div></div>`;
-            select.innerHTML = `<option value="">Select a ${type.slice(0, -1)} to edit</option>` + items.map(({ name }) => `<option value="${name}">${name}</option>`).join('');
+                ? items.map(({ name }) => `
+                    <div class="scene-item">
+                        <div class="scene-info">
+                            <h4>${name}</h4>
+                            <p>${type === 'scenes' ? 'Scéna' : 'Príkaz'}</p>
+                        </div>
+                        <div class="scene-actions">
+                            <button class="btn btn-${type === 'commands' ? 'warning' : 'primary'}" onclick="${runFn.name}('${name}')">${type === 'commands' ? '⚡ Vykonať' : '▶️ Spustiť'}</button>
+                            <button class="btn btn-secondary" onclick="${editFn.name}('${name}')">✏️ Upraviť</button>
+                        </div>
+                    </div>`).join('')
+                : `<div class="scene-item"><div class="scene-info"><h4>Žiadne ${type === 'scenes' ? 'scény' : 'príkazy'}</h4><p>Zatiaľ neboli načítané žiadne ${type === 'scenes' ? 'scény' : 'príkazy'}</p></div></div>`;
+            select.innerHTML = `<option value="">Vyberte ${type === 'scenes' ? 'scénu' : 'príkaz'} na úpravu</option>` + items.map(({ name }) => `<option value="${name}">${name}</option>`).join('');
         });
 }
 
@@ -228,7 +455,7 @@ function runScene(sceneName) {
         .then(({ success, message, error }) => {
             if (success) {
                 showNotification(message, 'success');
-                updateAll();
+                updateMainDashboard();
             } else showNotification(error, 'error');
         });
 }
@@ -254,27 +481,24 @@ function saveScene() {
     const sceneName = sceneSelect.value || currentScene;
     
     if (!sceneName) {
-        showNotification('Please select or create a scene first', 'error');
+        showNotification('Prosím vyberte alebo vytvorte scénu', 'error');
         return;
     }
     
-    // Ensure .json extension
     const finalSceneName = sceneName.endsWith('.json') ? sceneName : sceneName + '.json';
     
     try {
         const sceneData = JSON.parse(document.getElementById('sceneEditor').value);
         
-        // Validate scene data structure
         if (!Array.isArray(sceneData)) {
-            showNotification('Scene must be an array of actions', 'error');
+            showNotification('Scéna musí byť pole akcií', 'error');
             return;
         }
         
-        // Validate each action has required fields
         for (let i = 0; i < sceneData.length; i++) {
             const action = sceneData[i];
             if (!('timestamp' in action) || !('topic' in action) || !('message' in action)) {
-                showNotification(`Action ${i + 1} is missing required fields (timestamp, topic, message)`, 'error');
+                showNotification(`Akcia ${i + 1} nemá požadované polia (timestamp, topic, message)`, 'error');
                 return;
             }
         }
@@ -289,39 +513,29 @@ function saveScene() {
             if (success) {
                 showNotification(message, 'success');
                 currentScene = finalSceneName;
-                
-                // Update the select value to match saved name
                 sceneSelect.value = finalSceneName;
-                
-                // Reload the scene list to show the new/updated scene
                 loadResourceList('scenes', 'sceneList', 'sceneSelect', runScene, editScene);
             } else {
                 showNotification(error, 'error');
             }
-        })
-        .catch(err => {
-            showNotification(`Error saving scene: ${err.message}`, 'error');
         });
     } catch (e) {
-        showNotification('Invalid JSON format. Please check your syntax.', 'error');
+        showNotification('Neplatný JSON formát. Skontrolujte syntax.', 'error');
     }
 }
 
 function createNewScene() {
-    const sceneName = prompt('Enter scene name (include .json extension):');
+    const sceneName = prompt('Zadajte názov scény (vrátane .json koncovky):');
     if (sceneName) {
-        // Clear the select to indicate new scene
         const sceneSelect = document.getElementById('sceneSelect');
         sceneSelect.value = '';
         
-        // Add new option to select temporarily
         const newOption = document.createElement('option');
         newOption.value = sceneName;
         newOption.textContent = sceneName;
         newOption.selected = true;
         sceneSelect.appendChild(newOption);
         
-        // Set up default scene content
         document.getElementById('sceneEditor').value = JSON.stringify([
             {"timestamp": 0, "topic": "roomX/light", "message": "ON"},
             {"timestamp": 2.0, "topic": "roomX/audio", "message": "PLAY_WELCOME"},
@@ -330,12 +544,11 @@ function createNewScene() {
         
         currentScene = sceneName;
         
-        // Switch to scenes tab if not already active
         if (!document.getElementById('scenes').classList.contains('active')) {
             showTab('scenes');
         }
         
-        showNotification(`New scene "${sceneName}" created. Edit and save to persist.`, 'info');
+        showNotification(`Nová scéna "${sceneName}" vytvorená. Upravte a uložte.`, 'info');
     }
 }
 
@@ -344,58 +557,57 @@ function validateScene() {
         const sceneData = JSON.parse(document.getElementById('sceneEditor').value);
         
         if (!Array.isArray(sceneData)) {
-            showNotification('Scene must be an array of actions', 'error');
+            showNotification('Scéna musí byť pole akcií', 'error');
             return;
         }
         
         if (sceneData.length === 0) {
-            showNotification('Scene cannot be empty', 'error');
+            showNotification('Scéna nemôže byť prázdna', 'error');
             return;
         }
         
         const errors = [];
         
         sceneData.forEach((action, index) => {
-            // Check required fields
             if (!('timestamp' in action)) {
-                errors.push(`Action ${index + 1}: Missing timestamp`);
+                errors.push(`Akcia ${index + 1}: Chýba timestamp`);
             } else if (typeof action.timestamp !== 'number') {
-                errors.push(`Action ${index + 1}: Timestamp must be a number`);
+                errors.push(`Akcia ${index + 1}: Timestamp musí byť číslo`);
             } else if (action.timestamp < 0) {
-                errors.push(`Action ${index + 1}: Timestamp cannot be negative`);
+                errors.push(`Akcia ${index + 1}: Timestamp nemôže byť záporný`);
             }
             
             if (!('topic' in action)) {
-                errors.push(`Action ${index + 1}: Missing topic`);
+                errors.push(`Akcia ${index + 1}: Chýba topic`);
             } else if (typeof action.topic !== 'string' || action.topic.trim() === '') {
-                errors.push(`Action ${index + 1}: Topic must be a non-empty string`);
+                errors.push(`Akcia ${index + 1}: Topic musí byť neprázdny reťazec`);
             }
             
             if (!('message' in action)) {
-                errors.push(`Action ${index + 1}: Missing message`);
+                errors.push(`Akcia ${index + 1}: Chýba message`);
             } else if (typeof action.message !== 'string') {
-                errors.push(`Action ${index + 1}: Message must be a string`);
+                errors.push(`Akcia ${index + 1}: Message musí byť reťazec`);
             }
         });
         
         if (errors.length > 0) {
-            showNotification(`Validation errors:\n${errors.join('\n')}`, 'error');
+            showNotification(`Chyby validácie:\n${errors.join('\n')}`, 'error');
         } else {
             const duration = Math.max(...sceneData.map(a => a.timestamp));
-            showNotification(`Scene is valid! Duration: ${duration}s, Actions: ${sceneData.length}`, 'success');
+            showNotification(`Scéna je platná! Trvanie: ${duration}s, Akcie: ${sceneData.length}`, 'success');
         }
     } catch (e) {
-        showNotification(`Invalid JSON format: ${e.message}`, 'error');
+        showNotification(`Neplatný JSON formát: ${e.message}`, 'error');
     }
 }
 
 function runCommand(commandName) {
-    if (confirm(`Execute command "${commandName}"? This will immediately send the command to devices.`)) {
+    if (confirm(`Vykonať príkaz "${commandName}"? Príkaz sa okamžite pošle zariadeniam.`)) {
         fetch(`/api/run_command/${commandName}`, { method: 'POST' })
             .then(res => res.json())
             .then(({ success, message, error }) => {
                 showNotification(success ? message : error, success ? 'success' : 'error');
-                if (success) updateStatus();
+                if (success) updateMainDashboard();
             });
     }
 }
@@ -418,7 +630,7 @@ function loadCommandForEditing(commandName) {
 
 function saveCommand() {
     const commandName = document.getElementById('commandSelect').value || currentCommand;
-    if (!commandName) return showNotification('Please select or name a command', 'error');
+    if (!commandName) return showNotification('Prosím vyberte alebo pomenujte príkaz', 'error');
     try {
         const commandData = JSON.parse(document.getElementById('commandEditor').value);
         fetch(`/api/command/${commandName}`, {
@@ -432,17 +644,17 @@ function saveCommand() {
                 if (success) loadResourceList('commands', 'commandList', 'commandSelect', runCommand, editCommand);
             });
     } catch (e) {
-        showNotification('Invalid JSON format', 'error');
+        showNotification('Neplatný JSON formát', 'error');
     }
 }
 
 function createNewCommand() {
-    const commandName = prompt('Enter command name (e.g., motor_stop, light_on, audio_stop):');
+    const commandName = prompt('Zadajte názov príkazu (napr. motor_stop, light_on, audio_stop):');
     if (commandName) {
         document.getElementById('commandSelect').value = '';
         document.getElementById('commandEditor').value = JSON.stringify([{"timestamp": 0, "topic": "room1/device", "message": "COMMAND"}], null, 2);
         currentCommand = commandName;
-        showNotification('Enter command details and click Save Command', 'info');
+        showNotification('Zadajte detaily príkazu a kliknite Uložiť príkaz', 'info');
     }
 }
 
@@ -450,12 +662,12 @@ function validateCommand() {
     try {
         const commandData = JSON.parse(document.getElementById('commandEditor').value);
         if (Array.isArray(commandData) && commandData.every(a => 'timestamp' in a && 'topic' in a && 'message' in a)) {
-            showNotification('Command is valid!', 'success');
+            showNotification('Príkaz je platný!', 'success');
         } else {
-            showNotification('Invalid command format: missing required fields', 'error');
+            showNotification('Neplatný formát príkazu: chýbajú požadované polia', 'error');
         }
     } catch (e) {
-        showNotification('Invalid JSON format', 'error');
+        showNotification('Neplatný JSON formát', 'error');
     }
 }
 
@@ -467,44 +679,57 @@ function showNotification(message, type) {
 }
 
 function restartSystem() {
-    if (confirm('Are you sure you want to perform a hard reset? This will reboot the Raspberry Pi and interrupt all operations.')) {
+    if (confirm('Skutočne chcete vykonať tvrdý reštart? Toto reštartuje Raspberry Pi a preruší všetky operácie.')) {
         fetch('/api/system/restart', { method: 'POST' })
             .then(res => res.json())
             .then(({ success, error }) => {
-                showNotification(success ? 'System is restarting...' : error || 'Failed to initiate reset', success ? 'success' : 'error');
+                showNotification(success ? 'Systém sa reštartuje...' : error || 'Chyba pri reštarte', success ? 'success' : 'error');
                 if (success) document.querySelector('button[onclick="restartSystem()"]').disabled = true;
             })
-            .catch(err => showNotification(`Error communicating with server: ${err.message}`, 'error'));
+            .catch(err => showNotification(`Chyba komunikácie so serverom: ${err.message}`, 'error'));
     }
 }
 
 function restartService() {
-    if (confirm('Are you sure you want to restart the museum-system service? This will interrupt current operations.')) {
+    if (confirm('Skutočne chcete reštartovať museum-system službu? Toto preruší aktuálne operácie.')) {
         fetch('/api/system/service/restart', { method: 'POST' })
             .then(res => res.json())
-            .then(({ success, error }) => showNotification(success ? 'Service is restarting...' : error || 'Failed to restart service', success ? 'success' : 'error'))
-            .catch(err => showNotification(`Error communicating with server: ${err.message}`, 'error'));
+            .then(({ success, error }) => showNotification(success ? 'Služba sa reštartuje...' : error || 'Chyba pri reštarte služby', success ? 'success' : 'error'))
+            .catch(err => showNotification(`Chyba komunikácie so serverom: ${err.message}`, 'error'));
     }
 }
 
-function updateAll() {
-    updateStatus();
-    loadStats();
-}
+// Pravidelné aktualizácie
+setInterval(updateMainDashboard, 2000); // Častejšie aktualizácie pre lepší progress
+setInterval(() => {
+    // Progress sa aktualizuje už v updateMainDashboard každé 2 sekundy
+    // Tento interval sa používa pre jemnejšie aktualizácie progress baru
+    const container = document.getElementById('sceneProgressContainer');
+    if (container && container.style.display !== 'none') {
+        updateSceneProgress();
+    }
+}, 500); // Aktualizuj progress každých 0.5 sekundy pre plynulosť
 
-document.getElementById('sceneSelect').addEventListener('change', function() {
-    const value = this.value;
-    document.getElementById('sceneEditor').value = '';
-    if (value) loadSceneForEditing(value);
-    else currentScene = '';
+// Event listenery pre select elementy
+document.addEventListener('DOMContentLoaded', () => {
+    const sceneSelect = document.getElementById('sceneSelect');
+    if (sceneSelect) {
+        sceneSelect.addEventListener('change', function() {
+            const value = this.value;
+            document.getElementById('sceneEditor').value = '';
+            if (value) loadSceneForEditing(value);
+            else currentScene = '';
+        });
+    }
+
+    const commandSelect = document.getElementById('commandSelect');
+    if (commandSelect) {
+        commandSelect.addEventListener('change', function() {
+            const value = this.value;
+            const editor = document.getElementById('commandEditor');
+            editor.value = '';
+            if (value) loadCommandForEditing(value);
+            else currentCommand = '';
+        });
+    }
 });
-
-document.getElementById('commandSelect').addEventListener('change', function() {
-    const value = this.value;
-    const editor = document.getElementById('commandEditor');
-    editor.value = '';
-    if (value) loadCommandForEditing(value);
-    else currentCommand = '';
-});
-
-setInterval(updateAll, 5000);

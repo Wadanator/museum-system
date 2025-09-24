@@ -1,0 +1,17 @@
+[
+  {
+    "message": "ALL",
+    "timestamp": 0,
+    "topic": "room1/STOP"
+  },
+  {
+    "message": "STOP",
+    "timestamp": 0,
+    "topic": "room1/audio"
+  },
+  {
+    "message": "STOP_VIDEO",
+    "timestamp": 0,
+    "topic": "room1/video"
+  }
+]

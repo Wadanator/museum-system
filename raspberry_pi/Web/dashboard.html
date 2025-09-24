@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sk">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Time Machine Dashboard</title>
+    <title>Museum Control Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Roboto+Mono&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/base.css">
     <link rel="stylesheet" href="/static/css/layout.css">
@@ -13,57 +13,144 @@
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>Time Machine Dashboard</h1>
-            <div class="header-actions">
-                <button class="btn btn-danger" onclick="restartSystem()">🔄 Hard Reset</button>
-                <button class="btn btn-danger" onclick="restartService()">🔄 Restart Service</button>
+        <!-- HLAVNÝ DASHBOARD - Intuitívny pre personál -->
+        <div class="main-dashboard">
+            <div class="header">
+                <h1>🏛️ Museum Control</h1>
+                <p>Ovládanie múzejného systému</p>
+            </div>
+
+            <!-- HLAVNÝ STATUS SYSTÉMU -->
+            <div class="system-status-card">
+                <div class="main-status" id="mainSystemStatus">
+                    <div class="status-icon">⏳</div>
+                    <div class="status-text">Načítavam systém...</div>
+                    <div class="status-description">Čakajte prosím</div>
+                </div>
+            </div>
+
+            <!-- DETAILNÉ STAVY -->
+            <div class="status-overview">
+                <div class="status-item" id="roomStatus">
+                    <div class="status-header">Miestnosť</div>
+                    <div class="status-value" id="roomId">-</div>
+                </div>
+                <div class="status-item" id="mqttStatus">
+                    <div class="status-header">Komunikácia</div>
+                    <div class="status-value" id="mqttConnection">Odpojené</div>
+                </div>
+                <div class="status-item" id="sceneStatus">
+                    <div class="status-header">Scéna</div>
+                    <div class="status-value" id="sceneState">Čaká</div>
+                </div>
+                <div class="status-item" id="deviceStatus">
+                    <div class="status-header">Zariadenia</div>
+                    <div class="status-value" id="deviceCount">0 pripojených</div>
+                </div>
+            </div>
+
+            <!-- PROGRESS BAR PRE SCÉNU -->
+            <div class="scene-progress" id="sceneProgressContainer" style="display: none;">
+                <div class="progress-header">Prebieha scéna</div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="sceneProgressBar"></div>
+                </div>
+                <div class="progress-info">
+                    <span id="sceneProgressText">0%</span>
+                    <span id="sceneTimeRemaining">Zostáva: --</span>
+                </div>
+            </div>
+
+            <!-- HLAVNÉ OVLÁDANIE -->
+            <div class="main-controls">
+                <button class="main-scene-button" id="runMainSceneBtn" onclick="runMainScene()">
+                    <div class="button-icon">▶️</div>
+                    <div class="button-text">Spustiť hlavnú scénu</div>
+                    <div class="button-subtext">Stlačte pre začatie predstavenia</div>
+                </button>
+                
+                <button class="stop-scene-button" id="stopSceneBtn" onclick="stopScene()" style="display: none;">
+                    <div class="button-icon">⏹️</div>
+                    <div class="button-text">Zastaviť scénu</div>
+                    <div class="button-subtext">Núdzové zastavenie</div>
+                </button>
+            </div>
+
+            <!-- QUICK ACTIONS -->
+            <div class="quick-actions">
+                <button class="quick-btn" onclick="testSystem()">🔧 Test systému</button>
+                <button class="quick-btn" onclick="showTab('scenes')">🎭 Spravovať scény</button>
+                <button class="quick-btn" onclick="showTab('commands')">⚡ Rýchle príkazy</button>
             </div>
         </div>
 
-        <div class="status-grid">
-            <div class="status-card">
-                <h3>Room ID</h3>
-                <div class="status-value" id="roomId">
-                    <span class="spinner"></span>
-                    <span class="loading-text">Loading...</span>
-                </div>
-            </div>
-            <div class="status-card">
-                <h3>Scene Status</h3>
-                <div class="status-value" id="sceneStatus">
-                    <span class="spinner"></span>
-                    <span class="loading-text">Loading...</span>
-                </div>
-            </div>
-            <div class="status-card">
-                <h3>MQTT Connection</h3>
-                <div class="status-value" id="mqttStatus">
-                    <span class="spinner"></span>
-                    <span class="loading-text">Loading...</span>
-                </div>
-            </div>
-            <div class="status-card">
-                <h3>Uptime</h3>
-                <div class="status-value" id="uptime">
-                    <span class="spinner"></span>
-                    <span class="loading-text">Loading...</span>
-                </div>
-            </div>
-        </div>
-
+        <!-- TABS PRE POKROČILÉ FUNKCIE -->
         <div class="tabs">
-            <button class="tab" onclick="showTab('logs')">📋 Live Logs</button>
-            <button class="tab" onclick="showTab('scenes')">🎭 Scene Manager</button>
-            <button class="tab" onclick="showTab('commands')">🛠️ Commands</button>
-            <button class="tab" onclick="showTab('stats')">📊 Statistics</button>
+            <button class="tab active" onclick="showTab('dashboard')">🏠 Hlavná stránka</button>
+            <button class="tab" onclick="showTab('scenes')">🎭 Scény</button>
+            <button class="tab" onclick="showTab('commands')">⚡ Príkazy</button>
+            <button class="tab" onclick="showTab('logs')">📋 Logy</button>
+            <button class="tab" onclick="showTab('stats')">📊 Štatistiky</button>
+            <button class="tab" onclick="showTab('system')">⚙️ Systém</button>
         </div>
 
-        <div id="logs" class="tab-content active">
-            <h2>Live System Logs</h2>
+        <!-- TAB CONTENT -->
+        <div id="dashboard" class="tab-content active">
+            <!-- Hlavná stránka je vyššie -->
+        </div>
+
+        <div id="scenes" class="tab-content">
+            <h2>Správa scén</h2>
+            <div class="scene-list" id="sceneList">
+                <div class="scene-item">
+                    <div class="scene-info">
+                        <h4>Načítavam scény...</h4>
+                        <p>Čakajte prosím</p>
+                    </div>
+                </div>
+            </div>
+            <h3>Editor scén</h3>
+            <select id="sceneSelect" class="scene-select">
+                <option value="">Vyberte scénu na úpravu</option>
+            </select>
+            <textarea id="sceneEditor" class="scene-editor"></textarea>
+            <div class="editor-actions">
+                <button class="btn btn-primary" onclick="saveScene()">💾 Uložiť scénu</button>
+                <button class="btn btn-success" onclick="createNewScene()">➕ Nová scéna</button>
+                <button class="btn btn-secondary" onclick="validateScene()">✅ Overiť</button>
+            </div>
+        </div>
+
+        <div id="commands" class="tab-content">
+            <h2>Rýchle príkazy</h2>
+            <div class="editor-actions" style="margin-bottom: 24px;">
+                <button class="btn btn-success" onclick="createNewCommand()">➕ Nový príkaz</button>
+                <button class="btn btn-secondary" onclick="loadCommands()">🔄 Obnoviť</button>
+            </div>
+            <div class="scene-list" id="commandList">
+                <div class="scene-item">
+                    <div class="scene-info">
+                        <h4>Načítavam príkazy...</h4>
+                        <p>Čakajte prosím</p>
+                    </div>
+                </div>
+            </div>
+            <h3>Editor príkazov</h3>
+            <select id="commandSelect" class="scene-select">
+                <option value="">Vyberte príkaz na úpravu</option>
+            </select>
+            <textarea id="commandEditor" class="scene-editor"></textarea>
+            <div class="editor-actions">
+                <button class="btn btn-primary" onclick="saveCommand()">💾 Uložiť príkaz</button>
+                <button class="btn btn-secondary" onclick="validateCommand()">✅ Overiť</button>
+            </div>
+        </div>
+
+        <div id="logs" class="tab-content">
+            <h2>Systémové logy</h2>
             <div class="log-controls">
                 <div class="log-filter-group">
-                    <label>Filter by Level:</label>
+                    <label>Filter úrovne:</label>
                     <div class="filter-buttons">
                         <button class="filter-btn debug active" data-level="debug" onclick="toggleLogLevel('debug')">DEBUG</button>
                         <button class="filter-btn info active" data-level="info" onclick="toggleLogLevel('info')">INFO</button>
@@ -73,8 +160,8 @@
                     </div>
                 </div>
                 <div class="log-actions">
-                    <button class="btn btn-secondary" onclick="clearLogs()">🗑️ Clear</button>
-                    <button class="btn btn-secondary" onclick="autoScroll = !autoScroll; this.textContent = autoScroll ? '📜 Auto-scroll' : '📜 No Auto-scroll'">📜 Auto-scroll</button>
+                    <button class="btn btn-secondary" onclick="clearLogs()">🗑️ Vymazať</button>
+                    <button class="btn btn-secondary" onclick="autoScroll = !autoScroll; this.textContent = autoScroll ? '📜 Automatické rolovanie' : '📜 Manuálne rolovanie'">📜 Automatické rolovanie</button>
                     <button class="btn btn-secondary" onclick="window.location.href='/api/logs/export'">📤 Export</button>
                 </div>
             </div>
@@ -87,104 +174,58 @@
             </div>
             <div class="log-container" id="logContainer">
                 <div class="log-entry info">
-                    <span class="log-timestamp">Connecting...</span>
+                    <span class="log-timestamp">Pripájam sa...</span>
                     <span class="log-level info">INFO</span>
                     <span class="log-module">dashboard</span>
-                    <span>Establishing connection to controller...</span>
-                </div>
-            </div>
-        </div>
-
-        <div id="scenes" class="tab-content">
-            <h2>Scene Management</h2>
-            <div class="scene-list" id="sceneList">
-                <div class="scene-item">
-                    <div class="scene-info">
-                        <h4>Loading scenes...</h4>
-                        <p>Please wait while we fetch the scene list</p>
-                    </div>
-                </div>
-            </div>
-            <h2>Scene Editor</h2>
-            <select id="sceneSelect" class="scene-select">
-                <option value="">Select a scene to edit</option>
-            </select>
-            <textarea id="sceneEditor" class="scene-editor"></textarea>
-            <div class="editor-actions">
-                <button class="btn btn-primary" onclick="saveScene()">💾 Save Scene</button>
-                <button class="btn btn-success" onclick="createNewScene()">➕ New Scene</button>
-                <button class="btn btn-secondary" onclick="validateScene()">✅ Validate</button>
-            </div>
-        </div>
-
-        <div id="commands" class="tab-content">
-            <h2>Device Commands</h2>
-            <p>Execute single commands for quick fixes.</p>
-            <div class="editor-actions" style="margin-bottom: 24px;">
-                <button class="btn btn-success" onclick="createNewCommand()">➕ New Command</button>
-                <button class="btn btn-secondary" onclick="loadCommands()">🔄 Refresh</button>
-            </div>
-            <div class="scene-list" id="commandList">
-                <div class="scene-item">
-                    <div class="scene-info">
-                        <h4>Loading commands...</h4>
-                        <p>Please wait while we fetch the command list</p>
-                    </div>
-                </div>
-            </div>
-            <h3>Command Editor</h3>
-            <select id="commandSelect" class="scene-select">
-                <option value="">Select a command to edit</option>
-            </select>
-            <textarea id="commandEditor" class="scene-editor"></textarea>
-            <div class="editor-actions">
-                <button class="btn btn-primary" onclick="saveCommand()">💾 Save Command</button>
-                <button class="btn btn-secondary" onclick="validateCommand()">✅ Validate</button>
-            </div>
-            <div class="scene-item">
-                <div class="scene-info">
-                    <h4>Command Format:</h4>
-                    <pre>
-[
-  {
-    "timestamp": 0,
-    "topic": "roomnum/device",
-    "message": "COMMAND"
-  }
-]
-                    </pre>
+                    <span>Nadväzujem spojenie s kontrolérom...</span>
                 </div>
             </div>
         </div>
 
         <div id="stats" class="tab-content">
-            <h2>System Statistics</h2>
+            <h2>Štatistiky systému</h2>
             <div class="stats-grid">
                 <div class="stats-card">
-                    <h3>Total Scenes Played</h3>
+                    <h3>Celkovo spustených scén</h3>
                     <div class="stat-value" id="totalScenesPlayed">0</div>
                 </div>
                 <div class="stats-card">
-                    <h3>Total Uptime</h3>
+                    <h3>Celkový čas prevádzky</h3>
                     <div class="stat-value" id="totalUptime">0h 0m 0s</div>
                 </div>
             </div>
-            <h3>Scene Play Counts</h3>
+            <h3>Štatistiky scén</h3>
             <div class="scene-list" id="sceneStatsList">
                 <div class="scene-item">
                     <div class="scene-info">
-                        <h4>Loading statistics...</h4>
-                        <p>Please wait while we fetch the statistics</p>
+                        <h4>Načítavam štatistiky...</h4>
+                        <p>Čakajte prosím</p>
                     </div>
                 </div>
             </div>
-            <h3>Connected Devices</h3>
+            <h3>Pripojené zariadenia</h3>
             <div class="scene-list" id="deviceList">
                 <div class="scene-item device">
                     <div class="scene-info">
-                        <h4>Loading devices...</h4>
-                        <p>Please wait while we fetch the device list</p>
+                        <h4>Načítavam zariadenia...</h4>
+                        <p>Čakajte prosím</p>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="system" class="tab-content">
+            <h2>Systémové ovládanie</h2>
+            <div class="system-controls">
+                <div class="control-group">
+                    <h3>Reštart systému</h3>
+                    <p>Reštartuje celý Raspberry Pi</p>
+                    <button class="btn btn-danger" onclick="restartSystem()">🔄 Reštart systému</button>
+                </div>
+                <div class="control-group">
+                    <h3>Reštart služby</h3>
+                    <p>Reštartuje iba museum-system službu</p>
+                    <button class="btn btn-danger" onclick="restartService()">🔄 Reštart služby</button>
                 </div>
             </div>
         </div>

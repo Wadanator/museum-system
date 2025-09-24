@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""API routes for the Web Dashboard."""
+"""API routes for the Web Dashboard - Updated with scene progress tracking."""
 
 import json
 import os
@@ -33,6 +33,62 @@ def setup_api_routes(dashboard):
             'uptime': dashboard.get_uptime(),
             'log_count': len(dashboard.log_buffer)
         })
+
+    @api_bp.route('/scene/progress')
+    @requires_auth
+    def get_scene_progress():
+        """Get current scene progress including percentage and remaining time."""
+        try:
+            scene_running = getattr(controller, 'scene_running', False)
+            
+            if not scene_running or not hasattr(controller, 'scene_parser') or not controller.scene_parser:
+                return jsonify({
+                    'scene_running': False,
+                    'progress': 0.0,
+                    'remaining_time': 0,
+                    'total_duration': 0
+                })
+            
+            # Získaj progress z scene parser
+            scene_parser = controller.scene_parser
+            if not scene_parser.scene_data or not scene_parser.start_time:
+                return jsonify({
+                    'scene_running': scene_running,
+                    'progress': 0.0,
+                    'remaining_time': 0,
+                    'total_duration': 0
+                })
+            
+            # Vypočítaj skutočný progress
+            import time
+            current_time = time.time()
+            elapsed_time = current_time - scene_parser.start_time
+            total_duration = scene_parser.get_scene_duration()
+            
+            if total_duration <= 0:
+                progress = 1.0
+                remaining_time = 0
+            else:
+                progress = min(elapsed_time / total_duration, 1.0)
+                remaining_time = max(total_duration - elapsed_time, 0)
+            
+            return jsonify({
+                'scene_running': scene_running,
+                'progress': progress,
+                'remaining_time': remaining_time,
+                'total_duration': total_duration,
+                'elapsed_time': elapsed_time
+            })
+            
+        except Exception as e:
+            dashboard.log.error(f"Error getting scene progress: {e}")
+            return jsonify({
+                'scene_running': False,
+                'progress': 0.0,
+                'remaining_time': 0,
+                'total_duration': 0,
+                'error': str(e)
+            }), 500
 
     @api_bp.route('/stats')
     @requires_auth
@@ -216,17 +272,92 @@ def setup_api_routes(dashboard):
     @api_bp.route('/stop_scene', methods=['POST'])
     @requires_auth
     def stop_scene():
-        """Stop the currently running scene."""
+        """Stop the currently running scene and execute STOPALL command."""
         try:
             if not getattr(controller, 'scene_running', False):
                 return jsonify({'error': 'No scene is currently running'}), 400
 
+            # Stop the scene
             if hasattr(controller, 'scene_parser'):
                 controller.scene_parser.stop_scene()
             controller.scene_running = False
             dashboard.log.info("Scene stopped")
-            return jsonify({'success': True, 'message': 'Scene stopped'})
+
+            # Stop audio and video directly through handlers
+            audio_stopped = False
+            video_stopped = False
+            
+            try:
+                if hasattr(controller, 'audio_handler') and controller.audio_handler:
+                    controller.audio_handler.stop_audio()
+                    audio_stopped = True
+                    dashboard.log.info("Audio stopped directly")
+            except Exception as e:
+                dashboard.log.warning(f"Error stopping audio: {e}")
+
+            try:
+                if hasattr(controller, 'video_handler') and controller.video_handler:
+                    controller.video_handler.stop_video()
+                    video_stopped = True
+                    dashboard.log.info("Video stopped directly")
+            except Exception as e:
+                dashboard.log.warning(f"Error stopping video: {e}")
+
+            # Execute STOPALL command for external devices (ESP32)
+            try:
+                stopall_command_path = get_commands_path() / 'STOPALL.json'
+                
+                if stopall_command_path.exists():
+                    with open(stopall_command_path, 'r') as f:
+                        stopall_data = json.load(f)
+                    
+                    dashboard.log.info("Executing STOPALL command for external devices")
+                    
+                    # Execute each action in STOPALL command
+                    for action in stopall_data:
+                        topic = action['topic']
+                        message = action['message']
+                        
+                        if hasattr(controller, 'mqtt_client') and controller.mqtt_client:
+                            success = controller.mqtt_client.publish(topic, message)
+                            if success:
+                                dashboard.log.info(f"STOPALL action executed: {topic} = {message}")
+                            else:
+                                dashboard.log.warning(f"Failed to send STOPALL action: {topic} = {message}")
+                        else:
+                            dashboard.log.warning("MQTT client not available for STOPALL command")
+                    
+                    return jsonify({
+                        'success': True, 
+                        'message': 'Scene stopped, audio/video stopped, and STOPALL command executed',
+                        'stopall_executed': True,
+                        'audio_stopped': audio_stopped,
+                        'video_stopped': video_stopped
+                    })
+                    
+                else:
+                    dashboard.log.warning(f"STOPALL command file not found: {stopall_command_path}")
+                    return jsonify({
+                        'success': True, 
+                        'message': 'Scene and audio/video stopped (STOPALL command not found)',
+                        'stopall_executed': False,
+                        'audio_stopped': audio_stopped,
+                        'video_stopped': video_stopped
+                    })
+                    
+            except Exception as stopall_error:
+                dashboard.log.error(f"Error executing STOPALL command: {stopall_error}")
+                return jsonify({
+                    'success': True, 
+                    'message': 'Scene and audio/video stopped but STOPALL command failed',
+                    'stopall_executed': False,
+                    'stopall_error': str(stopall_error),
+                    'audio_stopped': audio_stopped,
+                    'video_stopped': video_stopped
+                })
+                
         except Exception as e:
+            dashboard.log.error(f"Error stopping scene: {e}")
             return jsonify({'error': f"Error stopping scene: {e}"}), 500
 
     @api_bp.route('/commands')
