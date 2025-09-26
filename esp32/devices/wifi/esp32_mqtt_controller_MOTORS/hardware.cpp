@@ -1,3 +1,4 @@
+// hardware.cpp - OPRAVENÁ VERZIA pre správnu zmenu smeru
 #include "hardware.h"
 #include "config.h"
 #include "debug.h"
@@ -7,8 +8,8 @@
 bool hardwareOff = false;
 
 // Motor state tracking - rozšírené pre smooth control
-MotorState motor1State = {false, 0, 0, 0, 'S', 0};
-MotorState motor2State = {false, 0, 0, 0, 'S', 0};
+MotorState motor1State = {false, 0, 0, 0, 'S', 0, false, 0};
+MotorState motor2State = {false, 0, 0, 0, 'S', 0, false, 0};
 
 void initializeHardware() {
   // Setup PWM for motors using new ESP32 Arduino Core API
@@ -59,12 +60,22 @@ void updateMotorPWM(int motorNum, int speed, char direction) {
   }
 }
 
-// NOVÁ FUNKCIA: Smooth update motorov
+// OPRAVENÁ FUNKCIA: Smooth update motorov s podporou zmeny smeru
 void updateMotorSmoothly() {
   unsigned long currentTime = millis();
   
-  // Motor 1 smooth update
+  // Motor 1 smooth update s DIRECTION CHANGE logikou
   if (currentTime - motor1State.lastUpdate >= SMOOTH_DELAY) {
+    // NOVÁ LOGIKA: Ak čaká zmena smeru
+    if (motor1State.pendingDirectionChange && motor1State.currentSpeed == 0) {
+      // Motor sa zastavil, teraz zmeň smer a naštartuj späť
+      motor1State.direction = motor1State.newDirection;
+      motor1State.targetSpeed = motor1State.savedSpeed;  // Obnoviť pôvodnú rýchlosť
+      motor1State.pendingDirectionChange = false;
+      debugPrint("Motor1 direction changed to: " + String(motor1State.direction) + ", resuming speed: " + String(motor1State.targetSpeed));
+    }
+    
+    // Plynulá zmena rýchlosti
     if (motor1State.currentSpeed != motor1State.targetSpeed) {
       if (motor1State.currentSpeed < motor1State.targetSpeed) {
         motor1State.currentSpeed = min(motor1State.currentSpeed + SMOOTH_STEP, motor1State.targetSpeed);
@@ -76,8 +87,18 @@ void updateMotorSmoothly() {
     }
   }
   
-  // Motor 2 smooth update
+  // Motor 2 smooth update s DIRECTION CHANGE logikou
   if (currentTime - motor2State.lastUpdate >= SMOOTH_DELAY) {
+    // NOVÁ LOGIKA: Ak čaká zmena smeru
+    if (motor2State.pendingDirectionChange && motor2State.currentSpeed == 0) {
+      // Motor sa zastavil, teraz zmeň smer a naštartuj späť
+      motor2State.direction = motor2State.newDirection;
+      motor2State.targetSpeed = motor2State.savedSpeed;  // Obnoviť pôvodnú rýchlosť
+      motor2State.pendingDirectionChange = false;
+      debugPrint("Motor2 direction changed to: " + String(motor2State.direction) + ", resuming speed: " + String(motor2State.targetSpeed));
+    }
+    
+    // Plynulá zmena rýchlosti
     if (motor2State.currentSpeed != motor2State.targetSpeed) {
       if (motor2State.currentSpeed < motor2State.targetSpeed) {
         motor2State.currentSpeed = min(motor2State.currentSpeed + SMOOTH_STEP, motor2State.targetSpeed);
@@ -98,6 +119,7 @@ void controlMotor1(const char* command, const char* speed, const char* direction
     motor1State.speed = atoi(speed);
     motor1State.targetSpeed = motor1State.speed;  // Nastaví cieľovú rýchlosť
     motor1State.direction = direction[0];
+    motor1State.pendingDirectionChange = false;  // Zruš čakajúcu zmenu smeru
     digitalWrite(MOTOR1_ENABLE_PIN, HIGH);
     debugPrint("Motor1 ON - Target Speed: " + String(motor1State.speed) + "%, Dir: " + String(motor1State.direction));
     hardwareOff = false;
@@ -106,7 +128,7 @@ void controlMotor1(const char* command, const char* speed, const char* direction
     motor1State.enabled = false;
     motor1State.speed = 0;
     motor1State.targetSpeed = 0;  // Plynule spomalí na 0
-    // Enable pin necháme zapnutý až kým nedosiahne 0
+    motor1State.pendingDirectionChange = false;  // Zruš čakajúcu zmenu smeru
     debugPrint("Motor1 OFF - smooth stopping...");
     
   } else if (strcmp(command, "SPEED") == 0) {
@@ -120,13 +142,26 @@ void controlMotor1(const char* command, const char* speed, const char* direction
     
   } else if (strcmp(command, "DIR") == 0) {
     if (motor1State.enabled) {
-      // Pri zmene smeru najprv zastav, potom zmeň smer
-      if (motor1State.currentSpeed > 0) {
-        motor1State.targetSpeed = 0;  // Najprv zastav
-        // Smer sa zmení až keď dosiahne 0 v updateMotorSmoothly
+      char newDir = direction[0];
+      
+      // Ak už beží v požadovanom smere, nič nerob
+      if (motor1State.direction == newDir) {
+        debugPrint("Motor1 already running in direction: " + String(newDir));
+        return;
       }
-      motor1State.direction = direction[0];
-      debugPrint("Motor1 direction will change to: " + String(motor1State.direction));
+      
+      // OPRAVENÁ LOGIKA: Uloží aktuálnu rýchlosť a naplánuje zmenu smeru
+      if (motor1State.currentSpeed > 0) {
+        motor1State.savedSpeed = motor1State.speed;  // Ulož aktuálnu rýchlosť
+        motor1State.newDirection = newDir;            // Ulož nový smer
+        motor1State.pendingDirectionChange = true;    // Označí, že čaká zmena smeru
+        motor1State.targetSpeed = 0;                  // Najprv zastav
+        debugPrint("Motor1 stopping for direction change from " + String(motor1State.direction) + " to " + String(newDir));
+      } else {
+        // Motor stojí, môžeme rovno zmeniť smer
+        motor1State.direction = newDir;
+        debugPrint("Motor1 direction changed to: " + String(newDir) + " (motor was stopped)");
+      }
     } else {
       debugPrint("Motor1 not enabled, ignoring direction command");
     }
@@ -144,6 +179,7 @@ void controlMotor2(const char* command, const char* speed, const char* direction
     motor2State.speed = atoi(speed);
     motor2State.targetSpeed = motor2State.speed;  // Nastaví cieľovú rýchlosť
     motor2State.direction = direction[0];
+    motor2State.pendingDirectionChange = false;  // Zruš čakajúcu zmenu smeru
     digitalWrite(MOTOR2_ENABLE_PIN, HIGH);
     debugPrint("Motor2 ON - Target Speed: " + String(motor2State.speed) + "%, Dir: " + String(motor2State.direction));
     hardwareOff = false;
@@ -152,6 +188,7 @@ void controlMotor2(const char* command, const char* speed, const char* direction
     motor2State.enabled = false;
     motor2State.speed = 0;
     motor2State.targetSpeed = 0;  // Plynule spomalí na 0
+    motor2State.pendingDirectionChange = false;  // Zruš čakajúcu zmenu smeru
     debugPrint("Motor2 OFF - smooth stopping...");
     
   } else if (strcmp(command, "SPEED") == 0) {
@@ -165,12 +202,26 @@ void controlMotor2(const char* command, const char* speed, const char* direction
     
   } else if (strcmp(command, "DIR") == 0) {
     if (motor2State.enabled) {
-      // Pri zmene smeru najprv zastav, potom zmeň smer
-      if (motor2State.currentSpeed > 0) {
-        motor2State.targetSpeed = 0;  // Najprv zastav
+      char newDir = direction[0];
+      
+      // Ak už beží v požadovanom smere, nič nerob
+      if (motor2State.direction == newDir) {
+        debugPrint("Motor2 already running in direction: " + String(newDir));
+        return;
       }
-      motor2State.direction = direction[0];
-      debugPrint("Motor2 direction will change to: " + String(motor2State.direction));
+      
+      // OPRAVENÁ LOGIKA: Uloží aktuálnu rýchlosť a naplánuje zmenu smeru
+      if (motor2State.currentSpeed > 0) {
+        motor2State.savedSpeed = motor2State.speed;  // Ulož aktuálnu rýchlosť
+        motor2State.newDirection = newDir;            // Ulož nový smer
+        motor2State.pendingDirectionChange = true;    // Označí, že čaká zmena smeru
+        motor2State.targetSpeed = 0;                  // Najprv zastav
+        debugPrint("Motor2 stopping for direction change from " + String(motor2State.direction) + " to " + String(newDir));
+      } else {
+        // Motor stojí, môžeme rovno zmeniť smer
+        motor2State.direction = newDir;
+        debugPrint("Motor2 direction changed to: " + String(newDir) + " (motor was stopped)");
+      }
     } else {
       debugPrint("Motor2 not enabled, ignoring direction command");
     }
@@ -190,8 +241,8 @@ void turnOffHardware() {
   ledcWrite(MOTOR2_RIGHT_PIN, 0);
   
   // Reset motor states
-  motor1State = {false, 0, 0, 0, 'S', 0};
-  motor2State = {false, 0, 0, 0, 'S', 0};
+  motor1State = {false, 0, 0, 0, 'S', 0, false, 0};
+  motor2State = {false, 0, 0, 0, 'S', 0, false, 0};
   
   debugPrint("All motors turned OFF due to disconnection");
   hardwareOff = true;

@@ -31,90 +31,113 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     return;
   }
 
-  // Derive status topic for feedback (e.g., room1/motor1 -> room1/status)
+  // Derive status topic for feedback
   String statusTopic = basePrefix + "status";
+  String feedbackMessage = "ERROR";  // Default error response
+  bool commandSuccessful = false;
 
   if (topicStr.startsWith(basePrefix)) {
     String deviceType = topicStr.substring(basePrefix.length());
 
-    bool commandSuccessful = false;
-    String feedbackMessage = "ERROR";
-
-    // NOVÉ: STOP príkaz - vypne všetok hardware
+    // NOVÉ: STOP príkaz - okamžitý feedback
     if (deviceType == "STOP") {
       debugPrint("STOP command received - turning off all hardware");
       turnOffHardware();
-      commandSuccessful = true;
       feedbackMessage = "ALL_HARDWARE_STOPPED";
+      commandSuccessful = true;
       
     } else {
-      // Parse message for motor commands: "ON:50:L" or "SPEED:75" or "DIR:R" or "OFF"
+      // Parse motor commands
       String command = String(message);
-      String speed = "50";  // default speed
-      String direction = "L"; // default direction
+      String speed = "50";
+      String direction = "L";
       
-      // Parse compound commands like "ON:75:R"
+      debugPrint("Parsing command: " + command);
+      
+      // Parse compound commands
       int firstColon = command.indexOf(':');
-      int secondColon = command.indexOf(':', firstColon + 1);
-      
       if (firstColon > 0) {
         String baseCommand = command.substring(0, firstColon);
-        if (secondColon > 0) {
-          speed = command.substring(firstColon + 1, secondColon);
-          direction = command.substring(secondColon + 1);
-        } else {
-          speed = command.substring(firstColon + 1);
+        String params = command.substring(firstColon + 1);
+        
+        if (baseCommand == "ON") {
+          int secondColon = params.indexOf(':');
+          if (secondColon > 0) {
+            speed = params.substring(0, secondColon);
+            direction = params.substring(secondColon + 1);
+          } else {
+            speed = params;
+          }
+          command = baseCommand;
+          
+        } else if (baseCommand == "DIR") {
+          direction = params;
+          command = baseCommand;
+          debugPrint("DIR command parsed - new direction: " + direction);
+          
+        } else if (baseCommand == "SPEED") {
+          speed = params;
+          command = baseCommand;
         }
-        command = baseCommand;
       }
 
+      debugPrint("Final parsed - Command: " + command + ", Speed: " + speed + ", Direction: " + direction);
+
+      // Execute motor commands
       if (deviceType == "motor1") {
         if (command == "ON" || command == "OFF" || command == "SPEED" || command == "DIR") {
           controlMotor1(command.c_str(), speed.c_str(), direction.c_str());
-          commandSuccessful = true;
           feedbackMessage = "OK";
+          commandSuccessful = true;
         } else {
-          feedbackMessage = "ERROR: Unknown motor1 command: " + command;
+          feedbackMessage = "ERROR_UNKNOWN_COMMAND";
         }
       } else if (deviceType == "motor2") {
         if (command == "ON" || command == "OFF" || command == "SPEED" || command == "DIR") {
           controlMotor2(command.c_str(), speed.c_str(), direction.c_str());
-          commandSuccessful = true;
           feedbackMessage = "OK";
+          commandSuccessful = true;
         } else {
-          feedbackMessage = "ERROR: Unknown motor2 command: " + command;
+          feedbackMessage = "ERROR_UNKNOWN_COMMAND";
         }
       } else {
-        debugPrint("Unknown device in topic: " + deviceType);
-        feedbackMessage = "ERROR: Unknown device: " + deviceType;
+        feedbackMessage = "ERROR_UNKNOWN_DEVICE";
       }
     }
+  } else {
+    feedbackMessage = "ERROR_UNKNOWN_TOPIC";
+  }
 
-    // Always publish feedback to status topic
-    if (client.connected()) {
-      client.publish(statusTopic.c_str(), feedbackMessage.c_str(), true);
-      debugPrint("Published feedback to " + statusTopic + ": " + feedbackMessage);
+  // KRITICKÉ: OKAMŽITÉ odoslanie feedback - PRED akýmikoľvek inými operáciami
+  if (client.connected()) {
+    unsigned long feedbackStart = millis();
+    
+    // Synchronné odoslanie s prioritou
+    bool publishResult = client.publish(statusTopic.c_str(), feedbackMessage.c_str(), false); // retained=false pre rýchlosť
+    
+    if (publishResult) {
+      // FORCE immediate send - nevyčkávaj na batching
+      client.loop(); // Immediate processing
+      
+      unsigned long feedbackTime = millis() - feedbackStart;
+      debugPrint("✅ FAST Feedback sent in " + String(feedbackTime) + "ms: " + feedbackMessage);
     } else {
-      debugPrint("Failed to publish feedback: MQTT not connected");
+      debugPrint("❌ Feedback FAILED to send: " + feedbackMessage);
     }
   } else {
-    debugPrint("Unknown topic prefix");
-    // Publish error feedback to status topic
-    if (client.connected()) {
-      String errorMessage = "ERROR: Unknown topic prefix: " + topicStr;
-      client.publish(statusTopic.c_str(), errorMessage.c_str(), true);
-      debugPrint("Published feedback to " + statusTopic + ": " + errorMessage);
-    } else {
-      debugPrint("Failed to publish feedback: MQTT not connected");
-    }
+    debugPrint("❌ MQTT disconnected - cannot send feedback");
   }
 }
 
 void initializeMqtt() {
   client.setServer(MQTT_SERVER, MQTT_PORT);
   client.setKeepAlive(MQTT_KEEP_ALIVE);
+  
+  // Optimalizácia pre nízku latenciu (ak je podporovaná)
+  // client.setSocketTimeout(5);  // Zakomentované - nie je vo všetkých verziách
+  
   client.setCallback(mqttCallback);
-  debugPrint("MQTT configured");
+  debugPrint("MQTT configured with optimized settings");
 }
 
 void connectToMqtt() {
@@ -125,25 +148,29 @@ void connectToMqtt() {
   static unsigned long mqttRetryInterval = MQTT_RETRY_INTERVAL;
 
   if (!client.connected() && (currentTime - lastMqttAttempt >= mqttRetryInterval)) {
-    debugPrint("MQTT connecting...");
+    debugPrint("MQTT connecting with optimized settings...");
     String willTopic = "devices/" + String(CLIENT_ID) + "/status";
     
-    if (client.connect(CLIENT_ID, willTopic.c_str(), 0, true, "offline")) {
-      debugPrint("MQTT connected");
+    // OPTIMALIZOVANÉ pripojenie s will message
+    if (client.connect(CLIENT_ID, willTopic.c_str(), 0, true, "offline")) { // willRetain=true
+      debugPrint("MQTT connected successfully");
       mqttConnected = true;
       mqttAttempts = 0;
       mqttRetryInterval = MQTT_RETRY_INTERVAL;
       
-      // Subscribe to motor control topics AND STOP topic
+      // Subscribe to motor control topics
       String basePrefix = String(BASE_TOPIC_PREFIX);
-      client.subscribe((basePrefix + "motor1").c_str());
-      client.subscribe((basePrefix + "motor2").c_str());
-      client.subscribe((basePrefix + "STOP").c_str());  // NOVÉ: Subscribe na STOP
       
-      debugPrint("Subscribed to motor and STOP MQTT topics");
+      // Subscribe s QoS 0 pre najrýchlejšie doručenie
+      client.subscribe((basePrefix + "motor1").c_str(), 0);  // QoS 0
+      client.subscribe((basePrefix + "motor2").c_str(), 0);  // QoS 0
+      client.subscribe((basePrefix + "STOP").c_str(), 0);    // QoS 0
       
-      // Publish online status
-      publishStatus();
+      debugPrint("Subscribed to motor topics with QoS 0 (fastest delivery)");
+      
+      // Okamžité odoslanie online status
+      publishStatusImmediate();
+      
     } else {
       mqttAttempts++;
       debugPrint("MQTT connection failed. Attempt: " + String(mqttAttempts));
@@ -161,13 +188,27 @@ void connectToMqtt() {
   }
 }
 
+// NOVÁ FUNKCIA: Okamžité publikovanie status
+void publishStatusImmediate() {
+  if (client.connected()) {
+    // Publish bez retained flag pre rýchlosť
+    bool result = client.publish(STATUS_TOPIC.c_str(), "online", false);
+    if (result) {
+      client.loop(); // Force immediate send
+      debugPrint("✅ Status published immediately: online");
+    } else {
+      debugPrint("❌ Failed to publish status");
+    }
+    lastStatusPublish = millis();
+  }
+}
+
+// UPRAVENÁ funkcia: Rýchlejší status publishing
 void publishStatus() {
   if (client.connected()) {
     unsigned long currentTime = millis();
     if (currentTime - lastStatusPublish >= STATUS_PUBLISH_INTERVAL) {
-      client.publish(STATUS_TOPIC.c_str(), "online", true);
-      debugPrint("Status published: online");
-      lastStatusPublish = currentTime;
+      publishStatusImmediate();
     }
   }
 }
@@ -176,10 +217,18 @@ bool isMqttConnected() {
   return client.connected();
 }
 
+// OPTIMALIZOVANÁ MQTT loop
 void mqttLoop() {
   if (client.connected()) {
-    client.loop();
-    publishStatus();
+    // DÔLEŽITÉ: client.loop() volať častejšie pre rýchly feedback
+    client.loop(); // Spracovanie prichádzajúcich/odchádzajúcich správ
+    
+    // Publikuj status menej často
+    static unsigned long lastStatusCheck = 0;
+    if (millis() - lastStatusCheck >= STATUS_PUBLISH_INTERVAL) {
+      lastStatusCheck = millis();
+      publishStatus();
+    }
   } else {
     mqttConnected = false;
   }

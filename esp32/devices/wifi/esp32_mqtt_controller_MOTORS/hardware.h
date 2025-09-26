@@ -13,14 +13,19 @@ void turnOffHardware();
 // Hardware state
 extern bool hardwareOff;
 
-// Motor state tracking
+// Motor state tracking - ROZŠÍRENÉ pre správnu zmenu smeru
 struct MotorState {
   bool enabled;
   int speed;
-  int currentSpeed;  // Aktuálna PWM rýchlosť (pre smooth transition)
-  int targetSpeed;   // Cieľová rýchlosť
-  char direction;
+  int currentSpeed;        // Aktuálna PWM rýchlosť (pre smooth transition)
+  int targetSpeed;         // Cieľová rýchlosť
+  char direction;          // Aktuálny smer ('L' alebo 'R')
   unsigned long lastUpdate;  // Čas posledného update
+  
+  // NOVÉ polia pre zmenu smeru:
+  bool pendingDirectionChange;  // Či čaká na zmenu smeru
+  char newDirection;            // Nový smer na ktorý sa má zmeniť
+  int savedSpeed;              // Uložená rýchlosť pred zmenou smeru
 };
 
 extern MotorState motor1State;

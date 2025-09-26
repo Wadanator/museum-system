@@ -8,6 +8,7 @@
 void initializeMqtt();
 void connectToMqtt();
 void publishStatus();
+void publishStatusImmediate();  // NOVÁ: Okamžité publikovanie
 void mqttCallback(char* topic, byte* payload, unsigned int length);
 bool isMqttConnected();
 void mqttLoop();
