@@ -40,45 +40,54 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     bool commandSuccessful = false;
     String feedbackMessage = "ERROR";
 
-    // Parse message for motor commands: "ON:50:L" or "SPEED:75" or "DIR:R" or "OFF"
-    String command = String(message);
-    String speed = "50";  // default speed
-    String direction = "L"; // default direction
-    
-    // Parse compound commands like "ON:75:R"
-    int firstColon = command.indexOf(':');
-    int secondColon = command.indexOf(':', firstColon + 1);
-    
-    if (firstColon > 0) {
-      String baseCommand = command.substring(0, firstColon);
-      if (secondColon > 0) {
-        speed = command.substring(firstColon + 1, secondColon);
-        direction = command.substring(secondColon + 1);
-      } else {
-        speed = command.substring(firstColon + 1);
-      }
-      command = baseCommand;
-    }
-
-    if (deviceType == "motor1") {
-      if (command == "ON" || command == "OFF" || command == "SPEED" || command == "DIR") {
-        controlMotor1(command.c_str(), speed.c_str(), direction.c_str());
-        commandSuccessful = true;
-        feedbackMessage = "OK";
-      } else {
-        feedbackMessage = "ERROR: Unknown motor1 command: " + command;
-      }
-    } else if (deviceType == "motor2") {
-      if (command == "ON" || command == "OFF" || command == "SPEED" || command == "DIR") {
-        controlMotor2(command.c_str(), speed.c_str(), direction.c_str());
-        commandSuccessful = true;
-        feedbackMessage = "OK";
-      } else {
-        feedbackMessage = "ERROR: Unknown motor2 command: " + command;
-      }
+    // NOVÉ: STOP príkaz - vypne všetok hardware
+    if (deviceType == "STOP") {
+      debugPrint("STOP command received - turning off all hardware");
+      turnOffHardware();
+      commandSuccessful = true;
+      feedbackMessage = "ALL_HARDWARE_STOPPED";
+      
     } else {
-      debugPrint("Unknown device in topic: " + deviceType);
-      feedbackMessage = "ERROR: Unknown device: " + deviceType;
+      // Parse message for motor commands: "ON:50:L" or "SPEED:75" or "DIR:R" or "OFF"
+      String command = String(message);
+      String speed = "50";  // default speed
+      String direction = "L"; // default direction
+      
+      // Parse compound commands like "ON:75:R"
+      int firstColon = command.indexOf(':');
+      int secondColon = command.indexOf(':', firstColon + 1);
+      
+      if (firstColon > 0) {
+        String baseCommand = command.substring(0, firstColon);
+        if (secondColon > 0) {
+          speed = command.substring(firstColon + 1, secondColon);
+          direction = command.substring(secondColon + 1);
+        } else {
+          speed = command.substring(firstColon + 1);
+        }
+        command = baseCommand;
+      }
+
+      if (deviceType == "motor1") {
+        if (command == "ON" || command == "OFF" || command == "SPEED" || command == "DIR") {
+          controlMotor1(command.c_str(), speed.c_str(), direction.c_str());
+          commandSuccessful = true;
+          feedbackMessage = "OK";
+        } else {
+          feedbackMessage = "ERROR: Unknown motor1 command: " + command;
+        }
+      } else if (deviceType == "motor2") {
+        if (command == "ON" || command == "OFF" || command == "SPEED" || command == "DIR") {
+          controlMotor2(command.c_str(), speed.c_str(), direction.c_str());
+          commandSuccessful = true;
+          feedbackMessage = "OK";
+        } else {
+          feedbackMessage = "ERROR: Unknown motor2 command: " + command;
+        }
+      } else {
+        debugPrint("Unknown device in topic: " + deviceType);
+        feedbackMessage = "ERROR: Unknown device: " + deviceType;
+      }
     }
 
     // Always publish feedback to status topic
@@ -125,12 +134,13 @@ void connectToMqtt() {
       mqttAttempts = 0;
       mqttRetryInterval = MQTT_RETRY_INTERVAL;
       
-      // Subscribe to motor control topics only
+      // Subscribe to motor control topics AND STOP topic
       String basePrefix = String(BASE_TOPIC_PREFIX);
       client.subscribe((basePrefix + "motor1").c_str());
       client.subscribe((basePrefix + "motor2").c_str());
+      client.subscribe((basePrefix + "STOP").c_str());  // NOVÉ: Subscribe na STOP
       
-      debugPrint("Subscribed to motor MQTT topics");
+      debugPrint("Subscribed to motor and STOP MQTT topics");
       
       // Publish online status
       publishStatus();

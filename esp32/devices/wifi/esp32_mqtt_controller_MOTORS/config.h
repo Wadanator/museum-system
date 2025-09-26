@@ -31,6 +31,10 @@ extern const int MOTOR2_ENABLE_PIN;
 extern const int PWM_FREQUENCY;
 extern const int PWM_RESOLUTION;
 
+// Smooth Motor Control Settings
+extern const int SMOOTH_STEP;
+extern const int SMOOTH_DELAY;
+
 // Connection Management
 extern const unsigned long WIFI_RETRY_INTERVAL;
 extern const unsigned long MQTT_RETRY_INTERVAL;

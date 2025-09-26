@@ -17,10 +17,16 @@ extern bool hardwareOff;
 struct MotorState {
   bool enabled;
   int speed;
+  int currentSpeed;  // Aktuálna PWM rýchlosť (pre smooth transition)
+  int targetSpeed;   // Cieľová rýchlosť
   char direction;
+  unsigned long lastUpdate;  // Čas posledného update
 };
 
 extern MotorState motor1State;
 extern MotorState motor2State;
+
+// Smooth control function - volaj v main loop
+void updateMotorSmoothly();
 
 #endif

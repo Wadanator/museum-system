@@ -28,6 +28,10 @@ const int MOTOR2_ENABLE_PIN = 14;  // Motor 2 enable
 const int PWM_FREQUENCY = 20000;   // 20kHz
 const int PWM_RESOLUTION = 8;      // 8-bit (0-255)
 
+// Smooth Motor Control Settings
+const int SMOOTH_STEP = 5;         // PWM step per update (1-10, higher = faster)
+const int SMOOTH_DELAY = 20;       // Delay between steps in ms (10-50, lower = smoother)
+
 // Connection Management
 const unsigned long WIFI_RETRY_INTERVAL = 5000;
 const unsigned long MQTT_RETRY_INTERVAL = 5000;

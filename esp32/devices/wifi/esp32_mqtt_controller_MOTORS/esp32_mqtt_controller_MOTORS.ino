@@ -65,6 +65,9 @@ void loop() {
     esp_task_wdt_reset(); // Reset Watchdog Timer
   }
 
+  // NOVÉ: Smooth motor update - volaj v každom cykle
+  updateMotorSmoothly();
+
   // Standard operations (only when OTA not in progress)
   monitorConnections();
 
