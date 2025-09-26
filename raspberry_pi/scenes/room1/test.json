@@ -10,9 +10,9 @@
     "topic": "room1/audio"
   },
   {
-    "message": "START",
-    "timestamp": 1,
-    "topic": "room1/motor"
+    "message": "ON:50:L",
+    "timestamp": 0,
+    "topic": "room1/motor1"
   },
   {
     "message": "PLAY_VIDEO:ghost2.mp4",
@@ -20,23 +20,33 @@
     "topic": "room1/video"
   },
   {
+    "message": "DIR:R",
+    "timestamp": 4,
+    "topic": "room1/motor1"
+  },
+  {
     "message": "OFF",
     "timestamp": 6,
     "topic": "room1/light"
   },
   {
-    "message": "STOP",
-    "timestamp": 8,
-    "topic": "room1/motor"
+    "message": "DIR:L",
+    "timestamp": 6,
+    "topic": "room1/motor1"
   },
   {
-    "message": "STOP_VIDEO",
-    "timestamp": 12,
-    "topic": "room1/video"
+    "message": "OFF",
+    "timestamp": 8,
+    "topic": "room1/motor1"
   },
   {
     "message": "STOP",
     "timestamp": 10,
     "topic": "room1/audio"
+  },
+  {
+    "message": "STOP_VIDEO",
+    "timestamp": 12,
+    "topic": "room1/video"
   }
 ]

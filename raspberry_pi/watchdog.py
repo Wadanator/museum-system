@@ -58,7 +58,6 @@ class MuseumWatchdog:
                 capture_output=True, text=True, timeout=10
             )
             is_active = result.stdout.strip() == 'active'
-            watchdog_log.debug(f"Service check: {self.service_name} = {result.stdout.strip()}")
             return is_active
         except Exception as e:
             watchdog_log.error(f"Error checking service status: {e}")
@@ -68,10 +67,8 @@ class MuseumWatchdog:
         try:
             for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
                 if proc.info['cmdline'] and 'main.py' in ' '.join(proc.info['cmdline']):
-                    watchdog_log.debug(f"Found process: PID {proc.pid}")
                     return proc
         except Exception as e:
-            watchdog_log.debug(f"Process search error: {e}")
             pass
         return None
     
@@ -154,17 +151,6 @@ class MuseumWatchdog:
             
             healthy = True
             status = f"Healthy - CPU: {cpu_percent:.1f}%, Memory: {memory_mb:.1f}MB"
-            
-            # Log health issues but be smarter about it
-            current_time = time.time()
-            is_concerning = (memory_mb > self.max_memory_mb * 0.9 or 
-                           cpu_percent > self.max_cpu_percent * 0.8 or 
-                           not healthy)
-            
-            if is_concerning and (current_time - self.last_health_log_time > 60):
-                log_level = "WARNING" if healthy else "ERROR"
-                watchdog_log.warning(f"Health check issue: CPU {cpu_percent:.1f}%, Memory {memory_mb:.1f}MB")
-                self.last_health_log_time = current_time
             
             return healthy, status
             
@@ -261,7 +247,7 @@ class MuseumWatchdog:
     
     def run(self):
         """Main watchdog loop with enhanced monitoring"""
-        watchdog_log.info("Museum System Watchdog started - entering enhanced monitoring loop")
+        watchdog_log.info("Museum System Watchdog started")
         
         network_down_logged = False
         startup_complete = False
@@ -275,8 +261,6 @@ class MuseumWatchdog:
                 
                 # Reset restart count every hour
                 if current_time - last_restart_count_reset > 3600:
-                    if self.restart_count > 0:
-                        watchdog_log.info(f"Hourly reset - Had {self.restart_count} restarts in last hour")
                     self.restart_count = 0
                     last_restart_count_reset = current_time
                 
@@ -322,20 +306,10 @@ class MuseumWatchdog:
                         watchdog_log.info("Network connectivity restored")
                         network_down_logged = False
                 
-                # Check web interface occasionally
-                if loop_count % 10 == 0:  # Every 10 minutes
-                    web_ok = self.check_web_interface()
-                    if not web_ok:
-                        watchdog_log.debug("Web interface not responding (may be normal)")
-                
                 # Log successful startup completion once
                 if not startup_complete and service_running and healthy:
                     watchdog_log.info("Watchdog monitoring active - all systems nominal")
                     startup_complete = True
-                
-                # Periodic status log (less frequent)
-                if loop_count % 60 == 0:  # Every hour
-                    watchdog_log.info(f"System status: Healthy={healthy}, Restarts={self.restart_count}, Uptime={loop_count} minutes")
                 
                 time.sleep(self.check_interval)
                 
