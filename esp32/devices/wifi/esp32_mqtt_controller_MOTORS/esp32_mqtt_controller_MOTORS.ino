@@ -98,7 +98,7 @@ void loop() {
 
   // PRIORITA 5: Detailné monitorovanie (menej často)
   static unsigned long lastDetailedCheck = 0;
-  if (currentTime - lastDetailedCheck >= 5000) { // Každých 5 sekúnd
+  if (currentTime - lastDetailedCheck >= 10000) { // Každých 5 sekúnd
     lastDetailedCheck = currentTime;
     monitorConnections();
   }
