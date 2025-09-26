@@ -1,4 +1,3 @@
-// esp32_mqtt_controller.ino - OPTIMALIZOVANÁ VERZIA pre rýchly feedback
 #include <esp_task_wdt.h>
 #include "config.h"
 #include "debug.h"
@@ -10,8 +9,8 @@
 
 void setup() {
   Serial.begin(115200);
-  delay(100);  // Give serial time to initialize
-  
+  delay(100);
+
   Serial.println("\n=== ESP32 MQTT Controller Starting ===");
   debugPrint("=== ESP32 MQTT Controller Starting ===");
 
@@ -25,16 +24,14 @@ void setup() {
   esp_task_wdt_add(NULL);
   debugPrint("Watchdog Timer initialized");
 
-  // Initialize hardware
+  // Initialize hardware and Wi-Fi
   initializeHardware();
-
-  // Initialize WiFi
   if (!initializeWiFi()) {
     Serial.println("WiFi failed, will retry...");
     debugPrint("Initial WiFi failed");
   }
 
-  //Initialize OTA ONLY after WiFi is connected
+  // Initialize OTA ONLY after WiFi is connected
   if (wifiConnected) {
     initializeOTA();
   }
@@ -48,65 +45,59 @@ void setup() {
 }
 
 void loop() {
-  // KRITICKÉ: Handle OTA first
+  // Handle OTA first
   if (wifiConnected) {
     handleOTA();
-    
-    // If OTA upload is happening, do NOTHING else
+    // If OTA upload is happening, do nothing else
     if (isOTAInProgress()) {
       delay(10);
       return;
     }
   }
 
-  // PRIORITA 1: MQTT loop - MUSÍ byť prvé pre rýchly feedback
+  // MQTT loop must be first for fast feedback
   if (isMqttConnected()) {
-    client.loop(); // Spracuj prijaté správy a odoši feedback OKAMŽITE
+    client.loop();
   }
 
-  // PRIORITA 2: Smooth motor update - rýchle, bez delay
+  // Smooth motor update
   updateMotorSmoothly();
 
-  // PRIORITA 3: Watchdog reset (iba ak nie je OTA)
+  // Watchdog reset (only if not doing an OTA update)
   if (!isOTAInProgress()) {
     esp_task_wdt_reset();
   }
 
-  // PRIORITA 4: Connection monitoring (menej často)
   static unsigned long lastQuickCheck = 0;
   unsigned long currentTime = millis();
-  
-  // Rýchla kontrola každých 100ms namiesto connection monitor
+
+  // Handle Wi-Fi and MQTT reconnections more frequently
   if (currentTime - lastQuickCheck >= 100) {
     lastQuickCheck = currentTime;
-    
-    // Handle WiFi connection
     if (!isWiFiConnected()) {
       reconnectWiFi();
-      
-      // Re-initialize OTA after WiFi reconnect
+      // Re-initialize OTA after Wi-Fi reconnect
       if (wifiConnected) {
         reinitializeOTAAfterWiFiReconnect();
       }
     }
 
-    // Handle MQTT connection
     if (wifiConnected && !isMqttConnected()) {
       connectToMqtt();
     }
   }
 
-  // PRIORITA 5: Detailné monitorovanie (menej často)
+  // Detailed connection monitoring (less frequent)
   static unsigned long lastDetailedCheck = 0;
-  if (currentTime - lastDetailedCheck >= 10000) { // Každých 5 sekúnd
+  if (currentTime - lastDetailedCheck >= 10000) {
     lastDetailedCheck = currentTime;
     monitorConnections();
   }
 
-  // PRIORITA 6: Hardware safety check
+  // Hardware safety check
   if (!isMqttConnected() && !hardwareOff) {
     turnOffHardware();
   }
 
-  delay(10); // Znížené z 50ms na 10ms pre rýchlejší feedback
+  delay(10);
 }

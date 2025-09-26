@@ -33,33 +33,33 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
   // Derive status topic for feedback
   String statusTopic = basePrefix + "status";
-  String feedbackMessage = "ERROR";  // Default error response
+  String feedbackMessage = "ERROR";
   bool commandSuccessful = false;
 
   if (topicStr.startsWith(basePrefix)) {
     String deviceType = topicStr.substring(basePrefix.length());
 
-    // NOVÉ: STOP príkaz - okamžitý feedback
+    // New STOP command for immediate feedback
     if (deviceType == "STOP") {
       debugPrint("STOP command received - turning off all hardware");
       turnOffHardware();
       feedbackMessage = "ALL_HARDWARE_STOPPED";
       commandSuccessful = true;
-      
+
     } else {
       // Parse motor commands
       String command = String(message);
       String speed = "50";
       String direction = "L";
-      
+
       debugPrint("Parsing command: " + command);
-      
+
       // Parse compound commands
       int firstColon = command.indexOf(':');
       if (firstColon > 0) {
         String baseCommand = command.substring(0, firstColon);
         String params = command.substring(firstColon + 1);
-        
+
         if (baseCommand == "ON") {
           int secondColon = params.indexOf(':');
           if (secondColon > 0) {
@@ -69,12 +69,12 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
             speed = params;
           }
           command = baseCommand;
-          
+
         } else if (baseCommand == "DIR") {
           direction = params;
           command = baseCommand;
           debugPrint("DIR command parsed - new direction: " + direction);
-          
+
         } else if (baseCommand == "SPEED") {
           speed = params;
           command = baseCommand;
@@ -108,17 +108,13 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     feedbackMessage = "ERROR_UNKNOWN_TOPIC";
   }
 
-  // KRITICKÉ: OKAMŽITÉ odoslanie feedback - PRED akýmikoľvek inými operáciami
+  // Send immediate feedback
   if (client.connected()) {
     unsigned long feedbackStart = millis();
-    
-    // Synchronné odoslanie s prioritou
-    bool publishResult = client.publish(statusTopic.c_str(), feedbackMessage.c_str(), false); // retained=false pre rýchlosť
-    
+    bool publishResult = client.publish(statusTopic.c_str(), feedbackMessage.c_str(), false);
+
     if (publishResult) {
-      // FORCE immediate send - nevyčkávaj na batching
-      client.loop(); // Immediate processing
-      
+      client.loop();
       unsigned long feedbackTime = millis() - feedbackStart;
       debugPrint("✅ FAST Feedback sent in " + String(feedbackTime) + "ms: " + feedbackMessage);
     } else {
@@ -132,10 +128,6 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 void initializeMqtt() {
   client.setServer(MQTT_SERVER, MQTT_PORT);
   client.setKeepAlive(MQTT_KEEP_ALIVE);
-  
-  // Optimalizácia pre nízku latenciu (ak je podporovaná)
-  // client.setSocketTimeout(5);  // Zakomentované - nie je vo všetkých verziách
-  
   client.setCallback(mqttCallback);
   debugPrint("MQTT configured with optimized settings");
 }
@@ -150,51 +142,47 @@ void connectToMqtt() {
   if (!client.connected() && (currentTime - lastMqttAttempt >= mqttRetryInterval)) {
     debugPrint("MQTT connecting with optimized settings...");
     String willTopic = "devices/" + String(CLIENT_ID) + "/status";
-    
-    // OPTIMALIZOVANÉ pripojenie s will message
-    if (client.connect(CLIENT_ID, willTopic.c_str(), 0, true, "offline")) { // willRetain=true
+
+    // Connect with a will message
+    if (client.connect(CLIENT_ID, willTopic.c_str(), 0, true, "offline")) {
       debugPrint("MQTT connected successfully");
       mqttConnected = true;
       mqttAttempts = 0;
       mqttRetryInterval = MQTT_RETRY_INTERVAL;
-      
-      // Subscribe to motor control topics
+
+      // Subscribe to motor control topics with QoS 0 for fastest delivery
       String basePrefix = String(BASE_TOPIC_PREFIX);
-      
-      // Subscribe s QoS 0 pre najrýchlejšie doručenie
-      client.subscribe((basePrefix + "motor1").c_str(), 0);  // QoS 0
-      client.subscribe((basePrefix + "motor2").c_str(), 0);  // QoS 0
-      client.subscribe((basePrefix + "STOP").c_str(), 0);    // QoS 0
-      
-      debugPrint("Subscribed to motor topics with QoS 0 (fastest delivery)");
-      
-      // Okamžité odoslanie online status
+      client.subscribe((basePrefix + "motor1").c_str(), 0);
+      client.subscribe((basePrefix + "motor2").c_str(), 0);
+      client.subscribe((basePrefix + "STOP").c_str(), 0);
+
+      debugPrint("Subscribed to motor topics with QoS 0");
+
+      // Publish online status immediately
       publishStatusImmediate();
-      
+
     } else {
       mqttAttempts++;
       debugPrint("MQTT connection failed. Attempt: " + String(mqttAttempts));
-      
+
       if (mqttAttempts >= MAX_MQTT_ATTEMPTS) {
         debugPrint("Max MQTT attempts reached. Restarting...");
         ESP.restart();
       }
-      
       mqttRetryInterval = min(mqttRetryInterval * 2, MAX_RETRY_INTERVAL);
       mqttConnected = false;
     }
-    
+
     lastMqttAttempt = currentTime;
   }
 }
 
-// NOVÁ FUNKCIA: Okamžité publikovanie status
+// Publish status immediately
 void publishStatusImmediate() {
   if (client.connected()) {
-    // Publish bez retained flag pre rýchlosť
     bool result = client.publish(STATUS_TOPIC.c_str(), "online", false);
     if (result) {
-      client.loop(); // Force immediate send
+      client.loop();
       debugPrint("✅ Status published immediately: online");
     } else {
       debugPrint("❌ Failed to publish status");
@@ -203,7 +191,7 @@ void publishStatusImmediate() {
   }
 }
 
-// UPRAVENÁ funkcia: Rýchlejší status publishing
+// Publish status periodically
 void publishStatus() {
   if (client.connected()) {
     unsigned long currentTime = millis();
@@ -217,13 +205,10 @@ bool isMqttConnected() {
   return client.connected();
 }
 
-// OPTIMALIZOVANÁ MQTT loop
+// Unused function - main loop calls client.loop() directly
 void mqttLoop() {
   if (client.connected()) {
-    // DÔLEŽITÉ: client.loop() volať častejšie pre rýchly feedback
-    client.loop(); // Spracovanie prichádzajúcich/odchádzajúcich správ
-    
-    // Publikuj status menej často
+    client.loop();
     static unsigned long lastStatusCheck = 0;
     if (millis() - lastStatusCheck >= STATUS_PUBLISH_INTERVAL) {
       lastStatusCheck = millis();
