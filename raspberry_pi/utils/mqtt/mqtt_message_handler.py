@@ -50,6 +50,7 @@ class MQTTMessageHandler:
         self.feedback_tracker = feedback_tracker
         self.device_registry = device_registry
         self.button_callback = button_callback
+        self.logger.info("MQTT message handlers set.")
     
     # ==========================================================================
     # MESSAGE PROCESSING
@@ -57,47 +58,37 @@ class MQTTMessageHandler:
     
     def handle_message(self, msg):
         """
-        Process incoming MQTT messages and route to appropriate handlers.
+        Process a received MQTT message and route it to the correct handler.
         
         Args:
-            msg: MQTT message object containing topic, payload, and metadata
+            msg: The MQTT message object
         """
         try:
-            topic_parts = msg.topic.split('/')
-            payload = msg.payload.decode().strip()
+            topic = msg.topic
+            payload = msg.payload.decode('utf-8')
+            topic_parts = topic.split('/')
             
-            # === Device Status Messages ===
-            # Format: devices/{device_id}/status
-            if self._is_device_status_message(topic_parts):
-                if self.device_registry:
-                    # Pass the msg.retain flag to handle stale retained messages
-                    self.device_registry.update_device_status(
-                        device_id=topic_parts[1], 
-                        status=payload, 
-                        is_retained=msg.retain
-                    )
+            # Handle device status updates
+            if self.device_registry and self._is_device_status_message(topic_parts):
+                device_id = topic_parts[1]
+                self.device_registry.update_device_status(device_id, payload, is_retained=msg.retain)
+                return
+
+            # Handle feedback messages
+            if self.feedback_tracker and self._is_feedback_message(topic):
+                # We need to derive the original topic from the feedback topic
+                original_topic = '/'.join(topic_parts[:-1])
+                self.feedback_tracker.handle_feedback_message(original_topic)
                 return
             
-            # === Feedback/Status Messages ===
-            # Format: {room_id}/status or devices/{device_id}/status
-            if self._is_feedback_message(msg.topic):
-                if self.feedback_tracker:
-                    self.feedback_tracker.handle_feedback_message(msg.topic, payload)
+            # Handle button commands
+            if self.button_callback and self._is_button_command(topic, payload):
+                self.logger.info("Button command received. Starting scene.")
+                self.button_callback(payload)
                 return
             
-            # === Button/Scene Commands ===
-            # Format: {room_id}/scene with payload 'START'
-            if self._is_button_command(msg.topic, payload):
-                if self.button_callback:
-                    self.logger.info(f"Remote button press received: {msg.topic} = {payload}")
-                    self.button_callback()
-                else:
-                    self.logger.warning(f"Button command received but no callback set: {msg.topic}")
-                return
-            
-            # === Unhandled Messages ===
-            # Log other messages for debugging purposes
-            self.logger.debug(f"Unhandled message on {msg.topic}: {payload}")
+            # Log any messages that don't match the known patterns
+            self.logger.debug(f"Received unhandled message on topic {msg.topic}: {payload}")
             
         except Exception as e:
             self.logger.error(f"Error processing message on {msg.topic}: {e}")
@@ -122,7 +113,7 @@ class MQTTMessageHandler:
     
     def _is_feedback_message(self, topic):
         """
-        Check if message is a feedback/status message.
+        Check if message is a feedback message.
         
         Args:
             topic: Full MQTT topic string
@@ -130,7 +121,7 @@ class MQTTMessageHandler:
         Returns:
             bool: True if this is a feedback message
         """
-        return topic.endswith('/status')
+        return topic.endswith('/feedback')
     
     def _is_button_command(self, topic, payload):
         """

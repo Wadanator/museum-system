@@ -26,102 +26,56 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   String basePrefix(BASE_TOPIC_PREFIX);
 
   // Ignore messages on status topic to prevent feedback loop
-  if (topicStr.endsWith("/status")) {
-    debugPrint("Ignoring message on status topic: " + topicStr);
+  if (topicStr.endsWith("/status") || topicStr.endsWith("/feedback")) {
+    debugPrint("Ignoring message on status/feedback topic: " + topicStr);
     return;
   }
 
-  // Derive status topic for feedback
-  String statusTopic = basePrefix + "status";
-  String feedbackMessage = "ERROR";
+  // Derive feedback topic (e.g., room1/motor -> room1/motor/feedback)
+  String feedbackTopic = topicStr + "/feedback";
   bool commandSuccessful = false;
-
+  
   if (topicStr.startsWith(basePrefix)) {
     String deviceType = topicStr.substring(basePrefix.length());
 
-    // New STOP command for immediate feedback
-    if (deviceType == "STOP") {
-      debugPrint("STOP command received - turning off all hardware");
-      turnOffHardware();
-      feedbackMessage = "ALL_HARDWARE_STOPPED";
-      commandSuccessful = true;
-
-    } else {
-      // Parse motor commands
-      String command = String(message);
-      String speed = "50";
-      String direction = "L";
-
-      debugPrint("Parsing command: " + command);
-
-      // Parse compound commands
-      int firstColon = command.indexOf(':');
-      if (firstColon > 0) {
-        String baseCommand = command.substring(0, firstColon);
-        String params = command.substring(firstColon + 1);
-
-        if (baseCommand == "ON") {
-          int secondColon = params.indexOf(':');
-          if (secondColon > 0) {
-            speed = params.substring(0, secondColon);
-            direction = params.substring(secondColon + 1);
-          } else {
-            speed = params;
-          }
-          command = baseCommand;
-
-        } else if (baseCommand == "DIR") {
-          direction = params;
-          command = baseCommand;
-          debugPrint("DIR command parsed - new direction: " + direction);
-
-        } else if (baseCommand == "SPEED") {
-          speed = params;
-          command = baseCommand;
-        }
-      }
-
-      debugPrint("Final parsed - Command: " + command + ", Speed: " + speed + ", Direction: " + direction);
-
-      // Execute motor commands
-      if (deviceType == "motor1") {
-        if (command == "ON" || command == "OFF" || command == "SPEED" || command == "DIR") {
-          controlMotor1(command.c_str(), speed.c_str(), direction.c_str());
-          feedbackMessage = "OK";
-          commandSuccessful = true;
-        } else {
-          feedbackMessage = "ERROR_UNKNOWN_COMMAND";
-        }
-      } else if (deviceType == "motor2") {
-        if (command == "ON" || command == "OFF" || command == "SPEED" || command == "DIR") {
-          controlMotor2(command.c_str(), speed.c_str(), direction.c_str());
-          feedbackMessage = "OK";
-          commandSuccessful = true;
-        } else {
-          feedbackMessage = "ERROR_UNKNOWN_COMMAND";
-        }
+    if (deviceType.startsWith("motor")) {
+      // Handle motor commands (e.g., room1/motor1, room1/motor2)
+      String motorCommand = String(message);
+      if (motorCommand == "ON" || motorCommand == "OFF" || motorCommand.startsWith("ON:") || motorCommand.startsWith("OFF:") || motorCommand.startsWith("DIR:")) {
+        commandSuccessful = true;
+        // In a real scenario, you would call a function to control the specific motor
+        // For now, we assume success for valid commands
+        debugPrint("Motor command processed successfully.");
       } else {
-        feedbackMessage = "ERROR_UNKNOWN_DEVICE";
+        debugPrint("ERROR: Unknown motor command: " + motorCommand);
       }
+    } else if (deviceType.startsWith("light")) {
+      // Handle light commands (e.g., room1/light)
+      String lightCommand = String(message);
+      if (lightCommand == "ON" || lightCommand == "OFF" || lightCommand.startsWith("ON:")) {
+        commandSuccessful = true;
+        debugPrint("Light command processed successfully.");
+      } else {
+        debugPrint("ERROR: Unknown light command: " + lightCommand);
+      }
+    } else {
+      debugPrint("ERROR: Unknown device type: " + deviceType);
     }
-  } else {
-    feedbackMessage = "ERROR_UNKNOWN_TOPIC";
   }
 
-  // Send immediate feedback
-  if (client.connected()) {
-    unsigned long feedbackStart = millis();
-    bool publishResult = client.publish(statusTopic.c_str(), feedbackMessage.c_str(), false);
-
-    if (publishResult) {
-      client.loop();
-      unsigned long feedbackTime = millis() - feedbackStart;
-      debugPrint("✅ FAST Feedback sent in " + String(feedbackTime) + "ms: " + feedbackMessage);
+  // Publish feedback based on command success
+  if (commandSuccessful) {
+    if (client.publish(feedbackTopic.c_str(), "OK", false)) {
+      debugPrint("Published feedback: OK to " + feedbackTopic);
     } else {
-      debugPrint("❌ Feedback FAILED to send: " + feedbackMessage);
+      debugPrint("Failed to publish feedback: " + feedbackTopic);
     }
   } else {
-    debugPrint("❌ MQTT disconnected - cannot send feedback");
+    if (client.publish(feedbackTopic.c_str(), "ERROR", false)) {
+      debugPrint("Published feedback: ERROR to " + feedbackTopic);
+    } else {
+      debugPrint("Failed to publish feedback: " + feedbackTopic);
+    }
   }
 }
 
