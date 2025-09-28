@@ -57,7 +57,7 @@ void loop() {
 
   // MQTT loop must be first for fast feedback
   if (isMqttConnected()) {
-    client.loop();
+    mqttLoop();
   }
 
   // Smooth motor update
