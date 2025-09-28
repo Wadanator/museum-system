@@ -25,13 +25,13 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   String topicStr(topic);
   String basePrefix(BASE_TOPIC_PREFIX);
 
-  // Ignore messages on status topic to prevent feedback loop
-  if (topicStr.endsWith("/status") || topicStr.endsWith("/feedback")) {
-    debugPrint("Ignoring message on status/feedback topic: " + topicStr);
+  // Ignore feedback topics to prevent loops
+  if (topicStr.endsWith("/feedback") || topicStr.endsWith("/status")) {
+    debugPrint("Ignoring feedback/status topic: " + topicStr);
     return;
   }
 
-  // Derive feedback topic (e.g., room1/motor -> room1/motor/feedback)
+  // ZMENA: Feedback na konkrétny príkaz, nie room/status
   String feedbackTopic = topicStr + "/feedback";
   bool commandSuccessful = false;
   
@@ -39,31 +39,22 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     String deviceType = topicStr.substring(basePrefix.length());
 
     if (deviceType.startsWith("motor")) {
-      // Handle motor commands (e.g., room1/motor1, room1/motor2)
+      // Handle ONLY motor commands - this ESP32 is for motors only!
       String motorCommand = String(message);
       if (motorCommand == "ON" || motorCommand == "OFF" || motorCommand.startsWith("ON:") || motorCommand.startsWith("OFF:") || motorCommand.startsWith("DIR:")) {
         commandSuccessful = true;
-        // In a real scenario, you would call a function to control the specific motor
-        // For now, we assume success for valid commands
         debugPrint("Motor command processed successfully.");
       } else {
         debugPrint("ERROR: Unknown motor command: " + motorCommand);
       }
-    } else if (deviceType.startsWith("light")) {
-      // Handle light commands (e.g., room1/light)
-      String lightCommand = String(message);
-      if (lightCommand == "ON" || lightCommand == "OFF" || lightCommand.startsWith("ON:")) {
-        commandSuccessful = true;
-        debugPrint("Light command processed successfully.");
-      } else {
-        debugPrint("ERROR: Unknown light command: " + lightCommand);
-      }
     } else {
-      debugPrint("ERROR: Unknown device type: " + deviceType);
+      // This ESP32 handles ONLY motors - ignore other device types
+      debugPrint("Ignoring non-motor command: " + deviceType);
+      return; // Don't send feedback for commands this ESP32 doesn't handle
     }
   }
 
-  // Publish feedback based on command success
+  // Send feedback only for commands this ESP32 actually processes
   if (commandSuccessful) {
     if (client.publish(feedbackTopic.c_str(), "OK", false)) {
       debugPrint("Published feedback: OK to " + feedbackTopic);
@@ -78,6 +69,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     }
   }
 }
+
 
 void initializeMqtt() {
   client.setServer(MQTT_SERVER, MQTT_PORT);
@@ -120,55 +112,54 @@ void connectToMqtt() {
       debugPrint("MQTT connection failed. Attempt: " + String(mqttAttempts));
 
       if (mqttAttempts >= MAX_MQTT_ATTEMPTS) {
-        debugPrint("Max MQTT attempts reached. Restarting...");
+        debugPrint("Max MQTT attempts reached. Restarting ESP32...");
         ESP.restart();
+      } else {
+        mqttRetryInterval = min(mqttRetryInterval * 2, MAX_RETRY_INTERVAL);
       }
-      mqttRetryInterval = min(mqttRetryInterval * 2, MAX_RETRY_INTERVAL);
-      mqttConnected = false;
     }
-
+    
     lastMqttAttempt = currentTime;
   }
 }
 
-// Publish status immediately
-void publishStatusImmediate() {
-  if (client.connected()) {
-    bool result = client.publish(STATUS_TOPIC.c_str(), "online", false);
-    if (result) {
-      client.loop();
-      debugPrint("✅ Status published immediately: online");
-    } else {
-      debugPrint("❌ Failed to publish status");
-    }
-    lastStatusPublish = millis();
+void mqttLoop() {
+  if (!wifiConnected) return;
+
+  client.loop();
+  
+  static unsigned long lastStatusTime = 0;
+  unsigned long currentTime = millis();
+  
+  if (currentTime - lastStatusTime >= STATUS_PUBLISH_INTERVAL) {
+    publishStatus();
+    lastStatusTime = currentTime;
   }
 }
 
-// Publish status periodically
 void publishStatus() {
-  if (client.connected()) {
-    unsigned long currentTime = millis();
-    if (currentTime - lastStatusPublish >= STATUS_PUBLISH_INTERVAL) {
-      publishStatusImmediate();
-    }
+  if (!mqttConnected || !client.connected()) return;
+
+  unsigned long currentTime = millis();
+  if (currentTime - lastStatusPublish < STATUS_PUBLISH_INTERVAL) return;
+
+  if (client.publish(STATUS_TOPIC.c_str(), "online", true)) {
+    debugPrint("Status published: online");
+    lastStatusPublish = currentTime;
+  } else {
+    debugPrint("Failed to publish status");
+  }
+}
+
+void publishStatusImmediate() {
+  if (client.publish(STATUS_TOPIC.c_str(), "online", true)) {
+    debugPrint("Immediate status published: online");
+    lastStatusPublish = millis();
+  } else {
+    debugPrint("Failed to publish immediate status");
   }
 }
 
 bool isMqttConnected() {
-  return client.connected();
-}
-
-// Unused function - main loop calls client.loop() directly
-void mqttLoop() {
-  if (client.connected()) {
-    client.loop();
-    static unsigned long lastStatusCheck = 0;
-    if (millis() - lastStatusCheck >= STATUS_PUBLISH_INTERVAL) {
-      lastStatusCheck = millis();
-      publishStatus();
-    }
-  } else {
-    mqttConnected = false;
-  }
+  return mqttConnected && client.connected();
 }

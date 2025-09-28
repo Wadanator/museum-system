@@ -1,22 +1,21 @@
 #!/usr/bin/env python3
 """
-MQTT Message Handler - Routes and processes incoming MQTT messages.
+MQTT Message Handler - Routes incoming messages to appropriate handlers.
 
-Handles message routing to appropriate processors including:
-- Device status updates
-- Feedback/acknowledgment messages  
-- Button/scene command processing
+Receives all incoming MQTT messages and routes them to the correct handlers:
+- Device status messages → device registry
+- Feedback messages → feedback tracker
+- Button commands → scene execution
 """
 
 from utils.logging_setup import get_logger
 
-
 class MQTTMessageHandler:
     """
-    Message handler for routing incoming MQTT messages to appropriate processors.
+    Centralized message handler that routes MQTT messages to appropriate handlers.
     
-    Processes different types of MQTT messages and delegates them to specialized
-    handlers for device status, feedback tracking, and button commands.
+    Routes incoming messages based on topic patterns and delegates processing to
+    specialized handlers for device management, feedback tracking, and commands.
     """
     
     def __init__(self, logger=None):
@@ -24,61 +23,53 @@ class MQTTMessageHandler:
         Initialize message handler.
         
         Args:
-            logger: Logger instance for message handling
+            logger: Logger instance for message routing events
         """
         self.logger = logger or get_logger('mqtt_handler')
         
-        # === External Handler References ===
-        # These are injected after initialization
-        self.feedback_tracker = None
+        # === Handler References ===
         self.device_registry = None
+        self.feedback_tracker = None
         self.button_callback = None
     
     # ==========================================================================
-    # HANDLER INJECTION
+    # HANDLER CONFIGURATION
     # ==========================================================================
     
-    def set_handlers(self, feedback_tracker=None, device_registry=None, button_callback=None):
+    def set_handlers(self, device_registry=None, feedback_tracker=None, button_callback=None):
         """
-        Set external handlers for specialized message processing.
+        Set the handlers for different message types.
         
         Args:
-            feedback_tracker: Handler for feedback/acknowledgment messages
-            device_registry: Handler for device status updates
-            button_callback: Callback function for button/scene commands
+            device_registry: Handler for ESP32 device status updates
+            feedback_tracker: Handler for scene command feedback  
+            button_callback: Callback for button/scene commands
         """
-        self.feedback_tracker = feedback_tracker
         self.device_registry = device_registry
+        self.feedback_tracker = feedback_tracker
         self.button_callback = button_callback
-        self.logger.info("MQTT message handlers set.")
+        self.logger.debug("Message handlers configured")
     
     # ==========================================================================
     # MESSAGE PROCESSING
     # ==========================================================================
     
     def handle_message(self, msg):
-        """
-        Process a received MQTT message and route it to the correct handler.
-        
-        Args:
-            msg: The MQTT message object
-        """
+        """Process a received MQTT message and route it to the correct handler."""
         try:
             topic = msg.topic
             payload = msg.payload.decode('utf-8')
             topic_parts = topic.split('/')
             
-            # Handle device status updates
+            # Handle device status updates (devices/esp32_xx/status)
             if self.device_registry and self._is_device_status_message(topic_parts):
                 device_id = topic_parts[1]
                 self.device_registry.update_device_status(device_id, payload, is_retained=msg.retain)
                 return
 
-            # Handle feedback messages
-            if self.feedback_tracker and self._is_feedback_message(topic):
-                # We need to derive the original topic from the feedback topic
-                original_topic = '/'.join(topic_parts[:-1])
-                self.feedback_tracker.handle_feedback_message(original_topic)
+            # ZMENA: Handle per-command feedback messages (room1/motor1/feedback)
+            if self.feedback_tracker and self._is_command_feedback_message(topic):
+                self.feedback_tracker.handle_feedback_message(topic, payload)
                 return
             
             # Handle button commands
@@ -92,46 +83,17 @@ class MQTTMessageHandler:
             
         except Exception as e:
             self.logger.error(f"Error processing message on {msg.topic}: {e}")
-    
-    # ==========================================================================
-    # MESSAGE TYPE DETECTION
-    # ==========================================================================
-    
+
+    def _is_command_feedback_message(self, topic):
+        """Check if message is a command feedback message (room1/motor1/feedback)."""
+        return topic.endswith('/feedback')
+
     def _is_device_status_message(self, topic_parts):
-        """
-        Check if message is a device status update.
-        
-        Args:
-            topic_parts: List of topic parts split by '/'
-            
-        Returns:
-            bool: True if this is a device status message
-        """
+        """Check if message is a device status update (devices/esp32_xx/status)."""
         return (len(topic_parts) == 3 and 
                 topic_parts[0] == 'devices' and 
                 topic_parts[2] == 'status')
-    
-    def _is_feedback_message(self, topic):
-        """
-        Check if message is a feedback message.
-        
-        Args:
-            topic: Full MQTT topic string
-            
-        Returns:
-            bool: True if this is a feedback message
-        """
-        return topic.endswith('/feedback')
-    
+
     def _is_button_command(self, topic, payload):
-        """
-        Check if message is a button/scene command from ESP32.
-        
-        Args:
-            topic: Full MQTT topic string
-            payload: Message payload content
-            
-        Returns:
-            bool: True if this is a button command
-        """
+        """Check if message is a button/scene command from ESP32."""
         return topic.endswith('/scene') and payload.upper() == 'START'

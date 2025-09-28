@@ -98,7 +98,7 @@ class MQTTClient:
             
             # Subscribe to topics
             self.subscribe("devices/+/status")
-            self.subscribe(f"{self.room_id}/status")
+            self.subscribe(f"{self.room_id}/+/feedback")
             self.subscribe(f"{self.room_id}/scene")
             
             # Notify connection restored callback
@@ -138,38 +138,35 @@ class MQTTClient:
         
         Args:
             topic: MQTT topic to publish to
-            message: Message content (dict will be JSON encoded)
-            qos: Quality of service level
-            retain: Whether message should be retained
+            message: Message payload to send
+            qos: Quality of Service level (0, 1, or 2)
+            retain: Whether to retain the message on the broker
             
         Returns:
-            bool: True if publish was successful
+            bool: True if message was published successfully
         """
         if not self.connected:
-            self.logger.warning("Not connected to MQTT broker")
+            self.logger.warning(f"Cannot publish to {topic}: Not connected to broker")
             return False
         
         try:
-            # Convert dict to JSON if needed
-            if isinstance(message, dict):
-                message = json.dumps(message)
+            # Publish the message
+            result = self.client.publish(topic, message, qos=qos, retain=retain)
             
-            result = self.client.publish(topic, message, qos, retain)
-            
-            if result.rc == mqtt.MQTT_ERR_SUCCESS:
-                self.logger.debug(f"Publishing to {topic}: {message}")
+            if result.rc == 0:
+                self.logger.debug(f"Published to {topic}: {message}")
                 
-                # Notify feedback tracker if available
+                # ZMENA: Track the message for feedback if feedback tracker is available
                 if self.feedback_tracker:
                     self.feedback_tracker.track_published_message(topic, message)
-                    
+                
                 return True
             else:
-                self.logger.error(f"Failed to publish to {topic}: RC {result.rc}")
+                self.logger.error(f"Failed to publish to {topic}. Return code: {result.rc}")
                 return False
                 
         except Exception as e:
-            self.logger.error(f"Error publishing message: {e}")
+            self.logger.error(f"Exception during publish to {topic}: {e}")
             return False
     
     # ==========================================================================
