@@ -100,6 +100,7 @@ class MQTTClient:
             self.subscribe("devices/+/status")
             self.subscribe(f"{self.room_id}/+/feedback")
             self.subscribe(f"{self.room_id}/scene")
+            self.subscribe(f"{self.room_id}/#")
             
             # Notify connection restored callback
             if not was_connected and self.connection_restored_callback:

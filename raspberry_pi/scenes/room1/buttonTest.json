@@ -1,0 +1,38 @@
+{
+  "sceneId": "button_test",
+  "description": "Test MQTT button transition",
+  "version": "2.0",
+  "initialState": "waiting",
+  
+  "states": {
+    "waiting": {
+      "description": "Čaká na stlačenie tlačidla",
+      "onEnter": [
+        {"action": "mqtt", "topic": "room1/light", "message": "BLINK"}
+      ],
+      "transitions": [
+        {"type": "mqttMessage", "topic": "room1/button1", "message": "PRESSED", "goto": "activated"},
+        {"type": "timeout", "delay": 30.0, "goto": "timeout"}
+      ]
+    },
+    "activated": {
+      "description": "Tlačidlo bolo stlačené!",
+      "onEnter": [
+        {"action": "mqtt", "topic": "room1/light", "message": "ON"},
+        {"action": "mqtt", "topic": "room1/motor1", "message": "ON:100:L"}
+      ],
+      "transitions": [
+        {"type": "timeout", "delay": 3.0, "goto": "END"}
+      ]
+    },
+    "timeout": {
+      "description": "Timeout - nikto nestlačil",
+      "onEnter": [
+        {"action": "mqtt", "topic": "room1/light", "message": "OFF"}
+      ],
+      "transitions": [
+        {"type": "timeout", "delay": 1.0, "goto": "END"}
+      ]
+    }
+  }
+}

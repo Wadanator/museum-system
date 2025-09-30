@@ -37,53 +37,53 @@ def setup_api_routes(dashboard):
     @api_bp.route('/scene/progress')
     @requires_auth
     def get_scene_progress():
-        """Get current scene progress including percentage and remaining time."""
+        """Get current scene progress - supports state machine format."""
         try:
             scene_running = getattr(controller, 'scene_running', False)
             
             if not scene_running or not hasattr(controller, 'scene_parser') or not controller.scene_parser:
                 return jsonify({
                     'scene_running': False,
+                    'mode': 'none',
                     'progress': 0.0,
                     'remaining_time': 0,
                     'total_duration': 0
                 })
             
-            # Získaj progress z scene parser
             scene_parser = controller.scene_parser
-            if not scene_parser.scene_data or not scene_parser.start_time:
+            if not scene_parser.scene_data:
                 return jsonify({
                     'scene_running': scene_running,
+                    'mode': 'none',
                     'progress': 0.0,
                     'remaining_time': 0,
                     'total_duration': 0
                 })
             
-            # Vypočítaj skutočný progress
-            import time
-            current_time = time.time()
-            elapsed_time = current_time - scene_parser.start_time
-            total_duration = scene_parser.get_scene_duration()
+            # Get progress info from state machine
+            progress_info = scene_parser.get_progress_info()
             
-            if total_duration <= 0:
-                progress = 1.0
-                remaining_time = 0
-            else:
-                progress = min(elapsed_time / total_duration, 1.0)
-                remaining_time = max(total_duration - elapsed_time, 0)
-            
+            # State machine response
             return jsonify({
                 'scene_running': scene_running,
-                'progress': progress,
-                'remaining_time': remaining_time,
-                'total_duration': total_duration,
-                'elapsed_time': elapsed_time
+                'mode': progress_info.get('mode', 'state_machine'),
+                'scene_id': progress_info.get('scene_id', 'unknown'),
+                'current_state': progress_info.get('current_state', 'unknown'),
+                'state_description': progress_info.get('state_description', ''),
+                'states_completed': progress_info.get('states_completed', 0),
+                'total_states': progress_info.get('total_states', 0),
+                'state_elapsed': progress_info.get('state_elapsed', 0),
+                'scene_elapsed': progress_info.get('scene_elapsed', 0),
+                # For compatibility with frontend progress bar
+                'progress': min(1.0, progress_info.get('states_completed', 0) / max(progress_info.get('total_states', 1), 1)),
+                'remaining_time': 0  # State machine nemá fixed duration
             })
             
         except Exception as e:
             dashboard.log.error(f"Error getting scene progress: {e}")
             return jsonify({
                 'scene_running': False,
+                'mode': 'error',
                 'progress': 0.0,
                 'remaining_time': 0,
                 'total_duration': 0,
@@ -377,6 +377,14 @@ def setup_api_routes(dashboard):
             return jsonify(commands)
         except Exception as e:
             return jsonify({'error': f"Error listing commands: {e}"}), 500
+
+    @api_bp.route('/config/main_scene')
+    @requires_auth
+    def get_main_scene():
+        """Get the configured main scene filename."""
+        return jsonify({
+            'json_file_name': controller.json_file_name
+        })
 
     @api_bp.route('/command/<command_name>')
     @requires_auth

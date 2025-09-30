@@ -1,0 +1,48 @@
+{
+  "sceneId": "test_intro",
+  "description": "Testovacia state machine scena - motor sequence",
+  "version": "2.0",
+  "initialState": "intro",
+  
+  "states": {
+    "intro": {
+      "description": "Úvodná scéna - zapne svetlo a motor1",
+      "onEnter": [
+        {"action": "mqtt", "topic": "room1/light", "message": "ON"},
+        {"action": "mqtt", "topic": "room1/motor1", "message": "ON:50:L"}
+      ],
+      "timeline": [
+        {"at": 3.0, "action": "mqtt", "topic": "room1/motor2", "message": "ON:30:R"}
+      ],
+      "transitions": [
+        {"type": "timeout", "delay": 5.0, "goto": "middle"}
+      ]
+    },
+    
+    "middle": {
+      "description": "Stredná časť - vypne motor1, zapne motor2 na plno",
+      "onEnter": [
+        {"action": "mqtt", "topic": "room1/motor1", "message": "OFF"},
+        {"action": "mqtt", "topic": "room1/motor2", "message": "ON:100:L"}
+      ],
+      "timeline": [
+        {"at": 2.0, "action": "mqtt", "topic": "room1/light", "message": "OFF"}
+      ],
+      "transitions": [
+        {"type": "timeout", "delay": 4.0, "goto": "finale"}
+      ]
+    },
+    
+    "finale": {
+      "description": "Koniec - vypne všetko",
+      "onEnter": [
+        {"action": "mqtt", "topic": "room1/motor1", "message": "OFF"},
+        {"action": "mqtt", "topic": "room1/motor2", "message": "OFF"},
+        {"action": "mqtt", "topic": "room1/light", "message": "OFF"}
+      ],
+      "transitions": [
+        {"type": "timeout", "delay": 1.0, "goto": "END"}
+      ]
+    }
+  }
+}

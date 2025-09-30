@@ -6,6 +6,7 @@ Receives all incoming MQTT messages and routes them to the correct handlers:
 - Device status messages → device registry
 - Feedback messages → feedback tracker
 - Button commands → scene execution
+- MQTT transitions → scene parser (for interactive scenes)
 """
 
 from utils.logging_setup import get_logger
@@ -31,12 +32,13 @@ class MQTTMessageHandler:
         self.device_registry = None
         self.feedback_tracker = None
         self.button_callback = None
+        self.scene_parser = None  # NEW: For MQTT transitions
     
     # ==========================================================================
     # HANDLER CONFIGURATION
     # ==========================================================================
     
-    def set_handlers(self, device_registry=None, feedback_tracker=None, button_callback=None):
+    def set_handlers(self, device_registry=None, feedback_tracker=None, button_callback=None, scene_parser=None):
         """
         Set the handlers for different message types.
         
@@ -44,10 +46,12 @@ class MQTTMessageHandler:
             device_registry: Handler for ESP32 device status updates
             feedback_tracker: Handler for scene command feedback  
             button_callback: Callback for button/scene commands
+            scene_parser: Scene parser for MQTT transition events
         """
         self.device_registry = device_registry
         self.feedback_tracker = feedback_tracker
         self.button_callback = button_callback
+        self.scene_parser = scene_parser
         self.logger.debug("Message handlers configured")
     
     # ==========================================================================
@@ -61,28 +65,39 @@ class MQTTMessageHandler:
             payload = msg.payload.decode('utf-8')
             topic_parts = topic.split('/')
             
-            # Handle device status updates (devices/esp32_xx/status)
+            # 1. Handle device status updates (devices/esp32_xx/status)
             if self.device_registry and self._is_device_status_message(topic_parts):
                 device_id = topic_parts[1]
                 self.device_registry.update_device_status(device_id, payload, is_retained=msg.retain)
                 return
 
-            # ZMENA: Handle per-command feedback messages (room1/motor1/feedback)
+            # 2. Handle per-command feedback messages (room1/motor1/feedback)
             if self.feedback_tracker and self._is_command_feedback_message(topic):
                 self.feedback_tracker.handle_feedback_message(topic, payload)
                 return
             
-            # Handle button commands
+            # 3. Handle button commands (room1/scene = START)
             if self.button_callback and self._is_button_command(topic, payload):
                 self.logger.info("Button command received. Starting scene.")
                 self.button_callback(payload)
                 return
             
-            # Log any messages that don't match the known patterns
+            # 4. NEW: Route all other MQTT messages to scene parser for transitions
+            # This allows mqttMessage transitions to work (e.g. waiting for button press)
+            if self.scene_parser:
+                self.scene_parser.register_mqtt_event(topic, payload)
+                self.logger.debug(f"MQTT event routed to scene parser: {topic} = {payload}")
+                return
+            
+            # 5. Log any messages that don't match known patterns
             self.logger.debug(f"Received unhandled message on topic {msg.topic}: {payload}")
             
         except Exception as e:
             self.logger.error(f"Error processing message on {msg.topic}: {e}")
+
+    # ==========================================================================
+    # MESSAGE TYPE DETECTION
+    # ==========================================================================
 
     def _is_command_feedback_message(self, topic):
         """Check if message is a command feedback message (room1/motor1/feedback)."""

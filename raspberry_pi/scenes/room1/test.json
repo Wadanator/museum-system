@@ -1,52 +1,49 @@
-[
-  {
-    "message": "ON",
-    "timestamp": 0,
-    "topic": "room1/light"
-  },
-  {
-    "message": "PLAY:welcome.mp3:0.7",
-    "timestamp": 0,
-    "topic": "room1/audio"
-  },
-  {
-    "message": "ON:50:L",
-    "timestamp": 0,
-    "topic": "room1/motor1"
-  },
-  {
-    "message": "PLAY_VIDEO:ghost2.mp4",
-    "timestamp": 3,
-    "topic": "room1/video"
-  },
-  {
-    "message": "DIR:R",
-    "timestamp": 4,
-    "topic": "room1/motor1"
-  },
-  {
-    "message": "OFF",
-    "timestamp": 6,
-    "topic": "room1/light"
-  },
-  {
-    "message": "DIR:L",
-    "timestamp": 6,
-    "topic": "room1/motor1"
-  },
-  {
-    "message": "OFF",
-    "timestamp": 8,
-    "topic": "room1/motor1"
-  },
-  {
-    "message": "STOP",
-    "timestamp": 10,
-    "topic": "room1/audio"
-  },
-  {
-    "message": "STOP_VIDEO",
-    "timestamp": 12,
-    "topic": "room1/video"
+{
+  "sceneId": "test_main",
+  "description": "Hlavná testovacia scéna - motory, audio, video",
+  "version": "2.0",
+  "initialState": "intro",
+  
+  "states": {
+    "intro": {
+      "description": "Začiatok - svetlo, audio, motor1",
+      "onEnter": [
+        {"action": "mqtt", "topic": "room1/light", "message": "ON"},
+        {"action": "audio", "message": "PLAY:welcome.mp3:0.7"},
+        {"action": "mqtt", "topic": "room1/motor1", "message": "ON:50:L"}
+      ],
+      "timeline": [
+        {"at": 3.0, "action": "video", "message": "PLAY_VIDEO:ghost2.mp4"},
+        {"at": 4.0, "action": "mqtt", "topic": "room1/motor1", "message": "DIR:R"}
+      ],
+      "transitions": [
+        {"type": "timeout", "delay": 6.0, "goto": "middle"}
+      ]
+    },
+    
+    "middle": {
+      "description": "Stredná časť - vypne svetlo, zmení smer",
+      "onEnter": [
+        {"action": "mqtt", "topic": "room1/light", "message": "OFF"},
+        {"action": "mqtt", "topic": "room1/motor1", "message": "DIR:L"}
+      ],
+      "transitions": [
+        {"type": "timeout", "delay": 2.0, "goto": "finale"}
+      ]
+    },
+    
+    "finale": {
+      "description": "Ukončenie - vypne všetko",
+      "onEnter": [
+        {"action": "mqtt", "topic": "room1/motor1", "message": "OFF"}
+      ],
+      "timeline": [
+        {"at": 2.0, "action": "audio", "message": "STOP"},
+        {"at": 4.0, "action": "video", "message": "STOP_VIDEO"}
+      ],
+      "transitions": [
+        {"type": "timeout", "delay": 4.0, "goto": "END"}
+      ]
+    }
   }
-]
+}

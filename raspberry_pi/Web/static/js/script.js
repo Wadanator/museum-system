@@ -205,29 +205,32 @@ function hideSceneProgress() {
 }
 
 function updateSceneProgress() {
-    // Získaj aktuálny progress zo servera namiesto počítania lokálne
     fetch('/api/scene/progress')
         .then(res => res.json())
         .then(data => {
             if (data.scene_running) {
-                const progress = Math.min(Math.max(data.progress * 100, 0), 100);
-                const remaining = Math.max(data.remaining_time || 0, 0);
-                
-                document.getElementById('sceneProgressBar').style.width = `${progress}%`;
-                document.getElementById('sceneProgressText').textContent = `${Math.round(progress)}%`;
-                
-                const minutes = Math.floor(remaining / 60);
-                const seconds = Math.floor(remaining % 60);
-                document.getElementById('sceneTimeRemaining').textContent = 
-                    `Zostáva: ${minutes}:${seconds.toString().padStart(2, '0')}`;
-                
-                // Ak scéna skončila, skry progress bar
-                if (progress >= 100 || remaining <= 0) {
-                    setTimeout(() => {
-                        if (!data.scene_running) {
-                            hideSceneProgress();
-                        }
-                    }, 2000); // Počkaj 2 sekundy pred skrytím
+                // State machine mode
+                if (data.mode === 'state_machine') {
+                    const progress = Math.min(Math.max(data.progress * 100, 0), 100);
+                    
+                    document.getElementById('sceneProgressBar').style.width = `${progress}%`;
+                    document.getElementById('sceneProgressText').textContent = `${Math.round(progress)}%`;
+                    
+                    // Zobraz aktuálny stav namiesto času
+                    const stateInfo = `Stav: ${data.current_state} (${data.states_completed}/${data.total_states})`;
+                    document.getElementById('sceneTimeRemaining').textContent = stateInfo;
+                    
+                    // Ak je scéna ukončená (current_state === "END")
+                    if (data.current_state === "END" || progress >= 100) {
+                        setTimeout(() => {
+                            if (!data.scene_running) {
+                                hideSceneProgress();
+                            }
+                        }, 2000);
+                    }
+                } else {
+                    // Fallback pre iné režimy
+                    hideSceneProgress();
                 }
             } else {
                 hideSceneProgress();
@@ -235,7 +238,6 @@ function updateSceneProgress() {
         })
         .catch(err => {
             console.error('Chyba pri získavaní scene progress:', err);
-            // Pri chybe skry progress bar
             hideSceneProgress();
         });
 }
@@ -245,24 +247,26 @@ function updateSceneProgress() {
 // =======================================
 
 function runMainScene() {
-    if (confirm('Spustiť hlavnú scénu predstavenia?')) {
-        // Získaj názov hlavnej scény z konfigurácie alebo použij default
-        const mainSceneName = 'test.json'; // Môže sa načítať z API
-        
-        fetch(`/api/run_scene/${mainSceneName}`, { method: 'POST' })
-            .then(res => res.json())
-            .then(({ success, message, error }) => {
-                if (success) {
-                    showNotification(message, 'success');
-                    updateMainDashboard();
-                } else {
-                    showNotification(error, 'error');
-                }
-            })
-            .catch(err => {
-                showNotification('Chyba pri komunikácii so serverom', 'error');
-            });
-    }
+    // Fetch configured main scene name from API
+    fetch('/api/config/main_scene')
+        .then(res => res.json())
+        .then(config => {
+            const mainSceneName = config.json_file_name;
+            
+            fetch(`/api/run_scene/${mainSceneName}`, { method: 'POST' })
+                .then(res => res.json())
+                .then(({ success, message, error }) => {
+                    if (success) {
+                        showNotification(message, 'success');
+                        updateMainDashboard();
+                    } else {
+                        showNotification(error, 'error');
+                    }
+                })
+                .catch(err => {
+                    showNotification('Chyba pri komunikácii so serverom', 'error');
+                });
+        });
 }
 
 function stopScene() {
