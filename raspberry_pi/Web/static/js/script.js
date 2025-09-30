@@ -1,4 +1,4 @@
-const socket = io();
+const socket = io(window.location.origin);
 let currentScene = '', currentCommand = '', autoScroll = true;
 let sceneStartTime = null, sceneDuration = 0;
 const activeFilters = new Set(['debug', 'info', 'warning', 'error', 'critical']);
