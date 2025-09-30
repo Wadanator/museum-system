@@ -44,10 +44,12 @@ class SceneParser:
         return success
     
     def start_scene(self):
-        """Spustí scénu"""
         if not self.state_machine.states:
             self.logger.error("No scene loaded")
             return False
+        
+        self.transition_manager.clear_events()
+        self.logger.debug("Cleared old MQTT events before scene start")
         
         # Enable MQTT feedback tracking
         if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
@@ -58,7 +60,6 @@ class SceneParser:
         success = self.state_machine.start()
         
         if success:
-            # Pre kompatibilitu
             self.start_time = self.state_machine.scene_start_time
             
             # Execute onEnter of initial state
@@ -67,7 +68,7 @@ class SceneParser:
                 self.state_executor.execute_onEnter(state_data)
         
         return success
-    
+        
     def process_scene(self):
         """
         Hlavná processing metóda - volá sa v loope z main.py

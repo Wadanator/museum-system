@@ -138,7 +138,8 @@ class MuseumController:
         self.mqtt_message_handler = MQTTMessageHandler()
         self.mqtt_message_handler.set_handlers(
             device_registry=self.mqtt_device_registry,
-            feedback_tracker=self.mqtt_feedback_tracker
+            feedback_tracker=self.mqtt_feedback_tracker,
+            button_callback=self.on_button_press
         )
         
         self.mqtt_client = MQTTClient(
@@ -252,8 +253,8 @@ class MuseumController:
         scene_path = os.path.join(self.scenes_dir, self.room_id, self.json_file_name)
         
         # DEBUG: Log the path we're trying to load
-        log.info(f"Attempting to load scene from: {scene_path}")
-        log.info(f"File exists: {os.path.exists(scene_path)}")
+        log.debug(f"Attempting to load scene from: {scene_path}")
+        log.debug(f"File exists: {os.path.exists(scene_path)}")
 
         if not os.path.exists(scene_path):
             log.critical(f"Scene file not found: {scene_path}")
@@ -265,7 +266,7 @@ class MuseumController:
             self.scene_running = False
             return
 
-        log.info(f"Loading scene: {scene_path}")
+        log.debug(f"Loading scene: {scene_path}")
         if self.scene_parser.load_scene(scene_path):
             try:
                 self.scene_parser.start_scene()
@@ -288,7 +289,7 @@ class MuseumController:
             self.scene_running = False 
             return
 
-        log.info("Starting state machine scene execution")
+        log.debug("Starting state machine scene execution")
 
         # Enable MQTT feedback tracking for the scene
         if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):

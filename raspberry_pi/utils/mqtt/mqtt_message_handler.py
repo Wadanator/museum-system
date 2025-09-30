@@ -79,7 +79,7 @@ class MQTTMessageHandler:
             # 3. Handle button commands (room1/scene = START)
             if self.button_callback and self._is_button_command(topic, payload):
                 self.logger.info("Button command received. Starting scene.")
-                self.button_callback(payload)
+                self.button_callback()
                 return
             
             # 4. NEW: Route all other MQTT messages to scene parser for transitions
