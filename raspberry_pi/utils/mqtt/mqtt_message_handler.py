@@ -71,12 +71,12 @@ class MQTTMessageHandler:
                 self.device_registry.update_device_status(device_id, payload, is_retained=msg.retain)
                 return
 
-            # 2. Handle per-command feedback messages (room1/motor1/feedback)
+            # 2. Handle per-command feedback messages (prefix/motor1/feedback)
             if self.feedback_tracker and self._is_command_feedback_message(topic):
                 self.feedback_tracker.handle_feedback_message(topic, payload)
                 return
             
-            # 3. Handle button commands (room1/scene = START)
+            # 3. Handle button commands (prefix/scene = START)
             if self.button_callback and self._is_button_command(topic, payload):
                 self.logger.info("Button command received. Starting scene.")
                 self.button_callback()
@@ -100,7 +100,7 @@ class MQTTMessageHandler:
     # ==========================================================================
 
     def _is_command_feedback_message(self, topic):
-        """Check if message is a command feedback message (room1/motor1/feedback)."""
+        """Check if message is a command feedback message (prefix/device/feedback)."""
         return topic.endswith('/feedback')
 
     def _is_device_status_message(self, topic_parts):
