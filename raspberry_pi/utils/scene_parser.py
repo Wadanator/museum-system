@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Scene Parser - State Machine Version
-Kompletná náhrada timestamp systému
+Complete replacement of timestamp system
 """
 import json
 import time
@@ -29,21 +29,28 @@ class SceneParser:
         )
         self.transition_manager = TransitionManager(logger=self.logger)
         
-        # Scene data reference (pre kompatibilitu)
+        # Connect audio/video end callbacks
+        if self.audio_handler:
+            self.audio_handler.set_end_callback(self._on_audio_end)
+        
+        if self.video_handler:
+            self.video_handler.set_end_callback(self._on_video_end)
+        
+        # Scene data reference (for compatibility)
         self.scene_data = None
         self.start_time = None
     
     def load_scene(self, scene_file):
-        """Načíta state machine scénu"""
+        """Load state machine scene"""
         success = self.state_machine.load_scene(scene_file)
         
         if success:
-            # Pre kompatibilitu s existujúcim kódom
             self.scene_data = self.state_machine.states
         
         return success
     
     def start_scene(self):
+        """Start scene execution"""
         if not self.state_machine.states:
             self.logger.error("No scene loaded")
             return False
@@ -71,11 +78,18 @@ class SceneParser:
         
     def process_scene(self):
         """
-        Hlavná processing metóda - volá sa v loope z main.py
-        Vráti True ak scéna stále beží, False ak skončila
+        Main processing method - called in loop from main.py
+        Returns True if scene is still running, False if finished
         """
         if self.state_machine.is_finished():
             return False
+        
+        # Check if audio/video ended
+        if self.audio_handler:
+            self.audio_handler.check_if_ended()
+        
+        if self.video_handler:
+            self.video_handler.check_if_ended()
         
         # Get current state
         state_data = self.state_machine.get_current_state_data()
@@ -111,8 +125,7 @@ class SceneParser:
         return True
     
     def stop_scene(self, mqtt_client=None):
-        """Zastaví scénu"""
-        # Disable MQTT feedback tracking
+        """Stop scene execution"""
         mqtt = mqtt_client or self.mqtt_client
         if mqtt and hasattr(mqtt, 'feedback_tracker'):
             if mqtt.feedback_tracker:
@@ -121,21 +134,43 @@ class SceneParser:
         self.logger.info("Scene stopped")
     
     def get_progress_info(self):
-        """Vráti progress info pre web dashboard"""
+        """Return progress info for web dashboard"""
         return self.state_machine.get_progress_info()
     
     def is_scene_complete(self):
-        """Skontroluje či scéna skončila"""
+        """Check if scene finished"""
         return self.state_machine.is_finished()
     
-    # Compatibility methods (pre starý kód)
+    # ============================================================================
+    # AUDIO/VIDEO END CALLBACKS
+    # ============================================================================
+    
+    def _on_audio_end(self, audio_file):
+        """Called when audio finishes playing"""
+        self.transition_manager.register_audio_end(audio_file)
+    
+    def _on_video_end(self, video_file):
+        """Called when video finishes playing"""
+        self.transition_manager.register_video_end(video_file)
+    
+    # ============================================================================
+    # MQTT EVENT REGISTRATION
+    # ============================================================================
+    
+    def register_mqtt_event(self, topic, message):
+        """Register MQTT event (called from MQTT callback)"""
+        self.transition_manager.register_mqtt_event(topic, message)
+    
+    # ============================================================================
+    # COMPATIBILITY METHODS (for old code)
+    # ============================================================================
     
     def get_scene_duration(self):
-        """Pre kompatibilitu - vráti 0 (state machine nemá fixed duration)"""
+        """For compatibility - returns 0 (state machine has no fixed duration)"""
         return 0
     
     def get_scene_progress(self):
-        """Pre kompatibilitu - vráti progress na základe stavov"""
+        """For compatibility - returns progress based on states"""
         if not self.state_machine.states:
             return 0.0
         
@@ -146,7 +181,3 @@ class SceneParser:
             return 1.0
         
         return min(1.0, completed / total)
-    
-    def register_mqtt_event(self, topic, message):
-        """Registruje MQTT event (volané z MQTT callback)"""
-        self.transition_manager.register_mqtt_event(topic, message)

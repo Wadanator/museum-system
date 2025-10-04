@@ -3,7 +3,7 @@
 MQTT Feedback Tracker - Per-command feedback tracking.
 
 Tracks each published command individually and waits for specific feedback.
-Example: prefix/motor1 -> expects prefix/motor1/feedback
+Example: room1/motor1 -> expects room1/motor1/feedback
 """
 
 import time
@@ -105,7 +105,7 @@ class MQTTFeedbackTracker:
         """Get expected feedback topic for a command."""
         parts = original_topic.split('/')
         
-        # Room device topics: prefix/motor1 -> prefix/motor1/feedback
+        # Room device topics: room1/motor1 -> room1/motor1/feedback
         if len(parts) == 2 and parts[0].startswith('room'):
             return f"{original_topic}/feedback"
         

@@ -66,8 +66,7 @@ try:
     from utils.system_monitor import SystemMonitor
     from utils.button_handler import ButtonHandler
     from Web import start_web_dashboard
-    if log.isEnabledFor(logging.INFO):
-        log.debug("Core modules imported successfully")
+    log.debug("Core modules imported successfully")
 except ImportError as e:
     log.critical(f"Failed to import core modules: {e}")
     sys.exit(1)
@@ -306,7 +305,6 @@ class MuseumController:
             scene_continues = self.scene_parser.process_scene()
             
             if not scene_continues:
-                log.info("Scene execution completed (reached END state)")
                 break
             
             # Sleep to prevent CPU overload

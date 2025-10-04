@@ -29,6 +29,10 @@ class VideoHandler:
         self.last_health_check = time.time()
         self.restart_count = 0
         self.last_restart_time = 0
+        
+        # Video end callback
+        self.end_callback = None
+        self.was_playing = False
 
         os.makedirs(self.video_dir, exist_ok=True)
         self._ensure_black_image()
@@ -40,7 +44,7 @@ class VideoHandler:
             try:
                 import pygame
                 pygame.init()
-                surface = pygame.Surface((640, 480))  # Smaller resolution
+                surface = pygame.Surface((640, 480))
                 surface.fill((0, 0, 0))
                 pygame.image.save(surface, self.black_image)
                 pygame.quit()
@@ -82,13 +86,12 @@ class VideoHandler:
             self._kill_existing_mpv_processes()
             time.sleep(0.5)
 
-            # Optimized MPV command for Raspberry Pi performance
             cmd = [
                 'mpv', '--fs', '--no-osc', '--no-osd-bar', '--vo=gpu',
-                '--hwdec=rpi4-mmal',  # Use RPi4 hardware acceleration (change to v4l2m2m if needed)
-                '--cache=no',  # Disable cache to save RAM
-                '--demuxer-max-bytes=3M',  # Small buffer for low memory usage
-                '--profile=low-latency',  # Optimize for responsive playback
+                '--hwdec=rpi4-mmal',
+                '--cache=no',
+                '--demuxer-max-bytes=3M',
+                '--profile=low-latency',
                 '--loop-file=inf',
                 '--no-input-default-bindings', '--input-conf=/dev/null', '--quiet',
                 '--no-terminal', 
@@ -169,10 +172,9 @@ class VideoHandler:
             return False
 
     def handle_command(self, message):
-        """Handle video command messages from scene parser."""
         try:
             if message.startswith("PLAY_VIDEO:"):
-                filename = message.split(":", 1)[1]  # Use split(1) to handle colons in filenames
+                filename = message.split(":", 1)[1]
                 return self.play_video(filename)
                 
             elif message == "STOP_VIDEO":
@@ -189,7 +191,6 @@ class VideoHandler:
                 return self.seek_video(seconds)
                 
             else:
-                # Handle direct filename
                 return self.play_video(message)
                 
         except Exception as e:
@@ -227,6 +228,28 @@ class VideoHandler:
 
     def is_playing(self):
         return self.process and self.currently_playing != os.path.basename(self.black_image) and self.process.poll() is None
+
+    def set_end_callback(self, callback):
+        """Set callback function called when video ends"""
+        self.end_callback = callback
+    
+    def check_if_ended(self):
+        """Check if video ended and call callback. Call this in main loop!"""
+        is_playing_now = self.is_playing()
+        
+        # Detect transition from playing to not playing
+        if self.was_playing and not is_playing_now and self.currently_playing:
+            # Ignore black_image (not a real video)
+            if self.currently_playing != os.path.basename(self.black_image):
+                finished_file = self.currently_playing
+                self.logger.info(f"Video ended: {finished_file}")
+                
+                if self.end_callback:
+                    self.end_callback(finished_file)
+                
+                self.currently_playing = None
+        
+        self.was_playing = is_playing_now
 
     def cleanup(self):
         self._stop_current_process()
