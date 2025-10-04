@@ -656,7 +656,7 @@ function createNewCommand() {
     const commandName = prompt('Zadajte názov príkazu (napr. motor_stop, light_on, audio_stop):');
     if (commandName) {
         document.getElementById('commandSelect').value = '';
-        document.getElementById('commandEditor').value = JSON.stringify([{"timestamp": 0, "topic": "room1/device", "message": "COMMAND"}], null, 2);
+        document.getElementById('commandEditor').value = JSON.stringify([{"timestamp": 0, "topic": "prefix/device", "message": "COMMAND"}], null, 2);
         currentCommand = commandName;
         showNotification('Zadajte detaily príkazu a kliknite Uložiť príkaz', 'info');
     }

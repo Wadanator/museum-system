@@ -78,7 +78,6 @@ class StateMachine:
         if state_name == "END":
             self.current_state = "END"
             self.state_start_time = None
-            self.logger.info("State machine finished (END)")
             return True
         
         if state_name not in self.states:
