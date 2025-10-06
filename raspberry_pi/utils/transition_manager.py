@@ -63,12 +63,15 @@ class TransitionManager:
     def _check_timeout(self, transition, state_elapsed_time):
         """Timeout transition - čaká X sekúnd"""
         delay = transition.get("delay", 0)
-        
+
         if state_elapsed_time >= delay:
             goto = transition.get("goto")
+            if goto is None:
+                self.logger.error(f"Timeout transition missing goto: {transition}")
+                return None
             self.logger.info(f"Timeout triggered ({delay}s) -> {goto}")
             return goto
-        
+
         return None
     
     def _check_audio_end(self, transition):
