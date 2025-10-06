@@ -1,0 +1,102 @@
+{
+  "description": "Interaktívna scéna s výberom",
+  "globalEvents": [
+    {
+      "goto": "emergency_stop",
+      "message": "STOP",
+      "topic": "room1/emergency",
+      "type": "mqttMessage"
+    }
+  ],
+  "initialState": "intro",
+  "sceneId": "interactive_demo",
+  "states": {
+    "emergency_stop": {
+      "description": "Okamžité zastavenie všetkého",
+      "onEnter": [
+        { "action": "mqtt", "message": "OFF", "topic": "room1/light" },
+        { "action": "mqtt", "message": "OFF", "topic": "room1/motor1" },
+        { "action": "mqtt", "message": "OFF", "topic": "room1/smoke" },
+        { "action": "audio", "message": "STOP" },
+        { "action": "video", "message": "STOP_VIDEO" }
+      ],
+      "transitions": [
+        { "delay": 1, "goto": "END", "type": "timeout" }
+      ]
+    },
+    "finale": {
+      "description": "Koniec scény",
+      "onEnter": [
+        { "action": "mqtt", "message": "OFF", "topic": "room1/light" }
+      ],
+      "onExit": [
+        { "action": "mqtt", "message": "ALL", "topic": "room1/STOP" }
+      ],
+      "timeline": [
+        { "action": "mqtt", "at": 2, "message": "OFF", "topic": "room1/motor1" },
+        { "action": "audio", "at": 2, "message": "STOP" },
+        { "action": "video", "at": 3, "message": "STOP_VIDEO" },
+        { "action": "mqtt", "at": 3, "message": "OFF", "topic": "room1/smoke" }
+      ],
+      "transitions": [
+        { "delay": 10, "goto": "END", "type": "timeout" }
+      ]
+    },
+    "intro": {
+      "description": "Úvodná časť",
+      "onEnter": [
+        { "action": "mqtt", "message": "ON", "topic": "room1/light" },
+        { "action": "audio", "message": "PLAY:welcome.mp3:0.8" }
+      ],
+      "timeline": [
+        { "action": "mqtt", "at": 5, "message": "ON:50:L", "topic": "room1/motor1" },
+        { "action": "mqtt", "at": 10, "message": "OFF", "topic": "room1/light" }
+      ],
+      "transitions": [
+        { "goto": "waiting_choice", "target": "welcome.mp3", "type": "audioEnd" }
+      ]
+    },
+    "path1": {
+      "description": "Scary cesta s videom",
+      "onEnter": [
+        { "action": "mqtt", "message": "ON", "topic": "room1/light" }
+      ],
+      "timeline": [
+        { "action": "mqtt", "at": 1, "message": "ON", "topic": "room1/smoke" },
+        { "action": "video", "at": 1, "message": "PLAY_VIDEO:ghost2.mp4" }
+      ],
+      "transitions": [
+        { "goto": "finale", "target": "ghost2.mp4", "type": "videoEnd" }
+      ]
+    },
+    "path2": {
+      "description": "Pokojná cesta",
+      "onEnter": [
+        { "action": "audio", "message": "PLAY:path2.mp3:0.6" }
+      ],
+      "timeline": [
+        { "action": "mqtt", "at": 3, "message": "OFF", "topic": "room1/motor1" }
+      ],
+      "transitions": [
+        { "delay": 30, "goto": "finale", "type": "timeout" }
+      ]
+    },
+    "waiting_choice": {
+      "description": "Čakanie na stlačenie tlačidla",
+      "onEnter": [
+        { "action": "mqtt", "message": "BLINK", "topic": "room1/button1_led" },
+        { "action": "mqtt", "message": "BLINK", "topic": "room1/button2_led" }
+      ],
+      "onExit": [
+        { "action": "mqtt", "message": "OFF", "topic": "room1/button1_led" },
+        { "action": "mqtt", "message": "OFF", "topic": "room1/button2_led" }
+      ],
+      "transitions": [
+        { "goto": "path1", "message": "PRESSED", "topic": "room1/button1", "type": "mqttMessage" },
+        { "goto": "path2", "message": "PRESSED", "topic": "room1/button2", "type": "mqttMessage" },
+        { "delay": 60, "goto": "path1", "type": "timeout" }
+      ]
+    }
+  },
+  "version": "2.0"
+}
