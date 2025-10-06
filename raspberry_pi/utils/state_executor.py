@@ -2,7 +2,6 @@
 """
 State Executor - Vykonáva akcie v stavoch
 """
-import time
 from utils.logging_setup import get_logger
 
 class StateExecutor:
@@ -42,6 +41,10 @@ class StateExecutor:
             return
         
         for i, timeline_item in enumerate(timeline):
+            if not isinstance(timeline_item, dict):
+                self.logger.error(f"Invalid timeline item at index {i}: {timeline_item}")
+                continue
+
             trigger_time = timeline_item.get("at", 0)
             action_id = f"{id(state_data)}_{i}_{trigger_time}"
             
@@ -57,7 +60,11 @@ class StateExecutor:
                 if "action" in timeline_item:
                     self._execute_action(timeline_item)
                 elif "actions" in timeline_item:
-                    for action in timeline_item["actions"]:
+                    actions = timeline_item["actions"]
+                    if not isinstance(actions, list):
+                        self.logger.error(f"Invalid actions list at index {i}: {actions}")
+                        continue
+                    for action in actions:
                         self._execute_action(action)
                 
                 self.executed_timeline_actions.add(action_id)
@@ -68,8 +75,16 @@ class StateExecutor:
     
     def _execute_action(self, action):
         """Vykoná jednu akciu"""
+        if not isinstance(action, dict):
+            self.logger.error(f"Action must be a dict: {action}")
+            return
+
         action_type = action.get("action")
-        
+
+        if not action_type:
+            self.logger.error(f"Action missing 'action' type: {action}")
+            return
+
         if action_type == "mqtt":
             self._execute_mqtt(action)
         elif action_type == "audio":
@@ -78,52 +93,65 @@ class StateExecutor:
             self._execute_video(action)
         else:
             self.logger.warning(f"Unknown action type: {action_type}")
-    
+
     def _execute_mqtt(self, action):
         """Pošle MQTT správu"""
         topic = action.get("topic")
         message = action.get("message")
-        
+
         if not topic or not message:
             self.logger.error(f"MQTT action missing topic or message: {action}")
             return
-        
+
         if self.mqtt_client and self.mqtt_client.is_connected():
-            success = self.mqtt_client.publish(topic, message, retain=False)
-            if success:
-                self.logger.info(f"MQTT: {topic} = {message}")
-            else:
-                self.logger.error(f"MQTT publish failed: {topic}")
+            try:
+                success = self.mqtt_client.publish(topic, message, retain=False)
+                if success:
+                    self.logger.info(f"MQTT: {topic} = {message}")
+                else:
+                    self.logger.error(f"MQTT publish failed: {topic}")
+            except Exception as exc:
+                self.logger.error(f"MQTT publish raised exception for {topic}: {exc}")
         else:
             self.logger.warning(f"MQTT not connected (simulation): {topic} = {message}")
-    
+
     def _execute_audio(self, action):
         """Spustí audio príkaz"""
         message = action.get("message")
-        
+
         if not message:
             self.logger.error(f"Audio action missing message: {action}")
             return
-        
+
         if self.audio_handler:
-            success = self.audio_handler.handle_command(message)
+            try:
+                success = self.audio_handler.handle_command(message)
+            except Exception as exc:
+                self.logger.error(f"Audio handler raised exception for '{message}': {exc}")
+                success = False
+
             if success:
                 self.logger.info(f"Audio: {message}")
             else:
                 self.logger.error(f"Audio command failed: {message}")
         else:
             self.logger.warning(f"No audio handler (simulation): {message}")
-    
+
     def _execute_video(self, action):
         """Spustí video príkaz"""
         message = action.get("message")
-        
+
         if not message:
             self.logger.error(f"Video action missing message: {action}")
             return
-        
+
         if self.video_handler:
-            success = self.video_handler.handle_command(message)
+            try:
+                success = self.video_handler.handle_command(message)
+            except Exception as exc:
+                self.logger.error(f"Video handler raised exception for '{message}': {exc}")
+                success = False
+
             if success:
                 self.logger.info(f"Video: {message}")
             else:
