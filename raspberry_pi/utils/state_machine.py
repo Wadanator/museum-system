@@ -159,15 +159,10 @@ class StateMachine:
         self.state_history = []
 
     def _validate_states(self, states):
-        """Overí štruktúru stavov, akcií a prechodov"""
-        allowed_transition_types = {"timeout", "audioEnd", "videoEnd", "mqttMessage", "always"}
-
+        """Overí štruktúru stavov a prechodov"""
         for state_name, state_data in states.items():
             if not isinstance(state_data, dict):
                 self.logger.error(f"State '{state_name}' must be a dict")
-                return False
-
-            if not self._validate_actions(state_name, state_data):
                 return False
 
             transitions = state_data.get("transitions", [])
@@ -180,43 +175,14 @@ class StateMachine:
                     self.logger.error(f"Transition #{idx} in state '{state_name}' must be a dict")
                     return False
 
-                trans_type = transition.get("type")
-                if trans_type not in allowed_transition_types:
-                    self.logger.error(
-                        f"Transition #{idx} in state '{state_name}' has unsupported type '{trans_type}'"
-                    )
-                    return False
-
                 goto = transition.get("goto")
                 if goto is None:
                     self.logger.error(f"Transition #{idx} in state '{state_name}' missing 'goto'")
                     return False
 
                 if goto != "END" and goto not in states:
-                    self.logger.error(
-                        f"Transition #{idx} in state '{state_name}' references unknown state '{goto}'"
-                    )
+                    self.logger.error(f"Transition #{idx} in state '{state_name}' references unknown state '{goto}'")
                     return False
-
-                if trans_type == "timeout":
-                    delay = transition.get("delay")
-                    if not isinstance(delay, (int, float)) or delay < 0:
-                        self.logger.error(
-                            f"Transition #{idx} in state '{state_name}' has invalid delay '{delay}'"
-                        )
-                        return False
-                elif trans_type in {"audioEnd", "videoEnd"}:
-                    if not transition.get("target"):
-                        self.logger.error(
-                            f"Transition #{idx} in state '{state_name}' missing target for '{trans_type}'"
-                        )
-                        return False
-                elif trans_type == "mqttMessage":
-                    if not transition.get("topic") or transition.get("message") is None:
-                        self.logger.error(
-                            f"Transition #{idx} in state '{state_name}' missing topic/message for MQTT"
-                        )
-                        return False
 
             timeline = state_data.get("timeline", [])
             if timeline and not isinstance(timeline, list):
@@ -228,61 +194,8 @@ class StateMachine:
                     self.logger.error(f"Timeline item #{idx} in state '{state_name}' must be a dict")
                     return False
 
-                trigger = item.get("at")
-                if trigger is None or not isinstance(trigger, (int, float)) or trigger < 0:
-                    self.logger.error(
-                        f"Timeline item #{idx} in state '{state_name}' has invalid 'at' value '{trigger}'"
-                    )
-                    return False
-
-                if "action" in item:
-                    if not self._validate_action_dict(item):
-                        self.logger.error(
-                            f"Timeline item #{idx} in state '{state_name}' has invalid action definition"
-                        )
-                        return False
-
-                if "actions" in item:
-                    actions = item["actions"]
-                    if not isinstance(actions, list) or not all(self._validate_action_dict(a) for a in actions):
-                        self.logger.error(
-                            f"Timeline item #{idx} in state '{state_name}' has invalid 'actions' field"
-                        )
-                        return False
-
-        return True
-
-    def _validate_actions(self, state_name, state_data):
-        """Overí onEnter/onExit akcie"""
-        for key in ("onEnter", "onExit"):
-            actions = state_data.get(key, [])
-            if actions and not isinstance(actions, list):
-                self.logger.error(f"{key} for state '{state_name}' must be a list")
-                return False
-
-            for idx, action in enumerate(actions):
-                if not self._validate_action_dict(action):
-                    self.logger.error(
-                        f"Action #{idx} in '{key}' for state '{state_name}' has invalid format"
-                    )
+                if "actions" in item and not isinstance(item["actions"], list):
+                    self.logger.error(f"Timeline item #{idx} in state '{state_name}' has invalid 'actions' field")
                     return False
 
         return True
-
-    @staticmethod
-    def _validate_action_dict(action):
-        """Kontroluje základnú štruktúru akcie"""
-        if not isinstance(action, dict):
-            return False
-
-        action_type = action.get("action")
-        if not action_type:
-            return False
-
-        if action_type == "mqtt":
-            return bool(action.get("topic")) and action.get("message") is not None
-
-        if action_type in {"audio", "video"}:
-            return bool(action.get("message"))
-
-        return False

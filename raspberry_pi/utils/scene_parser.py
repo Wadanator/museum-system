@@ -69,22 +69,13 @@ class SceneParser:
         # Start state machine
         success = self.state_machine.start()
 
-        if not success:
-            if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
-                tracker = self.mqtt_client.feedback_tracker
-                if tracker:
-                    try:
-                        tracker.disable_feedback_tracking()
-                    except Exception as exc:
-                        self.logger.error(f"Failed to disable MQTT feedback tracking after start error: {exc}")
-            return False
-
-        # Execute onEnter of initial state
-        state_data = self.state_machine.get_current_state_data()
-        if state_data:
-            self.state_executor.execute_onEnter(state_data)
-
-        return True
+        if success:
+            # Execute onEnter of initial state
+            state_data = self.state_machine.get_current_state_data()
+            if state_data:
+                self.state_executor.execute_onEnter(state_data)
+        
+        return success
         
     def process_scene(self):
         """

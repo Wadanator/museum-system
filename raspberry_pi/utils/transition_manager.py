@@ -166,5 +166,4 @@ class TransitionManager:
 
     def _trim_events(self, queue):
         while len(queue) > MAX_EVENT_QUEUE:
-            dropped = queue.pop(0)
-            self.logger.warning(f"Dropping oldest event to maintain queue limit: {dropped}")
+            queue.pop(0)
