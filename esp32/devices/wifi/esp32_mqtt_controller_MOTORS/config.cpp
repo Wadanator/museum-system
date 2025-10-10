@@ -29,8 +29,8 @@ const int PWM_FREQUENCY = 20000;
 const int PWM_RESOLUTION = 8;
 
 // Smooth Motor Control Settings
-const int SMOOTH_STEP = 8;
-const int SMOOTH_DELAY = 15;
+const int SMOOTH_STEP = 4;
+const int SMOOTH_DELAY = 12;
 
 // Connection Management
 const unsigned long WIFI_RETRY_INTERVAL = 3000;

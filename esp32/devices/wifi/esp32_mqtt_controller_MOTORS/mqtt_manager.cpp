@@ -31,30 +31,75 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     return;
   }
 
-  // ZMENA: Feedback na konkrétny príkaz, nie room/status
   String feedbackTopic = topicStr + "/feedback";
   bool commandSuccessful = false;
   
   if (topicStr.startsWith(basePrefix)) {
     String deviceType = topicStr.substring(basePrefix.length());
 
-    if (deviceType.startsWith("motor")) {
-      // Handle ONLY motor commands - this ESP32 is for motors only!
+    // Handle STOP command
+    if (deviceType == "STOP") {
+      turnOffHardware();
+      commandSuccessful = true;
+      debugPrint("STOP command executed");
+    }
+    // Handle motor commands
+    else if (deviceType == "motor1" || deviceType == "motor2") {
       String motorCommand = String(message);
-      if (motorCommand == "ON" || motorCommand == "OFF" || motorCommand.startsWith("ON:") || motorCommand.startsWith("OFF:") || motorCommand.startsWith("DIR:")) {
+      
+      // Parse command: ON:50:L or OFF or SPEED:50 or DIR:L
+      if (motorCommand.startsWith("ON:")) {
+        int firstColon = motorCommand.indexOf(':');
+        int secondColon = motorCommand.indexOf(':', firstColon + 1);
+        
+        if (firstColon > 0 && secondColon > firstColon) {
+          String speed = motorCommand.substring(firstColon + 1, secondColon);
+          String direction = motorCommand.substring(secondColon + 1);
+          
+          if (deviceType == "motor1") {
+            controlMotor1("ON", speed.c_str(), direction.c_str());
+          } else {
+            controlMotor2("ON", speed.c_str(), direction.c_str());
+          }
+          commandSuccessful = true;
+        }
+      }
+      else if (motorCommand == "OFF") {
+        if (deviceType == "motor1") {
+          controlMotor1("OFF", "0", "S");
+        } else {
+          controlMotor2("OFF", "0", "S");
+        }
         commandSuccessful = true;
-        debugPrint("Motor command processed successfully.");
-      } else {
+      }
+      else if (motorCommand.startsWith("SPEED:")) {
+        String speed = motorCommand.substring(6);
+        if (deviceType == "motor1") {
+          controlMotor1("SPEED", speed.c_str(), "");
+        } else {
+          controlMotor2("SPEED", speed.c_str(), "");
+        }
+        commandSuccessful = true;
+      }
+      else if (motorCommand.startsWith("DIR:")) {
+        String direction = motorCommand.substring(4);
+        if (deviceType == "motor1") {
+          controlMotor1("DIR", "", direction.c_str());
+        } else {
+          controlMotor2("DIR", "", direction.c_str());
+        }
+        commandSuccessful = true;
+      }
+      else {
         debugPrint("ERROR: Unknown motor command: " + motorCommand);
       }
     } else {
-      // This ESP32 handles ONLY motors - ignore other device types
       debugPrint("Ignoring non-motor command: " + deviceType);
-      return; // Don't send feedback for commands this ESP32 doesn't handle
+      return;
     }
   }
 
-  // Send feedback only for commands this ESP32 actually processes
+  // Send feedback
   if (commandSuccessful) {
     if (client.publish(feedbackTopic.c_str(), "OK", false)) {
       debugPrint("Published feedback: OK to " + feedbackTopic);

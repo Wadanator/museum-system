@@ -116,6 +116,7 @@ void controlMotor1(const char* command, const char* speed, const char* direction
   if (strcmp(command, "ON") == 0) {
     motor1State.enabled = true;
     motor1State.speed = atoi(speed);
+    motor1State.currentSpeed = 0;  // Start from 0
     motor1State.targetSpeed = motor1State.speed;
     motor1State.direction = direction[0];
     motor1State.pendingDirectionChange = false;
@@ -143,13 +144,11 @@ void controlMotor1(const char* command, const char* speed, const char* direction
     if (motor1State.enabled) {
       char newDir = direction[0];
 
-      // If already running in the requested direction, do nothing
       if (motor1State.direction == newDir) {
         debugPrint("Motor1 already running in direction: " + String(newDir));
         return;
       }
 
-      // Store the current speed and schedule a direction change
       if (motor1State.currentSpeed > 0) {
         motor1State.savedSpeed = motor1State.speed;
         motor1State.newDirection = newDir;
@@ -157,7 +156,6 @@ void controlMotor1(const char* command, const char* speed, const char* direction
         motor1State.targetSpeed = 0;
         debugPrint("Motor1 stopping for direction change from " + String(motor1State.direction) + " to " + String(newDir));
       } else {
-        // The motor is stopped, so we can change the direction immediately
         motor1State.direction = newDir;
         debugPrint("Motor1 direction changed to: " + String(newDir) + " (motor was stopped)");
       }
@@ -176,6 +174,7 @@ void controlMotor2(const char* command, const char* speed, const char* direction
   if (strcmp(command, "ON") == 0) {
     motor2State.enabled = true;
     motor2State.speed = atoi(speed);
+    motor2State.currentSpeed = 0;  // Start from 0
     motor2State.targetSpeed = motor2State.speed;
     motor2State.direction = direction[0];
     motor2State.pendingDirectionChange = false;
@@ -203,13 +202,11 @@ void controlMotor2(const char* command, const char* speed, const char* direction
     if (motor2State.enabled) {
       char newDir = direction[0];
 
-      // If already running in the requested direction, do nothing
       if (motor2State.direction == newDir) {
         debugPrint("Motor2 already running in direction: " + String(newDir));
         return;
       }
 
-      // Store the current speed and schedule a direction change
       if (motor2State.currentSpeed > 0) {
         motor2State.savedSpeed = motor2State.speed;
         motor2State.newDirection = newDir;
@@ -217,7 +214,6 @@ void controlMotor2(const char* command, const char* speed, const char* direction
         motor2State.targetSpeed = 0;
         debugPrint("Motor2 stopping for direction change from " + String(motor2State.direction) + " to " + String(newDir));
       } else {
-        // The motor is stopped, so we can change the direction immediately
         motor2State.direction = newDir;
         debugPrint("Motor2 direction changed to: " + String(newDir) + " (motor was stopped)");
       }
