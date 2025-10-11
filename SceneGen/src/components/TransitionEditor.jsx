@@ -3,6 +3,9 @@ import { Plus, Trash2 } from 'lucide-react';
 import { TRANSITION_TYPES } from '../utils/constants';
 import { createEmptyTransition } from '../utils/generators';
 
+const BUTTON_NUMBERS = ['1', '2', '3', '4', '5', '6', '7', '8'];
+const BUTTON_MESSAGES = ['PRESSED', 'RELEASED', 'HELD'];
+
 /**
  * TransitionEditor Component
  * Manages state transitions (timeout, mqttMessage, audioEnd, videoEnd)
@@ -35,9 +38,17 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
         </button>
       </div>
 
-      {transitions.map((trans, index) => (
-        <div key={trans.id || index} className="bg-gray-700 p-3 rounded border border-gray-600">
-          <div className="space-y-2">
+      {transitions.map((trans, index) => {
+        const buttonPrefix = `${globalPrefix}/button`;
+        const buttonSuffix =
+          trans.topic && trans.topic.startsWith(buttonPrefix)
+            ? trans.topic.slice(buttonPrefix.length)
+            : '';
+        const buttonNumber = /^(\d+)$/.test(buttonSuffix) ? buttonSuffix : '';
+
+        return (
+          <div key={trans.id || index} className="bg-gray-700 p-3 rounded border border-gray-600">
+            <div className="space-y-2">
             {/* Transition Type */}
             <div className="grid grid-cols-12 gap-2 items-center">
               <select
@@ -82,45 +93,71 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
             {/* MQTT Message Fields */}
             {trans.type === TRANSITION_TYPES.MQTT_MESSAGE && (
               <div className="space-y-2">
-                {/* Button Press Preset */}
-                <div className="bg-blue-900 p-2 rounded border border-blue-600">
-                  <label className="block text-xs text-gray-400 mb-2">
-                    🔘 Quick: Button Press
-                  </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => updateTransition(index, { 
-                        topic: `${globalPrefix}/button1`,
-                        message: 'PRESSED'
-                      })}
-                      className="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs"
-                    >
-                      Button 1
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => updateTransition(index, { 
-                        topic: `${globalPrefix}/button2`,
-                        message: 'PRESSED'
-                      })}
-                      className="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs"
-                    >
-                      Button 2
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => updateTransition(index, { 
-                        topic: `${globalPrefix}/button3`,
-                        message: 'PRESSED'
-                      })}
-                      className="px-2 py-1 bg-blue-600 hover:bg-blue-700 rounded text-xs"
-                    >
-                      Button 3
-                    </button>
+                {/* Button Helper */}
+                <div className="bg-blue-900 p-3 rounded border border-blue-600 space-y-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <label className="text-xs text-blue-100 font-semibold">
+                      🔘 Generátor tlačidla (MQTT topic + message)
+                    </label>
+                    <span className="text-[10px] uppercase tracking-wide text-blue-200">
+                      Raspberry Pi kompatibilné
+                    </span>
                   </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] text-blue-100 mb-1">
+                        Tlačidlo
+                      </label>
+                      <select
+                        value={buttonNumber}
+                        onChange={(e) => {
+                          const selected = e.target.value;
+                          updateTransition(index, {
+                            topic: selected
+                              ? `${globalPrefix}/button${selected}`
+                              : '',
+                            message: trans.message || 'PRESSED'
+                          });
+                        }}
+                        className="w-full px-2 py-1 bg-blue-950/80 border border-blue-700 rounded text-xs"
+                      >
+                        <option value="">-- vyber --</option>
+                        {BUTTON_NUMBERS.map((num) => (
+                          <option key={num} value={num}>
+                            Button {num}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-blue-100 mb-1">
+                        Stav správy
+                      </label>
+                      <select
+                        value={trans.message || BUTTON_MESSAGES[0]}
+                        onChange={(e) =>
+                          updateTransition(index, {
+                            message: e.target.value || 'PRESSED',
+                            topic: buttonNumber
+                              ? `${globalPrefix}/button${buttonNumber}`
+                              : trans.topic
+                          })
+                        }
+                        className="w-full px-2 py-1 bg-blue-950/80 border border-blue-700 rounded text-xs"
+                      >
+                        {BUTTON_MESSAGES.map((msg) => (
+                          <option key={msg} value={msg}>
+                            {msg}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-blue-200">
+                    💡 Témy sa automaticky doplnia ako <code className="font-mono">{`${globalPrefix}/buttonX`}</code>.
+                  </p>
                 </div>
-                
+
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">
                     Topic
@@ -146,7 +183,7 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
                     placeholder="PRESSED"
                   />
                   <div className="text-xs text-gray-500 mt-1">
-                    💡 Pre button zvyčajne: PRESSED
+                    💡 Pre tlačidlo použi hodnoty ako PRESSED, RELEASED alebo HELD.
                   </div>
                 </div>
               </div>
@@ -206,8 +243,8 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
               </select>
             </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
 
       {transitions.length === 0 && (
         <p className="text-sm text-gray-400 italic py-2">No transitions defined</p>
