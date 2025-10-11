@@ -21,8 +21,8 @@ class MQTTClient:
     """
     
     def __init__(self, broker_host, broker_port=1883, client_id=None, logger=None, 
-                 room_id=None, retry_attempts=3, retry_sleep=5, connect_timeout=10, 
-                 reconnect_timeout=30, reconnect_sleep=5, check_interval=60):
+                 room_id=None, retry_attempts=3, retry_sleep=2, connect_timeout=10, 
+                 reconnect_timeout=5, reconnect_sleep=0.5, check_interval=60):
         """Initialize MQTT client with connection and retry parameters."""
         
         # === Basic Connection Settings ===

@@ -11,7 +11,7 @@ import threading
 from utils.logging_setup import get_logger
 
 class MQTTFeedbackTracker:
-    def __init__(self, logger=None, feedback_timeout=5.0):
+    def __init__(self, logger=None, feedback_timeout=2):
         self.logger = logger or get_logger('mqtt_feedback')
         self.feedback_enabled = False
         self.feedback_timeout = feedback_timeout
