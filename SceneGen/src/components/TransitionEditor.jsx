@@ -47,200 +47,206 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
         const buttonNumber = /^(\d+)$/.test(buttonSuffix) ? buttonSuffix : '';
 
         return (
-          <div key={trans.id || index} className="bg-gray-700 p-3 rounded border border-gray-600">
+          <div
+            key={trans.id || index}
+            className="bg-gray-700 p-3 rounded border border-gray-600"
+          >
             <div className="space-y-2">
-            {/* Transition Type */}
-            <div className="grid grid-cols-12 gap-2 items-center">
-              <select
-                value={trans.type}
-                onChange={(e) => updateTransition(index, { type: e.target.value })}
-                className="col-span-11 px-2 py-1 bg-gray-600 rounded text-sm"
-              >
-                <option value={TRANSITION_TYPES.TIMEOUT}>⏱️ Timeout - Časový limit</option>
-                <option value={TRANSITION_TYPES.MQTT_MESSAGE}>📡 MQTT Message - MQTT správa</option>
-                <option value={TRANSITION_TYPES.AUDIO_END}>🎵 Audio End - Koniec audia</option>
-                <option value={TRANSITION_TYPES.VIDEO_END}>🎬 Video End - Koniec videa</option>
-              </select>
+              {/* Transition Type */}
+              <div className="grid grid-cols-12 gap-2 items-center">
+                <select
+                  value={trans.type}
+                  onChange={(e) => updateTransition(index, { type: e.target.value })}
+                  className="col-span-11 px-2 py-1 bg-gray-600 rounded text-sm"
+                >
+                  <option value={TRANSITION_TYPES.TIMEOUT}>⏱️ Timeout - Časový limit</option>
+                  <option value={TRANSITION_TYPES.MQTT_MESSAGE}>📡 MQTT Message - MQTT správa</option>
+                  <option value={TRANSITION_TYPES.AUDIO_END}>🎵 Audio End - Koniec audia</option>
+                  <option value={TRANSITION_TYPES.VIDEO_END}>🎬 Video End - Koniec videa</option>
+                </select>
 
-              {/* Delete Button */}
-              <button
-                onClick={() => deleteTransition(index)}
-                className="col-span-1 p-1 bg-red-600 hover:bg-red-700 rounded transition"
-                title="Delete transition"
-              >
-                <Trash2 size={16} />
-              </button>
-            </div>
-
-            {/* Timeout Fields */}
-            {trans.type === TRANSITION_TYPES.TIMEOUT && (
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs text-gray-400 mb-1">Delay (sekundy)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    value={trans.delay}
-                    onChange={(e) => updateTransition(index, { delay: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-2 py-1 bg-gray-600 rounded text-sm"
-                    placeholder="1.0"
-                  />
-                </div>
+                {/* Delete Button */}
+                <button
+                  onClick={() => deleteTransition(index)}
+                  className="col-span-1 p-1 bg-red-600 hover:bg-red-700 rounded transition"
+                  title="Delete transition"
+                >
+                  <Trash2 size={16} />
+                </button>
               </div>
-            )}
 
-            {/* MQTT Message Fields */}
-            {trans.type === TRANSITION_TYPES.MQTT_MESSAGE && (
-              <div className="space-y-2">
-                {/* Button Helper */}
-                <div className="bg-blue-900 p-3 rounded border border-blue-600 space-y-2">
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <label className="text-xs text-blue-100 font-semibold">
-                      🔘 Generátor tlačidla (MQTT topic + message)
-                    </label>
-                    <span className="text-[10px] uppercase tracking-wide text-blue-200">
-                      Raspberry Pi kompatibilné
-                    </span>
+              {/* Timeout Fields */}
+              {trans.type === TRANSITION_TYPES.TIMEOUT && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Delay (sekundy)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={trans.delay}
+                      onChange={(e) =>
+                        updateTransition(index, { delay: parseFloat(e.target.value) || 0 })
+                      }
+                      className="w-full px-2 py-1 bg-gray-600 rounded text-sm"
+                      placeholder="1.0"
+                    />
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-[11px] text-blue-100 mb-1">
-                        Tlačidlo
-                      </label>
-                      <select
-                        value={buttonNumber}
-                        onChange={(e) => {
-                          const selected = e.target.value;
-                          updateTransition(index, {
-                            topic: selected
-                              ? `${globalPrefix}/button${selected}`
-                              : '',
-                            message: trans.message || 'PRESSED'
-                          });
-                        }}
-                        className="w-full px-2 py-1 bg-blue-950/80 border border-blue-700 rounded text-xs"
-                      >
-                        <option value="">-- vyber --</option>
-                        {BUTTON_NUMBERS.map((num) => (
-                          <option key={num} value={num}>
-                            Button {num}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-[11px] text-blue-100 mb-1">
-                        Stav správy
-                      </label>
-                      <select
-                        value={trans.message || BUTTON_MESSAGES[0]}
-                        onChange={(e) =>
-                          updateTransition(index, {
-                            message: e.target.value || 'PRESSED',
-                            topic: buttonNumber
-                              ? `${globalPrefix}/button${buttonNumber}`
-                              : trans.topic
-                          })
-                        }
-                        className="w-full px-2 py-1 bg-blue-950/80 border border-blue-700 rounded text-xs"
-                      >
-                        {BUTTON_MESSAGES.map((msg) => (
-                          <option key={msg} value={msg}>
-                            {msg}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                  <p className="text-[11px] text-blue-200">
-                    💡 Témy sa automaticky doplnia ako <code className="font-mono">{`${globalPrefix}/buttonX`}</code>.
-                  </p>
                 </div>
+              )}
 
+              {/* MQTT Message Fields */}
+              {trans.type === TRANSITION_TYPES.MQTT_MESSAGE && (
+                <div className="space-y-2">
+                  {/* Button Helper */}
+                  <div className="bg-blue-900 p-3 rounded border border-blue-600 space-y-2">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <label className="text-xs text-blue-100 font-semibold">
+                        🔘 Generátor tlačidla (MQTT topic + message)
+                      </label>
+                      <span className="text-[10px] uppercase tracking-wide text-blue-200">
+                        Raspberry Pi kompatibilné
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] text-blue-100 mb-1">
+                          Tlačidlo
+                        </label>
+                        <select
+                          value={buttonNumber}
+                          onChange={(e) => {
+                            const selected = e.target.value;
+                            updateTransition(index, {
+                              topic: selected ? `${globalPrefix}/button${selected}` : '',
+                              message: trans.message || 'PRESSED'
+                            });
+                          }}
+                          className="w-full px-2 py-1 bg-blue-950/80 border border-blue-700 rounded text-xs"
+                        >
+                          <option value="">-- vyber --</option>
+                          {BUTTON_NUMBERS.map((num) => (
+                            <option key={num} value={num}>
+                              Button {num}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] text-blue-100 mb-1">
+                          Stav správy
+                        </label>
+                        <select
+                          value={trans.message || BUTTON_MESSAGES[0]}
+                          onChange={(e) =>
+                            updateTransition(index, {
+                              message: e.target.value || 'PRESSED',
+                              topic: buttonNumber
+                                ? `${globalPrefix}/button${buttonNumber}`
+                                : trans.topic
+                            })
+                          }
+                          className="w-full px-2 py-1 bg-blue-950/80 border border-blue-700 rounded text-xs"
+                        >
+                          {BUTTON_MESSAGES.map((msg) => (
+                            <option key={msg} value={msg}>
+                              {msg}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <p className="text-[11px] text-blue-200">
+                      💡 Témy sa automaticky doplnia ako <code className="font-mono">{`${globalPrefix}/buttonX`}</code>.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">
+                      Topic
+                    </label>
+                    <input
+                      type="text"
+                      value={trans.topic || ''}
+                      onChange={(e) => updateTransition(index, { topic: e.target.value })}
+                      className="w-full px-2 py-1 bg-gray-600 rounded text-sm"
+                      placeholder={`${globalPrefix}/button1`}
+                    />
+                    <div className="text-xs text-gray-500 mt-1">
+                      💡 Pre button: {globalPrefix}/button1, {globalPrefix}/button2, atď.
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">Message</label>
+                    <input
+                      type="text"
+                      value={trans.message || ''}
+                      onChange={(e) => updateTransition(index, { message: e.target.value })}
+                      className="w-full px-2 py-1 bg-gray-600 rounded text-sm"
+                      placeholder="PRESSED"
+                    />
+                    <div className="text-xs text-gray-500 mt-1">
+                      💡 Pre tlačidlo použi hodnoty ako PRESSED, RELEASED alebo HELD.
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Audio End Fields */}
+              {trans.type === TRANSITION_TYPES.AUDIO_END && (
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">
-                    Topic
+                    Target Audio File (ktorý súbor musí dohrať)
                   </label>
                   <input
                     type="text"
-                    value={trans.topic || ''}
-                    onChange={(e) => updateTransition(index, { topic: e.target.value })}
+                    value={trans.target || ''}
+                    onChange={(e) => updateTransition(index, { target: e.target.value })}
                     className="w-full px-2 py-1 bg-gray-600 rounded text-sm"
-                    placeholder={`${globalPrefix}/button1`}
+                    placeholder="intro.mp3"
                   />
                   <div className="text-xs text-gray-500 mt-1">
-                    💡 Pre button: {globalPrefix}/button1, {globalPrefix}/button2, atď.
+                    💡 Prechod sa spustí keď sa tento audio súbor dohrá
                   </div>
                 </div>
+              )}
+
+              {/* Video End Fields */}
+              {trans.type === TRANSITION_TYPES.VIDEO_END && (
                 <div>
-                  <label className="block text-xs text-gray-400 mb-1">Message</label>
+                  <label className="block text-xs text-gray-400 mb-1">
+                    Target Video File (ktorý súbor musí dohrať)
+                  </label>
                   <input
                     type="text"
-                    value={trans.message || ''}
-                    onChange={(e) => updateTransition(index, { message: e.target.value })}
+                    value={trans.target || ''}
+                    onChange={(e) => updateTransition(index, { target: e.target.value })}
                     className="w-full px-2 py-1 bg-gray-600 rounded text-sm"
-                    placeholder="PRESSED"
+                    placeholder="scary.mp4"
                   />
                   <div className="text-xs text-gray-500 mt-1">
-                    💡 Pre tlačidlo použi hodnoty ako PRESSED, RELEASED alebo HELD.
+                    💡 Prechod sa spustí keď sa toto video dohrá
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Audio End Fields */}
-            {trans.type === TRANSITION_TYPES.AUDIO_END && (
+              {/* Go To State Selector */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">
-                  Target Audio File (ktorý súbor musí dohrať)
-                </label>
-                <input
-                  type="text"
-                  value={trans.target || ''}
-                  onChange={(e) => updateTransition(index, { target: e.target.value })}
+                <label className="block text-xs text-gray-400 mb-1">Goto (cieľový stav)</label>
+                <select
+                  value={trans.goto}
+                  onChange={(e) => updateTransition(index, { goto: e.target.value })}
                   className="w-full px-2 py-1 bg-gray-600 rounded text-sm"
-                  placeholder="intro.mp3"
-                />
-                <div className="text-xs text-gray-500 mt-1">
-                  💡 Prechod sa spustí keď sa tento audio súbor dohrá
-                </div>
+                >
+                  <option value="">Go to...</option>
+                  {states.map((state) => (
+                    <option key={state.id} value={state.name}>
+                      {state.name}
+                    </option>
+                  ))}
+                  <option value="END">END</option>
+                </select>
               </div>
-            )}
-
-            {/* Video End Fields */}
-            {trans.type === TRANSITION_TYPES.VIDEO_END && (
-              <div>
-                <label className="block text-xs text-gray-400 mb-1">
-                  Target Video File (ktorý súbor musí dohrať)
-                </label>
-                <input
-                  type="text"
-                  value={trans.target || ''}
-                  onChange={(e) => updateTransition(index, { target: e.target.value })}
-                  className="w-full px-2 py-1 bg-gray-600 rounded text-sm"
-                  placeholder="scary.mp4"
-                />
-                <div className="text-xs text-gray-500 mt-1">
-                  💡 Prechod sa spustí keď sa toto video dohrá
-                </div>
-              </div>
-            )}
-
-            {/* Go To State Selector */}
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">Goto (cieľový stav)</label>
-              <select
-                value={trans.goto}
-                onChange={(e) => updateTransition(index, { goto: e.target.value })}
-                className="w-full px-2 py-1 bg-gray-600 rounded text-sm"
-              >
-                <option value="">Go to...</option>
-                {states.map(state => (
-                  <option key={state.id} value={state.name}>{state.name}</option>
-                ))}
-                <option value="END">END</option>
-              </select>
             </div>
           </div>
         );
