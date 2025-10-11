@@ -78,7 +78,6 @@ class MuseumWatchdog:
             # Look for recent audio errors in logs
             log_files = [
                 "/home/admin/Documents/GitHub/museum-system/raspberry_pi/logs/museum.log",
-                "/var/log/museum-system.log"  # If logs are elsewhere
             ]
             
             current_time = time.time()
