@@ -4,9 +4,9 @@
 // Hardware control functions
 void initializeHardware();
 
-// PWM Motor control functions
-void controlMotor1(const char* command, const char* speed = "50", const char* direction = "L");
-void controlMotor2(const char* command, const char* speed = "50", const char* direction = "L");
+// ZMENENÉ: Pridanie voliteľného rampTime parametra
+void controlMotor1(const char* command, const char* speed = "50", const char* direction = "L", const char* rampTime = "0");
+void controlMotor2(const char* command, const char* speed = "50", const char* direction = "L", const char* rampTime = "0");
 
 void turnOffHardware();
 
@@ -26,6 +26,12 @@ struct MotorState {
   bool pendingDirectionChange;  // Či čaká na zmenu smeru
   char newDirection;            // Nový smer na ktorý sa má zmeniť
   int savedSpeed;              // Uložená rýchlosť pred zmenou smeru
+
+  // NOVÉ polia pre DEFINOVANÝ ROZBEH (RAMP UP):
+  bool rampActive;             // Či beží custom rozbeh/spomalenie
+  unsigned long rampStartTime;   // Čas spustenia rampy
+  unsigned long rampDurationMs;  // Požadovaný čas trvania rampy (5000 = 5s)
+  int rampStartSpeed;          // Rýchlosť, z ktorej sa rampa začala
 };
 
 extern MotorState motor1State;

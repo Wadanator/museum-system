@@ -17,20 +17,20 @@ const char* BASE_TOPIC_PREFIX = "room1/";
 const char* CLIENT_ID = "esp32_wifi_controller";
 
 // Hardware - PWM Motors Only
-const int MOTOR1_LEFT_PIN = 27;
-const int MOTOR1_RIGHT_PIN = 26;
-const int MOTOR1_ENABLE_PIN = 25;
-const int MOTOR2_LEFT_PIN = 33;
-const int MOTOR2_RIGHT_PIN = 32;
-const int MOTOR2_ENABLE_PIN = 14;
+const int MOTOR1_LEFT_PIN = 18;
+const int MOTOR1_RIGHT_PIN = 19;
+const int MOTOR1_ENABLE_PIN = 21;
+const int MOTOR2_LEFT_PIN = 27;
+const int MOTOR2_RIGHT_PIN = 26;
+const int MOTOR2_ENABLE_PIN = 25;
 
 // PWM Settings
 const int PWM_FREQUENCY = 20000;
 const int PWM_RESOLUTION = 8;
 
 // Smooth Motor Control Settings
-const int SMOOTH_STEP = 4;
-const int SMOOTH_DELAY = 12;
+const int SMOOTH_STEP = 2;
+const int SMOOTH_DELAY = 100;
 
 // Connection Management
 const unsigned long WIFI_RETRY_INTERVAL = 3000;

@@ -47,46 +47,58 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     else if (deviceType == "motor1" || deviceType == "motor2") {
       String motorCommand = String(message);
       
-      // Parse command: ON:50:L or OFF or SPEED:50 or DIR:L
+      // Parse command: ON:50:L:5000 (NOVÝ formát s RampTime) alebo ON:50:L (pôvodný)
       if (motorCommand.startsWith("ON:")) {
         int firstColon = motorCommand.indexOf(':');
         int secondColon = motorCommand.indexOf(':', firstColon + 1);
-        
+        int thirdColon = motorCommand.indexOf(':', secondColon + 1); // Hľadáme RampTime
+
         if (firstColon > 0 && secondColon > firstColon) {
           String speed = motorCommand.substring(firstColon + 1, secondColon);
-          String direction = motorCommand.substring(secondColon + 1);
+          String direction;
+          String rampTime = "0"; // Predvolená hodnota 0 pre štandardný smooth prechod
+
+          if (thirdColon > secondColon) {
+            // NOVÝ formát s RampTime: ON:<speed>:<direction>:<rampTime>
+            direction = motorCommand.substring(secondColon + 1, thirdColon);
+            rampTime = motorCommand.substring(thirdColon + 1);
+            
+          } else {
+            // Pôvodný formát: ON:<speed>:<direction>
+            direction = motorCommand.substring(secondColon + 1);
+          }
           
           if (deviceType == "motor1") {
-            controlMotor1("ON", speed.c_str(), direction.c_str());
+            controlMotor1("ON", speed.c_str(), direction.c_str(), rampTime.c_str());
           } else {
-            controlMotor2("ON", speed.c_str(), direction.c_str());
+            controlMotor2("ON", speed.c_str(), direction.c_str(), rampTime.c_str());
           }
           commandSuccessful = true;
         }
       }
       else if (motorCommand == "OFF") {
         if (deviceType == "motor1") {
-          controlMotor1("OFF", "0", "S");
+          controlMotor1("OFF", "0", "S", "0");
         } else {
-          controlMotor2("OFF", "0", "S");
+          controlMotor2("OFF", "0", "S", "0");
         }
         commandSuccessful = true;
       }
       else if (motorCommand.startsWith("SPEED:")) {
         String speed = motorCommand.substring(6);
         if (deviceType == "motor1") {
-          controlMotor1("SPEED", speed.c_str(), "");
+          controlMotor1("SPEED", speed.c_str(), "", "0");
         } else {
-          controlMotor2("SPEED", speed.c_str(), "");
+          controlMotor2("SPEED", speed.c_str(), "", "0");
         }
         commandSuccessful = true;
       }
       else if (motorCommand.startsWith("DIR:")) {
         String direction = motorCommand.substring(4);
         if (deviceType == "motor1") {
-          controlMotor1("DIR", "", direction.c_str());
+          controlMotor1("DIR", "", direction.c_str(), "0");
         } else {
-          controlMotor2("DIR", "", direction.c_str());
+          controlMotor2("DIR", "", direction.c_str(), "0");
         }
         commandSuccessful = true;
       }
