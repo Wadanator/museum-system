@@ -1,0 +1,75 @@
+{
+  "sceneId": "motor_symmetric_test",
+  "description": "Symetrický test motorov: 10s RAMP doľava, HOLD, ZMENA RÝCHLOSTI, STOP, a to isté doprava.",
+  "version": "2.3",
+  "initialState": "start_ramp_L",
+  
+  "states": {
+    
+    "start_ramp_L": {
+      "description": "1. L-START: Zapnutie s 10s rampou na 100% L. Hold 5s.",
+      "onEnter": [
+        {"action": "mqtt", "topic": "room1/motor1", "message": "ON:100:L:10000"},
+        {"action": "mqtt", "topic": "room1/motor2", "message": "ON:100:L:10000"}
+      ],
+      "transitions": [
+        {"type": "timeout", "delay": 15.0, "goto": "speed_change_L"}
+      ]
+    },
+    
+    "speed_change_L": {
+      "description": "2. L-SPEED: Zmena rýchlosti na 50% (štandardný smooth). Hold 3s.",
+      "onEnter": [
+        {"action": "mqtt", "topic": "room1/motor1", "message": "SPEED:50"},
+        {"action": "mqtt", "topic": "room1/motor2", "message": "SPEED:50"}
+      ],
+      "transitions": [
+        {"type": "timeout", "delay": 6.0, "goto": "stop_L"}
+      ]
+    },
+    
+    "stop_L": {
+      "description": "3. L-STOP: Plynulé zastavenie (OFF). Hold 5s.",
+      "onEnter": [
+        {"action": "mqtt", "topic": "room1/motor1", "message": "OFF"},
+        {"action": "mqtt", "topic": "room1/motor2", "message": "OFF"}
+      ],
+      "transitions": [
+        {"type": "timeout", "delay": 5.0, "goto": "start_ramp_R"}
+      ]
+    },
+
+    "start_ramp_R": {
+      "description": "4. R-START: Zapnutie s 10s rampou na 100% R. Hold 5s.",
+      "onEnter": [
+        {"action": "mqtt", "topic": "room1/motor1", "message": "ON:100:R:10000"},
+        {"action": "mqtt", "topic": "room1/motor2", "message": "ON:100:R:10000"}
+      ],
+      "transitions": [
+        {"type": "timeout", "delay": 15.0, "goto": "speed_change_R"}
+      ]
+    },
+    
+    "speed_change_R": {
+      "description": "5. R-SPEED: Zmena rýchlosti na 50% (štandardný smooth). Hold 3s.",
+      "onEnter": [
+        {"action": "mqtt", "topic": "room1/motor1", "message": "SPEED:50"},
+        {"action": "mqtt", "topic": "room1/motor2", "message": "SPEED:50"}
+      ],
+      "transitions": [
+        {"type": "timeout", "delay": 6.0, "goto": "stop_R"}
+      ]
+    },
+    
+    "stop_R": {
+      "description": "6. R-STOP: Plynulé zastavenie (OFF). Hold 5s.",
+      "onEnter": [
+        {"action": "mqtt", "topic": "room1/motor1", "message": "OFF"},
+        {"action": "mqtt", "topic": "room1/motor2", "message": "OFF"}
+      ],
+      "transitions": [
+        {"type": "timeout", "delay": 5.0, "goto": "END"}
+      ]
+    }
+  }
+}
