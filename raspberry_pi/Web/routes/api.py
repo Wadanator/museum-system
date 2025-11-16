@@ -165,7 +165,7 @@ def setup_api_routes(dashboard):
     @api_bp.route('/scene/<scene_name>', methods=['POST'])
     @requires_auth
     def save_scene(scene_name):
-        """Save a new or updated scene file with validation."""
+        """Save a new or updated scene file with validation (now supports State Machine format)."""
         try:
             scene_data = request.json
             
@@ -181,33 +181,87 @@ def setup_api_routes(dashboard):
                 
             scene_path = scenes_path / secure_filename(scene_name)
 
-            # Validate scene data structure
-            if not isinstance(scene_data, list):
-                return jsonify({'error': 'Scene must be a list of actions'}), 400
+            # --- NEW VALIDATION FOR STATE MACHINE FORMAT ---
+            
+            # 1. Root structure check
+            if not isinstance(scene_data, dict):
+                return jsonify({'error': 'Scene must be a JSON object (State Machine format)'}), 400
+
+            required_root_fields = ['sceneId', 'version', 'initialState', 'states']
+            missing_root_fields = [field for field in required_root_fields if field not in scene_data]
+            if missing_root_fields:
+                return jsonify({'error': f'Missing required scene fields: {", ".join(missing_root_fields)}'}), 400
+
+            if not isinstance(scene_data['states'], dict) or not scene_data['states']:
+                return jsonify({'error': 'The "states" field must be a non-empty object'}), 400
+            
+            initial_state = scene_data['initialState']
+            states = scene_data['states']
+            if initial_state not in states:
+                return jsonify({'error': f'initialState "{initial_state}" is not defined in "states"'}), 400
                 
-            if len(scene_data) == 0:
-                return jsonify({'error': 'Scene cannot be empty'}), 400
+            # 2. Validate each state and its transitions
+            for state_name, state_data in states.items():
+                if state_name == 'END':
+                    continue # Special terminal state
+                
+                if not isinstance(state_data, dict):
+                    return jsonify({'error': f'State "{state_name}" must be an object'}), 400
 
-            # Validate each action
-            for i, action in enumerate(scene_data):
-                if not isinstance(action, dict):
-                    return jsonify({'error': f'Action {i+1} must be an object'}), 400
-                    
-                required_fields = ['timestamp', 'topic', 'message']
-                missing_fields = [field for field in required_fields if field not in action]
-                if missing_fields:
-                    return jsonify({'error': f'Action {i+1} missing required fields: {", ".join(missing_fields)}'}), 400
-                    
-                # Validate field types
-                if not isinstance(action['timestamp'], (int, float)):
-                    return jsonify({'error': f'Action {i+1}: timestamp must be a number'}), 400
-                if action['timestamp'] < 0:
-                    return jsonify({'error': f'Action {i+1}: timestamp cannot be negative'}), 400
-                if not isinstance(action['topic'], str) or not action['topic'].strip():
-                    return jsonify({'error': f'Action {i+1}: topic must be a non-empty string'}), 400
-                if not isinstance(action['message'], str):
-                    return jsonify({'error': f'Action {i+1}: message must be a string'}), 400
+                # Validate onEnter actions
+                if 'onEnter' not in state_data or not isinstance(state_data.get('onEnter'), list):
+                    return jsonify({'error': f'State "{state_name}" missing or invalid "onEnter" list of actions'}), 400
 
+                for i, action in enumerate(state_data['onEnter']):
+                    if not isinstance(action, dict):
+                        return jsonify({'error': f'State "{state_name}", action {i+1}: must be an object'}), 400
+                        
+                    if action.get('action') != 'mqtt': # Only 'mqtt' is supported for now
+                        return jsonify({'error': f'State "{state_name}", action {i+1}: "action" must be "mqtt"'}), 400
+                    
+                    required_action_fields = ['topic', 'message']
+                    missing_action_fields = [field for field in required_action_fields if field not in action]
+                    if missing_action_fields:
+                        return jsonify({'error': f'State "{state_name}", action {i+1}: missing required fields: {", ".join(missing_action_fields)}'}), 400
+                    
+                    if not isinstance(action.get('topic'), str) or not action['topic'].strip():
+                        return jsonify({'error': f'State "{state_name}", action {i+1}: topic must be a non-empty string'}), 400
+                    if not isinstance(action.get('message'), str):
+                        return jsonify({'error': f'State "{state_name}", action {i+1}: message must be a string'}), 400
+
+
+                # Validate transitions
+                if 'transitions' not in state_data or not isinstance(state_data.get('transitions'), list):
+                    return jsonify({'error': f'State "{state_name}" missing or invalid "transitions" list'}), 400
+                
+                for i, transition in enumerate(state_data['transitions']):
+                    if not isinstance(transition, dict):
+                        return jsonify({'error': f'State "{state_name}", transition {i+1}: must be an object'}), 400
+
+                    required_transition_fields = ['type', 'goto']
+                    missing_transition_fields = [field for field in required_transition_fields if field not in transition]
+                    if missing_transition_fields:
+                        return jsonify({'error': f'State "{state_name}", transition {i+1}: missing required fields: {", ".join(missing_transition_fields)}'}), 400
+                        
+                    # Check if goto state exists
+                    goto_state = transition['goto']
+                    if goto_state != 'END' and goto_state not in states:
+                        return jsonify({'error': f'State "{state_name}", transition {i+1}: "goto" state "{goto_state}" not found in "states" or is not "END"'}), 400
+
+                    # Check type-specific fields
+                    if transition['type'] == 'timeout':
+                        if 'delay' not in transition or not isinstance(transition['delay'], (int, float)) or transition['delay'] <= 0:
+                            return jsonify({'error': f'State "{state_name}", transition {i+1}: "timeout" transition requires a positive "delay" number'}), 400
+                    elif transition['type'] == 'feedback':
+                        required_feedback_fields = ['device_topic', 'expected_message']
+                        missing_feedback_fields = [field for field in required_feedback_fields if field not in transition]
+                        if missing_feedback_fields:
+                            return jsonify({'error': f'State "{state_name}", transition {i+1}: "feedback" transition missing required fields: {", ".join(missing_feedback_fields)}'}), 400
+                    else:
+                         return jsonify({'error': f'State "{state_name}", transition {i+1}: Unknown transition type "{transition["type"]}"'}), 400
+
+            # --- END NEW VALIDATION ---
+            
             # Save the scene file
             with open(scene_path, 'w') as f:
                 json.dump(scene_data, f, indent=2)

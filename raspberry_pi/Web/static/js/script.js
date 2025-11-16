@@ -1,6 +1,5 @@
 const socket = io(window.location.origin);
 let currentScene = '', currentCommand = '', autoScroll = true;
-let sceneStartTime = null, sceneDuration = 0;
 const activeFilters = new Set(['debug', 'info', 'warning', 'error', 'critical']);
 const logCounts = { debug: 0, info: 0, warning: 0, error: 0, critical: 0 };
 
@@ -27,7 +26,7 @@ socket.on('logs_cleared', () => {
 });
 socket.on('stats_update', updateStats);
 socket.on('command_executed', ({ success, command, error }) => {
-    showNotification(success ? `Príkaz '${command}' vykonaný úspešne` : `Príkaz '${command}' zlyhal: ${error}`, success ? 'success' : 'error');
+    showNotification(success ? `Príkaz '${command}' vykonaný úspešne` : `Príkaz '${command}' zlyhal: ${error}`, 'success');
 });
 
 // =======================================
@@ -223,6 +222,7 @@ function updateSceneProgress() {
                     // Ak je scéna ukončená (current_state === "END")
                     if (data.current_state === "END" || progress >= 100) {
                         setTimeout(() => {
+                            // Skontrolujte, či sa scéna už naozaj vypla, predtým ako skryjeme progress
                             if (!data.scene_running) {
                                 hideSceneProgress();
                             }
@@ -425,7 +425,7 @@ function clearLogs() {
         fetch('/api/logs/clear', { method: 'POST' })
             .then(res => res.json())
             .then(({ success }) => {
-                showNotification(success ? 'Logy vymazané úspešne' : 'Chyba pri mazaní logov', success ? 'success' : 'error');
+                showNotification(success ? 'Logy vymazané úspešne' : 'Chyba pri mazaní logov', 'success');
             });
     }
 }
@@ -474,12 +474,17 @@ function loadSceneForEditing(sceneName) {
     fetch(`/api/scene/${sceneName}`)
         .then(res => res.json())
         .then(data => {
+            // Scene editor teraz zobrazuje surový JSON pre State Machine
             document.getElementById('sceneEditor').value = data.error ? '' : JSON.stringify(data, null, 2);
             currentScene = data.error ? '' : sceneName;
             if (data.error) showNotification(data.error, 'error');
         });
 }
 
+/**
+ * Uloží scénu. Podporuje nový formát Stavového Automatu.
+ * Frontend validuje len základnú JSON štruktúru, rozsiahla validácia prebehne na backend-e.
+ */
 function saveScene() {
     const sceneSelect = document.getElementById('sceneSelect');
     const sceneName = sceneSelect.value || currentScene;
@@ -489,23 +494,19 @@ function saveScene() {
         return;
     }
     
+    // Uistíme sa, že názov scény má .json koncovku pre backend
     const finalSceneName = sceneName.endsWith('.json') ? sceneName : sceneName + '.json';
     
     try {
         const sceneData = JSON.parse(document.getElementById('sceneEditor').value);
         
-        if (!Array.isArray(sceneData)) {
-            showNotification('Scéna musí byť pole akcií', 'error');
+        // Základná kontrola: musí to byť JSON objekt (pre State Machine)
+        if (typeof sceneData !== 'object' || Array.isArray(sceneData) || sceneData === null) {
+            showNotification('Scéna musí byť platný JSON objekt (State Machine format).', 'error');
             return;
         }
         
-        for (let i = 0; i < sceneData.length; i++) {
-            const action = sceneData[i];
-            if (!('timestamp' in action) || !('topic' in action) || !('message' in action)) {
-                showNotification(`Akcia ${i + 1} nemá požadované polia (timestamp, topic, message)`, 'error');
-                return;
-            }
-        }
+        // ODOBRANÁ stará validácia poľa. Spoliehame sa na robustnú backend validáciu State Machine.
         
         fetch(`/api/scene/${finalSceneName}`, {
             method: 'POST',
@@ -520,86 +521,141 @@ function saveScene() {
                 sceneSelect.value = finalSceneName;
                 loadResourceList('scenes', 'sceneList', 'sceneSelect', runScene, editScene);
             } else {
-                showNotification(error, 'error');
+                // Backend validácia (teraz pre State Machine) zlyhala
+                showNotification(`Chyba pri ukladaní scény:\n${error}`, 'error', 5000);
             }
+        })
+        .catch(err => {
+            showNotification('Chyba pri komunikácii so serverom', 'error');
         });
     } catch (e) {
         showNotification('Neplatný JSON formát. Skontrolujte syntax.', 'error');
     }
 }
 
+/**
+ * Generuje šablónu pre novú scénu vo formáte Stavového Automatu.
+ */
 function createNewScene() {
-    const sceneName = prompt('Zadajte názov scény (vrátane .json koncovky):');
+    const sceneName = prompt('Zadajte názov scény (bez .json koncovky):');
     if (sceneName) {
         const sceneSelect = document.getElementById('sceneSelect');
-        sceneSelect.value = '';
+        // Vytvorenie option v selecte, ak neexistuje...
+        let option = sceneSelect.querySelector(`option[value="${sceneName}.json"]`);
+        if (!option) {
+            option = document.createElement('option');
+            option.value = sceneName + '.json';
+            option.textContent = sceneName + '.json';
+            sceneSelect.appendChild(option);
+        }
+        option.selected = true;
         
-        const newOption = document.createElement('option');
-        newOption.value = sceneName;
-        newOption.textContent = sceneName;
-        newOption.selected = true;
-        sceneSelect.appendChild(newOption);
+        // NOVÁ ŠABLÓNA PRE STAVOVÝ AUTOMAT
+        const stateMachineTemplate = {
+            "sceneId": sceneName,
+            "description": "Nová scéna so stavovým automatom.",
+            "version": "1.0",
+            "initialState": "start",
+            "states": {
+                "start": {
+                    "description": "Počiatočný stav. Rozsvieti svetlo a čaká.",
+                    "onEnter": [
+                        {"action": "mqtt", "topic": "roomX/light", "message": "ON"},
+                    ],
+                    "transitions": [
+                        {"type": "timeout", "delay": 5.0, "goto": "stop"}
+                    ]
+                },
+                "stop": {
+                    "description": "Záverečný stav. Zhasne svetlo.",
+                    "onEnter": [
+                        {"action": "mqtt", "topic": "roomX/light", "message": "OFF"}
+                    ],
+                    "transitions": [
+                        {"type": "timeout", "delay": 1.0, "goto": "END"}
+                    ]
+                }
+            }
+        };
         
-        document.getElementById('sceneEditor').value = JSON.stringify([
-            {"timestamp": 0, "topic": "roomX/light", "message": "ON"},
-            {"timestamp": 2.0, "topic": "roomX/audio", "message": "PLAY_WELCOME"},
-            {"timestamp": 5.0, "topic": "roomX/light", "message": "OFF"}
-        ], null, 2);
+        // Zápis novej šablóny
+        document.getElementById('sceneEditor').value = JSON.stringify(stateMachineTemplate, null, 2);
         
-        currentScene = sceneName;
+        currentScene = sceneName + '.json'; // Uložíme s koncovkou
         
         if (!document.getElementById('scenes').classList.contains('active')) {
             showTab('scenes');
         }
         
-        showNotification(`Nová scéna "${sceneName}" vytvorená. Upravte a uložte.`, 'info');
+        showNotification(`Nová scéna "${sceneName}.json" vytvorená v režime Stavového Automatu. Upravte JSON a uložte.`, 'info');
     }
 }
 
+
+/**
+ * Validuje štruktúru Stavového Automatu pre rýchlu spätnú väzbu na strane klienta.
+ */
 function validateScene() {
     try {
         const sceneData = JSON.parse(document.getElementById('sceneEditor').value);
         
-        if (!Array.isArray(sceneData)) {
-            showNotification('Scéna musí byť pole akcií', 'error');
+        if (typeof sceneData !== 'object' || Array.isArray(sceneData) || sceneData === null) {
+            showNotification('Chyba: Scéna musí byť JSON objekt (State Machine format)', 'error');
+            return;
+        }
+
+        const requiredRootFields = ['sceneId', 'initialState', 'states'];
+        const missingRootFields = requiredRootFields.filter(field => !(field in sceneData));
+        
+        if (missingRootFields.length > 0) {
+            showNotification(`Chyby validácie: Chýbajú kľúčové polia: ${missingRootFields.join(', ')}`, 'error');
             return;
         }
         
-        if (sceneData.length === 0) {
-            showNotification('Scéna nemôže byť prázdna', 'error');
-            return;
+        const states = sceneData.states;
+        if (typeof states !== 'object' || Array.isArray(states) || !states) {
+             showNotification('Chyba: Pole "states" musí byť neprázdny JSON objekt.', 'error');
+             return;
+        }
+
+        if (!(sceneData.initialState in states)) {
+             showNotification(`Chyba: initialState "${sceneData.initialState}" nie je definovaný v "states".`, 'error');
+             return;
         }
         
-        const errors = [];
-        
-        sceneData.forEach((action, index) => {
-            if (!('timestamp' in action)) {
-                errors.push(`Akcia ${index + 1}: Chýba timestamp`);
-            } else if (typeof action.timestamp !== 'number') {
-                errors.push(`Akcia ${index + 1}: Timestamp musí byť číslo`);
-            } else if (action.timestamp < 0) {
-                errors.push(`Akcia ${index + 1}: Timestamp nemôže byť záporný`);
-            }
+        // Simplifikovaná kontrola stavov
+        let totalStates = 0;
+        let errors = [];
+        for (const stateName in states) {
+            if (stateName === 'END') continue;
+            totalStates++;
+            const state = states[stateName];
             
-            if (!('topic' in action)) {
-                errors.push(`Akcia ${index + 1}: Chýba topic`);
-            } else if (typeof action.topic !== 'string' || action.topic.trim() === '') {
-                errors.push(`Akcia ${index + 1}: Topic musí byť neprázdny reťazec`);
+            if (!state.onEnter || !Array.isArray(state.onEnter) || state.onEnter.length === 0) {
+                errors.push(`Stav "${stateName}": Chýba neprázdne pole "onEnter" akcií.`);
             }
-            
-            if (!('message' in action)) {
-                errors.push(`Akcia ${index + 1}: Chýba message`);
-            } else if (typeof action.message !== 'string') {
-                errors.push(`Akcia ${index + 1}: Message musí byť reťazec`);
+            if (!state.transitions || !Array.isArray(state.transitions) || state.transitions.length === 0) {
+                errors.push(`Stav "${stateName}": Chýba neprázdne pole "transitions".`);
+            } else {
+                state.transitions.forEach((t, i) => {
+                    if (!t.goto || (t.goto !== 'END' && !(t.goto in states))) {
+                        errors.push(`Stav "${stateName}", Prechod ${i+1}: Cieľový stav "${t.goto}" neexistuje.`);
+                    }
+                    if (!t.type) {
+                        errors.push(`Stav "${stateName}", Prechod ${i+1}: Chýba "type".`);
+                    } else if (t.type === 'timeout' && (typeof t.delay !== 'number' || t.delay <= 0)) {
+                        errors.push(`Stav "${stateName}", Prechod ${i+1}: "timeout" vyžaduje kladné číselné "delay".`);
+                    }
+                });
             }
-        });
+        }
         
         if (errors.length > 0) {
-            showNotification(`Chyby validácie:\n${errors.join('\n')}`, 'error');
+            showNotification(`Chyby validácie Stavového Automatu:\n${errors.join('\n')}`, 'error', 10000); // Dlhšie zobrazenie
         } else {
-            const duration = Math.max(...sceneData.map(a => a.timestamp));
-            showNotification(`Scéna je platná! Trvanie: ${duration}s, Akcie: ${sceneData.length}`, 'success');
+            showNotification(`Scéna je štrukturálne platná (Stavový Automat: ${totalStates} stavov)!`, 'success');
         }
+
     } catch (e) {
         showNotification(`Neplatný JSON formát: ${e.message}`, 'error');
     }
@@ -668,18 +724,18 @@ function validateCommand() {
         if (Array.isArray(commandData) && commandData.every(a => 'timestamp' in a && 'topic' in a && 'message' in a)) {
             showNotification('Príkaz je platný!', 'success');
         } else {
-            showNotification('Neplatný formát príkazu: chýbajú požadované polia', 'error');
+            showNotification('Neplatný formát príkazu: Očakáva sa pole s akciami, každá s poľami (timestamp, topic, message)', 'error');
         }
     } catch (e) {
         showNotification('Neplatný JSON formát', 'error');
     }
 }
 
-function showNotification(message, type) {
+function showNotification(message, type, duration = 3000) {
     const notification = document.getElementById('notification');
     notification.textContent = message;
     notification.className = `notification ${type} show`;
-    setTimeout(() => notification.classList.remove('show'), 3000);
+    setTimeout(() => notification.classList.remove('show'), duration);
 }
 
 function restartSystem() {
