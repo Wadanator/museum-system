@@ -50,3 +50,20 @@ export const createEmptyTimelineItem = () => ({
   at: DEFAULTS.TIMELINE_AT,
   ...createEmptyAction()
 });
+
+/**
+ * Create new state object suitable for ReactFlow context.
+ * Used for double-click creation.
+ */
+export const generateSceneNode = (position = { x: 50, y: 50 }, name = 'New State') => {
+  const newState = createEmptyState(name);
+  return {
+    id: newState.id,
+    type: 'sceneNode',
+    position,
+    data: {
+      state: newState,
+      initialState: false,
+    },
+  };
+};

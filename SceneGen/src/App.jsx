@@ -1,18 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { Download, Upload, Plus, Eye, Settings, Trash2 } from 'lucide-react'; // Added Trash2
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { Download, Upload, Plus, Eye, Settings, Trash2 } from 'lucide-react';
 import Header from './components/Header';
 import StateEditor from './components/StateEditor';
 import GlobalEventsEditor from './components/GlobalEventsEditor';
 import GraphicPreview from './components/GraphicPreview';
-import { createEmptyState } from './utils/generators';
+import { createEmptyState, generateSceneNode } from './utils/generators';
 import { generateStateMachineJSON, formatJSON, downloadJSON, importJSON } from './utils/jsonExport';
 import { DEFAULTS } from './utils/constants';
 
-// Key for localStorage
 const STORAGE_KEY = 'railway_scene_editor_state';
 
 function App() {
-  // Scene metadata with localStorage fallback
   const [sceneId, setSceneId] = useState(() => localStorage.getItem(`${STORAGE_KEY}_sceneId`) || DEFAULTS.SCENE_ID);
   const [description, setDescription] = useState(() => localStorage.getItem(`${STORAGE_KEY}_description`) || DEFAULTS.DESCRIPTION);
   const [version, setVersion] = useState(() => localStorage.getItem(`${STORAGE_KEY}_version`) || DEFAULTS.VERSION);
@@ -40,8 +38,103 @@ function App() {
   const [showPreview, setShowPreview] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [activeTab, setActiveTab] = useState('editor');
+  const [selectedStateId, setSelectedStateId] = useState(null); 
+  
+  const stateEditorRefs = useRef({}); 
+  const SCROLL_DURATION = 200; 
 
-  // Save to localStorage on state changes
+  const handleAddStateFromPreview = useCallback(({ position }) => {
+      const newState = createEmptyState(`state_${states.length + 1}`);
+      setStates(prevStates => [...prevStates, newState]);
+      if (states.length === 0) setInitialState(newState.name);
+      setSelectedStateId(newState.id);
+      setActiveTab('editor'); 
+  }, [states]);
+
+  const handleUpdateStateFromNode = useCallback((stateId, updates) => {
+    setStates(prevStates => 
+      prevStates.map(state => {
+        if (state.id === stateId) {
+          if (updates.name && updates.name !== state.name) {
+            const oldName = state.name;
+            const newName = updates.name;
+
+            state = { ...state, name: newName };
+
+            if (initialState === oldName) {
+              setInitialState(newName);
+            }
+            
+            prevStates = prevStates.map(s => {
+                if (s.id !== stateId) {
+                    const newTransitions = s.transitions.map(t => {
+                        if (t.goto === oldName) {
+                            return { ...t, goto: newName };
+                        }
+                        return t;
+                    });
+                    return { ...s, transitions: newTransitions };
+                }
+                return s;
+            });
+            return { ...state, ...updates };
+          }
+          
+          return { ...state, ...updates };
+        }
+        
+        return state;
+      })
+    );
+  }, [initialState]);
+  
+  const handleEdgesDeleteInPreview = useCallback((deletedEdges) => {
+      setStates(prevStates => {
+          let updatedStates = [...prevStates];
+          
+          deletedEdges.forEach(edge => {
+              const sourceStateId = edge.source;
+              const stateIndex = updatedStates.findIndex(s => s.id === sourceStateId);
+              
+              if (stateIndex !== -1) {
+                  const stateToUpdate = updatedStates[stateIndex];
+                  
+                  const targetNode = updatedStates.find(s => s.id === edge.target);
+                  const targetStateName = targetNode?.name || 'END'; 
+                  
+                  let transitionRemoved = false;
+                  const newTransitions = stateToUpdate.transitions.filter(t => {
+                      if (!transitionRemoved && t.goto === targetStateName) {
+                          transitionRemoved = true; 
+                          return false;
+                      }
+                      return true;
+                  });
+                  
+                  updatedStates[stateIndex] = { ...stateToUpdate, transitions: newTransitions };
+              }
+          });
+          return updatedStates;
+      });
+  }, []);
+
+  const handleNodeClickInPreview = useCallback((event, node) => {
+      setSelectedStateId(node.id);
+  }, []);
+  
+  const handleNodeDoubleClickInPreview = useCallback((event, node) => {
+      setSelectedStateId(node.id);
+      setActiveTab('editor'); 
+      
+      // Scrollovanie k stavu
+      setTimeout(() => {
+          const targetElement = stateEditorRefs.current[node.id];
+          if (targetElement) {
+              targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+      }, SCROLL_DURATION); 
+  }, []);
+
   useEffect(() => {
     localStorage.setItem(`${STORAGE_KEY}_sceneId`, sceneId);
     localStorage.setItem(`${STORAGE_KEY}_description`, description);
@@ -52,7 +145,6 @@ function App() {
     localStorage.setItem(`${STORAGE_KEY}_globalEvents`, JSON.stringify(globalEvents));
   }, [sceneId, description, version, initialState, globalPrefix, states, globalEvents]);
 
-  // Update scene metadata
   const updateMetadata = (updates) => {
     if ('sceneId' in updates) setSceneId(updates.sceneId);
     if ('description' in updates) setDescription(updates.description);
@@ -61,29 +153,55 @@ function App() {
     if ('globalPrefix' in updates) setGlobalPrefix(updates.globalPrefix);
   };
 
-  // Add new state
   const addState = () => {
     const newState = createEmptyState(`state_${states.length + 1}`);
     setStates([...states, newState]);
   };
 
-  // Update existing state
   const updateState = (index, updates) => {
     const newStates = [...states];
+    
+    if (updates.name && newStates[index].name !== updates.name) {
+        const oldName = newStates[index].name;
+        const newName = updates.name;
+        
+        if (initialState === oldName) {
+            setInitialState(newName);
+        }
+
+        newStates.forEach(s => {
+            s.transitions.forEach(t => {
+                if (t.goto === oldName) {
+                    t.goto = newName;
+                }
+            });
+        });
+    }
+
     newStates[index] = updates;
     setStates(newStates);
   };
-
-  // Delete state
+  
   const deleteState = (index) => {
     if (states.length <= 1) {
       alert('Cannot delete the last state!');
       return;
     }
-    setStates(states.filter((_, i) => i !== index));
+    const stateToDeleteName = states[index].name;
+    let newStates = states.filter((_, i) => i !== index);
+    
+    newStates = newStates.map(state => ({
+        ...state,
+        transitions: state.transitions.filter(t => t.goto !== stateToDeleteName)
+    }));
+
+    setStates(newStates);
+    
+    if (initialState === stateToDeleteName) {
+        setInitialState(newStates.length > 0 ? newStates[0].name : '');
+    }
   };
 
-  // Generate and preview JSON
   const handleGenerateJSON = () => {
     const json = generateStateMachineJSON(
       sceneId,
@@ -98,7 +216,6 @@ function App() {
     setShowPreview(true);
   };
 
-  // Download JSON file
   const handleDownloadJSON = () => {
     const json = generateStateMachineJSON(
       sceneId,
@@ -111,7 +228,6 @@ function App() {
     downloadJSON(json, sceneId);
   };
 
-  // Import JSON file
   const handleImportJSON = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -127,7 +243,6 @@ function App() {
         setGlobalPrefix(imported.globalPrefix || DEFAULTS.GLOBAL_PREFIX);
         setStates(imported.states.length > 0 ? imported.states : [createEmptyState()]);
         setGlobalEvents(imported.globalEvents || []);
-        // Save imported data to localStorage
         localStorage.setItem(`${STORAGE_KEY}_sceneId`, imported.sceneId);
         localStorage.setItem(`${STORAGE_KEY}_description`, imported.description);
         localStorage.setItem(`${STORAGE_KEY}_version`, imported.version);
@@ -144,7 +259,6 @@ function App() {
     event.target.value = '';
   };
 
-  // Reset localStorage
   const resetStorage = () => {
     if (window.confirm('Are you sure you want to reset all data? This will clear all your current work.')) {
       localStorage.removeItem(`${STORAGE_KEY}_sceneId`);
@@ -170,7 +284,6 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-900 text-white p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header with Scene Metadata */}
         <Header
           sceneId={sceneId}
           description={description}
@@ -181,7 +294,6 @@ function App() {
           onChange={updateMetadata}
         />
 
-        {/* Tab Navigation */}
         <div className="flex gap-2 mb-4 border-b border-gray-700">
           <button
             onClick={() => setActiveTab('editor')}
@@ -205,7 +317,6 @@ function App() {
           </button>
         </div>
 
-        {/* Action Buttons */}
         <div className="flex flex-wrap gap-3 mb-6">
           <button
             onClick={() => setShowSettings(!showSettings)}
@@ -256,10 +367,8 @@ function App() {
           </button>
         </div>
 
-        {/* Tab Content */}
         {activeTab === 'editor' ? (
           <>
-            {/* Settings Panel */}
             {showSettings && (
               <div className="bg-gray-800 rounded-lg p-6 mb-6 border-2 border-indigo-600">
                 <h2 className="text-xl font-bold mb-4 text-indigo-400">⚙️ Global Settings</h2>
@@ -287,7 +396,6 @@ function App() {
               </div>
             )}
 
-            {/* States Editor */}
             <div className="mb-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-bold">States ({states.length})</h2>
@@ -296,18 +404,23 @@ function App() {
                 </span>
               </div>
               {states.map((state, index) => (
-                <StateEditor
-                  key={state.id}
-                  state={state}
-                  onChange={(updated) => updateState(index, updated)}
-                  onDelete={() => deleteState(index)}
-                  states={states}
-                  globalPrefix={globalPrefix}
-                />
+                <div 
+                    key={state.id}
+                    // Správne pripojenie referencie k DIV elementu
+                    ref={el => stateEditorRefs.current[state.id] = el}
+                >
+                    <StateEditor
+                      state={state}
+                      onChange={(updated) => updateState(index, updated)}
+                      onDelete={() => deleteState(index)}
+                      states={states}
+                      globalPrefix={globalPrefix}
+                      isSelected={selectedStateId === state.id} 
+                    />
+                </div>
               ))}
             </div>
 
-            {/* JSON Preview */}
             {showPreview && (
               <div className="bg-gray-800 rounded-lg p-6 mb-6">
                 <div className="flex justify-between items-center mb-3">
@@ -325,7 +438,6 @@ function App() {
               </div>
             )}
 
-            {/* Footer Info */}
             <div className="bg-gray-800 rounded-lg p-4 text-sm text-gray-400">
               <h3 className="font-bold mb-2">Quick Guide:</h3>
               <ul className="space-y-1 list-disc list-inside">
@@ -344,6 +456,11 @@ function App() {
             states={states}
             initialState={initialState}
             globalEvents={globalEvents}
+            onAddState={handleAddStateFromPreview}
+            onUpdateState={handleUpdateStateFromNode}
+            onEdgesDelete={handleEdgesDeleteInPreview} 
+            onNodeClick={handleNodeClickInPreview} 
+            onNodeDoubleClick={handleNodeDoubleClickInPreview}
           />
         )}
       </div>
