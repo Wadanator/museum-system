@@ -9,36 +9,56 @@ import { createEmptyAction } from '../utils/generators';
  * StateEditor Component
  * Edits a complete state with all its properties
  */
-const StateEditor = ({ state, onChange, onDelete, states, globalPrefix }) => {
-  const [expanded, setExpanded] = useState(false);
+const StateEditor = ({ state, onChange, onDelete, states, globalPrefix, isSelected }) => {
+  // Initial state is expanded for new states (implicitly handled by ActionEditor, but often useful here too)
+  const [expanded, setExpanded] = useState(false); 
 
   const updateOnEnter = (actions) => onChange({ ...state, onEnter: actions });
   const updateOnExit = (actions) => onChange({ ...state, onExit: actions });
   const updateTimeline = (timeline) => onChange({ ...state, timeline });
   const updateTransitions = (transitions) => onChange({ ...state, transitions });
 
+  /**
+   * Adds an empty action to either 'onEnter' or 'onExit'
+   * @param {string} type - 'onEnter' or 'onExit'
+   */
   const addAction = (type) => {
     const newAction = createEmptyAction();
-    // Automaticky expandni novú akciu nastavením expanded state
     const newActions = [...(state[type] || []), newAction];
     onChange({ ...state, [type]: newActions });
   };
 
+  /**
+   * Updates a specific action within 'onEnter' or 'onExit'
+   * @param {string} type - 'onEnter' or 'onExit'
+   * @param {number} index - Index of the action to update.
+   * @param {object} updates - The new properties for the action.
+   */
   const updateAction = (type, index, updates) => {
     const actions = [...state[type]];
     actions[index] = { ...actions[index], ...updates };
     onChange({ ...state, [type]: actions });
   };
 
+  /**
+   * Deletes a specific action from 'onEnter' or 'onExit'
+   * @param {string} type - 'onEnter' or 'onExit'
+   * @param {number} index - Index of the action to delete.
+   */
   const deleteAction = (type, index) => {
     onChange({ ...state, [type]: state[type].filter((_, i) => i !== index) });
   };
 
   return (
-    <div className="bg-gray-800 rounded-lg p-4 mb-4 border-2 border-gray-700 hover:border-gray-600 transition">
+    <div 
+      className={`bg-gray-800 rounded-lg p-4 mb-4 border-2 transition ${
+        isSelected ? 'border-blue-500 shadow-lg' : 'border-gray-700 hover:border-gray-600'
+      }`}
+    >
       {/* State Header */}
       <div className="flex justify-between items-center mb-3">
         <div className="flex-1">
+          {/* State Name */}
           <input
             type="text"
             value={state.name}
@@ -46,6 +66,7 @@ const StateEditor = ({ state, onChange, onDelete, states, globalPrefix }) => {
             className="bg-gray-700 px-3 py-2 rounded font-bold text-lg w-full focus:ring-2 focus:ring-blue-500"
             placeholder="State Name"
           />
+          {/* State Description */}
           <input
             type="text"
             value={state.description}
@@ -55,6 +76,7 @@ const StateEditor = ({ state, onChange, onDelete, states, globalPrefix }) => {
           />
         </div>
         <div className="flex gap-2 ml-4">
+          {/* Expand/Collapse Button */}
           <button
             onClick={() => setExpanded(!expanded)}
             className="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded transition flex items-center gap-2"
@@ -63,6 +85,7 @@ const StateEditor = ({ state, onChange, onDelete, states, globalPrefix }) => {
             {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
             {expanded ? 'Collapse' : 'Expand'}
           </button>
+          {/* Delete Button */}
           <button
             onClick={onDelete}
             className="px-3 py-2 bg-red-600 hover:bg-red-700 rounded transition"

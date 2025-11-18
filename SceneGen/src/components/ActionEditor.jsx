@@ -4,10 +4,10 @@ import MqttCommandEditor from './mqtt/MqttCommandEditor';
 
 /**
  * ActionEditor Component
- * Edits individual actions (everything is MQTT!)
+ * Edits individual actions (everything is an MQTT command in this system)
  */
 const ActionEditor = ({ action, onChange, onDelete, globalPrefix }) => {
-  // Automaticky expandni novú akciu (ak nemá topic/message)
+  // Auto-expand new actions (if no topic/message is set)
   const isNew = !action.topic && !action.message;
   const [expanded, setExpanded] = useState(isNew);
 

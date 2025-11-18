@@ -3,16 +3,25 @@ import { Plus, Trash2 } from 'lucide-react';
 import { TRANSITION_TYPES } from '../utils/constants';
 import { createEmptyTransition } from '../utils/generators';
 
+// Button values common in the museum system (RPI/ESP32 compatibility)
 const BUTTON_NUMBERS = ['1', '2', '3', '4', '5', '6', '7', '8'];
 const BUTTON_MESSAGES = ['PRESSED', 'RELEASED', 'HELD'];
 
 /**
  * TransitionEditor Component
- * Manages state transitions (timeout, mqttMessage, audioEnd, videoEnd)
+ * Manages state transitions (timeout, mqttMessage, audioEnd, videoEnd, buttonPress)
  */
 const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
   const addTransition = () => {
-    onChange([...transitions, createEmptyTransition()]);
+    // Set default transition to buttonPress for better UX in a museum context
+    const newTransition = { 
+        ...createEmptyTransition(), 
+        type: TRANSITION_TYPES.BUTTON_PRESS,
+        // Set defaults for buttonPress to avoid empty fields immediately
+        topic: `${globalPrefix}/button1`,
+        message: BUTTON_MESSAGES[0] 
+    };
+    onChange([...transitions, newTransition]);
   };
 
   const updateTransition = (index, updates) => {
@@ -39,12 +48,14 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
       </div>
 
       {transitions.map((trans, index) => {
+        // Helper logic to auto-select button number if the topic matches the pattern
+        const isButtonPress = trans.type === TRANSITION_TYPES.BUTTON_PRESS;
         const buttonPrefix = `${globalPrefix}/button`;
         const buttonSuffix =
           trans.topic && trans.topic.startsWith(buttonPrefix)
             ? trans.topic.slice(buttonPrefix.length)
             : '';
-        const buttonNumber = /^(\d+)$/.test(buttonSuffix) ? buttonSuffix : '';
+        const currentButtonNumber = isButtonPress && /^(\d+)$/.test(buttonSuffix) ? buttonSuffix : '';
 
         return (
           <div
@@ -52,17 +63,36 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
             className="bg-gray-700 p-3 rounded border border-gray-600"
           >
             <div className="space-y-2">
-              {/* Transition Type */}
+              {/* Transition Type Selector */}
               <div className="grid grid-cols-12 gap-2 items-center">
                 <select
                   value={trans.type}
-                  onChange={(e) => updateTransition(index, { type: e.target.value })}
+                  onChange={(e) => {
+                    const newType = e.target.value;
+                    const updates = { type: newType };
+                    
+                    // Reset or set defaults when changing type
+                    if (newType === TRANSITION_TYPES.TIMEOUT) {
+                      updates.delay = trans.delay || 1.0;
+                    } else if (newType === TRANSITION_TYPES.BUTTON_PRESS) {
+                      updates.topic = trans.topic || `${globalPrefix}/button1`;
+                      updates.message = trans.message || BUTTON_MESSAGES[0];
+                    } else if (newType === TRANSITION_TYPES.AUDIO_END || newType === TRANSITION_TYPES.VIDEO_END) {
+                      updates.target = trans.target || '';
+                    } else if (newType === TRANSITION_TYPES.MQTT_MESSAGE) {
+                      updates.topic = trans.topic || '';
+                      updates.message = trans.message || '';
+                    }
+                    
+                    updateTransition(index, updates);
+                  }}
                   className="col-span-11 px-2 py-1 bg-gray-600 rounded text-sm"
                 >
-                  <option value={TRANSITION_TYPES.TIMEOUT}>⏱️ Timeout - Časový limit</option>
-                  <option value={TRANSITION_TYPES.MQTT_MESSAGE}>📡 MQTT Message - MQTT správa</option>
-                  <option value={TRANSITION_TYPES.AUDIO_END}>🎵 Audio End - Koniec audia</option>
-                  <option value={TRANSITION_TYPES.VIDEO_END}>🎬 Video End - Koniec videa</option>
+                  <option value={TRANSITION_TYPES.TIMEOUT}>⏱️ Timeout</option>
+                  <option value={TRANSITION_TYPES.BUTTON_PRESS}>🔘 Button Press</option>
+                  <option value={TRANSITION_TYPES.MQTT_MESSAGE}>📡 Generic MQTT Message</option>
+                  <option value={TRANSITION_TYPES.AUDIO_END}>🎵 Audio End</option>
+                  <option value={TRANSITION_TYPES.VIDEO_END}>🎬 Video End</option>
                 </select>
 
                 {/* Delete Button */}
@@ -75,11 +105,13 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
                 </button>
               </div>
 
+              {/* Conditional Fields based on Transition Type */}
+
               {/* Timeout Fields */}
               {trans.type === TRANSITION_TYPES.TIMEOUT && (
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1">Delay (sekundy)</label>
+                    <label className="block text-xs text-gray-400 mb-1">Delay (seconds)</label>
                     <input
                       type="number"
                       step="0.1"
@@ -94,73 +126,72 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
                   </div>
                 </div>
               )}
+              
+              {/* Button Press Fields (New Dedicated UI) */}
+              {trans.type === TRANSITION_TYPES.BUTTON_PRESS && (
+                <div className="bg-blue-900 p-3 rounded border border-blue-600 space-y-2">
+                  <h5 className="text-xs text-blue-100 font-semibold">
+                    🔘 Button Press Configuration
+                  </h5>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {/* Button Selector */}
+                    <div>
+                      <label className="block text-[11px] text-blue-100 mb-1">
+                        Button
+                      </label>
+                      <select
+                        value={currentButtonNumber}
+                        onChange={(e) => {
+                          const selected = e.target.value;
+                          updateTransition(index, {
+                            topic: selected ? `${globalPrefix}/button${selected}` : '',
+                            message: trans.message || BUTTON_MESSAGES[0] // Preserve message or set default
+                          });
+                        }}
+                        className="w-full px-2 py-1 bg-blue-950/80 border border-blue-700 rounded text-xs"
+                      >
+                        <option value="">-- select button --</option>
+                        {BUTTON_NUMBERS.map((num) => (
+                          <option key={`btn-${num}`} value={num}>
+                            Button {num}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {/* Message Selector */}
+                    <div>
+                      <label className="block text-[11px] text-blue-100 mb-1">
+                        Message State (PRESS/RELEASE/HOLD)
+                      </label>
+                      <select
+                        value={trans.message || BUTTON_MESSAGES[0]}
+                        onChange={(e) =>
+                          updateTransition(index, {
+                            message: e.target.value || BUTTON_MESSAGES[0],
+                            topic: currentButtonNumber
+                              ? `${globalPrefix}/button${currentButtonNumber}`
+                              : trans.topic // Preserve topic if no button selected
+                          })
+                        }
+                        className="w-full px-2 py-1 bg-blue-950/80 border border-blue-700 rounded text-xs"
+                      >
+                        {BUTTON_MESSAGES.map((msg) => (
+                          <option key={`msg-${msg}`} value={msg}>
+                            {msg}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-blue-200">
+                    💡 Topic is automatically set to <code className="font-mono">{`${globalPrefix}/buttonX`}</code>.
+                  </p>
+                </div>
+              )}
 
-              {/* MQTT Message Fields */}
+              {/* Generic MQTT Message Fields */}
               {trans.type === TRANSITION_TYPES.MQTT_MESSAGE && (
                 <div className="space-y-2">
-                  {/* Button Helper */}
-                  <div className="bg-blue-900 p-3 rounded border border-blue-600 space-y-2">
-                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                      <label className="text-xs text-blue-100 font-semibold">
-                        🔘 Generátor tlačidla (MQTT topic + message)
-                      </label>
-                      <span className="text-[10px] uppercase tracking-wide text-blue-200">
-                        Raspberry Pi kompatibilné
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      <div>
-                        <label className="block text-[11px] text-blue-100 mb-1">
-                          Tlačidlo
-                        </label>
-                        <select
-                          value={buttonNumber}
-                          onChange={(e) => {
-                            const selected = e.target.value;
-                            updateTransition(index, {
-                              topic: selected ? `${globalPrefix}/button${selected}` : '',
-                              message: trans.message || 'PRESSED'
-                            });
-                          }}
-                          className="w-full px-2 py-1 bg-blue-950/80 border border-blue-700 rounded text-xs"
-                        >
-                          <option value="">-- vyber --</option>
-                          {BUTTON_NUMBERS.map((num) => (
-                            <option key={num} value={num}>
-                              Button {num}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] text-blue-100 mb-1">
-                          Stav správy
-                        </label>
-                        <select
-                          value={trans.message || BUTTON_MESSAGES[0]}
-                          onChange={(e) =>
-                            updateTransition(index, {
-                              message: e.target.value || 'PRESSED',
-                              topic: buttonNumber
-                                ? `${globalPrefix}/button${buttonNumber}`
-                                : trans.topic
-                            })
-                          }
-                          className="w-full px-2 py-1 bg-blue-950/80 border border-blue-700 rounded text-xs"
-                        >
-                          {BUTTON_MESSAGES.map((msg) => (
-                            <option key={msg} value={msg}>
-                              {msg}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-blue-200">
-                      💡 Témy sa automaticky doplnia ako <code className="font-mono">{`${globalPrefix}/buttonX`}</code>.
-                    </p>
-                  </div>
-
                   <div>
                     <label className="block text-xs text-gray-400 mb-1">
                       Topic
@@ -170,10 +201,10 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
                       value={trans.topic || ''}
                       onChange={(e) => updateTransition(index, { topic: e.target.value })}
                       className="w-full px-2 py-1 bg-gray-600 rounded text-sm"
-                      placeholder={`${globalPrefix}/button1`}
+                      placeholder={`${globalPrefix}/sensor/status`}
                     />
                     <div className="text-xs text-gray-500 mt-1">
-                      💡 Pre button: {globalPrefix}/button1, {globalPrefix}/button2, atď.
+                      💡 e.g., {globalPrefix}/sensor/status, {globalPrefix}/device/feedback
                     </div>
                   </div>
                   <div>
@@ -183,10 +214,10 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
                       value={trans.message || ''}
                       onChange={(e) => updateTransition(index, { message: e.target.value })}
                       className="w-full px-2 py-1 bg-gray-600 rounded text-sm"
-                      placeholder="PRESSED"
+                      placeholder="TRIGGERED"
                     />
                     <div className="text-xs text-gray-500 mt-1">
-                      💡 Pre tlačidlo použi hodnoty ako PRESSED, RELEASED alebo HELD.
+                      💡 The transition occurs when the topic receives this exact message.
                     </div>
                   </div>
                 </div>
@@ -196,7 +227,7 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
               {trans.type === TRANSITION_TYPES.AUDIO_END && (
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">
-                    Target Audio File (ktorý súbor musí dohrať)
+                    Target Audio File (which file must finish playing)
                   </label>
                   <input
                     type="text"
@@ -206,7 +237,7 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
                     placeholder="intro.mp3"
                   />
                   <div className="text-xs text-gray-500 mt-1">
-                    💡 Prechod sa spustí keď sa tento audio súbor dohrá
+                    💡 The transition triggers when this audio file finishes.
                   </div>
                 </div>
               )}
@@ -215,7 +246,7 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
               {trans.type === TRANSITION_TYPES.VIDEO_END && (
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">
-                    Target Video File (ktorý súbor musí dohrať)
+                    Target Video File (which file must finish playing)
                   </label>
                   <input
                     type="text"
@@ -225,14 +256,14 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
                     placeholder="scary.mp4"
                   />
                   <div className="text-xs text-gray-500 mt-1">
-                    💡 Prechod sa spustí keď sa toto video dohrá
+                    💡 The transition triggers when this video finishes.
                   </div>
                 </div>
               )}
 
-              {/* Go To State Selector */}
+              {/* Go To State Selector (Common to all types) */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">Goto (cieľový stav)</label>
+                <label className="block text-xs text-gray-400 mb-1">Goto (Target State)</label>
                 <select
                   value={trans.goto}
                   onChange={(e) => updateTransition(index, { goto: e.target.value })}

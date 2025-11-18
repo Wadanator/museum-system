@@ -1,4 +1,4 @@
-// Action types - VŠETKO je MQTT!
+// Action types - All actions are MQTT commands in this system.
 export const ACTION_TYPES = {
   MQTT: 'mqtt'
 };
@@ -7,6 +7,7 @@ export const ACTION_TYPES = {
 export const TRANSITION_TYPES = {
   TIMEOUT: 'timeout',
   MQTT_MESSAGE: 'mqttMessage',
+  BUTTON_PRESS: 'buttonPress', // New dedicated transition type
   AUDIO_END: 'audioEnd',      
   VIDEO_END: 'videoEnd'
 };
@@ -37,17 +38,17 @@ export const MQTT_DEVICES = {
     hasDirection: true
   },
   light: {
-    label: 'Light (Svetlo)',
+    label: 'Light',
     type: 'simple',
     commands: ['ON', 'OFF']
   },
   steam: {
-    label: 'Steam/Smoke (Para/Hmla)',
+    label: 'Steam/Smoke',
     type: 'simple',
     commands: ['ON', 'OFF']
   },
   smoke: {
-    label: 'Smoke (Dym)',
+    label: 'Smoke',
     type: 'simple',
     commands: ['ON', 'OFF']
   },
@@ -64,12 +65,12 @@ export const MQTT_DEVICES = {
   audio: {
     label: '🎵 Audio Player',
     type: 'audio',
-    info: 'Pre audio príkazy (PLAY:file.mp3:0.8)'
+    info: 'For audio commands (e.g., PLAY:file.mp3:0.8)'
   },
   video: {
     label: '🎬 Video Player',
     type: 'video',
-    info: 'Pre video príkazy (PLAY_VIDEO:file.mp4)'
+    info: 'For video commands (e.g., PLAY_VIDEO:file.mp4)'
   }
 };
 

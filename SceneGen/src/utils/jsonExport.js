@@ -1,39 +1,48 @@
 import { generateId } from './generators';
+import { TRANSITION_TYPES } from './constants';
 
 /**
  * Remove ID fields from objects for clean JSON export
+ * @param {object} obj - The object to strip ID from.
  */
 const stripIds = (obj) => {
+  // eslint-disable-next-line no-unused-vars
   const { id, ...rest } = obj;
   return rest;
 };
 
 /**
  * Clean transition object - remove unnecessary fields based on type
+ * NOTE: BUTTON_PRESS is exported as mqttMessage for RPI compatibility.
+ * @param {object} trans - The raw transition object.
  */
 const cleanTransition = (trans) => {
-  const base = { type: trans.type };
+  // Convert BUTTON_PRESS type back to mqttMessage for RPI compatibility
+  const type = trans.type === TRANSITION_TYPES.BUTTON_PRESS ? TRANSITION_TYPES.MQTT_MESSAGE : trans.type;
+  const base = { type };
   
-  switch (trans.type) {
-    case 'timeout':
+  switch (type) {
+    case TRANSITION_TYPES.TIMEOUT:
       return { ...base, delay: trans.delay, goto: trans.goto };
     
-    case 'mqttMessage':
+    case TRANSITION_TYPES.MQTT_MESSAGE:
       return { ...base, topic: trans.topic, message: trans.message, goto: trans.goto };
     
-    case 'audioEnd':
+    case TRANSITION_TYPES.AUDIO_END:
       return { ...base, target: trans.target, goto: trans.goto };
     
-    case 'videoEnd':
+    case TRANSITION_TYPES.VIDEO_END:
       return { ...base, target: trans.target, goto: trans.goto };
     
     default:
+      // Fallback for unknown/custom types
       return stripIds(trans);
   }
 };
 
 /**
  * Clean action object - remove ID only
+ * @param {object} action - The raw action object.
  */
 const cleanAction = (action) => {
   return stripIds(action);
@@ -55,11 +64,15 @@ export const generateStateMachineJSON = (sceneId, description, version, initialS
       stateData.onEnter = state.onEnter.map(cleanAction);
     }
 
-    // Add timeline if exists
+    // Add timeline if exists (BUG FIX: Ensure 'at' property is preserved)
     if (state.timeline?.length > 0) {
+      // Timeline items are actions with an 'at' property
       stateData.timeline = state.timeline.map(item => {
         const cleaned = cleanAction(item);
-        return cleaned;
+        return {
+          at: item.at, // 'at' field is essential for timeline
+          ...cleaned
+        };
       });
     }
 
@@ -94,6 +107,7 @@ export const generateStateMachineJSON = (sceneId, description, version, initialS
 
 /**
  * Format JSON with indentation
+ * @param {object} data - The JSON data object.
  */
 export const formatJSON = (data) => {
   return JSON.stringify(data, null, 2);
@@ -101,6 +115,8 @@ export const formatJSON = (data) => {
 
 /**
  * Download JSON file
+ * @param {object} data - The JSON data object.
+ * @param {string} filename - The desired filename.
  */
 export const downloadJSON = (data, filename) => {
   const json = formatJSON(data);
@@ -115,6 +131,7 @@ export const downloadJSON = (data, filename) => {
 
 /**
  * Import JSON and convert to internal format
+ * @param {string} jsonData - The JSON string data.
  */
 export const importJSON = (jsonData) => {
   const data = typeof jsonData === 'string' ? JSON.parse(jsonData) : jsonData;
@@ -146,14 +163,19 @@ export const importJSON = (jsonData) => {
       ...action, 
       id: generateId()
     })),
+    // Ensure timeline items keep the 'at' property when generating IDs
     timeline: (stateData.timeline || []).map(item => ({ 
       ...item, 
       id: generateId()
     })),
-    transitions: (stateData.transitions || []).map(trans => ({ 
-      ...trans, 
-      id: generateId()
-    }))
+    transitions: (stateData.transitions || []).map(trans => {
+        // We map the incoming type directly. If it was a 'buttonPress' and was exported as 'mqttMessage', 
+        // it comes back as 'mqttMessage', which the TransitionEditor UI handles via pattern matching for display.
+        return {
+          ...trans, 
+          id: generateId()
+        };
+    })
   }));
 
   // Import global events
