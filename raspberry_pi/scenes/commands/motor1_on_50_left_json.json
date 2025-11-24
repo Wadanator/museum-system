@@ -1,6 +1,6 @@
 [
   {
-    "message": "ON:50:L",
+    "message": "ON:100:L",
     "timestamp": 0,
     "topic": "room1/motor1"
   }

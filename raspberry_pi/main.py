@@ -138,7 +138,9 @@ class MuseumController:
         self.mqtt_message_handler.set_handlers(
             device_registry=self.mqtt_device_registry,
             feedback_tracker=self.mqtt_feedback_tracker,
-            button_callback=self.on_button_press
+            button_callback=self.on_button_press,
+            # NOVY HANDLER PRE SPUSTENIE KONKRÉTNEJ SCÉNY CEZ MQTT
+            named_scene_callback=self.start_scene_by_name
         )
         
         self.mqtt_client = MQTTClient(
@@ -276,6 +278,66 @@ class MuseumController:
                 self.scene_running = False
         else:
             log.error("Failed to load scene")
+            self.scene_running = False
+
+    # NOVÁ METÓDA: Verejný vstupný bod pre spustenie scény podľa názvu cez MQTT
+    def start_scene_by_name(self, scene_file_name):
+        """Public method to start a specific scene by file name in a new thread."""
+        
+        # 1. Kontrola zámku a stavu
+        with self.scene_lock:
+            if self.scene_running:
+                log.info(f"Scene already running, ignoring request to start scene: {scene_file_name}")
+                return False
+            
+            if not self.mqtt_client or not self.mqtt_client.is_connected():
+                log.error("Cannot start named scene: MQTT not connected")
+                return False
+            
+            self.scene_running = True
+            log.info(f"Starting named scene via MQTT command: {scene_file_name}")
+
+        # 2. Spustenie scény v dedikovanom vlákne
+        scene_thread = threading.Thread(target=self._start_named_scene_thread_target, args=(scene_file_name,), daemon=True)
+        scene_thread.start()
+        return True
+
+    # NOVÁ METÓDA: Vlákno pre načítanie a spustenie konkrétnej scény
+    def _start_named_scene_thread_target(self, scene_file_name):
+        """Worker thread function to load and execute a named scene."""
+        scene_path = os.path.join(self.scenes_dir, self.room_id, scene_file_name)
+        
+        try:
+            log.debug(f"Attempting to load named scene from: {scene_path}")
+            log.debug(f"File exists: {os.path.exists(scene_path)}")
+
+            if not os.path.exists(scene_path):
+                log.critical(f"Named scene file not found: {scene_path}")
+                self.scene_running = False
+                return
+
+            if not self.scene_parser:
+                log.error("Scene parser not available")
+                self.scene_running = False
+                return
+
+            log.debug(f"Loading scene: {scene_path}")
+            if self.scene_parser.load_scene(scene_path):
+                try:
+                    self.scene_parser.start_scene()
+                    self.run_scene()
+                except Exception as e:
+                    log.error(f"An error occurred during named scene execution: {e}")
+                finally:
+                    # Upratovanie po skončení (nastavenie scene_running na False)
+                    self.scene_running = False
+            else:
+                log.error(f"Failed to load named scene: {scene_file_name}")
+                self.scene_running = False
+
+        except Exception as e:
+            log.error(f"Critical error in named scene thread: {e}")
+            # Bezpečnostné upratovanie
             self.scene_running = False
 
     def run_scene(self):
