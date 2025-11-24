@@ -11,6 +11,7 @@ import LogsView from './components/Views/LogsView';
 import StatsView from './components/Views/StatsView';
 import SystemView from './components/Views/SystemView';
 import LoginView from './components/Views/LoginView';
+import MediaManager from './components/Views/MediaManager';
 
 function App() {
   const { isConnected } = useSocket();
@@ -37,9 +38,9 @@ function App() {
       </div>
 
       <nav className="tabs">
-        {/* ... tvoje linky (Main, Scenes, atď.) ... */}
         <NavLink to="/" className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>🏠 Hlavná</NavLink>
         <NavLink to="/scenes" className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>🎭 Scény</NavLink>
+        <NavLink to="/media" className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>📁 Médiá</NavLink> 
         <NavLink to="/commands" className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>⚡ Príkazy</NavLink>
         <NavLink to="/logs" className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>📋 Logy</NavLink>
         <NavLink to="/stats" className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>📊 Štatistiky</NavLink>
@@ -50,6 +51,7 @@ function App() {
         <Routes>
           <Route path="/" element={<MainDashboard />} />
           <Route path="/scenes" element={<ScenesView />} />
+          <Route path="/media" element={<MediaManager />} />
           <Route path="/commands" element={<CommandsView />} />
           <Route path="/logs" element={<LogsView />} />
           <Route path="/stats" element={<StatsView />} />

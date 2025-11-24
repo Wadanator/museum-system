@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { socket } from '../../services/socket';
 import { api } from '../../services/api';
 import toast from 'react-hot-toast';
@@ -20,7 +20,6 @@ export default function MainDashboard() {
     visible: false
   });
 
-  // const progressInterval = useRef(null); // ODOBRANÉ: Polling je preč
   const { confirm } = useConfirm();
 
   useEffect(() => {
@@ -31,7 +30,6 @@ export default function MainDashboard() {
       }
     };
 
-    // --- NOVÁ ZMENA: Handler pre real-time progres scény cez SocketIO ---
     const handleSceneProgress = (data) => {
         if (data.scene_running && data.mode === 'state_machine') {
             const percent = Math.min(Math.max(data.progress * 100, 0), 100);
@@ -44,15 +42,13 @@ export default function MainDashboard() {
                 visible: true
             });
         } else {
-            // Skrytie progress baru, ak scéna skončila (scene_running: false)
             setProgressData(prev => ({ ...prev, visible: false }));
         }
     };
-    // ----------------------------------------------------------------------
 
     socket.on('status_update', handleStatus);
     socket.on('stats_update', handleStats);
-    socket.on('scene_progress_update', handleSceneProgress); // NOVÉ: Listener pre real-time progres
+    socket.on('scene_progress_update', handleSceneProgress);
 
     socket.emit('request_status');
     socket.emit('request_stats');
@@ -60,7 +56,7 @@ export default function MainDashboard() {
     return () => {
       socket.off('status_update', handleStatus);
       socket.off('stats_update', handleStats);
-      socket.off('scene_progress_update', handleSceneProgress); // Cleanup
+      socket.off('scene_progress_update', handleSceneProgress);
     };
   }, []);
 
@@ -143,10 +139,14 @@ export default function MainDashboard() {
                   {status.scene_running ? 'Prebieha' : 'Pripravená'}
               </div>
           </div>
-          <div className="status-item">
+          
+          {/* --- ZMENA TU: Pridaná podmienka pre farbu --- */}
+          <div className={`status-item ${deviceCount === 0 ? 'error' : 'good'}`}>
               <div className="status-header">Zariadenia</div>
               <div className="status-value">{deviceCount} pripojených</div>
           </div>
+          {/* ---------------------------------------------- */}
+          
       </div>
 
       {progressData.visible && (

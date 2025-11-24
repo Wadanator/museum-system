@@ -1,40 +1,137 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import '../../styles/views/media-manager.css'; // Import nového CSS
+import '../../styles/views/media-manager.css';
 
-const MediaManager = ({ sceneName }) => {
-  // Dummy dáta (neskôr nahradíš API volaním)
-  const [videos, setVideos] = useState([
-    { name: 'intro_sequence.mp4', size: '24.5 MB', modified: '15.11.2023' },
-    { name: 'loop_background.mp4', size: '128.2 MB', modified: '10.11.2023' },
-    { name: 'black_screen.png', size: '0.5 MB', modified: '01.10.2023' }
-  ]);
+const MediaManager = () => {
+  const [videos, setVideos] = useState([]);
+  const [audios, setAudios] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const [audios, setAudios] = useState([
-    { name: 'voiceover_main.mp3', size: '4.2 MB', modified: '16.11.2023' },
-    { name: 'click_effect.wav', size: '0.1 MB', modified: '20.10.2023' }
-  ]);
+  // Stav pre modálne okno mazania
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    type: '',
+    fileName: '',
+    inputValue: ''
+  });
 
-  const handleDelete = (type, fileName) => {
-    if (!window.confirm(`Naozaj chcete vymazať súbor ${fileName}?`)) return;
+  useEffect(() => {
+    fetchMedia();
+  }, []);
 
-    if (type === 'video') {
-      setVideos(prev => prev.filter(v => v.name !== fileName));
-    } else {
-      setAudios(prev => prev.filter(a => a.name !== fileName));
+  const fetchMedia = async () => {
+    try {
+      const [videoRes, audioRes] = await Promise.all([
+        fetch('/api/media/video'),
+        fetch('/api/media/audio')
+      ]);
+
+      if (videoRes.ok) setVideos(await videoRes.json());
+      if (audioRes.ok) setAudios(await audioRes.json());
+    } catch (error) {
+      console.error("Chyba pri načítaní médií:", error);
+      toast.error("Nepodarilo sa načítať zoznam súborov");
+    } finally {
+      setLoading(false);
     }
-    toast.success(`${fileName} bol vymazaný`);
   };
 
-  const handleUpload = (type) => {
-    // Tu bude logika pre otvorenie file pickera a upload
-    toast('Otváram dialóg pre nahrávanie... (Demo)', {
-      icon: '📂',
-      style: { borderRadius: '10px', background: '#333', color: '#fff' },
+  // --- LOGIKA MAZANIA ---
+
+  const openDeleteModal = (type, fileName) => {
+    setDeleteModal({
+      isOpen: true,
+      type,
+      fileName,
+      inputValue: '' // Reset inputu
     });
   };
 
-  // Pomocný komponent pre jednu kartu (definovaný vnútri alebo importovaný)
+  const closeDeleteModal = () => {
+    setDeleteModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  const confirmDelete = async () => {
+    const { type, fileName, inputValue } = deleteModal;
+
+    if (inputValue !== fileName) {
+      toast.error("Názov súboru sa nezhoduje!");
+      return;
+    }
+
+    const loadingToast = toast.loading(`Mažem ${fileName}...`);
+    closeDeleteModal(); // Zavri okno hneď
+
+    try {
+      const res = await fetch(`/api/media/${type}/${fileName}`, {
+        method: 'DELETE'
+      });
+
+      if (res.ok) {
+        if (type === 'video') {
+          setVideos(prev => prev.filter(v => v.name !== fileName));
+        } else {
+          setAudios(prev => prev.filter(a => a.name !== fileName));
+        }
+        toast.success(`${fileName} bol vymazaný`, { id: loadingToast });
+      } else {
+        const err = await res.json();
+        toast.error(`Chyba: ${err.error || 'Nepodarilo sa vymazať súbor'}`, { id: loadingToast });
+      }
+    } catch (error) {
+      console.error("Delete error:", error);
+      toast.error("Chyba pripojenia pri mazaní", { id: loadingToast });
+    }
+  };
+
+  // --- LOGIKA NAHRÁVANIA ---
+
+  const handleUpload = (type) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    
+    if (type === 'video') {
+      input.accept = "video/*,image/*,.mkv"; 
+    } else {
+      input.accept = "audio/*";
+    }
+
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const loadingToast = toast.loading(`Nahrávam ${file.name}...`);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await fetch(`/api/media/${type}`, {
+          method: 'POST',
+          body: formData
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          if (type === 'video') {
+            setVideos(prev => [...prev, data.file]);
+          } else {
+            setAudios(prev => [...prev, data.file]);
+          }
+          toast.success("Súbor úspešne nahraný", { id: loadingToast });
+        } else {
+          const err = await res.json();
+          toast.error(`Chyba: ${err.error || 'Upload zlyhal'}`, { id: loadingToast });
+        }
+      } catch (error) {
+        console.error("Upload error:", error);
+        toast.error("Chyba pripojenia pri nahrávaní", { id: loadingToast });
+      }
+    };
+
+    input.click();
+  };
+
+  // Komponent Karty
   const FileCard = ({ file, type }) => (
     <div className="media-card">
       <div className={`media-icon-box ${type}`}>
@@ -51,7 +148,8 @@ const MediaManager = ({ sceneName }) => {
       <div className="media-actions">
         <button 
             className="btn-delete" 
-            onClick={() => handleDelete(type, file.name)} 
+            // Zmena: Namiesto priameho mazania otvoríme modal
+            onClick={() => openDeleteModal(type, file.name)} 
             title="Vymazať súbor"
         >
             🗑️
@@ -59,6 +157,8 @@ const MediaManager = ({ sceneName }) => {
       </div>
     </div>
   );
+
+  if (loading) return <div className="media-manager-container">Načítavam médiá...</div>;
 
   return (
     <div className="media-manager-container">
@@ -78,9 +178,7 @@ const MediaManager = ({ sceneName }) => {
           {videos.length > 0 ? (
             videos.map(file => <FileCard key={file.name} file={file} type="video" />)
           ) : (
-            <div className="empty-media-state">
-              Pre túto scénu nie sú nahrané žiadne videá.
-            </div>
+            <div className="empty-media-state">Žiadne videá.</div>
           )}
         </div>
       </div>
@@ -101,12 +199,48 @@ const MediaManager = ({ sceneName }) => {
           {audios.length > 0 ? (
             audios.map(file => <FileCard key={file.name} file={file} type="audio" />)
           ) : (
-            <div className="empty-media-state">
-              Pre túto scénu nie sú nahrané žiadne zvuky.
-            </div>
+            <div className="empty-media-state">Žiadne zvuky.</div>
           )}
         </div>
       </div>
+
+      {/* --- MODÁLNE OKNO PRE MAZANIE (GitHub Style) --- */}
+      {deleteModal.isOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content delete-modal">
+            <h3>⚠️ Vymazať súbor?</h3>
+            <p>
+              Táto akcia je nevratná. Ak chcete vymazať súbor 
+              <strong> {deleteModal.fileName}</strong>, 
+              napíšte jeho celý názov nižšie:
+            </p>
+            
+            <div className="modal-input-wrapper">
+              <input 
+                type="text" 
+                className="modal-input"
+                placeholder="Sem napíšte názov súboru"
+                value={deleteModal.inputValue}
+                onChange={(e) => setDeleteModal(prev => ({...prev, inputValue: e.target.value}))}
+                autoFocus
+              />
+            </div>
+
+            <div className="modal-actions">
+              <button className="btn btn-secondary" onClick={closeDeleteModal}>
+                Zrušiť
+              </button>
+              <button 
+                className="btn btn-danger" 
+                disabled={deleteModal.inputValue !== deleteModal.fileName}
+                onClick={confirmDelete}
+              >
+                Vymazať súbor
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -8,6 +8,7 @@ from flask import Blueprint
 from .status import setup_status_routes
 from .scenes import setup_scenes_routes
 from .commands import setup_commands_routes
+from .media import media_bp
 
 api_bp = Blueprint('api', __name__, url_prefix='/api') 
 
@@ -20,4 +21,5 @@ def setup_api_routes(dashboard):
 
     api_bp.register_blueprint(setup_commands_routes(dashboard))
     
+    api_bp.register_blueprint(media_bp, url_prefix='/media')
     return api_bp
