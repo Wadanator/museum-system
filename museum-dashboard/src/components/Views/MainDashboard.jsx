@@ -20,7 +20,7 @@ export default function MainDashboard() {
     visible: false
   });
 
-  const progressInterval = useRef(null);
+  // const progressInterval = useRef(null); // ODOBRANÉ: Polling je preč
   const { confirm } = useConfirm();
 
   useEffect(() => {
@@ -31,25 +31,9 @@ export default function MainDashboard() {
       }
     };
 
-    socket.on('status_update', handleStatus);
-    socket.on('stats_update', handleStats);
-
-    socket.emit('request_status');
-    socket.emit('request_stats');
-
-    return () => {
-      socket.off('status_update', handleStatus);
-      socket.off('stats_update', handleStats);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (status.scene_running) {
-      progressInterval.current = setInterval(async () => {
-        try {
-          const data = await api.getSceneProgress();
-          
-          if (data.scene_running) {
+    // --- NOVÁ ZMENA: Handler pre real-time progres scény cez SocketIO ---
+    const handleSceneProgress = (data) => {
+        if (data.scene_running && data.mode === 'state_machine') {
             const percent = Math.min(Math.max(data.progress * 100, 0), 100);
             const stateInfo = `Stav: ${data.current_state} (${data.states_completed}/${data.total_states})`;
             
@@ -59,22 +43,33 @@ export default function MainDashboard() {
                 info: stateInfo,
                 visible: true
             });
-          } else {
+        } else {
+            // Skrytie progress baru, ak scéna skončila (scene_running: false)
             setProgressData(prev => ({ ...prev, visible: false }));
-          }
-        } catch (e) {
-          console.error(e);
         }
-      }, 500);
-    } else {
-      if (progressInterval.current) clearInterval(progressInterval.current);
-      setProgressData(prev => ({ ...prev, visible: false }));
-    }
+    };
+    // ----------------------------------------------------------------------
+
+    socket.on('status_update', handleStatus);
+    socket.on('stats_update', handleStats);
+    socket.on('scene_progress_update', handleSceneProgress); // NOVÉ: Listener pre real-time progres
+
+    socket.emit('request_status');
+    socket.emit('request_stats');
 
     return () => {
-      if (progressInterval.current) clearInterval(progressInterval.current);
+      socket.off('status_update', handleStatus);
+      socket.off('stats_update', handleStats);
+      socket.off('scene_progress_update', handleSceneProgress); // Cleanup
     };
+  }, []);
+
+  useEffect(() => {
+    if (!status.scene_running) {
+        setProgressData(prev => ({ ...prev, visible: false }));
+    }
   }, [status.scene_running]);
+
 
   const handleRunScene = async () => {
     try {

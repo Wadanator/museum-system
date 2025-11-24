@@ -22,16 +22,6 @@ const authFetch = async (url, options = {}) => {
 };
 
 export const api = {
-
-  /* ===================================================================
-     1. PRODUKČNÁ VERZIA LOGINU (PRE RASPBERRY PI)
-     Až budeš na ostrom systéme:
-     1. ODKOMENTUJ túto funkciu nižšie
-     2. ZMAŽ tú "DEV VERZIU" pod ňou
-  ===================================================================
-  */
-  
-  /*
   login: async (username, password) => {
     const token = 'Basic ' + btoa(username + ':' + password);
     // Skúsime zavolať reálny backend na overenie hesla
@@ -45,38 +35,7 @@ export const api = {
         throw new Error('Nesprávne meno alebo heslo');
     }
   },
-  */
 
-
-  /* ===================================================================
-     2. DEV VERZIA LOGINU (TERAZ AKTÍVNA)
-     Použi toto, kým nemáš spustený Python backend.
-     Meno: admin
-     Heslo: 123
-  ===================================================================
-  */
-  login: async (username, password) => {
-    // Tieto údaje fungujú pre "offline" vývoj
-    const DEV_USER = 'admin';
-    const DEV_PASS = '123';
-
-    console.log("⚠️ Používam FALOŠNÝ login (Dev Mode) - Python server asi nebeží.");
-    
-    // Simulácia čakania (akože komunikujeme so serverom)
-    await new Promise(resolve => setTimeout(resolve, 600));
-
-    if (username === DEV_USER && password === DEV_PASS) {
-        // Vygenerujeme token, aby si aplikácia myslela, že sme prihlásení
-        return 'Basic ' + btoa(username + ':' + password);
-    }
-    
-    throw new Error('Zlé meno alebo heslo (Dev Mode: skús admin / 123)');
-  },
-
-
-  // ===================================================================
-  // ZVYŠNÉ API VOLANIA (Tie už používajú reálny alebo proxy server)
-  // ===================================================================
 
   getStatus: async () => {
     const res = await authFetch(`${API_URL}/status`);
@@ -108,11 +67,6 @@ export const api = {
 
   stopScene: async () => {
     const res = await authFetch(`${API_URL}/stop_scene`, { method: 'POST' });
-    return res.json();
-  },
-
-  getSceneProgress: async () => {
-    const res = await authFetch(`${API_URL}/scene/progress`);
     return res.json();
   },
 

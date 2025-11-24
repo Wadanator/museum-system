@@ -1,52 +1,34 @@
 #!/usr/bin/env python3
-"""System control routes for the Web Dashboard."""
+"""API routes for System Operations (Restart, Shutdown)."""
 
+import threading
 from flask import Blueprint, jsonify
 from ..auth import requires_auth
-from ..utils.helpers import execute_system_command
 
-system_bp = Blueprint('system', __name__, url_prefix='/api/system')
+system_bp = Blueprint('system', __name__, url_prefix='/api')
 
 def setup_system_routes(dashboard):
-    """Setup system routes with dashboard context."""
-    
-    @system_bp.route('/restart', methods=['POST'])
+    controller = dashboard.controller
+
+    @system_bp.route('/system/restart', methods=['POST'])
     @requires_auth
     def restart_system():
-        """Initiate a system reboot."""
-        result = execute_system_command(
-            ['sudo', 'reboot'], 'System Restart', dashboard.log
-        )
-        dashboard.save_stats()
-        
-        if 'error' in result:
-            return jsonify(result), 500
-        return jsonify(result)
+        """Endpoint to restart the entire Raspberry Pi system."""
+        dashboard.log.warning("System restart requested via API.")
+        if hasattr(controller, 'system_restart'):
+            # Spustenie v novom vlákne, aby API volanie hneď vrátilo odpoveď
+            threading.Thread(target=controller.system_restart, daemon=True).start()
+            return jsonify({'success': True, 'message': 'System restart initiated'}), 200
+        return jsonify({'error': 'System restart functionality not available'}), 500
 
-    @system_bp.route('/shutdown', methods=['POST'])
-    @requires_auth
-    def shutdown_system():
-        """Initiate a system shutdown."""
-        result = execute_system_command(
-            ['sudo', 'shutdown', '-h', 'now'], 'System Shutdown', dashboard.log
-        )
-        dashboard.save_stats()
-        
-        if 'error' in result:
-            return jsonify(result), 500
-        return jsonify(result)
-
-    @system_bp.route('/service/restart', methods=['POST'])
+    @system_bp.route('/system/service/restart', methods=['POST'])
     @requires_auth
     def restart_service():
-        """Restart the museum system service."""
-        result = execute_system_command(
-            ['sudo', 'systemctl', 'restart', 'museum-system.service'], 
-            'Service Restart', dashboard.log
-        )
-        
-        if 'error' in result:
-            return jsonify(result), 500
-        return jsonify(result)
+        """Endpoint to restart the museum service only."""
+        dashboard.log.warning("Museum service restart requested via API.")
+        if hasattr(controller, 'service_restart'):
+            threading.Thread(target=controller.service_restart, daemon=True).start()
+            return jsonify({'success': True, 'message': 'Museum service restart initiated'}), 200
+        return jsonify({'error': 'Service restart functionality not available'}), 500
 
     return system_bp
