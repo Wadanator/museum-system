@@ -1,0 +1,92 @@
+/* =======================================
+   HLAVNÝ LAYOUT & GRIDY
+   ======================================= */
+
+.container {
+    max-width: 1600px;
+    margin: 0 auto;
+    background: linear-gradient(to bottom, #ffffff, #f9fafb);
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border: 1px solid #e5e7eb;
+}
+
+/* Odsadenie sekcií */
+.main-dashboard,
+.system-status-card,
+.status-overview,
+.scene-progress,
+.main-controls,
+.quick-actions {
+    margin-bottom: 30px;
+}
+
+.main-dashboard {
+    margin-bottom: 40px;
+}
+
+/* =======================================
+   GRID SYSTÉMY (Mriežky)
+   ======================================= */
+
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 32px;
+    margin-bottom: 48px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 32px;
+    margin-bottom: 40px;
+}
+
+.scene-list {
+    display: grid;
+    gap: 32px;
+    margin-bottom: 40px;
+}
+
+/* Header Layout */
+.header-actions {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+/* =======================================
+   RESPONZIVITA (Layout zmeny)
+   ======================================= */
+
+@media (max-width: 768px) {
+    body { padding: 10px; }
+    
+    .container {
+        padding: 16px;
+        margin: 0;
+        border-radius: 12px;
+        min-height: calc(100vh - 20px);
+    }
+    
+    .main-dashboard { margin-bottom: 24px; }
+    .header-actions { flex-direction: column; gap: 12px; margin-top: 12px; }
+    
+    /* Zmena gridov na mobile */
+    .status-overview { grid-template-columns: repeat(2, 1fr); gap: 15px; }
+    .status-grid, .stats-grid, .scene-list { grid-template-columns: 1fr; gap: 16px; }
+}
+
+@media (max-width: 480px) {
+    body { padding: 5px; }
+    .container { padding: 12px; border-radius: 8px; min-height: calc(100vh - 10px); }
+    .status-overview { grid-template-columns: 1fr; gap: 10px; }
+}
+
+/* Landscape */
+@media (max-width: 768px) and (orientation: landscape) {
+    .status-overview { grid-template-columns: repeat(4, 1fr); }
+}
