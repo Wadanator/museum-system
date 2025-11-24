@@ -1,0 +1,181 @@
+/* src/styles/views/media-manager.css */
+
+/* Kontajner */
+.media-manager-container {
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 12px;
+    height: 100%;
+    min-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #e9ecef;
+}
+
+/* Sekcie */
+.media-section {
+    margin-bottom: 30px;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.section-title {
+    font-size: 1.1rem;
+    color: #343a40;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Badge pre počet súborov */
+.count-badge {
+    background: #e9ecef;
+    color: #495057;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+/* Grid pre karty */
+.media-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 15px;
+}
+
+/* Karta súboru */
+.media-card {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 15px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.media-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+    border-color: #adb5bd;
+}
+
+/* Ikona typu súboru */
+.media-icon-box {
+    width: 45px;
+    height: 45px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.media-icon-box.video { background: #e3f2fd; color: #2196f3; }
+.media-icon-box.audio { background: #fff3cd; color: #ffc107; }
+
+/* Info o súbore */
+.media-info {
+    flex: 1;
+    min-width: 0; /* Fix pre text-overflow vo flexe */
+}
+
+.media-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #212529;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+}
+
+.media-meta {
+    font-size: 0.8rem;
+    color: #868e96;
+    display: flex;
+    gap: 8px;
+}
+
+/* Akcie na karte */
+.media-actions {
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.media-card:hover .media-actions {
+    opacity: 1;
+}
+
+.btn-delete {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 6px;
+    color: #fa5252;
+    transition: background 0.2s;
+}
+
+.btn-delete:hover {
+    background: #fff5f5;
+}
+
+/* Empty State */
+.empty-media-state {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 30px;
+    background: rgba(0,0,0,0.02);
+    border-radius: 10px;
+    border: 2px dashed #dee2e6;
+    color: #adb5bd;
+    font-style: italic;
+}
+
+/* Štýly pre Tab Switcher v hlavičke */
+.view-tabs {
+    display: flex;
+    background: #e9ecef;
+    padding: 4px;
+    border-radius: 8px;
+    gap: 5px;
+    margin-left: 20px;
+}
+
+.btn-tab {
+    border: none;
+    background: transparent;
+    padding: 6px 15px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #6c757d;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn-tab:hover {
+    color: #495057;
+}
+
+.btn-tab.active {
+    background: white;
+    color: #212529;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}

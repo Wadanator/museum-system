@@ -2,12 +2,16 @@ import { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import toast from 'react-hot-toast';
 import JsonEditor from '../Shared/JsonEditor';
+import MediaManager from './MediaManager'; // <--- Import nového komponentu
 
 export default function ScenesView() {
   const [scenes, setScenes] = useState([]);
   const [editorContent, setEditorContent] = useState('');
   const [selectedScene, setSelectedScene] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // State pre prepínanie tabov: 'editor' alebo 'media'
+  const [activeTab, setActiveTab] = useState('editor');
 
   useEffect(() => {
     loadScenes();
@@ -36,6 +40,7 @@ export default function ScenesView() {
 
       setEditorContent(JSON.stringify(content, null, 2));
       setSelectedScene(sceneName);
+      setActiveTab('editor'); // Reset na editor pri zmene scény
       toast.success(`Scéna načítaná`, { id: loadingToast });
     } catch (error) {
       toast.error('Chyba: ' + error.message, { id: loadingToast });
@@ -106,6 +111,7 @@ export default function ScenesView() {
       
       setSelectedScene(fullName);
       setEditorContent(JSON.stringify(template, null, 2));
+      setActiveTab('editor');
       toast('Nová scéna vytvorená. Nezabudnite ju uložiť.', { icon: '🆕' });
     }
   };
@@ -160,23 +166,52 @@ export default function ScenesView() {
             ))}
         </div>
 
-        {/* PRAVÝ PANEL: Editor */}
+        {/* PRAVÝ PANEL: Editor a Media */}
         <div className="editor-container">
             {selectedScene ? (
                 <>
                     <div className="editor-header-bar">
-                        <h3>Editujem: <span className="highlight-blue">{selectedScene}</span></h3>
-                        <div className="editor-actions-group">
-                            <button className="btn btn-secondary btn-small" onClick={() => validateSceneContent()}>✅ Overiť</button>
-                            <button className="btn btn-primary btn-small" onClick={handleSave}>💾 Uložiť</button>
+                        <div style={{display: 'flex', alignItems: 'center'}}>
+                           <h3>Editujem: <span className="highlight-blue">{selectedScene}</span></h3>
+                           
+                           {/* NOVÝ TAB SWITCHER */}
+                           <div className="view-tabs">
+                              <button 
+                                className={`btn-tab ${activeTab === 'editor' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('editor')}
+                              >
+                                📝 JSON
+                              </button>
+                              <button 
+                                className={`btn-tab ${activeTab === 'media' ? 'active' : ''}`}
+                                onClick={() => setActiveTab('media')}
+                              >
+                                📁 Médiá
+                              </button>
+                           </div>
                         </div>
+
+                        {/* Tlačidlá akcií zobrazujeme len v JSON editore */}
+                        {activeTab === 'editor' && (
+                            <div className="editor-actions-group">
+                                <button className="btn btn-secondary btn-small" onClick={() => validateSceneContent()}>✅ Overiť</button>
+                                <button className="btn btn-primary btn-small" onClick={handleSave}>💾 Uložiť</button>
+                            </div>
+                        )}
                     </div>
                     
-                    <JsonEditor 
-                        value={editorContent} 
-                        onChange={setEditorContent} 
-                        isLoading={loading} 
-                    />
+                    {/* Oblasť obsahu */}
+                    <div style={{flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column'}}>
+                        {activeTab === 'editor' ? (
+                            <JsonEditor 
+                                value={editorContent} 
+                                onChange={setEditorContent} 
+                                isLoading={loading} 
+                            />
+                        ) : (
+                            <MediaManager sceneName={selectedScene} />
+                        )}
+                    </div>
                 </>
             ) : (
                 <div className="empty-state-container">
