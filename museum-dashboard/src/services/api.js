@@ -1,4 +1,3 @@
-// Súbor: museum-dashboard/src/services/api.js (Zmenený)
 const API_URL = '/api';
 
 // Pomocná funkcia na získanie hlavičiek (Authorization)
@@ -16,7 +15,7 @@ const authFetch = async (url, options = {}) => {
   const res = await fetch(url, { ...options, headers: getHeaders() });
   
   if (res.status === 401) {
-    // Ak vyprší session alebo je zlé heslo, vyhodíme chybu
+    // Tu by sme mohli vyhodiť event na odhlásenie, ak vyprší session
     throw new Error('Unauthorized');
   }
   return res;
@@ -25,14 +24,17 @@ const authFetch = async (url, options = {}) => {
 export const api = {
 
   /* ===================================================================
-     PRODUKČNÝ LOGIN (Overenie voči RPi Backend)
-  =================================================================== */
+     1. PRODUKČNÁ VERZIA LOGINU (PRE RASPBERRY PI)
+     Až budeš na ostrom systéme:
+     1. ODKOMENTUJ túto funkciu nižšie
+     2. ZMAŽ tú "DEV VERZIU" pod ňou
+  ===================================================================
+  */
+  
+  /*
   login: async (username, password) => {
-    // Vytvoríme Basic Auth token
     const token = 'Basic ' + btoa(username + ':' + password);
-    
-    // Skúsime zavolať reálny backend na overenie hesla.
-    // Endpoint /status je chránený (@requires_auth), takže ak prejde, heslo je správne.
+    // Skúsime zavolať reálny backend na overenie hesla
     const res = await fetch(`${API_URL}/status`, {
         headers: { 'Authorization': token }
     });
@@ -43,9 +45,37 @@ export const api = {
         throw new Error('Nesprávne meno alebo heslo');
     }
   },
+  */
+
+
+  /* ===================================================================
+     2. DEV VERZIA LOGINU (TERAZ AKTÍVNA)
+     Použi toto, kým nemáš spustený Python backend.
+     Meno: admin
+     Heslo: 123
+  ===================================================================
+  */
+  login: async (username, password) => {
+    // Tieto údaje fungujú pre "offline" vývoj
+    const DEV_USER = 'admin';
+    const DEV_PASS = '123';
+
+    console.log("⚠️ Používam FALOŠNÝ login (Dev Mode) - Python server asi nebeží.");
+    
+    // Simulácia čakania (akože komunikujeme so serverom)
+    await new Promise(resolve => setTimeout(resolve, 600));
+
+    if (username === DEV_USER && password === DEV_PASS) {
+        // Vygenerujeme token, aby si aplikácia myslela, že sme prihlásení
+        return 'Basic ' + btoa(username + ':' + password);
+    }
+    
+    throw new Error('Zlé meno alebo heslo (Dev Mode: skús admin / 123)');
+  },
+
 
   // ===================================================================
-  // ZVYŠNÉ API VOLANIA
+  // ZVYŠNÉ API VOLANIA (Tie už používajú reálny alebo proxy server)
   // ===================================================================
 
   getStatus: async () => {
@@ -81,11 +111,10 @@ export const api = {
     return res.json();
   },
 
-  // ZMENA: Funkcia getSceneProgress bola odstránená, nahrádza ju Socket.IO push.
-  // getSceneProgress: async () => {
-  //   const res = await authFetch(`${API_URL}/scene/progress`);
-  //   return res.json();
-  // },
+  getSceneProgress: async () => {
+    const res = await authFetch(`${API_URL}/scene/progress`);
+    return res.json();
+  },
 
   getCommands: async () => {
     const res = await authFetch(`${API_URL}/commands`);

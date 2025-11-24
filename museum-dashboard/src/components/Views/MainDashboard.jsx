@@ -1,168 +1,196 @@
-// Súbor: museum-dashboard/src/components/Views/MainDashboard.jsx (Zmenený)
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { socket } from '../../services/socket';
 import { api } from '../../services/api';
-import { useAuth } from '../../context/AuthContext';
-import { useSocket } from '../../context/SocketContext';
 import toast from 'react-hot-toast';
+import { useConfirm } from '../../context/ConfirmContext';
 
 export default function MainDashboard() {
-  const { isAuthenticated } = useAuth();
-  const socket = useSocket(); // ZMENA 1: Získanie SocketIO inštancie
-  
-  const [status, setStatus] = useState({ 
-    room_id: '...', 
-    scene_running: false, 
-    mqtt_connected: false,
-    uptime: 'Neznámy',
-    log_count: 0
+  const [status, setStatus] = useState({
+    room_id: '-',
+    scene_running: false,
+    mqtt_connected: false
   });
   
-  // ZMENA 2: Stav na uloženie progresu prichádzajúceho cez Socket.IO
-  const [sceneProgress, setSceneProgress] = useState(null); 
+  const [deviceCount, setDeviceCount] = useState(0);
   
-  // Stiahne základné status informácie (ktoré sú stále cez HTTP GET)
-  const loadStatus = async () => {
+  const [progressData, setProgressData] = useState({
+    progress: 0,
+    text: '0%',
+    info: 'Načítavam...',
+    visible: false
+  });
+
+  const progressInterval = useRef(null);
+  const { confirm } = useConfirm();
+
+  useEffect(() => {
+    const handleStatus = (data) => setStatus(data);
+    const handleStats = (data) => {
+      if (data.connected_devices) {
+        setDeviceCount(Object.keys(data.connected_devices).length);
+      }
+    };
+
+    socket.on('status_update', handleStatus);
+    socket.on('stats_update', handleStats);
+
+    socket.emit('request_status');
+    socket.emit('request_stats');
+
+    return () => {
+      socket.off('status_update', handleStatus);
+      socket.off('stats_update', handleStats);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (status.scene_running) {
+      progressInterval.current = setInterval(async () => {
+        try {
+          const data = await api.getSceneProgress();
+          
+          if (data.scene_running) {
+            const percent = Math.min(Math.max(data.progress * 100, 0), 100);
+            const stateInfo = `Stav: ${data.current_state} (${data.states_completed}/${data.total_states})`;
+            
+            setProgressData({
+                progress: percent,
+                text: `${Math.round(percent)}%`,
+                info: stateInfo,
+                visible: true
+            });
+          } else {
+            setProgressData(prev => ({ ...prev, visible: false }));
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }, 500);
+    } else {
+      if (progressInterval.current) clearInterval(progressInterval.current);
+      setProgressData(prev => ({ ...prev, visible: false }));
+    }
+
+    return () => {
+      if (progressInterval.current) clearInterval(progressInterval.current);
+    };
+  }, [status.scene_running]);
+
+  const handleRunScene = async () => {
     try {
-      const data = await api.getStatus();
-      setStatus(data);
-    } catch (error) {
-      console.error(error);
+      const res = await fetch('/api/config/main_scene');
+      const config = await res.json();
+      const sceneName = config.json_file_name || 'intro.json';
+
+      toast.promise(
+        api.runScene(sceneName),
+        {
+            loading: 'Spúšťam hlavnú scénu...',
+            success: 'Predstavenie spustené!',
+            error: (err) => `Chyba: ${err.message}`
+        }
+      );
+    } catch (e) {
+      toast.error('Chyba pri načítaní konfigurácie: ' + e.message);
     }
   };
 
   const handleStopScene = async () => {
-    toast.promise(
-      api.stopScene(),
-      {
-        loading: 'Zastavujem scénu...',
-        success: (res) => {
-          if (res.success) {
-            // Po úspešnom STOPALL môžeme manuálne vynútiť stav neaktívnej scény
-            setStatus(prev => ({ ...prev, scene_running: false }));
-            setSceneProgress(null); // Vynulujeme progres
-            return 'Scéna úspešne zastavená a STOPALL vykonaný';
-          } else {
-            return `Chyba pri zastavení: ${res.error}`;
-          }
-        },
-        error: (err) => `Chyba komunikácie: ${err.message}`
-      }
-    );
-  };
-  
-  useEffect(() => {
-    if (!isAuthenticated || !socket) return;
-
-    // Inicializačný fetch statusu (vrátane scene_running)
-    loadStatus();
-
-    // ===================================================================
-    // ZMENA 3: Odstránenie pollingu a nahradenie Socket.IO listenerom
-    // ===================================================================
-
-    // Listener na aktualizácie progresu (PUSH model)
-    const handleProgressUpdate = (data) => {
-      setSceneProgress(data);
-      // Tiež aktualizujeme hlavný status
-      setStatus(prev => ({ ...prev, scene_running: data.scene_running }));
-    };
-
-    // Socket.IO event pre progres
-    socket.on('scene_progress_update', handleProgressUpdate);
-    
-    // Socket.IO event pre status (môže byť emitovaný iným procesom)
-    socket.on('status_update', (data) => {
-      setStatus(data);
-    });
-
-    // Cleanup funkcia
-    return () => {
-      // Odstránenie listenerov
-      socket.off('scene_progress_update', handleProgressUpdate);
-      socket.off('status_update');
-    };
-  }, [isAuthenticated, socket]);
-
-  // Pomocná funkcia pre vizuálne zobrazenie progresu
-  const renderSceneProgress = () => {
-    if (!status.scene_running && (!sceneProgress || sceneProgress.current_state === 'END' || sceneProgress.mode === 'none')) {
-      return <div className="scene-status inactive">Scéna nie je spustená</div>;
+    if (await confirm({
+        title: "Zastaviť scénu?",
+        message: "Skutočne chcete zastaviť prebiehajúcu scénu? Toto okamžite preruší predstavenie.",
+        confirmText: "Zastaviť",
+        type: "danger"
+    })) {
+        toast.promise(
+            api.stopScene(),
+            {
+                loading: 'Zastavujem...',
+                success: 'Scéna zastavená (STOPALL)',
+                error: (err) => `Chyba: ${err.message}`
+            }
+        );
     }
-
-    if (sceneProgress && sceneProgress.mode === 'state_machine') {
-      const completionPercentage = Math.round(sceneProgress.progress * 100);
-      const stateInfo = `${sceneProgress.states_completed} / ${sceneProgress.total_states}`;
-      const timeInfo = `${sceneProgress.scene_elapsed}s (stav: ${sceneProgress.state_elapsed}s)`;
-      
-      return (
-        <div className="scene-status active state-machine">
-          <h3>🎭 Scéna: {sceneProgress.scene_id}</h3>
-          <p>Stav: <span className="highlight-green">{sceneProgress.current_state}</span></p>
-          <p>Popis: {sceneProgress.state_description || 'N/A'}</p>
-          
-          <div className="progress-bar-container">
-            <div className="progress-bar" style={{ width: `${completionPercentage}%` }}></div>
-            <span className="progress-text">{completionPercentage}%</span>
-          </div>
-          <p className="small-meta">Stavové prechody: {stateInfo} | Celkový čas: {timeInfo}</p>
-        </div>
-      );
-    }
-    
-    // Predvolené zobrazenie, ak beží, ale progres nie je k dispozícii (napr. pri inicializácii)
-    return <div className="scene-status active">Scéna je spustená, čakám na dáta o progrese...</div>;
   };
-
-  if (!isAuthenticated) {
-    return (
-      <div className="tab-content active">
-        <p className="empty-state-text">Pre zobrazenie dashboardu sa musíte prihlásiť.</p>
-      </div>
-    );
-  }
 
   return (
-    <div className="tab-content active main-dashboard">
-      <h2>🏠 Hlavný Dashboard</h2>
-      
-      {/* Sekcia Progres Scény */}
-      <div className="card full-width">
-        <div className="card-header">
-          <h3>Stav Spustenej Scény</h3>
-          {status.scene_running && (
-            <button className="btn btn-danger btn-small" onClick={handleStopScene}>
-              ⏹️ Zastaviť scénu
-            </button>
-          )}
-        </div>
-        <div className="card-content">
-          {renderSceneProgress()}
+    <div className="main-dashboard">
+      <div className="system-status-card">
+        <div className={`main-status ${status.scene_running ? 'running pulse' : (status.mqtt_connected ? 'ready' : 'error')}`}>
+            <div className="status-icon">
+                {status.scene_running ? '🎭' : (status.mqtt_connected ? '✅' : '⚠️')}
+            </div>
+            <div className="status-text">
+                {status.scene_running ? 'Scéna prebieha' : (status.mqtt_connected ? 'Systém pripravený' : 'Systém nedostupný')}
+            </div>
+            <div className="status-description">
+                {status.scene_running 
+                    ? 'Predstavenie je v priebehu' 
+                    : (status.mqtt_connected ? 'Môžete spustiť predstavenie' : 'Skontrolujte MQTT pripojenie')}
+            </div>
         </div>
       </div>
 
-      {/* Systémové Metriky */}
-      <div className="layout-grid grid-3">
-        <div className="card system-metric">
-          <h4>Room ID</h4>
-          <p className="metric-value">{status.room_id}</p>
-        </div>
-        <div className="card system-metric">
-          <h4>MQTT Broker</h4>
-          <p className={`metric-value ${status.mqtt_connected ? 'text-green' : 'text-red'}`}>
-            {status.mqtt_connected ? 'Pripojený' : 'Odpojený'}
-          </p>
-        </div>
-        <div className="card system-metric">
-          <h4>Uptime</h4>
-          <p className="metric-value">{status.uptime}</p>
-        </div>
+      <div className="status-overview">
+          <div className="status-item good">
+              <div className="status-header">Miestnosť</div>
+              <div className="status-value">{status.room_id}</div>
+          </div>
+          <div className={`status-item ${status.mqtt_connected ? 'good' : 'error'}`}>
+              <div className="status-header">Komunikácia</div>
+              <div className="status-value">
+                  {status.mqtt_connected ? 'Pripojené' : 'Odpojené'}
+              </div>
+          </div>
+          <div className={`status-item ${status.scene_running ? 'warning' : 'good'}`}>
+              <div className="status-header">Scéna</div>
+              <div className="status-value">
+                  {status.scene_running ? 'Prebieha' : 'Pripravená'}
+              </div>
+          </div>
+          <div className="status-item">
+              <div className="status-header">Zariadenia</div>
+              <div className="status-value">{deviceCount} pripojených</div>
+          </div>
       </div>
-      
-      {/* Odkaz na logy */}
-      <div className="card full-width">
-        <div className="card-content" style={{textAlign: 'center'}}>
-          <p>Systémový log obsahuje <span className="highlight-blue">{status.log_count}</span> záznamov.</p>
+
+      {progressData.visible && (
+        <div className="scene-progress">
+            <div className="progress-header">Prebieha scéna</div>
+            <div className="progress-bar">
+                <div 
+                    className="progress-fill" 
+                    style={{ width: `${progressData.progress}%` }}
+                ></div>
+            </div>
+            <div className="progress-info">
+                <span>{progressData.text}</span>
+                <span>{progressData.info}</span>
+            </div>
         </div>
+      )}
+
+      <div className="main-controls">
+          {!status.scene_running ? (
+            <button 
+                className="main-scene-button" 
+                onClick={handleRunScene}
+                disabled={!status.mqtt_connected}
+            >
+                <div className="button-icon">▶️</div>
+                <div className="button-text">Spustiť hlavnú scénu</div>
+                <div className="button-subtext">Stlačte pre začatie predstavenia</div>
+            </button>
+          ) : (
+            <button 
+                className="stop-scene-button" 
+                onClick={handleStopScene}
+            >
+                <div className="button-icon">⏹️</div>
+                <div className="button-text">Zastaviť scénu</div>
+                <div className="button-subtext">Núdzové zastavenie</div>
+            </button>
+          )}
       </div>
     </div>
   );
