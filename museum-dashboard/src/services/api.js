@@ -1,3 +1,4 @@
+// Súbor: museum-dashboard/src/services/api.js (Zmenený)
 const API_URL = '/api';
 
 // Pomocná funkcia na získanie hlavičiek (Authorization)
@@ -80,10 +81,11 @@ export const api = {
     return res.json();
   },
 
-  getSceneProgress: async () => {
-    const res = await authFetch(`${API_URL}/scene/progress`);
-    return res.json();
-  },
+  // ZMENA: Funkcia getSceneProgress bola odstránená, nahrádza ju Socket.IO push.
+  // getSceneProgress: async () => {
+  //   const res = await authFetch(`${API_URL}/scene/progress`);
+  //   return res.json();
+  // },
 
   getCommands: async () => {
     const res = await authFetch(`${API_URL}/commands`);
