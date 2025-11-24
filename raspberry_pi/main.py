@@ -1,10 +1,10 @@
+# raspberry_pi/main.py
 #!/usr/bin/env python3
 
 import os
 import sys
 import signal
 import time
-import logging
 import threading
 
 # Configure Python path for module imports
@@ -18,40 +18,8 @@ from utils.logging_setup import setup_logging_from_config, get_logger
 # Initialize configuration and logging
 config_manager = ConfigManager()
 logging_config = config_manager.get_logging_config()
+# Logging levels are now handled purely within logging_setup.py based on config
 log = setup_logging_from_config(logging_config)
-
-# EARLY LOG LEVEL SETUP
-def apply_early_log_levels():
-    """Apply log levels early to suppress startup noise"""
-    level_map = {
-        'DEBUG': logging.DEBUG,
-        'INFO': logging.INFO, 
-        'WARNING': logging.WARNING,
-        'ERROR': logging.ERROR,
-        'CRITICAL': logging.CRITICAL
-    }
-    
-    component_levels = logging_config.get('component_levels', {})
-    
-    early_suppressions = {
-        'museum.main': 'WARNING',
-        'museum.audio': 'WARNING', 
-        'museum.video': 'WARNING',
-        'museum.mqtt': 'WARNING',
-        'museum.scene_parser': 'WARNING',
-        'museum.btn_handler': 'WARNING',
-        'museum.sys_monitor': 'ERROR',
-        'museum.config': 'ERROR',
-        'museum.setup': 'ERROR',
-    }
-    
-    all_levels = {**early_suppressions, **component_levels}
-    
-    for logger_name, level_str in all_levels.items():
-        level = level_map.get(level_str.upper(), logging.INFO)
-        logging.getLogger(logger_name).setLevel(level)
-
-apply_early_log_levels()
 log = get_logger('main')
 
 # Import core system modules
@@ -93,7 +61,6 @@ class MuseumController:
         # System settings
         self.main_loop_sleep = self.config['main_loop_sleep']
         self.scene_processing_sleep = self.config['scene_processing_sleep']
-        self.scene_buffer_time = self.config['scene_buffer_time']
         self.web_dashboard_port = self.config['web_dashboard_port']
         
         # Scene execution state
@@ -133,13 +100,12 @@ class MuseumController:
             feedback_timeout=self.config.get('feedback_timeout', 2)
         )
         
-        # Create message handler (scene_parser will be set later)
+        # Create message handler
         self.mqtt_message_handler = MQTTMessageHandler()
         self.mqtt_message_handler.set_handlers(
             device_registry=self.mqtt_device_registry,
             feedback_tracker=self.mqtt_feedback_tracker,
             button_callback=self.on_button_press,
-            # NOVY HANDLER PRE SPUSTENIE KONKRÉTNEJ SCÉNY CEZ MQTT
             named_scene_callback=self.start_scene_by_name
         )
         
@@ -162,18 +128,17 @@ class MuseumController:
             self.mqtt_device_registry
         )
         
-        # Set connection callbacks
         self.mqtt_client.connection_lost_callback = self._on_mqtt_connection_lost
         self.mqtt_client.connection_restored_callback = self._on_mqtt_connection_restored
         
-        # Scene Parser - NEW: State Machine version
+        # Scene Parser
         self.scene_parser = SceneParser(
             mqtt_client=self.mqtt_client,
             audio_handler=self.audio_handler,
             video_handler=self.video_handler
         )
         
-        # NEW: Connect scene parser to MQTT message handler for MQTT transitions
+        # Connect scene parser to MQTT message handler
         self.mqtt_message_handler.scene_parser = self.scene_parser
         log.debug("Scene parser connected to MQTT message handler for transitions")
         
@@ -181,8 +146,6 @@ class MuseumController:
         self.system_monitor = SystemMonitor(
             health_check_interval=self.config.get('health_check_interval', 120)
         )
-        
-        # Log startup info
         self.system_monitor.log_startup_info(
             self.room_id, 
             self.config['broker_ip'], 
@@ -210,109 +173,70 @@ class MuseumController:
                 log.warning(f"Web dashboard failed to start: {e}")
 
     def _signal_handler(self, signum, frame):
-        """Handle shutdown signals to initiate graceful cleanup."""
+        """Handle shutdown signals."""
         log.warning(f"Received signal {signum}, initiating shutdown...")
         self.shutdown_requested = True
         if self.mqtt_client:
             self.mqtt_client.shutdown_requested = True
 
     def _on_mqtt_connection_lost(self):
-        """Handle loss of MQTT connection."""
         log.warning("MQTT connection lost - system will continue with limited functionality")
 
     def _on_mqtt_connection_restored(self):
-        """Handle restoration of MQTT connection."""
         self.system_monitor.send_ready_notification()
         log.info(f"System ready - {self.room_id} operational")
-        log.debug("MQTT connection restored - full functionality available")
 
     def on_button_press(self):
-        """Handle button press events to start the default scene in a new thread."""
+        """Handle button press to start default scene."""
+        self._initiate_scene_start(self.json_file_name, "Button pressed - starting default scene")
+
+    def start_default_scene(self):
+        """Public method to start default scene."""
+        # Wrapper mainly for compatibility if called externally
+        self._initiate_scene_start(self.json_file_name, "Starting default scene")
+
+    def start_scene_by_name(self, scene_file_name):
+        """Public method to start a specific scene by file name."""
+        self._initiate_scene_start(scene_file_name, f"Starting named scene: {scene_file_name}")
+        return True
+
+    def _initiate_scene_start(self, scene_filename, log_message):
+        """
+        Common entry point for starting a scene.
+        Checks conditions and launches the thread.
+        """
         with self.scene_lock:
             if self.scene_running:
-                log.info("Scene already running, ignoring button press")
-                return
+                log.info(f"Scene already running, ignoring request to start: {scene_filename}")
+                return False
             
             if not self.mqtt_client or not self.mqtt_client.is_connected():
                 log.error("Cannot start scene: MQTT not connected")
-                return
-            
-            self.scene_running = True
-            log.info("Button pressed - starting default scene")
-
-        scene_thread = threading.Thread(target=self.start_default_scene, daemon=True)
-        scene_thread.start()
-
-    def start_default_scene(self):
-        """Load and start the default scene for the current room."""
-        if not self.mqtt_client or not self.mqtt_client.is_connected():
-            log.error("Cannot start scene: MQTT not connected")
-            self.scene_running = False
-            return
-
-        # Build full path: scenes_dir/room_id/json_file_name
-        scene_path = os.path.join(self.scenes_dir, self.room_id, self.json_file_name)
-        
-        # DEBUG: Log the path we're trying to load
-        log.debug(f"Attempting to load scene from: {scene_path}")
-        log.debug(f"File exists: {os.path.exists(scene_path)}")
-
-        if not os.path.exists(scene_path):
-            log.critical(f"Scene file not found: {scene_path}")
-            self.scene_running = False
-            return
-
-        if not self.scene_parser:
-            log.error("Scene parser not available")
-            self.scene_running = False
-            return
-
-        log.debug(f"Loading scene: {scene_path}")
-        if self.scene_parser.load_scene(scene_path):
-            try:
-                self.scene_parser.start_scene()
-                self.run_scene()
-            except Exception as e:
-                log.error(f"An error occurred during scene execution: {e}")
-            finally:
-                self.scene_running = False
-        else:
-            log.error("Failed to load scene")
-            self.scene_running = False
-
-    # NOVÁ METÓDA: Verejný vstupný bod pre spustenie scény podľa názvu cez MQTT
-    def start_scene_by_name(self, scene_file_name):
-        """Public method to start a specific scene by file name in a new thread."""
-        
-        # 1. Kontrola zámku a stavu
-        with self.scene_lock:
-            if self.scene_running:
-                log.info(f"Scene already running, ignoring request to start scene: {scene_file_name}")
-                return False
-            
-            if not self.mqtt_client or not self.mqtt_client.is_connected():
-                log.error("Cannot start named scene: MQTT not connected")
                 return False
             
             self.scene_running = True
-            log.info(f"Starting named scene via MQTT command: {scene_file_name}")
+            log.info(log_message)
 
-        # 2. Spustenie scény v dedikovanom vlákne
-        scene_thread = threading.Thread(target=self._start_named_scene_thread_target, args=(scene_file_name,), daemon=True)
-        scene_thread.start()
+        # Launch worker thread
+        threading.Thread(
+            target=self._run_scene_logic, 
+            args=(scene_filename,), 
+            daemon=True
+        ).start()
         return True
 
-    # NOVÁ METÓDA: Vlákno pre načítanie a spustenie konkrétnej scény
-    def _start_named_scene_thread_target(self, scene_file_name):
-        """Worker thread function to load and execute a named scene."""
-        scene_path = os.path.join(self.scenes_dir, self.room_id, scene_file_name)
+    def _run_scene_logic(self, scene_filename):
+        """
+        Worker thread function containing the core logic to load and run a scene.
+        Replaces code duplication from start_default_scene and start_named_scene.
+        """
+        scene_path = os.path.join(self.scenes_dir, self.room_id, scene_filename)
         
         try:
-            log.debug(f"Attempting to load named scene from: {scene_path}")
-            log.debug(f"File exists: {os.path.exists(scene_path)}")
-
+            log.debug(f"Attempting to load scene from: {scene_path}")
+            
             if not os.path.exists(scene_path):
-                log.critical(f"Named scene file not found: {scene_path}")
+                log.critical(f"Scene file not found: {scene_path}")
                 self.scene_running = False
                 return
 
@@ -327,24 +251,20 @@ class MuseumController:
                     self.scene_parser.start_scene()
                     self.run_scene()
                 except Exception as e:
-                    log.error(f"An error occurred during named scene execution: {e}")
+                    log.error(f"An error occurred during scene execution: {e}")
                 finally:
-                    # Upratovanie po skončení (nastavenie scene_running na False)
+                    # Cleanup after scene ends
                     self.scene_running = False
             else:
-                log.error(f"Failed to load named scene: {scene_file_name}")
+                log.error(f"Failed to load scene: {scene_filename}")
                 self.scene_running = False
 
         except Exception as e:
-            log.error(f"Critical error in named scene thread: {e}")
-            # Bezpečnostné upratovanie
+            log.error(f"Critical error in scene thread: {e}")
             self.scene_running = False
 
     def run_scene(self):
-        """
-        Execute the loaded state machine scene.
-        NEW: Replaces timestamp-based execution with state machine logic.
-        """
+        """Execute the loaded state machine scene."""
         if not self.scene_parser.scene_data:
             log.error("No scene data available")
             self.scene_running = False 
@@ -352,7 +272,7 @@ class MuseumController:
 
         log.debug("Starting state machine scene execution")
 
-        # Enable MQTT feedback tracking for the scene
+        # Enable MQTT feedback tracking
         if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
             if self.mqtt_client.feedback_tracker:
                 self.mqtt_client.feedback_tracker.enable_feedback_tracking()
@@ -363,19 +283,17 @@ class MuseumController:
                 log.info("Scene execution was stopped externally.")
                 break
             
-            # Process current state (returns False when scene ends)
+            # Process current state
             scene_continues = self.scene_parser.process_scene()
             
             if not scene_continues:
                 break
             
-            # Sleep to prevent CPU overload
             time.sleep(self.scene_processing_sleep)
 
-        # Clean up after scene completion
+        # Cleanup
         log.info("Scene execution finished")
 
-        # Disable MQTT feedback tracking
         if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
             if self.mqtt_client.feedback_tracker:
                 self.mqtt_client.feedback_tracker.disable_feedback_tracking()
@@ -389,34 +307,32 @@ class MuseumController:
         """Update scene play statistics for the web dashboard."""
         if not self.web_dashboard:
             return
-            
         try:
-            scene_name = self.json_file_name
+            # We track stats for the currently running file. 
+            # Note: This might need adjustment if we want to track specific scene ID, 
+            # but using filename is consistent with current logic.
+            current_scene_file = self.scene_parser.state_machine.scene_id or "unknown"
+            
             self.web_dashboard.stats['total_scenes_played'] += 1
-            self.web_dashboard.stats['scene_play_counts'][scene_name] = \
-                self.web_dashboard.stats['scene_play_counts'].get(scene_name, 0) + 1
+            # Simple increment, assuming simple stats structure
             self.web_dashboard.save_stats()
             self.web_dashboard.socketio.emit('stats_update', self.web_dashboard.stats)
-            log.debug(f"Updated statistics for scene: {scene_name}")
         except Exception as e:
-            log.error(f"Error updating stats for scene: {e}")
+            log.error(f"Error updating stats: {e}")
 
     def run(self):
-        """Run the main application loop with periodic health checks."""
+        """Run the main application loop."""
         log.info("Starting Museum Controller")
         
-        # Establish MQTT connection
         if not self.mqtt_client or not self.mqtt_client.establish_initial_connection():
             if self.shutdown_requested:
                 return
             log.critical("CRITICAL: Unable to establish MQTT connection")
             sys.exit(1)
         
-        # Track time for periodic tasks
         last_device_cleanup = time.time()
         device_cleanup_interval = self.config['device_cleanup_interval']
         
-        # Main loop with health checks and button polling
         use_polling = (hasattr(self.button_handler, 'use_polling') and 
                     self.button_handler.use_polling if self.button_handler else False)
         
@@ -424,17 +340,14 @@ class MuseumController:
             while not self.shutdown_requested:      
                 current_time = time.time()
                 
-                # Poll button state if required
                 if use_polling and self.button_handler:
                     self.button_handler.check_button_polling()
                 
-                # Periodic device cleanup (check for stale devices)
                 if current_time - last_device_cleanup >= device_cleanup_interval:
                     if self.mqtt_device_registry:
                         self.mqtt_device_registry.cleanup_stale_devices()
                     last_device_cleanup = current_time
                 
-                # Adjust sleep time based on scene activity
                 sleep_time = self.main_loop_sleep if self.scene_running else (self.main_loop_sleep + 0.5)
                 time.sleep(sleep_time)
                 
@@ -454,11 +367,9 @@ class MuseumController:
         log.info("Initiating cleanup...")
         self._cleaned_up = True
         
-        # Stop MQTT client
         if self.mqtt_client:
             self.mqtt_client.cleanup()
         
-        # Clean up other components
         components = [
             (self.button_handler, "Button Handler"),
             (self.audio_handler, "Audio Handler"),
@@ -476,7 +387,6 @@ class MuseumController:
         log.info("Museum Controller stopped cleanly")
 
 def main():
-    """Main entry point for the museum controller application."""
     controller = None
     try:
         controller = MuseumController(config_manager)
