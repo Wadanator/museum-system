@@ -1,32 +1,31 @@
 import React from 'react';
-import { Trash2, Clock, LogIn, LogOut, ArrowRight, ChevronDown, ChevronRight, Hash } from 'lucide-react';
+import { Trash2, Clock, LogIn, LogOut, ArrowRight, Hash } from 'lucide-react';
 import ActionListEditor from './ActionListEditor';
 import TransitionEditor from './TransitionEditor';
 import TimelineEditor from './TimelineEditor';
 
-const StateEditor = ({ state, onChange, onDelete, states, globalPrefix, isSelected, onToggle }) => {
+const StateEditor = ({ state, onChange, onDelete, states, globalPrefix, isSelected, onFocus }) => {
   
-  // --- ZMENA: Žiadny lokálny state. Otvorenie riadi výlučne rodič (App.jsx) ---
-  const isExpanded = isSelected;
+  // ZMENA: Žiadny accordion, obsah je vždy viditeľný.
+  // isSelected slúži už len na vizuálne zvýraznenie (modrý rámik).
 
   return (
     <div 
+        // Kliknutie kdekoľvek v editore ho označí ako aktívny (pre Sidebar)
+        onClick={() => onFocus(state.id)}
         className={`rounded-lg mb-4 transition-all duration-300 border ${
-            isExpanded 
+            isSelected 
                 ? 'bg-gray-800 border-blue-500 shadow-lg shadow-blue-900/20 ring-1 ring-blue-500/50' 
-                : 'bg-gray-800 border-gray-700 hover:border-gray-600 opacity-80 hover:opacity-100'
+                : 'bg-gray-800 border-gray-700 hover:border-gray-600'
         }`}
     >
-      {/* HEADER - Kliknutie volá onToggle */}
-      <div 
-        className="flex items-center justify-between p-4 cursor-pointer select-none"
-        onClick={() => onToggle(state.id)}
-      >
+      {/* HEADER */}
+      <div className="flex items-center justify-between p-4 cursor-pointer select-none border-b border-gray-700/50 bg-gray-900/20">
         <div className="flex items-center gap-3">
-            {isExpanded ? <ChevronDown size={20} className="text-blue-400" /> : <ChevronRight size={20} className="text-gray-500" />}
+            {/* Odstránené šípky (Chevron) */}
             
             <div className="flex flex-col">
-                <span className={`font-mono text-lg font-bold ${isExpanded ? 'text-blue-400' : 'text-gray-200'}`}>
+                <span className={`font-mono text-lg font-bold ${isSelected ? 'text-blue-400' : 'text-gray-200'}`}>
                     {state.name}
                 </span>
                 <span className="text-xs text-gray-500 truncate max-w-md">
@@ -36,14 +35,7 @@ const StateEditor = ({ state, onChange, onDelete, states, globalPrefix, isSelect
         </div>
 
         <div className="flex items-center gap-3">
-            {/* Zobraziť rýchle info len keď je ZATVORENÝ */}
-            {!isExpanded && (
-                <div className="flex gap-2 text-xs text-gray-500 mr-4">
-                    <span className="bg-gray-700 px-2 py-0.5 rounded flex items-center gap-1"><LogIn size={10}/> {state.onEnter?.length || 0}</span>
-                    <span className="bg-gray-700 px-2 py-0.5 rounded flex items-center gap-1"><Clock size={10}/> {state.timeline?.length || 0}</span>
-                    <span className="bg-gray-700 px-2 py-0.5 rounded flex items-center gap-1"><ArrowRight size={10}/> {state.transitions?.length || 0}</span>
-                </div>
-            )}
+            {/* Odstránené sumárne info (LogIn, Clock...) keďže sú viditeľné dole */}
             
             <button
                 onClick={(e) => { e.stopPropagation(); onDelete(); }}
@@ -55,9 +47,8 @@ const StateEditor = ({ state, onChange, onDelete, states, globalPrefix, isSelect
         </div>
       </div>
 
-      {/* BODY - Renderuje sa len ak je isSelected=true */}
-      {isExpanded && (
-        <div className="p-4 border-t border-gray-700 space-y-6 animate-fadeIn bg-gray-800/50">
+      {/* BODY - VŽDY VIDITEĽNÉ */}
+      <div className="p-4 space-y-6 bg-gray-800/50">
             {/* Metadata */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-900/50 p-4 rounded-lg border border-gray-700">
                 <div>
@@ -132,8 +123,7 @@ const StateEditor = ({ state, onChange, onDelete, states, globalPrefix, isSelect
                     globalPrefix={globalPrefix}
                 />
             </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 };

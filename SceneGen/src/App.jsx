@@ -1,12 +1,12 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { Plus } from 'lucide-react'; 
-import Header from './components/Header';
-import StateEditor from './components/StateEditor';
-import GlobalEventsEditor from './components/GlobalEventsEditor';
-import GraphicPreview from './components/GraphicPreview';
-import EditorToolbar from './components/EditorToolbar';
-import SettingsPanel from './components/SettingsPanel';
-import SceneSidebar from './components/SceneSidebar';
+import Header from './components/layout/Header';
+import StateEditor from './components/features/editor/StateEditor';
+import GlobalEventsEditor from './components/features/settings/GlobalEventsEditor';
+import GraphicPreview from './components/features/graph/GraphicPreview';
+import EditorToolbar from './components/layout/Toolbar';
+import SettingsPanel from './components/features/settings/SettingsPanel';
+import SceneSidebar from './components/layout/Sidebar';
 import { useSceneManager } from './hooks/useSceneManager';
 
 function App() {
@@ -19,34 +19,30 @@ function App() {
   const stateEditorRefs = useRef({}); 
   const topRef = useRef(null);
 
-  // --- NAVIGÁCIA ---
+  // --- NAVIGÁCIA (Sidebar a Scroll) ---
 
+  // Táto funkcia slúži na "portnutie" (scroll) k stavu
   const handleSelectState = (id) => {
-      setSelectedStateId(id);
+      setSelectedStateId(id); // Nastaví zvýraznenie
       
       if (id === null) {
           if (topRef.current) {
               topRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
           }
       } else {
+          // Počkáme na render a scrollneme
           setTimeout(() => {
               const el = stateEditorRefs.current[id];
               if (el) {
                   el.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }
-          }, 100); 
+          }, 50); 
       }
   };
 
-  // --- NOVÉ: Handler pre prepínanie (Accordion logic) ---
-  const handleToggleState = (id) => {
-      if (selectedStateId === id) {
-          // Ak kliknem na ten istý, zatvorím ho (a idem hore na settings)
-          handleSelectState(null);
-      } else {
-          // Ak kliknem na iný, otvorím ho (a ostatné sa zatvoria, lebo selectedStateId je len jedno)
-          handleSelectState(id);
-      }
+  // ZMENA: Len nastavenie fokusu bez scrollu (pre kliknutie priamo na editor)
+  const handleFocusState = (id) => {
+      setSelectedStateId(id);
   };
 
   const handleSceneLoad = (sceneName) => {
@@ -116,7 +112,7 @@ function App() {
         {activeTab === 'editor' ? (
           <div className="flex gap-8 items-start relative">
             
-            {/* SIDEBAR */}
+            {/* SIDEBAR - Zostáva rovnaký, používa handleSelectState pre scroll */}
             <div className="hidden lg:block sticky top-28 w-72 flex-shrink-0">
                 <SceneSidebar 
                     states={states} 
@@ -178,8 +174,8 @@ function App() {
                                 states={states}
                                 globalPrefix={metadata.globalPrefix}
                                 isSelected={selectedStateId === state.id}
-                                // Tu posielame funkciu pre prepínanie
-                                onToggle={handleToggleState} 
+                                // ZMENA: Používame handleFocusState, aby sme len označili, ale nescrollovali
+                                onFocus={() => handleFocusState(state.id)} 
                             />
                         </div>
                     ))}

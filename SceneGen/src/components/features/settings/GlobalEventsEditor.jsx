@@ -1,6 +1,6 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import { TRANSITION_TYPES } from '../utils/constants';
+import { TRANSITION_TYPES } from '../../../utils/constants';
 
 /**
  * GlobalEventsEditor Component

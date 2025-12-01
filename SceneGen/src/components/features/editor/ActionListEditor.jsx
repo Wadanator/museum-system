@@ -1,7 +1,7 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
 import ActionEditor from './ActionEditor';
-import { createEmptyAction } from '../utils/generators';
+import { createEmptyAction } from '../../../utils/generators';
 
 const ActionListEditor = ({ actions, onChange, globalPrefix }) => {
   const addAction = () => {

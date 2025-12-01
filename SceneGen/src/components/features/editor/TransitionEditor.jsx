@@ -1,7 +1,7 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
-import { TRANSITION_TYPES } from '../utils/constants';
-import { createEmptyTransition } from '../utils/generators';
+import { TRANSITION_TYPES } from '../../../utils/constants';
+import { createEmptyTransition } from '../../../utils/generators';
 
 // Button values common in the museum system (RPI/ESP32 compatibility)
 const BUTTON_NUMBERS = ['1', '2', '3', '4', '5', '6', '7', '8'];

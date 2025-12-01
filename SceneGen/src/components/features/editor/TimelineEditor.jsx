@@ -1,7 +1,7 @@
 import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import ActionEditor from './ActionEditor';
-import { createEmptyAction } from '../utils/generators';
+import { createEmptyAction } from '../../../utils/generators';
 
 const TimelineEditor = ({ timeline, onChange, globalPrefix }) => {
   // Fallback ak by náhodou prišlo undefined
