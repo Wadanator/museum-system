@@ -1,176 +1,137 @@
-import React, { useState } from 'react';
-import { Trash2, Plus, ChevronDown, ChevronUp } from 'lucide-react';
-import ActionEditor from './ActionEditor';
-import TimelineEditor from './TimelineEditor';
+import React from 'react';
+import { Trash2, Clock, LogIn, LogOut, ArrowRight, ChevronDown, ChevronRight, Hash } from 'lucide-react';
+import ActionListEditor from './ActionListEditor';
 import TransitionEditor from './TransitionEditor';
-import { createEmptyAction } from '../utils/generators';
+import TimelineEditor from './TimelineEditor';
 
-/**
- * StateEditor Component
- * Edits a complete state with all its properties
- */
-const StateEditor = ({ state, onChange, onDelete, states, globalPrefix, isSelected }) => {
-  // Initial state is expanded for new states (implicitly handled by ActionEditor, but often useful here too)
-  const [expanded, setExpanded] = useState(false); 
-
-  const updateOnEnter = (actions) => onChange({ ...state, onEnter: actions });
-  const updateOnExit = (actions) => onChange({ ...state, onExit: actions });
-  const updateTimeline = (timeline) => onChange({ ...state, timeline });
-  const updateTransitions = (transitions) => onChange({ ...state, transitions });
-
-  /**
-   * Adds an empty action to either 'onEnter' or 'onExit'
-   * @param {string} type - 'onEnter' or 'onExit'
-   */
-  const addAction = (type) => {
-    const newAction = createEmptyAction();
-    const newActions = [...(state[type] || []), newAction];
-    onChange({ ...state, [type]: newActions });
-  };
-
-  /**
-   * Updates a specific action within 'onEnter' or 'onExit'
-   * @param {string} type - 'onEnter' or 'onExit'
-   * @param {number} index - Index of the action to update.
-   * @param {object} updates - The new properties for the action.
-   */
-  const updateAction = (type, index, updates) => {
-    const actions = [...state[type]];
-    actions[index] = { ...actions[index], ...updates };
-    onChange({ ...state, [type]: actions });
-  };
-
-  /**
-   * Deletes a specific action from 'onEnter' or 'onExit'
-   * @param {string} type - 'onEnter' or 'onExit'
-   * @param {number} index - Index of the action to delete.
-   */
-  const deleteAction = (type, index) => {
-    onChange({ ...state, [type]: state[type].filter((_, i) => i !== index) });
-  };
+const StateEditor = ({ state, onChange, onDelete, states, globalPrefix, isSelected, onToggle }) => {
+  
+  // --- ZMENA: Žiadny lokálny state. Otvorenie riadi výlučne rodič (App.jsx) ---
+  const isExpanded = isSelected;
 
   return (
     <div 
-      className={`bg-gray-800 rounded-lg p-4 mb-4 border-2 transition ${
-        isSelected ? 'border-blue-500 shadow-lg' : 'border-gray-700 hover:border-gray-600'
-      }`}
+        className={`rounded-lg mb-4 transition-all duration-300 border ${
+            isExpanded 
+                ? 'bg-gray-800 border-blue-500 shadow-lg shadow-blue-900/20 ring-1 ring-blue-500/50' 
+                : 'bg-gray-800 border-gray-700 hover:border-gray-600 opacity-80 hover:opacity-100'
+        }`}
     >
-      {/* State Header */}
-      <div className="flex justify-between items-center mb-3">
-        <div className="flex-1">
-          {/* State Name */}
-          <input
-            type="text"
-            value={state.name}
-            onChange={(e) => onChange({ ...state, name: e.target.value })}
-            className="bg-gray-700 px-3 py-2 rounded font-bold text-lg w-full focus:ring-2 focus:ring-blue-500"
-            placeholder="State Name"
-          />
-          {/* State Description */}
-          <input
-            type="text"
-            value={state.description}
-            onChange={(e) => onChange({ ...state, description: e.target.value })}
-            className="bg-gray-700 px-3 py-1 rounded text-sm w-full mt-2 focus:ring-2 focus:ring-blue-500"
-            placeholder="Description"
-          />
+      {/* HEADER - Kliknutie volá onToggle */}
+      <div 
+        className="flex items-center justify-between p-4 cursor-pointer select-none"
+        onClick={() => onToggle(state.id)}
+      >
+        <div className="flex items-center gap-3">
+            {isExpanded ? <ChevronDown size={20} className="text-blue-400" /> : <ChevronRight size={20} className="text-gray-500" />}
+            
+            <div className="flex flex-col">
+                <span className={`font-mono text-lg font-bold ${isExpanded ? 'text-blue-400' : 'text-gray-200'}`}>
+                    {state.name}
+                </span>
+                <span className="text-xs text-gray-500 truncate max-w-md">
+                    {state.description || "Bez popisu..."}
+                </span>
+            </div>
         </div>
-        <div className="flex gap-2 ml-4">
-          {/* Expand/Collapse Button */}
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded transition flex items-center gap-2"
-            title={expanded ? 'Collapse' : 'Expand'}
-          >
-            {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-            {expanded ? 'Collapse' : 'Expand'}
-          </button>
-          {/* Delete Button */}
-          <button
-            onClick={onDelete}
-            className="px-3 py-2 bg-red-600 hover:bg-red-700 rounded transition"
-            title="Delete state"
-          >
-            <Trash2 size={18} />
-          </button>
+
+        <div className="flex items-center gap-3">
+            {/* Zobraziť rýchle info len keď je ZATVORENÝ */}
+            {!isExpanded && (
+                <div className="flex gap-2 text-xs text-gray-500 mr-4">
+                    <span className="bg-gray-700 px-2 py-0.5 rounded flex items-center gap-1"><LogIn size={10}/> {state.onEnter?.length || 0}</span>
+                    <span className="bg-gray-700 px-2 py-0.5 rounded flex items-center gap-1"><Clock size={10}/> {state.timeline?.length || 0}</span>
+                    <span className="bg-gray-700 px-2 py-0.5 rounded flex items-center gap-1"><ArrowRight size={10}/> {state.transitions?.length || 0}</span>
+                </div>
+            )}
+            
+            <button
+                onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                className="p-2 text-gray-500 hover:text-red-400 hover:bg-red-900/30 rounded transition"
+                title="Vymazať stav"
+            >
+                <Trash2 size={18} />
+            </button>
         </div>
       </div>
 
-      {/* State Content (when expanded) */}
-      {expanded && (
-        <div className="space-y-4 mt-4 pt-4 border-t border-gray-700">
-          {/* OnEnter Actions */}
-          <div className="bg-gray-750 p-3 rounded">
-            <div className="flex justify-between items-center mb-2">
-              <h4 className="font-semibold text-green-400">On Enter Actions</h4>
-              <button
-                onClick={() => addAction('onEnter')}
-                className="px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-sm flex items-center gap-1 transition"
-                title="Add onEnter action"
-              >
-                <Plus size={14} /> Add
-              </button>
+      {/* BODY - Renderuje sa len ak je isSelected=true */}
+      {isExpanded && (
+        <div className="p-4 border-t border-gray-700 space-y-6 animate-fadeIn bg-gray-800/50">
+            {/* Metadata */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-900/50 p-4 rounded-lg border border-gray-700">
+                <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Názov stavu (ID)</label>
+                    <div className="flex items-center gap-2">
+                        <Hash size={16} className="text-gray-500"/>
+                        <input
+                            type="text"
+                            value={state.name}
+                            onChange={(e) => onChange({ ...state, name: e.target.value })}
+                            className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white font-mono focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition"
+                        />
+                    </div>
+                </div>
+                <div>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Popis</label>
+                    <input
+                        type="text"
+                        value={state.description || ''}
+                        onChange={(e) => onChange({ ...state, description: e.target.value })}
+                        className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white placeholder-gray-500 focus:border-blue-500 outline-none transition"
+                        placeholder="Čo sa deje v tomto stave?"
+                    />
+                </div>
             </div>
-            {state.onEnter?.length > 0 ? (
-              state.onEnter.map((action, idx) => (
-                <ActionEditor
-                  key={action.id || idx}
-                  action={action}
-                  onChange={(updated) => updateAction('onEnter', idx, updated)}
-                  onDelete={() => deleteAction('onEnter', idx)}
-                  globalPrefix={globalPrefix}
+
+            {/* 1. ON ENTER */}
+            <div className="border-l-2 border-green-500 pl-4 ml-1">
+                <h4 className="text-sm font-bold text-green-400 flex items-center gap-2 mb-3 uppercase tracking-wider">
+                    <LogIn size={16} /> Pri Vstupe (onEnter)
+                </h4>
+                <ActionListEditor 
+                    actions={state.onEnter || []}
+                    onChange={(newActions) => onChange({ ...state, onEnter: newActions })}
+                    globalPrefix={globalPrefix}
                 />
-              ))
-            ) : (
-              <p className="text-sm text-gray-400 italic py-2">No onEnter actions</p>
-            )}
-          </div>
-
-          {/* Timeline */}
-          <div className="bg-gray-750 p-3 rounded">
-            <TimelineEditor
-              timelineItems={state.timeline || []}
-              onChange={updateTimeline}
-              globalPrefix={globalPrefix}
-            />
-          </div>
-
-          {/* OnExit Actions */}
-          <div className="bg-gray-750 p-3 rounded">
-            <div className="flex justify-between items-center mb-2">
-              <h4 className="font-semibold text-orange-400">On Exit Actions</h4>
-              <button
-                onClick={() => addAction('onExit')}
-                className="px-2 py-1 bg-orange-600 hover:bg-orange-700 rounded text-sm flex items-center gap-1 transition"
-                title="Add onExit action"
-              >
-                <Plus size={14} /> Add
-              </button>
             </div>
-            {state.onExit?.length > 0 ? (
-              state.onExit.map((action, idx) => (
-                <ActionEditor
-                  key={action.id || idx}
-                  action={action}
-                  onChange={(updated) => updateAction('onExit', idx, updated)}
-                  onDelete={() => deleteAction('onExit', idx)}
-                  globalPrefix={globalPrefix}
-                />
-              ))
-            ) : (
-              <p className="text-sm text-gray-400 italic py-2">No onExit actions</p>
-            )}
-          </div>
 
-          {/* Transitions */}
-          <div className="bg-gray-750 p-3 rounded">
-            <TransitionEditor
-              transitions={state.transitions || []}
-              onChange={updateTransitions}
-              states={states}
-              globalPrefix={globalPrefix}
-            />
-          </div>
+            {/* 2. TIMELINE */}
+            <div className="border-l-2 border-blue-500 pl-4 ml-1">
+                <h4 className="text-sm font-bold text-blue-400 flex items-center gap-2 mb-3 uppercase tracking-wider">
+                    <Clock size={16} /> Časová os (Timeline)
+                </h4>
+                <TimelineEditor
+                    timeline={state.timeline || []}
+                    onChange={(newTimeline) => onChange({ ...state, timeline: newTimeline })}
+                    globalPrefix={globalPrefix}
+                />
+            </div>
+
+            {/* 3. ON EXIT */}
+            <div className="border-l-2 border-red-500 pl-4 ml-1">
+                <h4 className="text-sm font-bold text-red-400 flex items-center gap-2 mb-3 uppercase tracking-wider">
+                    <LogOut size={16} /> Pri Odchode (onExit)
+                </h4>
+                <ActionListEditor
+                    actions={state.onExit || []}
+                    onChange={(newActions) => onChange({ ...state, onExit: newActions })}
+                    globalPrefix={globalPrefix}
+                />
+            </div>
+
+            {/* 4. TRANSITIONS */}
+            <div className="bg-gray-900/30 p-4 rounded-lg border border-gray-700">
+                <h4 className="text-sm font-bold text-yellow-400 flex items-center gap-2 mb-3 uppercase tracking-wider">
+                    <ArrowRight size={16} /> Prechody (Transitions)
+                </h4>
+                <TransitionEditor
+                    transitions={state.transitions || []}
+                    onChange={(newTransitions) => onChange({ ...state, transitions: newTransitions })}
+                    states={states}
+                    globalPrefix={globalPrefix}
+                />
+            </div>
         </div>
       )}
     </div>

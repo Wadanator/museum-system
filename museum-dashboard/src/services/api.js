@@ -2,8 +2,8 @@ const API_URL = '/api';
 
 // Pomocná funkcia na získanie hlavičiek (Authorization)
 const getHeaders = () => {
-  const headers = { 'Content-Type': 'application/json' };
-  const auth = localStorage.getItem('auth_header'); // Načítame token z prehliadača
+  const headers = {};
+  const auth = localStorage.getItem('auth_header');
   if (auth) {
     headers['Authorization'] = auth;
   }
@@ -11,11 +11,26 @@ const getHeaders = () => {
 };
 
 // Wrapper pre fetch, ktorý automaticky pridáva auth hlavičky
-const authFetch = async (url, options = {}) => {
-  const res = await fetch(url, { ...options, headers: getHeaders() });
+export const authFetch = async (url, options = {}) => {
+  const headers = getHeaders();
+  
+  // Ak body nie je FormData (napr. posielame JSON), pridáme Content-Type.
+  // Pri FormData (upload súborov) to prehliadač nastaví automaticky.
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  const finalOptions = {
+    ...options,
+    headers: {
+      ...headers,
+      ...options.headers
+    }
+  };
+
+  const res = await fetch(url, finalOptions);
   
   if (res.status === 401) {
-    // Tu by sme mohli vyhodiť event na odhlásenie, ak vyprší session
     throw new Error('Unauthorized');
   }
   return res;
@@ -24,18 +39,17 @@ const authFetch = async (url, options = {}) => {
 export const api = {
   login: async (username, password) => {
     const token = 'Basic ' + btoa(username + ':' + password);
-    // Skúsime zavolať reálny backend na overenie hesla
+    // Skúsime zavolať backend na overenie hesla
     const res = await fetch(`${API_URL}/status`, {
         headers: { 'Authorization': token }
     });
 
     if (res.ok) {
-        return token; // Heslo je správne, vrátime token
+        return token;
     } else {
         throw new Error('Nesprávne meno alebo heslo');
     }
   },
-
 
   getStatus: async () => {
     const res = await authFetch(`${API_URL}/status`);

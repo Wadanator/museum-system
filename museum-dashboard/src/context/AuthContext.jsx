@@ -23,6 +23,10 @@ export function AuthProvider({ children }) {
       localStorage.setItem('auth_header', token);
       setIsAuthenticated(true);
       toast.success("Vitajte v systéme");
+      
+      // Vynútime obnovenie stránky pre správne načítanie Socket spojenia
+      setTimeout(() => window.location.reload(), 500);
+      
       return true;
     } catch (e) {
       toast.error("Nesprávne prihlasovacie údaje");

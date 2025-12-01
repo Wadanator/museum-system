@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import { authFetch } from '../../services/api';
 import '../../styles/views/media-manager.css';
 
 const MediaManager = () => {
@@ -22,8 +23,8 @@ const MediaManager = () => {
   const fetchMedia = async () => {
     try {
       const [videoRes, audioRes] = await Promise.all([
-        fetch('/api/media/video'),
-        fetch('/api/media/audio')
+        authFetch('/api/media/video'),
+        authFetch('/api/media/audio')
       ]);
 
       if (videoRes.ok) setVideos(await videoRes.json());
@@ -43,7 +44,7 @@ const MediaManager = () => {
       isOpen: true,
       type,
       fileName,
-      inputValue: '' // Reset inputu
+      inputValue: '' 
     });
   };
 
@@ -60,10 +61,10 @@ const MediaManager = () => {
     }
 
     const loadingToast = toast.loading(`Mažem ${fileName}...`);
-    closeDeleteModal(); // Zavri okno hneď
+    closeDeleteModal(); 
 
     try {
-      const res = await fetch(`/api/media/${type}/${fileName}`, {
+      const res = await authFetch(`/api/media/${type}/${fileName}`, {
         method: 'DELETE'
       });
 
@@ -105,7 +106,7 @@ const MediaManager = () => {
       formData.append('file', file);
 
       try {
-        const res = await fetch(`/api/media/${type}`, {
+        const res = await authFetch(`/api/media/${type}`, {
           method: 'POST',
           body: formData
         });
@@ -148,7 +149,6 @@ const MediaManager = () => {
       <div className="media-actions">
         <button 
             className="btn-delete" 
-            // Zmena: Namiesto priameho mazania otvoríme modal
             onClick={() => openDeleteModal(type, file.name)} 
             title="Vymazať súbor"
         >
@@ -204,7 +204,7 @@ const MediaManager = () => {
         </div>
       </div>
 
-      {/* --- MODÁLNE OKNO PRE MAZANIE (GitHub Style) --- */}
+      {/* --- MODÁLNE OKNO PRE MAZANIE --- */}
       {deleteModal.isOpen && (
         <div className="modal-overlay">
           <div className="modal-content delete-modal">
