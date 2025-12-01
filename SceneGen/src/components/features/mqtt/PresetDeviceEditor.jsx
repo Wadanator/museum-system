@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MQTT_DEVICES } from '../../utils/constants';
+import { MQTT_DEVICES } from '../../../utils/constants';
 import MotorControls from './MotorControls';
 import SimpleDeviceControls from './SimpleDeviceControls';
 import AudioControls from './AudioControls';

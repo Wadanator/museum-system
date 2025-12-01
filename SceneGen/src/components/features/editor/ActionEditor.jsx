@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Trash2, ChevronDown, ChevronUp } from 'lucide-react';
-import MqttCommandEditor from './mqtt/MqttCommandEditor';
+import MqttCommandEditor from '../mqtt/MqttCommandEditor';
 
 /**
  * ActionEditor Component

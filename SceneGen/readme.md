@@ -1,148 +1,131 @@
 # State Machine Scene Editor
 
-Vizuálny editor pre tvorbu JSON scén v State Machine formáte pre múzejný systém.
+Vizuálny editor pre tvorbu JSON scén v State Machine formáte pre múzejný systém. Aplikácia umožňuje intuitívne vytváranie stavov, akcií a prechodov s možnosťou grafického náhľadu.
 
 ## 🚀 Inštalácia a spustenie
 
+Keďže projekt je už vytvorený, stačí nainštalovať závislosti a spustiť ho.
 ```bash
-# 1. Vytvor projekt
-yarn create vite state-machine-editor --template react
+# 1. Prejdi do priečinka editora
+cd SceneGen
 
-# 2. Prejdi do priečinka
-cd state-machine-editor
+# 2. Nainštaluj závislosti
+yarn install
 
-# 3. Nainštaluj závislosti
-yarn
-
-# 4. Nainštaluj dodatočné balíčky
-yarn add lucide-react
-yarn add -D tailwindcss postcss autoprefixer
-
-# 5. Inicializuj Tailwind
-npx tailwindcss init -p
-
-# 6. Skopíruj všetky súbory z artefaktov do projektu
-
-# 7. Spusti vývojový server
+# 3. Spusti vývojový server
 yarn dev
 ```
 
 ## 📁 Štruktúra projektu
 
+Projekt bol reorganizovaný do modulárnej štruktúry pre lepšiu prehľadnosť a údržbu:
 ```
-state-machine-editor/
+SceneGen/
 ├── src/
 │   ├── components/
-│   │   ├── ActionEditor.jsx       # Editor akcií (MQTT, audio, video)
-│   │   ├── TimelineEditor.jsx     # Timeline s časovanými akciami
-│   │   ├── TransitionEditor.jsx   # Prechody medzi stavmi
-│   │   ├── StateEditor.jsx        # Editor jednotlivého stavu
-│   │   └── Header.jsx             # Hlavička s metadátami scény
+│   │   ├── features/
+│   │   │   ├── editor/    # Logika editácie stavov (StateEditor, ActionEditor...)
+│   │   │   ├── graph/     # Grafický náhľad (GraphicPreview, SceneNode)
+│   │   │   ├── mqtt/      # Komponenty pre MQTT zariadenia (Motor, Audio, Video...)
+│   │   │   └── settings/  # Globálne nastavenia a udalosti
+│   │   ├── layout/        # Rozloženie stránky (Header, Sidebar, Toolbar)
+│   │   └── ui/            # Všeobecné UI prvky (ak existujú)
+│   ├── hooks/             # Vlastné React hooks (useSceneManager)
 │   ├── utils/
-│   │   ├── constants.js           # Konštanty a typy
-│   │   ├── generators.js          # Generátory prázdnych objektov
-│   │   └── jsonExport.js          # Export/Import JSON logika
-│   ├── App.jsx                    # Hlavná aplikácia
-│   ├── main.jsx                   # Entry point
-│   └── index.css                  # Štýly
+│   │   ├── constants.js   # Konštanty a definície zariadení
+│   │   ├── generators.js  # Generátory prázdnych objektov
+│   │   └── jsonExport.js  # Export/Import JSON logika
+│   ├── App.jsx            # Hlavná aplikácia a routing
+│   ├── main.jsx           # Entry point
+│   └── index.css          # Tailwind štýly
 ├── index.html
 ├── package.json
 ├── vite.config.js
-├── tailwind.config.js
-└── postcss.config.js
+└── tailwind.config.js
 ```
 
 ## ✨ Funkcie
 
-### 📊 State Management
-- **Pridávanie stavov** - vytvorenie nových stavov scény
-- **Editácia stavov** - názov, popis, akcie
-- **Mazanie stavov** - odstránenie nepotrebných stavov
+### 📊 Editor Stavov
+- **Pridávanie a mazanie stavov** - Komplexná správa životného cyklu scény.
+- **Detailná editácia** - Nastavenie onEnter (vstup), Timeline (časová os) a onExit (výstup) akcií.
+- **Sidebar navigácia** - Rýchly presun medzi stavmi pomocou bočného panelu.
 
-### ⚡ Actions (Akcie)
-- **MQTT** - topic + message (napr. `room1/light` → `ON`)
-- **Audio** - prehranie audio súboru
-- **Video** - prehranie video súboru
+### ⚡ Pokročilé Akcie (MQTT)
+**Preddefinované zariadenia** - Jednoduché ovládanie pre:
+- Motory (Rýchlosť, Smer)
+- Svetlá, Dym, Para (ON/OFF)
+- Audio prehrávač (Play, Volume)
+- Video prehrávač (Play, Loop)
 
-### 📅 Timeline
-- **Časované akcie** - akcie s presným časom v rámci stavu
-- Napr.: "po 3 sekundách zapni motor"
+**Custom MQTT** - Možnosť zadať ľubovoľný topic a message.
 
-### 🔄 Transitions (Prechody)
-- **Timeout** - prechod po určitom čase
-- **MQTT Message** - čakanie na správu z MQTT
-- **Button Press** - čakanie na stlačenie tlačidla
+### 🕸️ Grafický Náhľad (Node Graph)
+- **Vizualizácia** - Zobrazenie celej scény ako orientovaného grafu.
+- **Interaktivita** - Kliknutím na uzol (node) sa editor presunie na daný stav.
+- **Vizuálna tvorba** - Pridávanie stavov priamo z grafu.
+
+### 🔄 Prechody (Transitions)
+- **Timeout** - Automatický prechod po uplynutí času.
+- **MQTT Message** - Reakcia na správu zo siete.
+- **Button Press** - Reakcia na fyzické tlačidlo v múzeu.
+- **Audio/Video End** - Prechod po skončení média.
 
 ### 💾 Import/Export
-- **Export JSON** - stiahnutie v správnom formáte
-- **Import JSON** - načítanie existujúcej konfigurácie
-- **Preview** - náhľad vygenerovaného JSON
+- **Generovanie JSON** - Validný výstup pre Raspberry Pi kontrolér.
+- **Načítanie scény** - Možnosť pokračovať v práci na existujúcom súbore.
 
 ## 📝 Príklad vygenerovaného JSON
-
 ```json
 {
-  "sceneId": "test_intro",
-  "description": "Testovacia scéna",
+  "sceneId": "room1_intro",
+  "description": "Úvodná show",
   "version": "2.0",
-  "initialState": "intro",
+  "initialState": "start",
+  "globalPrefix": "room1",
   "states": {
-    "intro": {
-      "description": "Úvodná scéna",
+    "start": {
       "onEnter": [
-        {"action": "mqtt", "topic": "room1/light", "message": "ON"},
-        {"action": "mqtt", "topic": "room1/motor1", "message": "ON:50:L"}
-      ],
-      "timeline": [
-        {"at": 3.0, "action": "mqtt", "topic": "room1/motor2", "message": "ON:30:R"}
+        {"topic": "room1/light", "message": "OFF"},
+        {"topic": "room1/audio", "message": "PLAY:welcome.mp3"}
       ],
       "transitions": [
-        {"type": "timeout", "delay": 5.0, "goto": "middle"}
+        {"type": "audioEnd", "goto": "main_show"}
       ]
     },
-    "middle": {
-      "description": "Stredná časť",
-      "onEnter": [
-        {"action": "mqtt", "topic": "room1/motor1", "message": "OFF"}
+    "main_show": {
+      "timeline": [
+        {"at": 2.0, "topic": "room1/motor1", "message": "ON:50:L"}
       ],
       "transitions": [
-        {"type": "timeout", "delay": 4.0, "goto": "END"}
+        {"type": "timeout", "delay": 10.0, "goto": "end"}
       ]
     }
   }
 }
 ```
 
-## 🎯 Používanie
-
-1. **Vytvor stavy** - pridaj stavy scény (intro, middle, finale)
-2. **Definuj akcie** - pridaj onEnter, timeline, onExit akcie
-3. **Nastav prechody** - definuj kedy prejsť do ďalšieho stavu
-4. **Exportuj JSON** - stiahni hotovú konfiguráciu
-5. **Použij v systéme** - nahraj JSON do `raspberry_pi/scenes/`
-
 ## 🛠️ Technológie
 
-- **React** - UI framework
-- **Vite** - build tool
-- **Tailwind CSS** - styling
-- **Lucide React** - ikony
+- **React 18** - UI framework
+- **Vite** - Rýchly build tool
+- **Tailwind CSS** - Moderné štýlovanie
+- **React Flow** - Knižnica pre grafové zobrazenie uzlov
+- **Lucide React** - Ikony
 
-## 📖 Modularita
+## 🔧 Rozšírenie o nové zariadenie
 
-Projekt je rozdelený do modulárnych komponentov pre lepšiu údržbu:
-- Každý komponent má svoju zodpovednosť
-- Utils funkcie sú oddelené
-- Konštanty sú centralizované
-- Jednoduchá rozšíriteľnosť
+Ak chceš pridať nové zariadenie do ponuky (napr. nový typ senzora):
 
-## 🔧 Rozšírenie
+1. Otvor `src/utils/constants.js`.
+2. Nájdi objekt `MQTT_DEVICES`.
+3. Pridaj novú definíciu:
+```javascript
+novy_senzor: {
+  label: 'Nový Senzor',
+  type: 'simple', // alebo 'motor', 'audio' atď.
+  commands: ['KALIBROVAT', 'RESET']
+}
+```
 
-Pridanie nového typu akcie:
-1. Pridaj typ do `utils/constants.js`
-2. Uprav `createEmptyAction` v `utils/generators.js`
-3. Pridaj UI do `components/ActionEditor.jsx`
-
-## 📄 Licencia
-
-MIT
+4. Reštartuj aplikáciu, zariadenie sa objaví v Action editore.
