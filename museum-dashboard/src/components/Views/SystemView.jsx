@@ -23,24 +23,6 @@ export default function SystemView() {
     }
   };
 
-  const handleRestartService = async () => {
-    if (await confirm({
-        title: "Reštart služby",
-        message: "Skutočne chcete reštartovať museum-system službu?",
-        confirmText: "Reštartovať",
-        type: "warning"
-    })) {
-        toast.promise(
-            api.restartService(),
-            {
-                loading: 'Reštartujem službu...',
-                success: 'Služba sa reštartuje...',
-                error: (err) => `Chyba: ${err.message}`
-            }
-        );
-    }
-  };
-
   return (
     <div className="tab-content active">
       <h2>⚙️ Systémové ovládanie</h2>
@@ -51,14 +33,6 @@ export default function SystemView() {
             <p>Reštartuje celé Raspberry Pi. Použite v prípade vážnych problémov.</p>
             <button className="btn btn-danger" onClick={handleRestartSystem}>
                 🔄 Reštartovať Raspberry Pi
-            </button>
-        </div>
-
-        <div className="control-group">
-            <h3>Reštart služby (Service)</h3>
-            <p>Reštartuje iba Python aplikáciu. Rýchlejšie ako celý reštart.</p>
-            <button className="btn btn-warning" style={{color: 'white'}} onClick={handleRestartService}>
-                🔄 Reštartovať Službu
             </button>
         </div>
 

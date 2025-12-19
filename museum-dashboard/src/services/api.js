@@ -116,10 +116,5 @@ export const api = {
   restartSystem: async () => {
     const res = await authFetch(`${API_URL}/system/restart`, { method: 'POST' });
     return res.json();
-  },
-
-  restartService: async () => {
-    const res = await authFetch(`${API_URL}/system/service/restart`, { method: 'POST' });
-    return res.json();
   }
 };

@@ -1,4 +1,3 @@
-# raspberry_pi/main.py
 #!/usr/bin/env python3
 
 import os
@@ -6,6 +5,7 @@ import sys
 import signal
 import time
 import threading
+import subprocess
 
 # Configure Python path for module imports
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -18,7 +18,6 @@ from utils.logging_setup import setup_logging_from_config, get_logger
 # Initialize configuration and logging
 config_manager = ConfigManager()
 logging_config = config_manager.get_logging_config()
-# Logging levels are now handled purely within logging_setup.py based on config
 log = setup_logging_from_config(logging_config)
 log = get_logger('main')
 
@@ -192,7 +191,6 @@ class MuseumController:
 
     def start_default_scene(self):
         """Public method to start default scene."""
-        # Wrapper mainly for compatibility if called externally
         self._initiate_scene_start(self.json_file_name, "Starting default scene")
 
     def start_scene_by_name(self, scene_file_name):
@@ -201,10 +199,7 @@ class MuseumController:
         return True
 
     def _initiate_scene_start(self, scene_filename, log_message):
-        """
-        Common entry point for starting a scene.
-        Checks conditions and launches the thread.
-        """
+        """Common entry point for starting a scene."""
         with self.scene_lock:
             if self.scene_running:
                 log.info(f"Scene already running, ignoring request to start: {scene_filename}")
@@ -217,7 +212,6 @@ class MuseumController:
             self.scene_running = True
             log.info(log_message)
 
-        # Launch worker thread
         threading.Thread(
             target=self._run_scene_logic, 
             args=(scene_filename,), 
@@ -226,10 +220,7 @@ class MuseumController:
         return True
 
     def _run_scene_logic(self, scene_filename):
-        """
-        Worker thread function containing the core logic to load and run a scene.
-        Replaces code duplication from start_default_scene and start_named_scene.
-        """
+        """Worker thread function containing the core logic to load and run a scene."""
         scene_path = os.path.join(self.scenes_dir, self.room_id, scene_filename)
         
         try:
@@ -253,7 +244,6 @@ class MuseumController:
                 except Exception as e:
                     log.error(f"An error occurred during scene execution: {e}")
                 finally:
-                    # Cleanup after scene ends
                     self.scene_running = False
             else:
                 log.error(f"Failed to load scene: {scene_filename}")
@@ -272,18 +262,15 @@ class MuseumController:
 
         log.debug("Starting state machine scene execution")
 
-        # Enable MQTT feedback tracking
         if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
             if self.mqtt_client.feedback_tracker:
                 self.mqtt_client.feedback_tracker.enable_feedback_tracking()
 
-        # Main state machine loop
         while not self.shutdown_requested:
             if not self.scene_running:
                 log.info("Scene execution was stopped externally.")
                 break
             
-            # Process current state
             scene_continues = self.scene_parser.process_scene()
             
             if not scene_continues:
@@ -291,7 +278,6 @@ class MuseumController:
             
             time.sleep(self.scene_processing_sleep)
 
-        # Cleanup
         log.info("Scene execution finished")
 
         if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
@@ -308,17 +294,20 @@ class MuseumController:
         if not self.web_dashboard:
             return
         try:
-            # We track stats for the currently running file. 
-            # Note: This might need adjustment if we want to track specific scene ID, 
-            # but using filename is consistent with current logic.
-            current_scene_file = self.scene_parser.state_machine.scene_id or "unknown"
-            
             self.web_dashboard.stats['total_scenes_played'] += 1
-            # Simple increment, assuming simple stats structure
             self.web_dashboard.save_stats()
             self.web_dashboard.socketio.emit('stats_update', self.web_dashboard.stats)
         except Exception as e:
             log.error(f"Error updating stats: {e}")
+
+    # --- TOTO JE TO ČO CHÝBALO PRE FUNKČNOSŤ TLAČIDLA REŠTART RPI ---
+    def system_restart(self):
+        """Reboots the entire Raspberry Pi."""
+        log.warning("Initiating System Reboot...")
+        try:
+            subprocess.Popen(['sudo', 'reboot'], shell=False)
+        except Exception as e:
+            log.error(f"Failed to initiate reboot: {e}")
 
     def run(self):
         """Run the main application loop."""

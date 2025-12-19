@@ -90,7 +90,8 @@ class SceneParser:
     def register_mqtt_event(self, topic, payload):
         """Zaregistruje prichádzajúci MQTT event pre TransitionManager"""
         if self.transition_manager:
-            self.transition_manager.register_event(topic, payload)
+            # OPRAVENÉ: volanie register_mqtt_event namiesto register_event
+            self.transition_manager.register_mqtt_event(topic, payload)
             self.logger.debug(f"MQTT event registered: {topic} = {payload}")
 
     def _change_state(self, next_state, current_state_data):

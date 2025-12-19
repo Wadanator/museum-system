@@ -21,14 +21,4 @@ def setup_system_routes(dashboard):
             return jsonify({'success': True, 'message': 'System restart initiated'}), 200
         return jsonify({'error': 'System restart functionality not available'}), 500
 
-    @system_bp.route('/system/service/restart', methods=['POST'])
-    @requires_auth
-    def restart_service():
-        """Endpoint to restart the museum service only."""
-        dashboard.log.warning("Museum service restart requested via API.")
-        if hasattr(controller, 'service_restart'):
-            threading.Thread(target=controller.service_restart, daemon=True).start()
-            return jsonify({'success': True, 'message': 'Museum service restart initiated'}), 200
-        return jsonify({'error': 'Service restart functionality not available'}), 500
-
     return system_bp
