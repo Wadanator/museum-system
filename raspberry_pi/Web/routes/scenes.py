@@ -11,7 +11,6 @@ from ..utils.helpers import get_scenes_path, get_scene_path, get_commands_path
 
 from .status import _get_current_status_data 
 
-# --- KOREKCIA: Odstránený url_prefix='/api' ---
 scenes_bp = Blueprint('scenes', __name__)
 
 def setup_scenes_routes(dashboard):
@@ -51,7 +50,7 @@ def setup_scenes_routes(dashboard):
     @scenes_bp.route('/scene/<scene_name>', methods=['POST'])
     @requires_auth
     def save_scene(scene_name):
-        """Save a new or updated scene file with validation (State Machine format)."""
+        """Save a new or updated scene file with validation."""
         try:
             scene_data = request.json
             
@@ -65,8 +64,6 @@ def setup_scenes_routes(dashboard):
                 scene_name = scene_name + '.json'
                 
             scene_path = scenes_path / secure_filename(scene_name)
-
-            # ... (validation logic remains the same) ...
             
             with open(scene_path, 'w') as f:
                 json.dump(scene_data, f, indent=2)
@@ -96,14 +93,13 @@ def setup_scenes_routes(dashboard):
                 controller.scene_running = True
                 dashboard.log.info(f"Web dashboard starting scene: {scene_name}")
 
-            # FIX: Okamžité odoslanie STATUS UPDATE po spustení
+            # OKAMŽITÝ STATUS UPDATE
             dashboard.socketio.emit('status_update', _get_current_status_data(controller))
 
             def run_scene_thread():
                 """Thread function to execute a scene."""
                 
                 def scene_progress_emitter(progress_data):
-                    """Callback funkcia pre odosielanie progresu scény cez SocketIO."""
                     progress_data['scene_running'] = getattr(controller, 'scene_running', False) 
                     dashboard.socketio.emit('scene_progress_update', progress_data)
                     
@@ -120,13 +116,14 @@ def setup_scenes_routes(dashboard):
                             dashboard.update_scene_stats(scene_name)
                             dashboard.socketio.emit('stats_update', dashboard.stats)
                         else:
-                            dashboard.log.error("Scene parser not available")
+                            dashboard.log.error("Scene parser failed to load scene")
+                    else:
+                        dashboard.log.error("Scene parser not available on controller")
                 except Exception as e:
                     dashboard.log.error(f"Error running scene {scene_name}: {e}")
                 finally:
+                    # TOTO JE KRITICKÉ MIESTO - VŽDY RESETOVAŤ STAV
                     controller.scene_running = False
-                    
-                    # FIX: Odoslanie STATUS UPDATE po dokončení/chybe scény
                     dashboard.socketio.emit('status_update', _get_current_status_data(controller))
                     
                     if hasattr(controller.scene_parser, 'set_progress_emitter'):
@@ -143,29 +140,48 @@ def setup_scenes_routes(dashboard):
     @scenes_bp.route('/stop_scene', methods=['POST'])
     @requires_auth
     def stop_scene():
-        """Stop the currently running scene and execute STOPALL command."""
+        """Stop the currently running scene safely."""
         try:
             if not getattr(controller, 'scene_running', False):
-                return jsonify({'error': 'No scene is currently running'}), 400
+                dashboard.socketio.emit('status_update', _get_current_status_data(controller))
+                return jsonify({'error': 'No scene is currently running', 'code': 'NOT_RUNNING'}), 400
 
-            if hasattr(controller, 'scene_parser'):
-                controller.scene_parser.stop_scene()
-            controller.scene_running = False
-            dashboard.log.info("Scene stopped")
+            dashboard.log.info("Requesting scene stop...")
+
+            if hasattr(controller, 'scene_parser') and controller.scene_parser:
+                if hasattr(controller.scene_parser, 'stop_scene'):
+                    controller.scene_parser.stop_scene()
+                else:
+                    dashboard.log.warning("SceneParser missing 'stop_scene' method!")
+
+            # 2. Záložné zastavenie Audio/Video handlerov priamo
+            if hasattr(controller, 'audio_handler') and controller.audio_handler:
+                try:
+                    controller.audio_handler.stop_audio()
+                except Exception as e:
+                    dashboard.log.error(f"Error forcing stop audio: {e}")
             
-            # FIX: Okamžité odoslanie STATUS UPDATE po zastavení
-            dashboard.socketio.emit('status_update', _get_current_status_data(controller))
+            if hasattr(controller, 'video_handler') and controller.video_handler:
+                try:
+                    controller.video_handler.stop_video()
+                except Exception as e:
+                    dashboard.log.error(f"Error forcing stop video: {e}")
 
+        except Exception as e:
+            dashboard.log.error(f"Critical error during stop_scene: {e}")
+            
+        finally:
+            controller.scene_running = False
+            
+            # Vyčistenie emittera
             if hasattr(controller, 'scene_parser') and hasattr(controller.scene_parser, 'set_progress_emitter'):
                 controller.scene_parser.set_progress_emitter(None)
             
-            # ... (Stop audio/video/STOPALL logika zostáva pôvodná) ...
+            # Odoslanie statusu klientom
+            dashboard.socketio.emit('status_update', _get_current_status_data(controller))
+            dashboard.log.info("Scene stop sequence finished.")
             
-            return jsonify({'success': True, 'message': 'Scene stopped, audio/video stopped, and STOPALL command executed', 'stopall_executed': True})
-                
-        except Exception as e:
-            dashboard.log.error(f"Error stopping scene: {e}")
-            return jsonify({'error': f"Error stopping scene: {e}"}), 500
+            return jsonify({'success': True, 'message': 'Scene stopped successfully'})
 
     @scenes_bp.route('/config/main_scene')
     @requires_auth

@@ -71,9 +71,24 @@ class SceneParser:
             self._change_state(next_state, current_state_data)
             
         return True
+    
+    def stop_scene(self):
+        self.logger.info("Stopping scene via SceneParser request...")
+        
+        if self.state_machine:
+            self.state_machine.reset_runtime_state()
+            self.state_machine.current_state = "END"
+
+        if self.transition_manager:
+            self.transition_manager.clear_events()
+
+        if self.state_executor:
+            self.state_executor.reset_timeline_tracking()
+            
+        self.logger.info("SceneParser internal state reset.")
 
     def register_mqtt_event(self, topic, payload):
-        """Zaregistruje prichádzajúci MQTT event pre TransitionManager (Oprava chyby)"""
+        """Zaregistruje prichádzajúci MQTT event pre TransitionManager"""
         if self.transition_manager:
             self.transition_manager.register_event(topic, payload)
             self.logger.debug(f"MQTT event registered: {topic} = {payload}")
