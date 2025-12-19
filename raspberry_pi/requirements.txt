@@ -7,3 +7,4 @@ flask-socketio
 werkzeug
 psutil
 simple-websocket
+jsonschema

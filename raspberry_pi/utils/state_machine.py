@@ -5,76 +5,67 @@ State Machine - Stavový automat pre scény
 import json
 import time
 from utils.logging_setup import get_logger
+from utils.schema_validator import validate_scene_json
 
 class StateMachine:
     def __init__(self, logger=None):
         self.logger = logger or get_logger("StateMachine")
         
-        # Scene data
         self.scene_id = None
         self.states = {}
+        self.global_events = []
         self.current_state = None
         self.initial_state = None
 
-        # Timing
         self.state_start_time = None
         self.scene_start_time = None
-
-        # History
         self.state_history = []
         self.total_states = 0
         
         self.progress_emitter = None
 
     def set_progress_emitter(self, emitter_func):
-        """Nastaví funkciu, ktorá bude volaná pri zmene stavu na notifikáciu dashboardu."""
         self.progress_emitter = emitter_func
-        # ------------------------------------------------------------------
-        
+
     def load_scene(self, scene_file):
-        """Načíta state machine scénu z JSON súboru"""
         try:
             with open(scene_file, 'r') as f:
                 data = json.load(f)
-        except FileNotFoundError:
-            self.logger.error(f"Scene file not found: {scene_file}")
-            return False
-        except json.JSONDecodeError as exc:
-            self.logger.error(f"Invalid JSON in scene file: {exc}")
-            return False
         except Exception as exc:
-            self.logger.error(f"Failed to load state machine: {exc}")
+            self.logger.error(f"Failed to load scene file: {exc}")
             return False
 
-        # Validácia
-        if not isinstance(data, dict):
-            self.logger.error("Scene must be a dict (state machine format)")
+        # 1. Validácia štruktúry
+        if not validate_scene_json(data, self.logger):
             return False
 
-        if "states" not in data:
-            self.logger.error("Scene missing 'states' key")
-            return False
-
-        if "initialState" not in data:
-            self.logger.error("Scene missing 'initialState' key")
-            return False
-
+        # 2. Logická validácia (existencia stavov)
         states = data["states"]
-        if not isinstance(states, dict) or not states:
-            self.logger.error("Scene 'states' must be a non-empty dict")
-            return False
-
         initial_state = data["initialState"]
+
         if initial_state not in states:
-            self.logger.error(f"Initial state '{initial_state}' not found in states")
+            self.logger.error(f"Initial state '{initial_state}' is not defined")
             return False
 
-        if not self._validate_states(states):
-            return False
+        for state_name, state_data in states.items():
+            for idx, transition in enumerate(state_data.get("transitions", [])):
+                goto = transition["goto"]
+                if goto != "END" and goto not in states:
+                    self.logger.error(f"State '{state_name}': Transition #{idx} targets unknown state '{goto}'")
+                    return False
+        
+        # Validácia globalEvents cieľov
+        global_events = data.get("globalEvents", [])
+        for idx, event in enumerate(global_events):
+            goto = event["goto"]
+            if goto != "END" and goto not in states:
+                self.logger.error(f"GlobalEvent #{idx} targets unknown state '{goto}'")
+                return False
 
-        # Ulož dáta
+        # 3. Načítanie
         self.scene_id = data.get("sceneId", "unknown")
         self.states = states
+        self.global_events = global_events
         self.initial_state = initial_state
         self.reset_runtime_state()
         self.total_states = len(self.states)
@@ -83,81 +74,66 @@ class StateMachine:
         return True
 
     def start(self):
-        """Spustí state machine - prejde do initial state"""
         if not self.states:
-            self.logger.error("No states loaded")
             return False
-
-        if self.initial_state not in self.states:
-            self.logger.error(f"Initial state '{self.initial_state}' not found")
-            return False
-
+        
         self.scene_start_time = time.time()
         if not self.goto_state(self.initial_state):
-            self.logger.error("Failed to enter initial state")
             return False
 
         self.logger.info(f"State machine started -> {self.current_state}")
         return True
     
     def goto_state(self, state_name):
-        """Prejde do nového stavu"""
         if state_name == "END":
             self.current_state = "END"
             self.state_start_time = None
-            
-            if self.progress_emitter:
-                self.progress_emitter(self.get_progress_info())
-            
+            self._emit_progress()
             return True
         
         if state_name not in self.states:
             self.logger.error(f"State '{state_name}' not found")
             return False
         
-        # History
         if self.current_state and self.current_state != state_name:
             self.state_history.append(self.current_state)
         
-        # Change state
         self.current_state = state_name
         self.state_start_time = time.time()
         
-        desc = self.states[state_name].get("description", "")
-        self.logger.info(f"State changed -> {state_name} ({desc})")
-
-        if self.progress_emitter:
-            self.progress_emitter(self.get_progress_info())
-        
+        self.logger.info(f"State changed -> {state_name}")
+        self._emit_progress()
         return True
     
+    def get_global_events(self):
+        return self.global_events
+
     def get_current_state_data(self):
-        """Vráti data aktuálneho stavu"""
-        if not self.current_state or self.current_state == "END":
-            return None
+        if not self.current_state or self.current_state == "END": return None
         return self.states.get(self.current_state)
     
     def get_state_elapsed_time(self):
-        """Vráti čas od vstupu do aktuálneho stavu (v sekundách)"""
-        if not self.state_start_time:
-            return 0.0
-        return time.time() - self.state_start_time
+        return time.time() - self.state_start_time if self.state_start_time else 0.0
     
     def get_scene_elapsed_time(self):
-        """Vráti čas od začiatku scény (v sekundách)"""
-        if not self.scene_start_time:
-            return 0.0
-        return time.time() - self.scene_start_time
+        return time.time() - self.scene_start_time if self.scene_start_time else 0.0
     
     def is_finished(self):
-        """Skontroluje či je scéna ukončená"""
         return self.current_state == "END"
-    
+
+    def reset_runtime_state(self):
+        self.current_state = None
+        self.state_start_time = None
+        self.scene_start_time = None
+        self.state_history = []
+        self.progress_emitter = None 
+
+    def _emit_progress(self):
+        if self.progress_emitter:
+            self.progress_emitter(self.get_progress_info())
+
     def get_progress_info(self):
-        """Vráti info o progrese pre web dashboard. Pridáme scene_running=True."""
-        
         total_definable_states = len([k for k in self.states.keys() if k != "END"])
-        
         return {
             "scene_running": not self.is_finished(),
             "mode": "state_machine",
@@ -170,53 +146,3 @@ class StateMachine:
             "scene_elapsed": round(self.get_scene_elapsed_time(), 1),
             "progress": min(1.0, len(self.state_history) / max(total_definable_states, 1)),
         }
-
-    def reset_runtime_state(self):
-        """Resetuje runtime informácie - používa sa pri load/start"""
-        self.current_state = None
-        self.state_start_time = None
-        self.scene_start_time = None
-        self.state_history = []
-        self.progress_emitter = None 
-
-    def _validate_states(self, states):
-        """Overí štruktúru stavov a prechodov"""
-        for state_name, state_data in states.items():
-            if not isinstance(state_data, dict):
-                self.logger.error(f"State '{state_name}' must be a dict")
-                return False
-
-            transitions = state_data.get("transitions", [])
-            if transitions and not isinstance(transitions, list):
-                self.logger.error(f"Transitions for state '{state_name}' must be a list")
-                return False
-
-            for idx, transition in enumerate(transitions):
-                if not isinstance(transition, dict):
-                    self.logger.error(f"Transition #{idx} in state '{state_name}' must be a dict")
-                    return False
-
-                goto = transition.get("goto")
-                if goto is None:
-                    self.logger.error(f"Transition #{idx} in state '{state_name}' missing 'goto'")
-                    return False
-
-                if goto != "END" and goto not in states:
-                    self.logger.error(f"Transition #{idx} in state '{state_name}' references unknown state '{goto}'")
-                    return False
-
-            timeline = state_data.get("timeline", [])
-            if timeline and not isinstance(timeline, list):
-                self.logger.error(f"Timeline for state '{state_name}' must be a list")
-                return False
-
-            for idx, item in enumerate(timeline):
-                if not isinstance(item, dict):
-                    self.logger.error(f"Timeline item #{idx} in state '{state_name}' must be a dict")
-                    return False
-
-                if "actions" in item and not isinstance(item["actions"], list):
-                    self.logger.error(f"Timeline item #{idx} in state '{state_name}' has invalid 'actions' field")
-                    return False
-
-        return True
