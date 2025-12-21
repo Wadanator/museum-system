@@ -1,0 +1,101 @@
+{
+  "sceneId": "test_vyber_scena",
+  "description": "Sc\u00e9na s v\u00fdberom dvoch tla\u010didiel na room1",
+  "initialState": "start",
+  "version": "2.0",
+  "states": {
+    "start": {
+      "description": "\u00davodn\u00e1 re\u010d",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:uvod_rec.mp3:1.0"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "audioEnd",
+          "target": "uvod_rec.mp3",
+          "goto": "cakanie_na_volbu"
+        }
+      ]
+    },
+    "cakanie_na_volbu": {
+      "description": "\u010cakanie na stla\u010denie tla\u010didla 10s",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/system",
+          "message": "WAITING_FOR_INPUT"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "mqttMessage",
+          "topic": "room1/button1",
+          "message": "PRESSED",
+          "goto": "volba_1"
+        },
+        {
+          "type": "mqttMessage",
+          "topic": "room1/button2",
+          "message": "PRESSED",
+          "goto": "volba_2"
+        },
+        {
+          "type": "timeout",
+          "delay": 10,
+          "goto": "ziadna_volba"
+        }
+      ]
+    },
+    "volba_1": {
+      "description": "Reakcia na tla\u010didlo 1",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:vybrali_ste_jednotku.mp3:1.0"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "audioEnd",
+          "target": "vybrali_ste_jednotku.mp3",
+          "goto": "END"
+        }
+      ]
+    },
+    "volba_2": {
+      "description": "Reakcia na tla\u010didlo 2",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:vybrali_ste_dvojku.mp3:1.0"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "audioEnd",
+          "target": "vybrali_ste_dvojku.mp3",
+          "goto": "END"
+        }
+      ]
+    },
+    "ziadna_volba": {
+      "description": "Timeout",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:nic_ste_nevybrali.mp3:1.0"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "audioEnd",
+          "target": "nic_ste_nevybrali.mp3",
+          "goto": "END"
+        }
+      ]
+    }
+  }
+}

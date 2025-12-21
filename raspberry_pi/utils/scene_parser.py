@@ -8,8 +8,16 @@ class SceneParser:
     def __init__(self, mqtt_client=None, audio_handler=None, video_handler=None, logger=None):
         self.logger = logger or get_logger("SceneParser")
         
+        # Uložíme si inštanciu audio_handlera (Oprava Audio č. 1)
+        self.audio_handler = audio_handler
+        
         self.state_machine = StateMachine(logger=self.logger)
         self.transition_manager = TransitionManager(logger=self.logger)
+        
+        # Zaregistrujeme callback pre koniec audia (Oprava Audio č. 2)
+        if self.audio_handler:
+            self.audio_handler.set_end_callback(self._on_audio_ended)
+
         self.state_executor = StateExecutor(
             mqtt_client=mqtt_client, 
             audio_handler=audio_handler, 
@@ -18,6 +26,11 @@ class SceneParser:
         )
         
         self.scene_data = None
+
+    # Callback metóda pre AudioHandler (Oprava Audio č. 3)
+    def _on_audio_ended(self, filename):
+        self.logger.debug(f"Audio finished callback received: {filename}")
+        self.transition_manager.register_audio_end(filename)
 
     def load_scene(self, scene_file):
         if self.state_machine.load_scene(scene_file):
@@ -41,6 +54,10 @@ class SceneParser:
         return False
 
     def process_scene(self):
+        # Kontrola stavu audia v každom cykle (Oprava Audio č. 4)
+        if self.audio_handler:
+            self.audio_handler.check_if_ended()
+
         if self.state_machine.is_finished():
             return False
 
@@ -58,7 +75,9 @@ class SceneParser:
                 scene_elapsed
             )
             
-            if next_state_global:
+            # --- OPRAVA DEATH LOOP ---
+            # Pridaná podmienka: Skoč tam len vtedy, ak tam už nie si!
+            if next_state_global and next_state_global != self.state_machine.current_state:
                 self.logger.info(f"GLOBAL EVENT TRIGGERED -> Jumping to {next_state_global}")
                 self._change_state(next_state_global, current_state_data)
                 return True
@@ -90,7 +109,7 @@ class SceneParser:
     def register_mqtt_event(self, topic, payload):
         """Zaregistruje prichádzajúci MQTT event pre TransitionManager"""
         if self.transition_manager:
-            # OPRAVENÉ: volanie register_mqtt_event namiesto register_event
+            # OPRAVA PREKLEPU: register_event -> register_mqtt_event
             self.transition_manager.register_mqtt_event(topic, payload)
             self.logger.debug(f"MQTT event registered: {topic} = {payload}")
 

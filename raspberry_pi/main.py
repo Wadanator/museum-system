@@ -92,11 +92,11 @@ class MuseumController:
         
         # MQTT Components
         self.mqtt_device_registry = MQTTDeviceRegistry(
-            device_timeout=self.config.get('device_timeout', 180)
+            device_timeout=int(self.config.get('device_timeout', 180))
         )
         
         self.mqtt_feedback_tracker = MQTTFeedbackTracker(
-            feedback_timeout=self.config.get('feedback_timeout', 2)
+            feedback_timeout=float(self.config.get('feedback_timeout', 2))
         )
         
         # Create message handler
@@ -110,7 +110,7 @@ class MuseumController:
         
         self.mqtt_client = MQTTClient(
             broker_host=self.config['broker_ip'],
-            broker_port=self.config['port'],
+            broker_port=int(self.config['port']),
             client_id=f"{self.room_id}_controller",
             room_id=self.room_id,
             retry_attempts=self.config.get('mqtt_retry_attempts', 3),

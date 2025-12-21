@@ -1,3 +1,4 @@
+# raspberry_pi/utils/audio_handler.py
 #!/usr/bin/env python3
 import pygame
 import os
@@ -128,6 +129,7 @@ class AudioHandler:
             pygame.mixer.music.load(full_path)
             pygame.mixer.music.play()
             self.currently_playing = resolved_file
+            self.was_playing = True # FIX: Ensure we track that it started playing
             self.logger.info(f"Playing audio: {resolved_file}")
             return True
             

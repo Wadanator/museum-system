@@ -1,0 +1,40 @@
+{
+  "sceneId": "test_audio_pure",
+  "description": "Čistý test AudioEnd prechodu bez poistiek",
+  "initialState": "pusti_zvuk",
+  "version": "2.0",
+  "states": {
+    "pusti_zvuk": {
+      "description": "Hrá zvuk a čaká sa výhradne na AudioEnd",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:uvod_rec.mp3:1.0"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "audioEnd",
+          "target": "uvod_rec.mp3",
+          "goto": "KONIEC_TESTU"
+        }
+      ]
+    },
+    "KONIEC_TESTU": {
+      "description": "Sem sa systém dostane IBA ak TransitionManager zachytí koniec audia",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/system",
+          "message": "TEST_SUCCESS_AUDIO_FINISHED"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "always",
+          "goto": "END"
+        }
+      ]
+    }
+  }
+}
