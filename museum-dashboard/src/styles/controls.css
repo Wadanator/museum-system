@@ -64,10 +64,14 @@
     transition: all 0.3s ease;
     display: inline-flex;
     align-items: center;
+    justify-content: center; /* Pridané pre lepšie centrovanie */
     gap: 8px;
 }
 
 .btn:hover { transform: translateY(-2px); }
+.btn-ghost { background: transparent; color: #9ca3af; border: 1px solid transparent; } /* Pridané pre tab prepínač */
+.btn-ghost:hover { background: rgba(255, 255, 255, 0.05); color: white; }
+
 .btn-primary { background: linear-gradient(90deg, #3b82f6, #2563eb); color: #ffffff; }
 .btn-primary:hover { background: linear-gradient(90deg, #2563eb, #1d4ed8); }
 .btn-secondary { background: linear-gradient(90deg, #6b7280, #4b5563); color: #ffffff; }
@@ -128,4 +132,203 @@
 
 @media (max-width: 480px) {
     .main-scene-button, .stop-scene-button { padding: 20px; }
+}
+
+
+/* =======================================
+   COMMANDS DASHBOARD - MODERN UI (New)
+   ======================================= */
+
+/* 1. HLAVNÝ GRID (Rozloženie) */
+.devices-grid {
+    display: grid;
+    gap: 20px;
+    padding: 10px 0 40px 0;
+}
+
+/* Relé karty */
+.devices-grid.relays {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+
+/* Motor karty */
+.devices-grid.motors {
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+}
+
+/* 2. KARTA ZARIADENIA */
+.device-card {
+    background-color: #1e2128;
+    border: 1px solid #2d3340;
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.device-card:hover {
+    transform: translateY(-3px);
+    border-color: #4b5563;
+    box-shadow: 0 10px 15px rgba(0, 0, 0, 0.4);
+}
+
+/* 3. RELÉ DIZAJN */
+.relay-header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.relay-icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.1));
+}
+
+.relay-name {
+    font-weight: 700;
+    color: #2a2929;
+    font-size: 1.1rem;
+    letter-spacing: 0.5px;
+}
+
+/* Skupina tlačidiel pre Relé */
+.btn-group-dual {
+    display: flex;
+    background: #111318;
+    border-radius: 12px;
+    padding: 4px;
+    gap: 4px;
+}
+
+.btn-dual {
+    flex: 1;
+    border: none;
+    padding: 12px 0;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    color: #6b7280;
+    background: transparent;
+}
+
+/* Tlačidlo VYPNÚŤ */
+.btn-dual.off:hover {
+    background-color: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+
+.btn-dual.off:active {
+    background-color: #ef4444;
+    color: white;
+}
+
+/* Tlačidlo ZAPNÚŤ */
+.btn-dual.on {
+    color: #9ca3af;
+}
+
+.btn-dual.on:hover {
+    background-color: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+}
+
+.btn-dual.on:active {
+    background-color: #10b981;
+    color: white;
+}
+
+/* 4. MOTOR DIZAJN */
+.motor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #2d3340;
+    padding-bottom: 12px;
+    margin-bottom: 5px;
+}
+
+.motor-title {
+    font-weight: 700;
+    color: #ffffff;
+    font-size: 1.1rem;
+}
+
+.motor-meta {
+    background: #2d3340;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    color: #9ca3af;
+    font-family: monospace;
+}
+
+.motor-controls {
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+}
+
+.btn-motor {
+    flex: 1;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    color: white;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.btn-motor-nav {
+    background-color: #374151;
+}
+.btn-motor-nav:hover {
+    background-color: #4b5563;
+}
+.btn-motor-nav:active {
+    background-color: #6b7280;
+}
+
+.btn-stop {
+    background-color: #7f1d1d;
+    color: #fecaca;
+    flex: 0.8;
+}
+.btn-stop:hover {
+    background-color: #991b1b;
+    color: white;
+}
+.btn-stop:active {
+    background-color: #dc2626;
+}
+
+/* 5. NADPISY SEKCIÍ */
+.section-title {
+    color: #60a5fa;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 700;
+    margin-bottom: 15px;
+    border-left: 3px solid #60a5fa;
+    padding-left: 10px;
+    display: inline-block;
 }

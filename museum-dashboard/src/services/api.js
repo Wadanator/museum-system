@@ -1,6 +1,5 @@
 const API_URL = '/api';
 
-// Pomocná funkcia na získanie hlavičiek (Authorization)
 const getHeaders = () => {
   const headers = {};
   const auth = localStorage.getItem('auth_header');
@@ -10,26 +9,16 @@ const getHeaders = () => {
   return headers;
 };
 
-// Wrapper pre fetch, ktorý automaticky pridáva auth hlavičky
 export const authFetch = async (url, options = {}) => {
   const headers = getHeaders();
-  
-  // Ak body nie je FormData (napr. posielame JSON), pridáme Content-Type.
-  // Pri FormData (upload súborov) to prehliadač nastaví automaticky.
   if (!(options.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
   }
-
   const finalOptions = {
     ...options,
-    headers: {
-      ...headers,
-      ...options.headers
-    }
+    headers: { ...headers, ...options.headers }
   };
-
   const res = await fetch(url, finalOptions);
-  
   if (res.status === 401) {
     throw new Error('Unauthorized');
   }
@@ -39,16 +28,11 @@ export const authFetch = async (url, options = {}) => {
 export const api = {
   login: async (username, password) => {
     const token = 'Basic ' + btoa(username + ':' + password);
-    // Skúsime zavolať backend na overenie hesla
     const res = await fetch(`${API_URL}/status`, {
         headers: { 'Authorization': token }
     });
-
-    if (res.ok) {
-        return token;
-    } else {
-        throw new Error('Nesprávne meno alebo heslo');
-    }
+    if (res.ok) return token;
+    else throw new Error('Nesprávne meno alebo heslo');
   },
 
   getStatus: async () => {
@@ -84,6 +68,8 @@ export const api = {
     return res.json();
   },
 
+  // --- COMMANDS & DEVICES ---
+
   getCommands: async () => {
     const res = await authFetch(`${API_URL}/commands`);
     return res.json();
@@ -107,7 +93,22 @@ export const api = {
     return res.json();
   },
 
-  // Logy a systém
+  getDevices: async () => {
+    const res = await authFetch(`${API_URL}/devices`);
+    return res.json();
+  },
+
+  // NOVÉ: Priame odoslanie MQTT správy
+  sendMqtt: async (topic, message) => {
+    const res = await authFetch(`${API_URL}/mqtt/send`, {
+      method: 'POST',
+      body: JSON.stringify({ topic, message })
+    });
+    return res.json();
+  },
+
+  // --- LOGY A SYSTÉM ---
+
   clearLogs: async () => {
     const res = await authFetch(`${API_URL}/logs/clear`, { method: 'POST' });
     return res.json();
