@@ -14,10 +14,13 @@ struct Device {
 
 // Tu pridávaj/upravuj svoje zariadenia
 const Device DEVICES[] = {
-  {"light1", 27, true},   // room1/light1 -> GPIO 27, aktívne LOW
-  {"light2", 26, true},   // room1/light2 -> GPIO 26, aktívne LOW
-  {"fan", 25, true},      // room1/fan -> GPIO 25, aktívne LOW
-  {"pump", 33, true}      // room1/pump -> GPIO 33, aktívne LOW
+  {"effect/smoke", 13, true},    // room1/smoke -> GPIO 13 (Nový pin - pre dymostroj)
+  {"light/1", 27, true},   // room1/light1 -> GPIO 27
+  {"light/2", 26, true},   // room1/light2 -> GPIO 26
+  {"light/3", 25, true},   // room1/light3 -> GPIO 25
+  {"light/4", 33, true},   // room1/light4 -> GPIO 33
+  {"light/5", 32, true},   // room1/light5 -> GPIO 32
+  {"light/6", 14, true}    // room1/light6 -> GPIO 14
 };
 
 const int DEVICE_COUNT = sizeof(DEVICES) / sizeof(Device);
