@@ -7,6 +7,7 @@
 extern WiFiClient wifiClient;
 extern PubSubClient client;
 extern bool mqttConnected;
+extern unsigned long lastCommandTime;
 
 void initializeMqtt();
 void connectToMqtt();

@@ -12,6 +12,8 @@ unsigned long lastMqttAttempt = 0;
 unsigned long lastStatusPublish = 0;
 String STATUS_TOPIC = String("devices/") + CLIENT_ID + "/status";
 
+unsigned long lastCommandTime = 0;
+
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
   char message[length + 1];
   for (unsigned int i = 0; i < length; i++) {
@@ -19,15 +21,14 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   }
   message[length] = '\0';
 
-  debugPrint("📩 MQTT topic: " + String(topic));
-  debugPrint("📩 MQTT správa: " + String(message));
+  debugPrint("MQTT topic: " + String(topic));
+  debugPrint("MQTT sprava: " + String(message));
 
   String topicStr(topic);
   String basePrefix(BASE_TOPIC_PREFIX);
 
-  // Ignoruj feedback a status topics aby sa predišlo slučkám
+  // Ignoruj feedback a status topics
   if (topicStr.endsWith("/feedback") || topicStr.endsWith("/status")) {
-    debugPrint("Ignorujem feedback/status topic");
     return;
   }
 
@@ -35,17 +36,21 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   bool commandSuccessful = false;
   
   if (topicStr.startsWith(basePrefix)) {
+    
+    // --- NOVE: Reset timeout casovaca pri prijatí prikazu ---
+    lastCommandTime = millis();
+    // --------------------------------------------------------
+
     String deviceName = topicStr.substring(basePrefix.length());
 
-    // STOP príkaz - vypne všetko
+    // STOP prikaz
     if (deviceName == "STOP") {
       turnOffAllDevices();
       commandSuccessful = true;
-      debugPrint("⚠️  STOP príkaz vykonaný");
+      debugPrint("STOP prikaz vykonany");
     }
-    // Príkazy pre jednotlivé zariadenia
+    // Prikazy pre jednotlive zariadenia
     else {
-      // Nájdi zariadenie podľa názvu
       int deviceIndex = -1;
       for (int i = 0; i < DEVICE_COUNT; i++) {
         if (String(DEVICES[i].name) == deviceName) {
@@ -67,21 +72,21 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
           commandSuccessful = true;
         }
         else {
-          debugPrint("❌ Neznámy príkaz: " + cmd + " (použite ON/OFF alebo 1/0)");
+          debugPrint("Neznamy prikaz: " + cmd);
         }
       } else {
-        debugPrint("❌ Neznáme zariadenie: " + deviceName);
+        debugPrint("Nezname zariadenie: " + deviceName);
       }
     }
 
-    // Pošli feedback
+    // Posli feedback
     if (commandSuccessful) {
       if (client.publish(feedbackTopic.c_str(), "OK", false)) {
-        debugPrint("✅ Feedback: OK -> " + feedbackTopic);
+        debugPrint("Feedback: OK -> " + feedbackTopic);
       }
     } else {
       if (client.publish(feedbackTopic.c_str(), "ERROR", false)) {
-        debugPrint("❌ Feedback: ERROR -> " + feedbackTopic);
+        debugPrint("Feedback: ERROR -> " + feedbackTopic);
       }
     }
   }
@@ -91,7 +96,7 @@ void initializeMqtt() {
   client.setServer(MQTT_SERVER, MQTT_PORT);
   client.setKeepAlive(MQTT_KEEP_ALIVE);
   client.setCallback(mqttCallback);
-  debugPrint("MQTT nakonfigurované: " + String(MQTT_SERVER) + ":" + String(MQTT_PORT));
+  debugPrint("MQTT nakonfigurovane: " + String(MQTT_SERVER) + ":" + String(MQTT_PORT));
 }
 
 void connectToMqtt() {
@@ -102,44 +107,47 @@ void connectToMqtt() {
   static unsigned long mqttRetryInterval = MQTT_RETRY_INTERVAL;
 
   if (!client.connected() && (currentTime - lastMqttAttempt >= mqttRetryInterval)) {
-    debugPrint("🔌 Pripájam sa na MQTT broker...");
+    debugPrint("Pripajam sa na MQTT broker...");
     String willTopic = "devices/" + String(CLIENT_ID) + "/status";
 
     // Pripoj sa s will message
     if (client.connect(CLIENT_ID, willTopic.c_str(), 0, true, "offline")) {
-      Serial.println("✅ MQTT pripojené");
-      debugPrint("MQTT úspešne pripojené");
+      Serial.println("MQTT pripojene");
+      debugPrint("MQTT uspesne pripojene");
       mqttConnected = true;
       mqttAttempts = 0;
       mqttRetryInterval = MQTT_RETRY_INTERVAL;
 
-      // Subscribe na všetky zariadenia
+      // Subscribe na vsetky zariadenia
       String basePrefix = String(BASE_TOPIC_PREFIX);
       for (int i = 0; i < DEVICE_COUNT; i++) {
         String topic = basePrefix + String(DEVICES[i].name);
         client.subscribe(topic.c_str(), 0);
-        debugPrint("📡 Subscribed: " + topic);
+        debugPrint("Subscribed: " + topic);
       }
 
-      // Subscribe na STOP príkaz
+      // Subscribe na STOP prikaz
       client.subscribe((basePrefix + "STOP").c_str(), 0);
-      debugPrint("📡 Subscribed: " + basePrefix + "STOP");
+      debugPrint("Subscribed: " + basePrefix + "STOP");
 
-      // Publikuj online status okamžite
+      // Publikuj online status
       if (client.publish(STATUS_TOPIC.c_str(), "online", true)) {
-        debugPrint("📤 Status: online");
+        debugPrint("Status: online");
       }
 
       lastStatusPublish = currentTime;
+      
+      // Reset casovaca pri uspesnom pripojeni
+      lastCommandTime = currentTime;
 
     } else {
       mqttAttempts++;
-      Serial.println("❌ MQTT pripojenie zlyhalo. Pokus: " + String(mqttAttempts));
-      debugPrint("MQTT pripojenie zlyhalo. Pokus: " + String(mqttAttempts));
+      Serial.println("MQTT pripojenie zlyhalo. Pokus: " + String(mqttAttempts));
+      debugPrint("MQTT zlyhalo. RC=" + String(client.state()));
 
       if (mqttAttempts >= MAX_MQTT_ATTEMPTS) {
-        debugPrint("Max MQTT pokusov dosiahnutý - reštartujem ESP32");
-        Serial.println("🔄 Reštartujem ESP32...");
+        debugPrint("Max MQTT pokusov dosiahnuty - restartujem ESP32");
+        Serial.println("Restartujem ESP32...");
         delay(1000);
         ESP.restart();
       } else {
@@ -173,10 +181,8 @@ void publishStatus() {
   if (currentTime - lastStatusPublish < STATUS_PUBLISH_INTERVAL) return;
 
   if (client.publish(STATUS_TOPIC.c_str(), "online", true)) {
-    debugPrint("📤 Status publikovaný: online");
+    debugPrint("Status publikovany: online");
     lastStatusPublish = currentTime;
-  } else {
-    debugPrint("❌ Nepodarilo sa publikovať status");
   }
 }
 

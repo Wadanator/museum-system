@@ -4,29 +4,32 @@
 #include <Arduino.h>
 
 // =============================================================================
-// DEFINÍCIA ZARIADENÍ - UPRAVIŤ PODĽA POTREBY
+// KONFIGURACIA HARDVERU
+// =============================================================================
+// Ak je true, pouzije sa ovladanie cez I2C expander (pre Waveshare modul)
+// Ak je false, pouzije sa priame ovladanie GPIO (pre klasicke ESP32)
+extern const bool USE_RELAY_MODULE;
+
+// I2C Nastavenia pre Waveshare modul
+extern const int I2C_SDA_PIN;
+extern const int I2C_SCL_PIN;
+extern const int I2C_EXPANDER_ADDR;
+
+// =============================================================================
+// DEFINICIA ZARIADENI
 // =============================================================================
 struct Device {
-  const char* name;  // Názov pre MQTT topic (napr. "light1", "fan", "pump")
-  int pin;           // GPIO pin
-  bool inverted;     // true = relé je aktívne na LOW (bežné pre reléové moduly)
+  const char* name;  // Nazov pre MQTT topic (napr. "light1", "fan")
+  int pin;           // GPIO pin (ak USE_RELAY_MODULE=false) ALEBO cislo bitu 0-7 (ak USE_RELAY_MODULE=true)
+  bool inverted;     // true = rele je aktivne na LOW (bezne pre releove moduly)
 };
 
-// Tu pridávaj/upravuj svoje zariadenia
-const Device DEVICES[] = {
-  {"effect/smoke", 13, true},    // room1/smoke -> GPIO 13 (Nový pin - pre dymostroj)
-  {"light/1", 27, true},   // room1/light1 -> GPIO 27
-  {"light/2", 26, true},   // room1/light2 -> GPIO 26
-  {"light/3", 25, true},   // room1/light3 -> GPIO 25
-  {"light/4", 33, true},   // room1/light4 -> GPIO 33
-  {"light/5", 32, true},   // room1/light5 -> GPIO 32
-  {"light/6", 14, true}    // room1/light6 -> GPIO 14
-};
-
-const int DEVICE_COUNT = sizeof(DEVICES) / sizeof(Device);
+// Zariadenia
+extern const Device DEVICES[];
+extern const int DEVICE_COUNT;
 
 // =============================================================================
-// SYSTÉMOVÁ KONFIGURÁCIA
+// SYSTEMOVA KONFIGURACIA
 // =============================================================================
 
 // Debug
@@ -39,7 +42,7 @@ extern const char* WIFI_PASSWORD;
 // MQTT
 extern const char* MQTT_SERVER;
 extern const int MQTT_PORT;
-extern const char* BASE_TOPIC_PREFIX;  // "room1/"
+extern const char* BASE_TOPIC_PREFIX;
 extern const char* CLIENT_ID;
 
 // Connection Management
@@ -51,6 +54,9 @@ extern const unsigned long CONNECTION_CHECK_INTERVAL;
 extern const int MAX_WIFI_ATTEMPTS;
 extern const int MAX_MQTT_ATTEMPTS;
 extern const int MQTT_KEEP_ALIVE;
+
+// Cas v ms, po ktorom sa vsetko vypne, ak nepride ziadny prikaz
+extern const unsigned long NO_COMMAND_TIMEOUT;
 
 // Watchdog Timer
 extern const unsigned long WDT_TIMEOUT;
