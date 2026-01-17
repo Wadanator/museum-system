@@ -1,6 +1,3 @@
-#!/bin/bash
-# raspberry_pi/tools/diagnostics/restart_service.sh
-
 # Stop services
 sudo systemctl stop museum-watchdog
 sudo systemctl stop museum-system

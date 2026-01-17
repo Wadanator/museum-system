@@ -97,7 +97,7 @@ class SceneParser:
         return True
     
     def stop_scene(self):
-        self.logger.info("Stopping scene via SceneParser request...")
+        self.logger.warning("Stopping scene via SceneParser request...")
         if self.state_machine:
             self.state_machine.reset_runtime_state()
             self.state_machine.current_state = "END"

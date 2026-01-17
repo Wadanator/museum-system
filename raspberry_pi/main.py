@@ -337,7 +337,7 @@ class MuseumController:
                         self.mqtt_device_registry.cleanup_stale_devices()
                     last_device_cleanup = current_time
                 
-                sleep_time = self.main_loop_sleep if self.scene_running else (self.main_loop_sleep + 0.5)
+                sleep_time = self.main_loop_sleep if self.scene_running else (self.main_loop_sleep + 0.1)
                 time.sleep(sleep_time)
                 
         except KeyboardInterrupt:

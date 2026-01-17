@@ -1,90 +1,90 @@
 {
-  "relays": [
-    { 
-      "id": "smoke", 
-      "name": "Dymostroj", 
-      "topic": "room1/effect/smoke", 
-      "icon": "💨" 
+  "motors": [
+    {
+      "id": "Kolesa",
+      "name": "Kolesa",
+      "speed": 50,
+      "topic": "room1/motor1"
     },
-    { 
-      "id": "light_1", 
-      "name": "Svetlo 1", 
-      "topic": "room1/light/1", 
-      "icon": "💡" 
-    },
-    { 
-      "id": "light_2", 
-      "name": "Svetlo 2", 
-      "topic": "room1/light/2", 
-      "icon": "💡" 
-    },
-    { 
-      "id": "light_3", 
-      "name": "Svetlo 3", 
-      "topic": "room1/light/3", 
-      "icon": "💡" 
-    },
-    { 
-      "id": "light_4", 
-      "name": "Svetlo 4", 
-      "topic": "room1/light/4", 
-      "icon": "💡" 
-    },
-    { 
-      "id": "light_5", 
-      "name": "Svetlo 5", 
-      "topic": "room1/light/5", 
-      "icon": "💡" 
-    },
-    { 
-      "id": "light_6", 
-      "name": "Svetlo 6", 
-      "topic": "room1/light/6", 
-      "icon": "💡" 
-    },
-    { 
-      "id": "light_7", 
-      "name": "Svetlo 7", 
-      "topic": "room1/light/7", 
-      "icon": "💡" 
-    },
-    { 
-      "id": "light_8", 
-      "name": "Svetlo 8", 
-      "topic": "room1/light/8", 
-      "icon": "💡" 
-    },
-    { 
-      "id": "light_9", 
-      "name": "Svetlo 9", 
-      "topic": "room1/light/9", 
-      "icon": "💡" 
-    },
-    { 
-      "id": "light_10", 
-      "name": "Svetlo 10", 
-      "topic": "room1/light/10", 
-      "icon": "💡" 
-    },
-    { 
-      "id": "light_11", 
-      "name": "Svetlo 11", 
-      "topic": "room1/light/11", 
-      "icon": "💡" 
+    {
+      "id": "Hodiny",
+      "name": "Hodiny",
+      "speed": 50,
+      "topic": "room1/motor2"
     }
   ],
-  "motors": [
-    { 
-      "id": "curtain_front", 
-      "name": "Predná Opona", 
-      "topic": "room1/motor1", 
-      "speed": 50 
+  "relays": [
+    {
+      "icon": "\ud83d\udca8",
+      "id": "smoke",
+      "name": "Dymostroj",
+      "topic": "room1/effect/smoke"
     },
-    { 
-      "id": "projector_lift", 
-      "name": "Výťah Projektora", 
-      "topic": "room1/motor2", 
-      "speed": 50
+    {
+      "icon": "\ud83d\udca1",
+      "id": "light_1",
+      "name": "Svetlo 1",
+      "topic": "room1/light/1"
+    },
+    {
+      "icon": "\ud83d\udca1",
+      "id": "light_2",
+      "name": "Svetlo 2",
+      "topic": "room1/light/2"
+    },
+    {
+      "icon": "\ud83d\udca1",
+      "id": "light_3",
+      "name": "Svetlo 3",
+      "topic": "room1/light/3"
+    },
+    {
+      "icon": "\ud83d\udca1",
+      "id": "light_4",
+      "name": "Svetlo 4",
+      "topic": "room1/light/4"
+    },
+    {
+      "icon": "\ud83d\udca1",
+      "id": "light_5",
+      "name": "Svetlo 5",
+      "topic": "room1/light/5"
+    },
+    {
+      "icon": "\ud83d\udca1",
+      "id": "light_6",
+      "name": "Svetlo 6",
+      "topic": "room1/light/6"
+    },
+    {
+      "icon": "\ud83d\udca1",
+      "id": "light_7",
+      "name": "Svetlo 7",
+      "topic": "room1/light/7"
+    },
+    {
+      "icon": "\ud83d\udca1",
+      "id": "light_8",
+      "name": "Svetlo 8",
+      "topic": "room1/light/8"
+    },
+    {
+      "icon": "\ud83d\udca1",
+      "id": "light_9",
+      "name": "Svetlo 9",
+      "topic": "room1/light/9"
+    },
+    {
+      "icon": "\ud83d\udca1",
+      "id": "light_10",
+      "name": "Svetlo 10",
+      "topic": "room1/light/10"
+    },
+    {
+      "icon": "\ud83d\udca1",
+      "id": "light_11",
+      "name": "Svetlo 11",
+      "topic": "room1/light/11"
     }
   ]
 }

@@ -88,7 +88,8 @@ class VideoHandler:
 
             cmd = [
                 'mpv', '--fs', '--no-osc', '--no-osd-bar', '--vo=gpu',
-                '--hwdec=rpi4-mmal',
+                ##'--hwdec=rpi4-mmal',
+                '--hwdec=auto',
                 '--cache=no',
                 '--demuxer-max-bytes=3M',
                 '--profile=low-latency',
