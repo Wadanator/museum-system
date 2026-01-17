@@ -1,0 +1,205 @@
+/* --- HLAVNÝ LAYOUT --- */
+.scenes-view {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    height: 100%;
+}
+
+.view-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.view-subtitle {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-top: 4px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+/* --- GRID SYSTÉM --- */
+.scenes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    padding-bottom: 20px;
+}
+
+.loading-state, .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    height: 300px;
+    color: var(--text-muted);
+    grid-column: 1 / -1;
+    font-size: 1.1rem;
+}
+
+/* --- KARTA SCÉNY --- */
+.scene-card {
+    transition: all 0.2s ease;
+    border: 1px solid var(--border-color);
+}
+
+.scene-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    border-color: var(--primary-color);
+}
+
+.scene-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.scene-icon {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 12px;
+    border-radius: 10px;
+    color: var(--primary-color);
+}
+
+.scene-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.scene-meta {
+    display: flex;
+    align-items: center;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* --- EDITOR MODAL (Toto chýbalo) --- */
+
+/* Pozadie (Overlay) */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+/* Okno editora */
+.modal-content.large-editor {
+    width: 90vw;
+    height: 85vh;
+    max-width: 1200px;
+    display: flex;
+    flex-direction: column;
+    padding: 0; 
+    overflow: hidden;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+}
+
+/* Hlavička modalu */
+.modal-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-card);
+}
+
+.modal-title-group {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.modal-title-group h3 {
+    margin: 0;
+    font-size: 1.2rem;
+}
+
+.file-badge {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 0.9rem;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* Tlačidlo zatvoriť (X) */
+.close-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.close-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+
+/* Telo editora (pre Monaco) */
+.modal-body-editor {
+    flex: 1;
+    overflow: hidden; 
+    position: relative;
+    background-color: #1e1e1e;
+}
+
+/* Pätička */
+.modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-card);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.validation-status {
+    flex: 1;
+}
+
+.error-text {
+    color: #ef4444;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.footer-buttons {
+    display: flex;
+    gap: 10px;
+}

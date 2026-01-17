@@ -1,45 +1,59 @@
-import { api } from '../../services/api';
-import toast from 'react-hot-toast';
-import { useConfirm } from '../../context/ConfirmContext';
-import { Settings, RefreshCw } from 'lucide-react';
-import PageHeader from '../ui/PageHeader';
-import Button from '../ui/Button';
+import { Server, Power, RefreshCw, HardDrive } from 'lucide-react';
+import { useSystemActions } from '../../hooks/useSystemActions';
 import Card from '../ui/Card';
+import Button from '../ui/Button';
+import ButtonGroup from '../ui/ButtonGroup';
 
 export default function SystemView() {
-  const { confirm } = useConfirm();
+    const { restartService, rebootSystem, shutdownSystem } = useSystemActions();
 
-  const handleRestartSystem = async () => {
-    if (await confirm({
-        title: "Reštart systému",
-        message: "Skutočne chcete vykonať tvrdý reštart? Toto reštartuje Raspberry Pi a preruší všetky operácie.",
-        confirmText: "Reštartovať",
-        type: "danger"
-    })) {
-        toast.promise(
-            api.restartSystem(),
-            {
-                loading: 'Reštartujem systém...',
-                success: 'Systém sa reštartuje. Počkajte na obnovenie pripojenia.',
-                error: (err) => `Chyba: ${err.message}`
-            }
-        );
-    }
-  };
+    return (
+        <div className="view-container">
+            <h2 className="view-title">Systémové nastavenia</h2>
+            
+            <div style={{ display: 'grid', gap: '20px', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
+                
+                {/* Karta: Správa Aplikácie */}
+                <Card title="Aplikácia Múzeum" icon={Server}>
+                    <p style={{ marginBottom: '15px', color: '#666' }}>
+                        Ovládanie hlavnej služby Python backendu. Použite pri zaseknutí logiky.
+                    </p>
+                    <Button 
+                        onClick={restartService} 
+                        variant="secondary" 
+                        icon={RefreshCw}
+                        style={{ width: '100%' }}
+                    >
+                        Reštartovať Backend službu
+                    </Button>
+                </Card>
 
-  return (
-    <div className="tab-content active">
-      <PageHeader title="Systémové ovládanie" icon={Settings} />
-      <div className="system-controls" style={{ maxWidth: '600px' }}>
-        <Card title="Správa napájania" icon={Settings}>
-            <p style={{marginBottom: 20, color: '#4b5563'}}>
-                Reštartuje celé Raspberry Pi. Použite v prípade vážnych problémov s OS alebo hardvérom.
-            </p>
-            <Button variant="danger" onClick={handleRestartSystem} icon={RefreshCw} style={{width: '100%'}}>
-                Reštartovať Raspberry Pi
-            </Button>
-        </Card>
-      </div>
-    </div>
-  );
+                {/* Karta: Správa Hardvéru */}
+                <Card title="Napájanie Zariadenia" icon={HardDrive}>
+                    <p style={{ marginBottom: '15px', color: '#666' }}>
+                        Ovládanie celého počítača (Raspberry Pi).
+                    </p>
+                    <ButtonGroup>
+                        <Button 
+                            onClick={rebootSystem} 
+                            variant="secondary" 
+                            icon={RefreshCw}
+                            style={{ flex: 1 }}
+                        >
+                            Reštartovať RPi
+                        </Button>
+                        <Button 
+                            onClick={shutdownSystem} 
+                            variant="danger" 
+                            icon={Power}
+                            style={{ flex: 1 }}
+                        >
+                            Vypnúť
+                        </Button>
+                    </ButtonGroup>
+                </Card>
+
+            </div>
+        </div>
+    );
 }

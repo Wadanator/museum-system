@@ -1,57 +1,69 @@
-import toast from 'react-hot-toast';
-import { Rewind, FastForward, Square } from 'lucide-react';
-import { api } from '../../services/api';
+import { Rewind, FastForward, Square, Gauge } from 'lucide-react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
+import ButtonGroup from '../ui/ButtonGroup';
+import { useDeviceControl } from '../../hooks/useDeviceControl';
 
 export default function MotorCard({ device }) {
   const speed = device.speed || 100;
+  const { sendCommand } = useDeviceControl(device.topic, device.name);
 
-  const sendCmd = async (cmd, label) => {
+  // Funkcia na odoslanie príkazu
+  const handleAction = (direction, label) => {
       let payload;
-      if (cmd === 'LEFT') payload = `ON:${speed}:L`;
-      if (cmd === 'RIGHT') payload = `ON:${speed}:R`;
-      if (cmd === 'STOP') payload = `OFF`;
+      if (direction === 'LEFT') payload = `ON:${speed}:L`;
+      else if (direction === 'RIGHT') payload = `ON:${speed}:R`;
+      else payload = `OFF`;
 
-      try {
-        await api.sendMqtt(device.topic, payload);
-        toast.success(`${device.name}: ${label}`);
-      } catch (e) {
-        toast.error("Chyba motora");
-      }
+      sendCommand(payload, label);
   };
+
+  // Hlavička karty s rýchlosťou (Opravený Badge)
+  const headerAction = (
+      <div className="status-badge info">
+          <Gauge size={14} />
+          <span>{speed}%</span>
+      </div>
+  );
 
   return (
     <Card 
         title={device.name} 
-        actions={<span className="badge">{speed}% SPD</span>}
+        actions={headerAction}
+        className="device-card motor-card"
     >
-        <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-            <Button 
-                variant="secondary" 
-                onClick={() => sendCmd('LEFT', 'Vzad')} 
-                style={{ flex: 1 }}
-                icon={Rewind}
-            >
-                Vzad
-            </Button>
-            
-            <Button 
-                variant="danger" 
-                onClick={() => sendCmd('STOP', 'Stop')}
-                icon={Square}
-            >
-                STOP
-            </Button>
-            
-            <Button 
-                variant="secondary" 
-                onClick={() => sendCmd('RIGHT', 'Vpred')} 
-                style={{ flex: 1 }}
-                icon={FastForward}
-            >
-                Vpred
-            </Button>
+        <div className="card-description">
+            Ovládanie smeru a rýchlosti motorickej jednotky.
+        </div>
+
+        <div className="motor-controls">
+            <ButtonGroup>
+                <Button 
+                    variant="secondary" 
+                    onClick={() => handleAction('LEFT', 'Vzad')} 
+                    icon={Rewind}
+                    style={{ flex: 1 }}
+                >
+                    Vzad
+                </Button>
+                
+                <Button 
+                    variant="danger" 
+                    onClick={() => handleAction('STOP', 'Stop')}
+                    icon={Square}
+                >
+                    STOP
+                </Button>
+                
+                <Button 
+                    variant="secondary" 
+                    onClick={() => handleAction('RIGHT', 'Vpred')} 
+                    icon={FastForward}
+                    style={{ flex: 1 }}
+                >
+                    Vpred
+                </Button>
+            </ButtonGroup>
         </div>
     </Card>
   );

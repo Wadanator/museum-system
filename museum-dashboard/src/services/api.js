@@ -130,8 +130,21 @@ export const api = {
     return res.json();
   },
 
-  restartSystem: async () => {
-    const res = await authFetch(`${API_URL}/system/restart`, { method: 'POST' });
+  // Reštart iba služby (Python skriptu)
+  restartService: async () => {
+    const res = await authFetch(`${API_URL}/system/restart_service`, { method: 'POST' });
+    return res.json();
+  },
+
+  // Reštart celého Raspberry Pi (sudo reboot)
+  rebootSystem: async () => {
+    const res = await authFetch(`${API_URL}/system/reboot`, { method: 'POST' });
+    return res.json();
+  },
+
+  // Vypnutie Raspberry Pi (sudo shutdown)
+  shutdownSystem: async () => {
+    const res = await authFetch(`${API_URL}/system/shutdown`, { method: 'POST' });
     return res.json();
   }
 };
