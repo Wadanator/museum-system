@@ -55,15 +55,27 @@ class WebDashboard:
     def _setup_socketio_handlers(self):
         """Setup SocketIO event handlers."""
         @self.socketio.on('connect')
-        def handle_connect():
+        def handle_connect(auth=None):
             """Handle new SocketIO client connections with authentication."""
-            auth = flask_request.authorization
-            if not auth or not self._check_auth(auth.username, auth.password):
+            # FIX: Kontrola auth z handshake dát (spoľahlivejšie pre WebSockets)
+            is_valid = False
+            if auth and 'username' in auth and 'password' in auth:
+                is_valid = self._check_auth(auth['username'], auth['password'])
+            else:
+                # Fallback na standardnu Flask basic auth (pre polling)
+                flask_auth = flask_request.authorization
+                if flask_auth:
+                    is_valid = self._check_auth(flask_auth.username, flask_auth.password)
+
+            if not is_valid:
                 return False  # Reject unauthorized connections
+            
             try:
+                # FIX: ODOŠLEME STAV IHNEĎ ABY UI NEUKAZOVALO POMMLČKY
+                emit('status_update', self._get_status_data())
                 emit('log_history', self.log_buffer)
                 emit('stats_update', self.stats)
-                self.log.info("New SocketIO client connected")
+                self.log.info("New SocketIO client connected and authenticated")
             except Exception as e:
                 self.log.error(f"Error on connect: {e}")
 
