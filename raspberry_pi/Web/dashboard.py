@@ -4,6 +4,8 @@
 import json
 import logging
 import time
+import threading
+import base64
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
@@ -37,6 +39,9 @@ class WebDashboard:
         self._load_stats()
         self._setup_socketio_handlers()
 
+        # FIX: Spustíme monitorovanie stavu na pozadí, aby sme nemuseli meniť main.py
+        self._start_status_monitor()
+
     def _setup_logger(self):
         """Setup logger for dashboard."""
         from utils.logging_setup import get_logger
@@ -49,29 +54,79 @@ class WebDashboard:
             logger = logging.getLogger(logger_name)
             logger.addHandler(web_handler)
         for logger_name in ('werkzeug', 'flask'):
-            logging.getLogger(logger_name).setLevel(logging.ERROR)  # Suppress Flask/Werkzeug logs
+            logging.getLogger(logger_name).setLevel(logging.ERROR)
         self.load_existing_logs()
+
+    def _start_status_monitor(self):
+        """
+        Starts a background thread that monitors controller state changes.
+        This fixes the issue where the dashboard doesn't update when a scene ends
+        without requiring changes to main.py.
+        """
+        def monitor_loop():
+            last_scene_running = None
+            while not getattr(self.controller, 'shutdown_requested', False):
+                # Získame aktuálny stav
+                current_scene_running = getattr(self.controller, 'scene_running', False)
+                
+                # Ak sa stav zmenil (napr. scéna skončila), pošleme update
+                if current_scene_running != last_scene_running:
+                    # Počkáme malú chvíľu, aby sa stihli upratať dáta v controlleri
+                    if last_scene_running is not None:
+                        time.sleep(0.1)
+                        self.broadcast_status()
+                    last_scene_running = current_scene_running
+                
+                time.sleep(0.5) # Kontrola každých 500ms
+
+        thread = threading.Thread(target=monitor_loop, daemon=True, name="DashboardStatusMonitor")
+        thread.start()
+        self.log.debug("Status monitor thread started")
+
+    def broadcast_status(self):
+        """Helper to send status update to all clients."""
+        try:
+            self.socketio.emit('status_update', self._get_status_data())
+        except Exception as e:
+            self.log.error(f"Error broadcasting status: {e}")
 
     def _setup_socketio_handlers(self):
         """Setup SocketIO event handlers."""
         @self.socketio.on('connect')
         def handle_connect(auth=None):
             """Handle new SocketIO client connections with authentication."""
-            # FIX: Kontrola auth z handshake dát (spoľahlivejšie pre WebSockets)
             is_valid = False
+            
+            # 1. Skusime priame prihlasovacie udaje (ak by ich posielal klient)
             if auth and 'username' in auth and 'password' in auth:
                 is_valid = self._check_auth(auth['username'], auth['password'])
+            
+            # 2. FIX: Skusime Token z auth objektu (posiela náš opravený socket.js)
+            elif auth and 'token' in auth:
+                try:
+                    # Token je v formáte "Basic <base64_encoded_creds>"
+                    token_str = auth['token']
+                    if token_str.startswith('Basic '):
+                        token_str = token_str.split(' ')[1]
+                    
+                    decoded = base64.b64decode(token_str).decode('utf-8')
+                    username, password = decoded.split(':', 1)
+                    is_valid = self._check_auth(username, password)
+                except Exception as e:
+                    self.log.warning(f"Failed to decode auth token: {e}")
+
+            # 3. Fallback na HTTP headers (pre polling transport)
             else:
-                # Fallback na standardnu Flask basic auth (pre polling)
                 flask_auth = flask_request.authorization
                 if flask_auth:
                     is_valid = self._check_auth(flask_auth.username, flask_auth.password)
 
             if not is_valid:
+                self.log.warning("Unauthorized connection attempt rejected")
                 return False  # Reject unauthorized connections
             
             try:
-                # FIX: ODOŠLEME STAV IHNEĎ ABY UI NEUKAZOVALO POMMLČKY
+                # FIX: ODOŠLEME STAV IHNEĎ ABY UI NEUKAZOVALO POMLČKY
                 emit('status_update', self._get_status_data())
                 emit('log_history', self.log_buffer)
                 emit('stats_update', self.stats)
