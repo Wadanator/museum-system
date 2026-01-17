@@ -300,7 +300,8 @@ class MuseumController:
         except Exception as e:
             log.error(f"Error updating stats: {e}")
 
-    # --- TOTO JE TO ČO CHÝBALO PRE FUNKČNOSŤ TLAČIDLA REŠTART RPI ---
+    # --- SYSTEM CONTROL METHODS ---
+    
     def system_restart(self):
         """Reboots the entire Raspberry Pi."""
         log.warning("Initiating System Reboot...")
@@ -308,6 +309,22 @@ class MuseumController:
             subprocess.Popen(['sudo', 'reboot'], shell=False)
         except Exception as e:
             log.error(f"Failed to initiate reboot: {e}")
+
+    def system_shutdown(self):
+        """Shuts down the Raspberry Pi."""
+        log.warning("Initiating System Shutdown...")
+        try:
+            # -h now = halt immediately
+            subprocess.Popen(['sudo', 'shutdown', '-h', 'now'], shell=False)
+        except Exception as e:
+            log.error(f"Failed to initiate shutdown: {e}")
+
+    def service_restart(self):
+        """Restarts the Python service (by exiting, assuming systemd will restart it)."""
+        log.warning("Initiating Service Restart (Exit)...")
+        # Systemd (ak je nastavený Restart=always) službu automaticky nahodí znova
+        self.shutdown_requested = True
+        sys.exit(0) 
 
     def run(self):
         """Run the main application loop."""
