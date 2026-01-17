@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { authFetch } from '../../services/api';
+import { authFetch, api } from '../../services/api';
 import '../../styles/views/media-manager.css';
 
 const MediaManager = () => {
@@ -34,6 +34,27 @@ const MediaManager = () => {
       toast.error("Nepodarilo sa načítať zoznam súborov");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // --- LOGIKA PREHRÁVANIA (NOVÉ) ---
+
+  const handlePlay = async (type, fileName) => {
+    try {
+      toast.success(`Spúšťam: ${fileName}`);
+      await api.playMedia(type, fileName);
+    } catch (error) {
+      console.error(error);
+      toast.error("Chyba pri spustení média");
+    }
+  };
+
+  const handleStop = async (type) => {
+    try {
+      await api.stopMedia(type);
+      toast.success(`Zastavené prehrávanie (${type})`);
+    } catch (error) {
+      toast.error("Chyba pri zastavení");
     }
   };
 
@@ -147,6 +168,17 @@ const MediaManager = () => {
         </div>
       </div>
       <div className="media-actions">
+        {/* Tlačidlo PLAY */}
+        <button 
+            className="btn-icon" 
+            onClick={() => handlePlay(type, file.name)}
+            title="Prehrať na zariadení"
+            style={{ marginRight: '8px', fontSize: '1.2em', cursor: 'pointer', background: 'none', border: 'none' }} 
+        >
+            ▶️
+        </button>
+
+        {/* Tlačidlo DELETE */}
         <button 
             className="btn-delete" 
             onClick={() => openDeleteModal(type, file.name)} 
@@ -169,9 +201,14 @@ const MediaManager = () => {
             🎥 Video & Obrázky
             <span className="count-badge">{videos.length}</span>
           </div>
-          <button className="btn btn-secondary btn-small" onClick={() => handleUpload('video')}>
-            ⬆️ Nahrať Video
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button className="btn btn-danger btn-small" onClick={() => handleStop('video')}>
+              ⏹ Stop Video
+            </button>
+            <button className="btn btn-secondary btn-small" onClick={() => handleUpload('video')}>
+              ⬆️ Nahrať Video
+            </button>
+          </div>
         </div>
         
         <div className="media-grid">
@@ -190,9 +227,14 @@ const MediaManager = () => {
             🔊 Zvukové efekty
             <span className="count-badge">{audios.length}</span>
           </div>
-          <button className="btn btn-secondary btn-small" onClick={() => handleUpload('audio')}>
-            ⬆️ Nahrať Audio
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button className="btn btn-danger btn-small" onClick={() => handleStop('audio')}>
+              ⏹ Stop Audio
+            </button>
+            <button className="btn btn-secondary btn-small" onClick={() => handleUpload('audio')}>
+              ⬆️ Nahrať Audio
+            </button>
+          </div>
         </div>
 
         <div className="media-grid">

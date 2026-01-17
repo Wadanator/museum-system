@@ -98,7 +98,23 @@ export const api = {
     return res.json();
   },
 
-  // NOVÉ: Priame odoslanie MQTT správy
+  // --- MEDIA CONTROL ---
+  playMedia: async (type, filename) => {
+    const res = await authFetch(`${API_URL}/media/play`, {
+      method: 'POST',
+      body: JSON.stringify({ type, filename })
+    });
+    return res.json();
+  },
+
+  stopMedia: async (type) => {
+    const res = await authFetch(`${API_URL}/media/stop`, {
+      method: 'POST',
+      body: JSON.stringify({ type })
+    });
+    return res.json();
+  },
+
   sendMqtt: async (topic, message) => {
     const res = await authFetch(`${API_URL}/mqtt/send`, {
       method: 'POST',

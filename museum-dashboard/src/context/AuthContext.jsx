@@ -9,7 +9,21 @@ export function AuthProvider({ children }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Pri štarte skontrolujeme localStorage
+    // 1. Zistíme, či bežíme v DEV móde na Windowse (localhost)
+    // Týmto rozlíšime "Vývoj na PC" vs "Ostré RPi"
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+    if (isLocalDev) {
+        console.log("🖥️ Localhost (Windows) detekovaný: Preskakujem login pre dizajn.");
+        // Nastavíme, že sme prihlásení, aj keď nemáme server
+        setIsAuthenticated(true);
+        setIsLoading(false);
+        // Uložíme dummy token, aby api.js nekričalo hneď (hoci requesty zlyhajú)
+        localStorage.setItem('auth_header', 'Basic DEV_MODE');
+        return;
+    }
+
+    // 2. Štandardná logika pre RPi (vyžaduje overenie)
     const storedAuth = localStorage.getItem('auth_header');
     if (storedAuth) {
       setIsAuthenticated(true);
@@ -23,10 +37,7 @@ export function AuthProvider({ children }) {
       localStorage.setItem('auth_header', token);
       setIsAuthenticated(true);
       toast.success("Vitajte v systéme");
-      
-      // Vynútime obnovenie stránky pre správne načítanie Socket spojenia
       setTimeout(() => window.location.reload(), 500);
-      
       return true;
     } catch (e) {
       toast.error("Nesprávne prihlasovacie údaje");
@@ -38,6 +49,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('auth_header');
     setIsAuthenticated(false);
     toast('Boli ste odhlásený', { icon: '👋' });
+    // Na localhoste ťa to po refreshnutí znova prihlási, čo je pre dizajn žiadané
   };
 
   return (
