@@ -1,92 +1,258 @@
 /* =======================================
-   HLAVNÝ LAYOUT & GRIDY
+   HLAVNÝ APP LAYOUT (Sidebar + Content)
    ======================================= */
 
-.container {
-    max-width: 1600px;
-    margin: 0 auto;
-    background: linear-gradient(to bottom, #ffffff, #f9fafb);
-    border-radius: 20px;
-    padding: 40px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    border: 1px solid #e5e7eb;
+.app-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr; /* Fixný sidebar, zvyšok obsah */
+    min-height: 100vh;
+    background-color: #f3f4f6; /* Svetlosivé pozadie pre obsah */
+    overflow: hidden; /* Zabráni dvojitému scrollbaru */
 }
+
+/* =======================================
+   SIDEBAR STYLES
+   ======================================= */
+
+.sidebar {
+    background-color: #111827; /* Tmavá profi farba */
+    color: #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.05);
+    z-index: 50;
+    overflow-y: auto;
+}
+
+/* Header Sidebaru */
+.sidebar-header {
+    padding: 24px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid #1f2937;
+    margin-bottom: 10px;
+}
+
+.brand-icon {
+    background: #2563eb;
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 15px rgba(37, 99, 235, 0.3);
+}
+
+.brand-text h1 {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin: 0;
+    letter-spacing: 0.5px;
+    color: white;
+}
+
+.brand-text span {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: block;
+}
+
+/* Navigácia */
+.sidebar-nav {
+    flex: 1;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    color: #9ca3af;
+    text-decoration: none;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    position: relative;
+    font-weight: 500;
+}
+
+.nav-item:hover {
+    background-color: #1f2937;
+    color: #f3f4f6;
+    transform: translateX(4px);
+}
+
+.nav-item.active {
+    background-color: #2563eb;
+    color: white;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.nav-icon {
+    margin-right: 12px;
+    opacity: 0.8;
+}
+
+.nav-item.active .nav-icon {
+    opacity: 1;
+}
+
+/* Footer Sidebaru */
+.sidebar-footer {
+    padding: 20px;
+    border-top: 1px solid #1f2937;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #0f1522;
+    margin-top: auto;
+}
+
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.user-avatar {
+    width: 36px;
+    height: 36px;
+    background: #374151;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: white;
+    border: 2px solid #1f2937;
+}
+
+.user-details {
+    display: flex;
+    flex-direction: column;
+}
+
+.user-details .name {
+    font-size: 0.9rem;
+    color: white;
+    font-weight: 500;
+}
+
+.user-details .role {
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.logout-btn {
+    background: transparent;
+    border: none;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 6px;
+    transition: all 0.2s;
+}
+
+.logout-btn:hover {
+    background: #ef444420;
+    color: #ef4444;
+}
+
+/* =======================================
+   MAIN CONTENT AREA
+   ======================================= */
+
+.main-content {
+    padding: 30px 40px;
+    overflow-y: auto;
+    height: 100vh;
+}
+
+.content-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    animation: fadeIn 0.3s ease-out;
+    padding-bottom: 40px;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* =======================================
+   GRIDY A ROZLOŽENIE OBSAHU (Pôvodné - Nutné)
+   ======================================= */
 
 /* Odsadenie sekcií */
 .main-dashboard,
 .system-status-card,
 .status-overview,
 .scene-progress,
-.main-controls,
-.quick-actions {
+.main-controls {
     margin-bottom: 30px;
 }
 
-.main-dashboard {
-    margin-bottom: 40px;
-}
-
-/* =======================================
-   GRID SYSTÉMY (Mriežky)
-   ======================================= */
-
-.status-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 32px;
-    margin-bottom: 48px;
-}
-
+/* Mriežky pre Dashboard a StatsView */
+.status-grid,
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 32px;
-    margin-bottom: 40px;
+    gap: 24px;
+    margin-bottom: 30px;
 }
 
 .scene-list {
     display: grid;
-    gap: 32px;
+    gap: 20px;
     margin-bottom: 40px;
 }
 
-/* Header Layout */
-.header-actions {
-    display: flex;
-    gap: 20px;
-    justify-content: center;
-    margin-top: 20px;
+/* Grid pre statusy (Online/Offline/Room) */
+.status-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 24px;
 }
 
 /* =======================================
-   RESPONZIVITA (Layout zmeny)
+   RESPONZIVITA (Mobil)
    ======================================= */
 
 @media (max-width: 768px) {
-    body { padding: 10px; }
+    .app-layout {
+        grid-template-columns: 1fr; /* Sidebar zmizne alebo sa presunie hore */
+    }
+
+    .sidebar {
+        height: auto;
+        position: relative;
+        display: none; /* Dočasne skryté na mobile, alebo treba dorobiť hamburger menu */
+    }
+
+    /* Ak chceš na mobile aspoň ikonky, treba zložitejšiu logiku, 
+       alebo jednoducho nechať sidebar ako top menu */
     
-    .container {
+    .main-content {
         padding: 16px;
-        margin: 0;
-        border-radius: 12px;
-        min-height: calc(100vh - 20px);
+    }
+
+    .status-overview {
+        grid-template-columns: 1fr; 
+        gap: 15px;
     }
     
-    .main-dashboard { margin-bottom: 24px; }
-    .header-actions { flex-direction: column; gap: 12px; margin-top: 12px; }
-    
-    /* Zmena gridov na mobile */
-    .status-overview { grid-template-columns: repeat(2, 1fr); gap: 15px; }
-    .status-grid, .stats-grid, .scene-list { grid-template-columns: 1fr; gap: 16px; }
-}
-
-@media (max-width: 480px) {
-    body { padding: 5px; }
-    .container { padding: 12px; border-radius: 8px; min-height: calc(100vh - 10px); }
-    .status-overview { grid-template-columns: 1fr; gap: 10px; }
-}
-
-/* Landscape */
-@media (max-width: 768px) and (orientation: landscape) {
-    .status-overview { grid-template-columns: repeat(4, 1fr); }
+    .status-grid, .stats-grid {
+        grid-template-columns: 1fr;
+    }
 }

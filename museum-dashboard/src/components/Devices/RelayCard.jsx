@@ -10,10 +10,8 @@ export default function RelayCard({ device }) {
         await api.sendMqtt(device.topic, cmd);
         
         const label = cmd === 'ON' ? 'ZAPNUTÉ' : 'VYPNUTÉ';
-        toast.success(`${device.name}: ${label}`, {
-            icon: cmd === 'ON' ? '🟢' : '⚫',
-            duration: 2000
-        });
+        // Opravené: Odstránený parameter icon s emoji
+        toast.success(`${device.name}: ${label}`);
 
     } catch (e) {
         toast.error("Chyba komunikácie");
@@ -23,7 +21,7 @@ export default function RelayCard({ device }) {
   return (
     <Card 
         title={device.name} 
-        icon={device.icon ? Zap : undefined} // Tu by sa dala pridať logika pre dynamickú ikonu
+        icon={device.icon ? Zap : undefined} 
         className="device-card"
     >
         <div style={{ 

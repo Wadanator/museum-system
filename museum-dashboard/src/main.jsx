@@ -9,11 +9,9 @@ import App from './App.jsx'
 import './index.css'
 import './styles/base.css'
 import './styles/layout.css'
-import './styles/header.css'
 import './styles/controls.css'
 import './styles/utilities.css'
 import './styles/feedback.css'
-import './styles/navigation.css'
 
 // --- NOVÉ IMPORTY PODĽA POHĽADOV ---
 import './styles/views/main-dashboard.css'

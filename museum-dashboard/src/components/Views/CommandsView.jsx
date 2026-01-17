@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import toast from 'react-hot-toast';
 import JsonEditor from '../Shared/JsonEditor';
-import { Zap, LayoutGrid, FileJson, Play, Save, Plus } from 'lucide-react';
+import { 
+    Zap, LayoutGrid, FileJson, Play, Save, Plus, 
+    Lightbulb, Settings, Cpu // Pridané ikony
+} from 'lucide-react';
 
-// Naše nové komponenty
 import PageHeader from '../ui/PageHeader';
 import Button from '../ui/Button';
 import RelayCard from '../Devices/RelayCard';
@@ -18,9 +20,7 @@ export default function CommandsView() {
   const [selectedCommand, setSelectedCommand] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     try {
@@ -29,16 +29,13 @@ export default function CommandsView() {
             api.getDevices()
         ]);
         setCommands(cmds);
-        if (devs && !devs.error) {
-            setDevices(devs);
-        }
+        if (devs && !devs.error) setDevices(devs);
     } catch (e) {
         console.error(e);
         toast.error("Chyba načítania dát");
     }
   };
 
-  // --- Handlere pre súborový systém ---
   const handleLoadCommand = async (cmdName) => {
     if (!cmdName) return;
     setLoading(true);
@@ -73,14 +70,26 @@ export default function CommandsView() {
         const cleanName = name.replace('.json', '');
         setSelectedCommand(cleanName);
         setEditorContent('[\n  {\n    "topic": "room/device",\n    "message": "ON"\n  }\n]');
-        toast('Nový príkaz vytvorený.', { icon: '⚡' });
+        // Opravené: Žiadne emoji v toaste
+        toast.success('Nový príkaz vytvorený');
     }
+  };
+
+  // Štýl pre nadpisy sekcií
+  const sectionTitleStyle = {
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: '10px', 
+      fontSize: '1.2rem', 
+      color: '#374151',
+      marginBottom: '20px',
+      marginTop: '10px'
   };
 
   return (
     <div className="tab-content active">
       <PageHeader title="Ovládací Panel" icon={Zap}>
-        <div style={{ display: 'flex', gap: '8px', background: '#f3f4f6', padding: '4px', borderRadius: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px', background: '#e5e7eb', padding: '4px', borderRadius: '8px' }}>
             <Button 
                 variant={activeTab === 'dashboard' ? 'primary' : 'ghost'}
                 size="small"
@@ -102,16 +111,23 @@ export default function CommandsView() {
 
       {activeTab === 'dashboard' ? (
           <div className="animate-fade-in">
-              {/* Sekcia RELÉ */}
-              <h3 className="section-title">💡 Zariadenia & Efekty</h3>
+              {/* Sekcia RELÉ - Opravený nadpis */}
+              <h3 style={sectionTitleStyle}>
+                  <Lightbulb size={24} color="#f59e0b" /> 
+                  Zariadenia & Efekty
+              </h3>
+              
               <div className="devices-grid relays">
                   {devices.relays?.map((dev, i) => <RelayCard key={i} device={dev} />)}
               </div>
 
-              {/* Sekcia MOTORY */}
+              {/* Sekcia MOTORY - Opravený nadpis */}
               {devices.motors?.length > 0 && (
                   <>
-                    <h3 className="section-title" style={{marginTop: '30px'}}>⚙️ Motorické Pohony</h3>
+                    <h3 style={{...sectionTitleStyle, marginTop: '40px'}}>
+                        <Settings size={24} color="#4b5563" /> 
+                        Motorické Pohony
+                    </h3>
                     <div className="devices-grid motors">
                         {devices.motors.map((dev, i) => <MotorCard key={i} device={dev} />)}
                     </div>
@@ -155,7 +171,8 @@ export default function CommandsView() {
                     </>
                 ) : (
                     <div className="empty-state-container">
-                        <p>Vyberte príkaz na úpravu</p>
+                        <Cpu size={48} color="#9ca3af" />
+                        <p style={{marginTop: 10, color: '#6b7280'}}>Vyberte príkaz na úpravu</p>
                     </div>
                 )}
             </div>
