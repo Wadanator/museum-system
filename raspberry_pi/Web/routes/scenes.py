@@ -53,26 +53,17 @@ def setup_scenes_routes(dashboard):
         """Save a new or updated scene file with validation."""
         try:
             scene_data = request.json
-            
             if not scene_data:
                 return jsonify({'error': 'No scene data provided'}), 400
-                
             scenes_path = get_scenes_path(controller)
             scenes_path.mkdir(parents=True, exist_ok=True)
-            
             if not scene_name.endswith('.json'):
                 scene_name = scene_name + '.json'
-                
             scene_path = scenes_path / secure_filename(scene_name)
-            
             with open(scene_path, 'w') as f:
                 json.dump(scene_data, f, indent=2)
-                
             dashboard.log.info(f"Scene '{scene_name}' saved successfully to {scene_path}")
             return jsonify({'success': True, 'message': f'Scene {scene_name} saved successfully', 'path': str(scene_path)})
-            
-        except json.JSONDecodeError as e:
-            return jsonify({'error': f'Invalid JSON data: {str(e)}'}), 400
         except Exception as e:
             dashboard.log.error(f"Error saving scene {scene_name}: {e}")
             return jsonify({'error': f'Error saving scene {scene_name}: {str(e)}'}), 500
@@ -85,108 +76,71 @@ def setup_scenes_routes(dashboard):
             with controller.scene_lock:
                 if controller.scene_running:
                     return jsonify({'error': 'Scene already running'}), 400
-                
                 scene_path = get_scene_path(controller, scene_name)
                 if not scene_path.exists():
                     return jsonify({'error': 'Scene not found'}), 404
-                
                 controller.scene_running = True
                 dashboard.log.info(f"Web dashboard starting scene: {scene_name}")
 
-            # OKAMŽITÝ STATUS UPDATE
             dashboard.socketio.emit('status_update', _get_current_status_data(controller))
 
             def run_scene_thread():
-                """Thread function to execute a scene."""
-                
                 def scene_progress_emitter(progress_data):
                     progress_data['scene_running'] = getattr(controller, 'scene_running', False) 
                     dashboard.socketio.emit('scene_progress_update', progress_data)
-                    
                 try:
                     if hasattr(controller, 'scene_parser') and controller.scene_parser:
-                        
                         if hasattr(controller.scene_parser, 'set_progress_emitter'):
                             controller.scene_parser.set_progress_emitter(scene_progress_emitter)
-
                         if controller.scene_parser.load_scene(str(scene_path)):
                             controller.scene_parser.start_scene()
                             if hasattr(controller, 'run_scene'):
                                 controller.run_scene()
-                            dashboard.update_scene_stats(scene_name)
-                            dashboard.socketio.emit('stats_update', dashboard.stats)
                         else:
                             dashboard.log.error("Scene parser failed to load scene")
-                    else:
-                        dashboard.log.error("Scene parser not available on controller")
                 except Exception as e:
                     dashboard.log.error(f"Error running scene {scene_name}: {e}")
                 finally:
-                    # TOTO JE KRITICKÉ MIESTO - VŽDY RESETOVAŤ STAV
                     controller.scene_running = False
                     dashboard.socketio.emit('status_update', _get_current_status_data(controller))
-                    
                     if hasattr(controller.scene_parser, 'set_progress_emitter'):
                         controller.scene_parser.set_progress_emitter(None)
 
-            thread = threading.Thread(target=run_scene_thread, daemon=True)
-            thread.start()
+            threading.Thread(target=run_scene_thread, daemon=True).start()
             return jsonify({'success': True, 'message': f'Scene {scene_name} started'})
         except Exception as e:
             controller.scene_running = False
-            dashboard.socketio.emit('status_update', _get_current_status_data(controller))
-            return jsonify({'error': f"Error starting scene {scene_name}: {e}"}), 500
+            return jsonify({'error': str(e)}), 500
 
     @scenes_bp.route('/stop_scene', methods=['POST'])
     @requires_auth
     def stop_scene():
         """Stop the currently running scene safely."""
+        # FIX: Okamžitý reset flagu mimo locku aby sme predišli deadlocku
+        controller.scene_running = False
+        dashboard.log.info("Requesting scene stop from Web API...")
+        
         try:
-            if not getattr(controller, 'scene_running', False):
-                dashboard.socketio.emit('status_update', _get_current_status_data(controller))
-                return jsonify({'error': 'No scene is currently running', 'code': 'NOT_RUNNING'}), 400
-
-            dashboard.log.info("Requesting scene stop...")
+            # Okamžitý emit statusu aby UI hneď zmenilo farbu
+            dashboard.socketio.emit('status_update', _get_current_status_data(controller))
 
             if hasattr(controller, 'scene_parser') and controller.scene_parser:
-                if hasattr(controller.scene_parser, 'stop_scene'):
-                    controller.scene_parser.stop_scene()
-                else:
-                    dashboard.log.warning("SceneParser missing 'stop_scene' method!")
+                controller.scene_parser.stop_scene()
 
-            # 2. Záložné zastavenie Audio/Video handlerov priamo
-            if hasattr(controller, 'audio_handler') and controller.audio_handler:
-                try:
-                    controller.audio_handler.stop_audio()
-                except Exception as e:
-                    dashboard.log.error(f"Error forcing stop audio: {e}")
+            if hasattr(controller, 'audio_handler'):
+                controller.audio_handler.stop_audio()
             
-            if hasattr(controller, 'video_handler') and controller.video_handler:
-                try:
-                    controller.video_handler.stop_video()
-                except Exception as e:
-                    dashboard.log.error(f"Error forcing stop video: {e}")
+            if hasattr(controller, 'video_handler'):
+                controller.video_handler.stop_video()
 
         except Exception as e:
             dashboard.log.error(f"Critical error during stop_scene: {e}")
-            
-        finally:
-            controller.scene_running = False
-            
-            # Vyčistenie emittera
-            if hasattr(controller, 'scene_parser') and hasattr(controller.scene_parser, 'set_progress_emitter'):
-                controller.scene_parser.set_progress_emitter(None)
-            
-            # Odoslanie statusu klientom
-            dashboard.socketio.emit('status_update', _get_current_status_data(controller))
-            dashboard.log.info("Scene stop sequence finished.")
-            
-            return jsonify({'success': True, 'message': 'Scene stopped successfully'})
+        
+        return jsonify({'success': True, 'message': 'Stop signal processed'})
 
     @scenes_bp.route('/config/main_scene')
     @requires_auth
     def get_main_scene():
-        """Get the configured main scene filename."""
         return jsonify({'json_file_name': controller.json_file_name})
 
     return scenes_bp
