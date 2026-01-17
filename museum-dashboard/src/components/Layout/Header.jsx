@@ -1,8 +1,10 @@
+import { Landmark } from 'lucide-react';
+
 export default function Header() {
   return (
     <div className="header">
         <div className="header-title-group">
-            <span className="header-icon pulse">🏛️</span>
+            <Landmark className="header-icon pulse" size={32} />
             <h1>Museum Control</h1>
         </div>
         

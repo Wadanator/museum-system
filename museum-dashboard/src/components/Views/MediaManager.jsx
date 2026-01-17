@@ -1,14 +1,21 @@
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { authFetch, api } from '../../services/api';
+import { authFetch } from '../../services/api';
+import { Video, Upload, Trash2, Music, Volume2, Clapperboard, AlertTriangle } from 'lucide-react';
 import '../../styles/views/media-manager.css';
+
+// Import UI
+import PageHeader from '../ui/PageHeader';
+import Button from '../ui/Button';
+import Card from '../ui/Card';
+import Modal from '../ui/Modal';
 
 const MediaManager = () => {
   const [videos, setVideos] = useState([]);
   const [audios, setAudios] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Stav pre modálne okno mazania
+  // Stav pre modal
   const [deleteModal, setDeleteModal] = useState({
     isOpen: false,
     type: '',
@@ -16,9 +23,7 @@ const MediaManager = () => {
     inputValue: ''
   });
 
-  useEffect(() => {
-    fetchMedia();
-  }, []);
+  useEffect(() => { fetchMedia(); }, []);
 
   const fetchMedia = async () => {
     try {
@@ -26,263 +31,121 @@ const MediaManager = () => {
         authFetch('/api/media/video'),
         authFetch('/api/media/audio')
       ]);
-
       if (videoRes.ok) setVideos(await videoRes.json());
       if (audioRes.ok) setAudios(await audioRes.json());
     } catch (error) {
-      console.error("Chyba pri načítaní médií:", error);
-      toast.error("Nepodarilo sa načítať zoznam súborov");
+      toast.error("Nepodarilo sa načítať médiá");
     } finally {
       setLoading(false);
     }
   };
 
-  // --- LOGIKA PREHRÁVANIA (NOVÉ) ---
-
-  const handlePlay = async (type, fileName) => {
-    try {
-      toast.success(`Spúšťam: ${fileName}`);
-      await api.playMedia(type, fileName);
-    } catch (error) {
-      console.error(error);
-      toast.error("Chyba pri spustení média");
-    }
-  };
-
-  const handleStop = async (type) => {
-    try {
-      await api.stopMedia(type);
-      toast.success(`Zastavené prehrávanie (${type})`);
-    } catch (error) {
-      toast.error("Chyba pri zastavení");
-    }
-  };
-
-  // --- LOGIKA MAZANIA ---
-
-  const openDeleteModal = (type, fileName) => {
-    setDeleteModal({
-      isOpen: true,
-      type,
-      fileName,
-      inputValue: '' 
-    });
-  };
-
-  const closeDeleteModal = () => {
-    setDeleteModal(prev => ({ ...prev, isOpen: false }));
-  };
+  const openDeleteModal = (type, fileName) => setDeleteModal({ isOpen: true, type, fileName, inputValue: '' });
+  const closeDeleteModal = () => setDeleteModal(prev => ({ ...prev, isOpen: false }));
 
   const confirmDelete = async () => {
     const { type, fileName, inputValue } = deleteModal;
+    if (inputValue !== fileName) return toast.error("Názov sa nezhoduje!");
 
-    if (inputValue !== fileName) {
-      toast.error("Názov súboru sa nezhoduje!");
-      return;
-    }
-
-    const loadingToast = toast.loading(`Mažem ${fileName}...`);
-    closeDeleteModal(); 
+    closeDeleteModal();
+    const loadToast = toast.loading(`Mažem ${fileName}...`);
 
     try {
-      const res = await authFetch(`/api/media/${type}/${fileName}`, {
-        method: 'DELETE'
-      });
-
+      const res = await authFetch(`/api/media/${type}/${fileName}`, { method: 'DELETE' });
       if (res.ok) {
-        if (type === 'video') {
-          setVideos(prev => prev.filter(v => v.name !== fileName));
-        } else {
-          setAudios(prev => prev.filter(a => a.name !== fileName));
-        }
-        toast.success(`${fileName} bol vymazaný`, { id: loadingToast });
+        if (type === 'video') setVideos(p => p.filter(v => v.name !== fileName));
+        else setAudios(p => p.filter(a => a.name !== fileName));
+        toast.success("Vymazané", { id: loadToast });
       } else {
-        const err = await res.json();
-        toast.error(`Chyba: ${err.error || 'Nepodarilo sa vymazať súbor'}`, { id: loadingToast });
+        toast.error("Chyba pri mazaní", { id: loadToast });
       }
-    } catch (error) {
-      console.error("Delete error:", error);
-      toast.error("Chyba pripojenia pri mazaní", { id: loadingToast });
-    }
+    } catch (e) { toast.error("Chyba pripojenia", { id: loadToast }); }
   };
-
-  // --- LOGIKA NAHRÁVANIA ---
 
   const handleUpload = (type) => {
     const input = document.createElement('input');
     input.type = 'file';
-    
-    if (type === 'video') {
-      input.accept = "video/*,image/*,.mkv"; 
-    } else {
-      input.accept = "audio/*";
-    }
-
+    input.accept = type === 'video' ? "video/*,image/*,.mkv" : "audio/*";
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-
-      const loadingToast = toast.loading(`Nahrávam ${file.name}...`);
+      const loadToast = toast.loading(`Nahrávam ${file.name}...`);
       const formData = new FormData();
       formData.append('file', file);
-
       try {
-        const res = await authFetch(`/api/media/${type}`, {
-          method: 'POST',
-          body: formData
-        });
-
+        const res = await authFetch(`/api/media/${type}`, { method: 'POST', body: formData });
         if (res.ok) {
           const data = await res.json();
-          if (type === 'video') {
-            setVideos(prev => [...prev, data.file]);
-          } else {
-            setAudios(prev => [...prev, data.file]);
-          }
-          toast.success("Súbor úspešne nahraný", { id: loadingToast });
-        } else {
-          const err = await res.json();
-          toast.error(`Chyba: ${err.error || 'Upload zlyhal'}`, { id: loadingToast });
-        }
-      } catch (error) {
-        console.error("Upload error:", error);
-        toast.error("Chyba pripojenia pri nahrávaní", { id: loadingToast });
-      }
+          type === 'video' ? setVideos(p => [...p, data.file]) : setAudios(p => [...p, data.file]);
+          toast.success("Nahrané", { id: loadToast });
+        } else toast.error("Upload zlyhal", { id: loadToast });
+      } catch (e) { toast.error("Chyba uploadu", { id: loadToast }); }
     };
-
     input.click();
   };
 
-  // Komponent Karty
-  const FileCard = ({ file, type }) => (
-    <div className="media-card">
-      <div className={`media-icon-box ${type}`}>
-        {type === 'video' ? '🎬' : '🎵'}
+  // Sub-komponent pre súbor (lokálne definovaný, alebo ho môžeš dať do samostatného súboru)
+  const FileItem = ({ file, type }) => (
+    <div className="media-card" style={{display: 'flex', alignItems: 'center', padding: 12, border: '1px solid #e5e7eb', borderRadius: 8, gap: 12, background: 'white'}}>
+      <div className={`media-icon-box ${type}`} style={{padding: 10, borderRadius: 8, background: type === 'video' ? '#eff6ff' : '#f0fdf4', color: type === 'video' ? '#2563eb' : '#16a34a'}}>
+        {type === 'video' ? <Clapperboard size={20} /> : <Music size={20} />}
       </div>
-      <div className="media-info">
-        <div className="media-name" title={file.name}>{file.name}</div>
-        <div className="media-meta">
-          <span>{file.size}</span>
-          <span>•</span>
-          <span>{file.modified}</span>
-        </div>
+      <div style={{flex: 1, overflow: 'hidden'}}>
+        <div style={{fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}} title={file.name}>{file.name}</div>
+        <div style={{fontSize: '0.8em', color: '#6b7280'}}>{file.size} • {file.modified}</div>
       </div>
-      <div className="media-actions">
-        {/* Tlačidlo PLAY */}
-        <button 
-            className="btn-icon" 
-            onClick={() => handlePlay(type, file.name)}
-            title="Prehrať na zariadení"
-            style={{ marginRight: '8px', fontSize: '1.2em', cursor: 'pointer', background: 'none', border: 'none' }} 
-        >
-            ▶️
-        </button>
-
-        {/* Tlačidlo DELETE */}
-        <button 
-            className="btn-delete" 
-            onClick={() => openDeleteModal(type, file.name)} 
-            title="Vymazať súbor"
-        >
-            🗑️
-        </button>
-      </div>
+      <Button variant="ghost" size="small" onClick={() => openDeleteModal(type, file.name)} icon={Trash2} style={{color: '#ef4444'}} />
     </div>
   );
 
-  if (loading) return <div className="media-manager-container">Načítavam médiá...</div>;
+  if (loading) return <div style={{padding: 40, textAlign: 'center'}}>Načítavam médiá...</div>;
 
   return (
-    <div className="media-manager-container">
-      {/* Sekcia Videá */}
-      <div className="media-section">
-        <div className="section-header">
-          <div className="section-title">
-            🎥 Video & Obrázky
-            <span className="count-badge">{videos.length}</span>
-          </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button className="btn btn-danger btn-small" onClick={() => handleStop('video')}>
-              ⏹ Stop Video
-            </button>
-            <button className="btn btn-secondary btn-small" onClick={() => handleUpload('video')}>
-              ⬆️ Nahrať Video
-            </button>
-          </div>
-        </div>
-        
-        <div className="media-grid">
-          {videos.length > 0 ? (
-            videos.map(file => <FileCard key={file.name} file={file} type="video" />)
-          ) : (
-            <div className="empty-media-state">Žiadne videá.</div>
-          )}
-        </div>
+    <div className="tab-content active">
+      <PageHeader title="Správca Médií" icon={Video} />
+      
+      <div className="media-grid-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '24px' }}>
+          {/* VIDEO SECTION */}
+          <Card title={`Video & Obrázky (${videos.length})`} icon={Video} actions={
+              <Button size="small" variant="secondary" onClick={() => handleUpload('video')} icon={Upload}>Nahrať</Button>
+          }>
+              <div style={{display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 500, overflowY: 'auto'}}>
+                 {videos.length > 0 ? videos.map(f => <FileItem key={f.name} file={f} type="video" />) : <div style={{padding: 20, textAlign: 'center', color: '#9ca3af'}}>Prázdne</div>}
+              </div>
+          </Card>
+
+          {/* AUDIO SECTION */}
+          <Card title={`Zvukové efekty (${audios.length})`} icon={Volume2} actions={
+              <Button size="small" variant="secondary" onClick={() => handleUpload('audio')} icon={Upload}>Nahrať</Button>
+          }>
+               <div style={{display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 500, overflowY: 'auto'}}>
+                 {audios.length > 0 ? audios.map(f => <FileItem key={f.name} file={f} type="audio" />) : <div style={{padding: 20, textAlign: 'center', color: '#9ca3af'}}>Prázdne</div>}
+              </div>
+          </Card>
       </div>
 
-      {/* Sekcia Audio */}
-      <div className="media-section">
-        <div className="section-header">
-          <div className="section-title">
-            🔊 Zvukové efekty
-            <span className="count-badge">{audios.length}</span>
-          </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button className="btn btn-danger btn-small" onClick={() => handleStop('audio')}>
-              ⏹ Stop Audio
-            </button>
-            <button className="btn btn-secondary btn-small" onClick={() => handleUpload('audio')}>
-              ⬆️ Nahrať Audio
-            </button>
-          </div>
-        </div>
-
-        <div className="media-grid">
-          {audios.length > 0 ? (
-            audios.map(file => <FileCard key={file.name} file={file} type="audio" />)
-          ) : (
-            <div className="empty-media-state">Žiadne zvuky.</div>
-          )}
-        </div>
-      </div>
-
-      {/* --- MODÁLNE OKNO PRE MAZANIE --- */}
-      {deleteModal.isOpen && (
-        <div className="modal-overlay">
-          <div className="modal-content delete-modal">
-            <h3>⚠️ Vymazať súbor?</h3>
-            <p>
-              Táto akcia je nevratná. Ak chcete vymazať súbor 
-              <strong> {deleteModal.fileName}</strong>, 
-              napíšte jeho celý názov nižšie:
-            </p>
-            
-            <div className="modal-input-wrapper">
-              <input 
-                type="text" 
-                className="modal-input"
-                placeholder="Sem napíšte názov súboru"
-                value={deleteModal.inputValue}
-                onChange={(e) => setDeleteModal(prev => ({...prev, inputValue: e.target.value}))}
-                autoFocus
-              />
-            </div>
-
-            <div className="modal-actions">
-              <button className="btn btn-secondary" onClick={closeDeleteModal}>
-                Zrušiť
-              </button>
-              <button 
-                className="btn btn-danger" 
-                disabled={deleteModal.inputValue !== deleteModal.fileName}
-                onClick={confirmDelete}
-              >
-                Vymazať súbor
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal 
+        isOpen={deleteModal.isOpen} 
+        title="Vymazať súbor?" 
+        type="danger"
+        onClose={closeDeleteModal}
+        footer={
+            <>
+                <Button variant="secondary" onClick={closeDeleteModal}>Zrušiť</Button>
+                <Button variant="danger" disabled={deleteModal.inputValue !== deleteModal.fileName} onClick={confirmDelete}>Vymazať súbor</Button>
+            </>
+        }
+      >
+        <p>Pre potvrdenie napíšte názov súboru: <strong>{deleteModal.fileName}</strong></p>
+        <input 
+            type="text" 
+            className="form-control" 
+            value={deleteModal.inputValue}
+            onChange={(e) => setDeleteModal(prev => ({...prev, inputValue: e.target.value}))}
+            style={{width: '100%', padding: '10px', marginTop: '10px', borderRadius: '6px', border: '1px solid #d1d5db'}}
+            autoFocus
+        />
+      </Modal>
     </div>
   );
 };

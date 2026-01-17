@@ -2,21 +2,30 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { socket } from '../../services/socket';
 import { api } from '../../services/api';
 import toast from 'react-hot-toast';
-import { useConfirm } from '../../context/ConfirmContext'; // <--- NOVÉ
+import { useConfirm } from '../../context/ConfirmContext';
+import { 
+  ClipboardList, 
+  ArrowDown, 
+  Pause, 
+  Trash2, 
+  Download 
+} from 'lucide-react';
+
+// Import UI komponentov
+import PageHeader from '../ui/PageHeader';
+import Button from '../ui/Button';
 
 export default function LogsView() {
   const [logs, setLogs] = useState([]);
   const logsEndRef = useRef(null);
   const [autoScroll, setAutoScroll] = useState(true);
-  const { confirm } = useConfirm(); // <--- NOVÉ
+  const { confirm } = useConfirm();
 
-  // 1. NAČÍTANIE FILTROV Z LOCAL STORAGE (Aby si to pamätalo po refreshi)
   const [activeFilters, setActiveFilters] = useState(() => {
     const saved = localStorage.getItem('logFilters');
     return saved ? JSON.parse(saved) : ['info', 'warning', 'error', 'critical'];
   });
 
-  // 2. UKLADANIE FILTROV PRI ZMENE
   useEffect(() => {
     localStorage.setItem('logFilters', JSON.stringify(activeFilters));
   }, [activeFilters]);
@@ -71,7 +80,6 @@ export default function LogsView() {
   };
 
   const handleClearLogs = async () => {
-      // POUŽITIE NOVÉHO CONFIRM OKNA
       if(await confirm({ 
           title: "Vymazať logy?", 
           message: "Naozaj chcete vymazať všetky systémové logy? Táto akcia je nevratná.",
@@ -81,30 +89,66 @@ export default function LogsView() {
       }
   };
 
+  // Mapovanie farieb pre logy (pre vizuálne odlíšenie filtrov)
+  const getVariantForFilter = (level, isActive) => {
+      if (!isActive) return 'ghost';
+      switch(level) {
+          case 'error': return 'danger';
+          case 'critical': return 'danger';
+          case 'warning': return 'warning';
+          default: return 'primary'; // info, debug
+      }
+  };
+
   return (
     <div className="tab-content active">
-      <div className="header-row" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
-        <h2>📋 Systémové logy</h2>
-        <div className="log-actions">
-            <button className={`btn btn-small ${autoScroll ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setAutoScroll(!autoScroll)}>
-                {autoScroll ? '⬇️ Auto-scroll ON' : '⏸️ Auto-scroll OFF'}
-            </button>
-            <button className="btn btn-secondary btn-small" onClick={handleClearLogs}>🗑️ Vymazať</button>
-            <button className="btn btn-secondary btn-small" onClick={() => window.location.href = '/api/logs/export'}>📤 Export</button>
-        </div>
-      </div>
+      <PageHeader title="Systémové logy" icon={ClipboardList}>
+            <Button 
+                variant={autoScroll ? 'primary' : 'secondary'} 
+                size="small"
+                onClick={() => setAutoScroll(!autoScroll)}
+                icon={autoScroll ? ArrowDown : Pause}
+            >
+                {autoScroll ? 'Auto-scroll' : 'Pauza'}
+            </Button>
+            <Button 
+                variant="secondary" 
+                size="small"
+                onClick={handleClearLogs}
+                icon={Trash2}
+            >
+                Vymazať
+            </Button>
+            <Button 
+                variant="secondary" 
+                size="small"
+                onClick={() => window.location.href = '/api/logs/export'}
+                icon={Download}
+            >
+                Export
+            </Button>
+      </PageHeader>
       
       <div className="log-controls" style={{marginBottom: '15px'}}>
-        <div className="filter-buttons">
-            {['debug', 'info', 'warning', 'error', 'critical'].map(level => (
-                <button 
-                    key={level}
-                    className={`filter-btn ${level} ${activeFilters.includes(level) ? 'active' : ''}`}
-                    onClick={() => toggleFilter(level)}
-                >
-                    {level.toUpperCase()} <span style={{opacity: 0.7, fontSize: '0.8em'}}>({logStats[level]})</span>
-                </button>
-            ))}
+        <div className="filter-buttons" style={{ display: 'flex', gap: '8px' }}>
+            {['debug', 'info', 'warning', 'error', 'critical'].map(level => {
+                const isActive = activeFilters.includes(level);
+                return (
+                    <Button 
+                        key={level}
+                        size="small"
+                        variant={getVariantForFilter(level, isActive)}
+                        onClick={() => toggleFilter(level)}
+                        style={{ 
+                            textTransform: 'uppercase', 
+                            fontWeight: 'bold',
+                            opacity: isActive ? 1 : 0.6
+                        }}
+                    >
+                        {level} <span style={{opacity: 0.7, marginLeft: 4}}>({logStats[level]})</span>
+                    </Button>
+                );
+            })}
         </div>
       </div>
 

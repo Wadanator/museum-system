@@ -2,6 +2,19 @@ import { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import toast from 'react-hot-toast';
 import JsonEditor from '../Shared/JsonEditor';
+import { 
+  Plus, 
+  Play, 
+  Edit, 
+  CheckCircle2, 
+  Save, 
+  ArrowLeft, 
+  Drama 
+} from 'lucide-react';
+
+// Import UI komponentov
+import PageHeader from '../ui/PageHeader';
+import Button from '../ui/Button';
 
 export default function ScenesView() {
   const [scenes, setScenes] = useState([]);
@@ -112,10 +125,11 @@ export default function ScenesView() {
 
   return (
     <div className="tab-content active">
-      <div className="header-row" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
-        <h2>🎭 Správa scén</h2>
-        <button className="btn btn-success" onClick={handleNewScene}>➕ Nová scéna</button>
-      </div>
+      <PageHeader title="Správa scén" icon={Drama}>
+        <Button variant="success" onClick={handleNewScene} icon={Plus}>
+            Nová scéna
+        </Button>
+      </PageHeader>
       
       <div className="layout-grid">
         {/* ĽAVÝ PANEL: Zoznam */}
@@ -140,21 +154,25 @@ export default function ScenesView() {
                 </div>
                 
                 <div className="sidebar-actions">
-                    <button 
-                        className="btn btn-primary btn-list" 
+                    <Button 
+                        variant="primary" 
+                        size="small"
+                        icon={Play}
                         onClick={(e) => { e.stopPropagation(); handleRun(scene.name); }}
                         title="Spustiť scénu"
                     >
-                        ▶️ Spustiť
-                    </button>
-                    <button 
-                        className="btn btn-secondary btn-list" 
+                        Spustiť
+                    </Button>
+                    <Button 
+                        variant="secondary" 
+                        size="small"
+                        icon={Edit}
                         style={{ backgroundColor: '#6b7280', color: 'white' }}
                         onClick={(e) => { e.stopPropagation(); handleLoadSceneContent(scene.name); }}
                         title="Upraviť scénu"
                     >
-                        ✏️ Upraviť
-                    </button>
+                        Upraviť
+                    </Button>
                 </div>
             </div>
             ))}
@@ -167,8 +185,12 @@ export default function ScenesView() {
                     <div className="editor-header-bar">
                         <h3>Editujem: <span className="highlight-blue">{selectedScene}</span></h3>
                         <div className="editor-actions-group">
-                            <button className="btn btn-secondary btn-small" onClick={() => validateSceneContent()}>✅ Overiť</button>
-                            <button className="btn btn-primary btn-small" onClick={handleSave}>💾 Uložiť</button>
+                            <Button variant="secondary" size="small" onClick={() => validateSceneContent()} icon={CheckCircle2}>
+                                Overiť
+                            </Button>
+                            <Button variant="primary" size="small" onClick={handleSave} icon={Save}>
+                                Uložiť
+                            </Button>
                         </div>
                     </div>
                     
@@ -182,7 +204,7 @@ export default function ScenesView() {
                 </>
             ) : (
                 <div className="empty-state-container">
-                    <div className="empty-state-icon">👈</div>
+                    <div className="empty-state-icon"><ArrowLeft size={48} /></div>
                     <p className="empty-state-text">Vyberte scénu zo zoznamu pre úpravu</p>
                 </div>
             )}

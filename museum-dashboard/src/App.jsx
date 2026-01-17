@@ -1,5 +1,16 @@
 import { Routes, Route, NavLink, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { 
+  Home, 
+  Drama, 
+  FolderOpen, 
+  Zap, 
+  ClipboardList, 
+  BarChart3, 
+  Settings, 
+  AlertTriangle 
+} from 'lucide-react';
+
 import { useSocket } from './context/SocketContext';
 import { useAuth } from './context/AuthContext';
 
@@ -28,6 +39,14 @@ function App() {
       );
   }
 
+  // Pomocný komponent pre NavLink s ikonou
+  const NavItem = ({ to, icon: Icon, label }) => (
+    <NavLink to={to} className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>
+      <Icon size={18} style={{ marginRight: 8 }} />
+      {label}
+    </NavLink>
+  );
+
   return (
     <div className="container">
       <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
@@ -38,13 +57,13 @@ function App() {
       </div>
 
       <nav className="tabs">
-        <NavLink to="/" className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>🏠 Hlavná</NavLink>
-        <NavLink to="/scenes" className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>🎭 Scény</NavLink>
-        <NavLink to="/media" className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>📁 Médiá</NavLink> 
-        <NavLink to="/commands" className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>⚡ Príkazy</NavLink>
-        <NavLink to="/logs" className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>📋 Logy</NavLink>
-        <NavLink to="/stats" className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>📊 Štatistiky</NavLink>
-        <NavLink to="/system" className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>⚙️ Systém</NavLink>
+        <NavItem to="/" icon={Home} label="Hlavná" />
+        <NavItem to="/scenes" icon={Drama} label="Scény" />
+        <NavItem to="/media" icon={FolderOpen} label="Médiá" />
+        <NavItem to="/commands" icon={Zap} label="Príkazy" />
+        <NavItem to="/logs" icon={ClipboardList} label="Logy" />
+        <NavItem to="/stats" icon={BarChart3} label="Štatistiky" />
+        <NavItem to="/system" icon={Settings} label="Systém" />
       </nav>
 
       <div className="content-area">
@@ -61,8 +80,8 @@ function App() {
       </div>
       
       {!isConnected && (
-        <div className="notification error show" style={{ position: 'fixed', bottom: 20, right: 20, top: 'auto', zIndex: 9999 }}>
-            ⚠️ Odpojené od servera
+        <div className="notification error show" style={{ position: 'fixed', bottom: 20, right: 20, top: 'auto', zIndex: 9999, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <AlertTriangle size={24} /> Odpojené od servera
         </div>
       )}
     </div>
