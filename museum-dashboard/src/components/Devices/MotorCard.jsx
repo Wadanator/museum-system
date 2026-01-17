@@ -1,13 +1,14 @@
 import toast from 'react-hot-toast';
-import { Play, Square } from 'lucide-react';
+import { Rewind, FastForward, Square } from 'lucide-react';
 import { api } from '../../services/api';
+import Card from '../ui/Card';
+import Button from '../ui/Button';
 
 export default function MotorCard({ device }) {
   const speed = device.speed || 100;
 
   const sendCmd = async (cmd, label) => {
       let payload;
-      // Formát príkazu podľa tvojho backendu
       if (cmd === 'LEFT') payload = `ON:${speed}:L`;
       if (cmd === 'RIGHT') payload = `ON:${speed}:R`;
       if (cmd === 'STOP') payload = `OFF`;
@@ -21,46 +22,37 @@ export default function MotorCard({ device }) {
   };
 
   return (
-    <div className="device-card">
-        {/* Hlavička motora */}
-        <div className="motor-header">
-            <span className="motor-title">{device.name}</span>
-            <span className="motor-meta">{speed}% SPD</span>
-        </div>
-
-        {/* Ovládacie tlačidlá */}
-        <div className="motor-controls">
-            {/* Tlačidlo VZAD (Otočená Play ikona) */}
-            <button 
-                className="btn-motor btn-motor-nav" 
-                onClick={() => sendCmd('LEFT', 'Vzad')}
+    <Card 
+        title={device.name} 
+        actions={<span className="badge">{speed}% SPD</span>}
+    >
+        <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+            <Button 
+                variant="secondary" 
+                onClick={() => sendCmd('LEFT', 'Vzad')} 
+                style={{ flex: 1 }}
+                icon={Rewind}
             >
-                <Play 
-                    size={18} 
-                    style={{ transform: 'rotate(180deg)' }} 
-                    fill="currentColor" 
-                /> 
                 Vzad
-            </button>
+            </Button>
             
-            {/* Tlačidlo STOP */}
-            <button 
-                className="btn-motor btn-stop" 
+            <Button 
+                variant="danger" 
                 onClick={() => sendCmd('STOP', 'Stop')}
+                icon={Square}
             >
-                <Square size={16} fill="currentColor" /> 
                 STOP
-            </button>
+            </Button>
             
-            {/* Tlačidlo VPRED */}
-            <button 
-                className="btn-motor btn-motor-nav" 
-                onClick={() => sendCmd('RIGHT', 'Vpred')}
+            <Button 
+                variant="secondary" 
+                onClick={() => sendCmd('RIGHT', 'Vpred')} 
+                style={{ flex: 1 }}
+                icon={FastForward}
             >
-                Vpred 
-                <Play size={18} fill="currentColor" />
-            </button>
+                Vpred
+            </Button>
         </div>
-    </div>
+    </Card>
   );
 }

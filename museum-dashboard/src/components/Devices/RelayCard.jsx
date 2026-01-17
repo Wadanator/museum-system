@@ -1,49 +1,50 @@
 import toast from 'react-hot-toast';
-import { Zap } from 'lucide-react';
+import { Zap, Power, PowerOff } from 'lucide-react';
 import { api } from '../../services/api';
+import Card from '../ui/Card';
+import Button from '../ui/Button';
 
 export default function RelayCard({ device }) {
-  // Funkcia na odoslanie príkazu
   const sendCommand = async (cmd) => {
     try {
         await api.sendMqtt(device.topic, cmd);
-        // Toast notifikácia
+        
         const label = cmd === 'ON' ? 'ZAPNUTÉ' : 'VYPNUTÉ';
-        toast.success(`${device.name}: ${label}`, {
-            icon: cmd === 'ON' ? '🟢' : '🔴',
-        });
+        // Opravené: Odstránený parameter icon s emoji
+        toast.success(`${device.name}: ${label}`);
+
     } catch (e) {
         toast.error("Chyba komunikácie");
     }
   };
 
-  // Zistíme stav (predpokladáme, že device.state je boolean alebo 'ON'/'OFF')
-  // Ak nemáš live stav v objekte device, trieda 'active' sa nebude meniť, ale tlačidlá budú fungovať.
-  const isOn = device.state === true || device.state === 'ON';
-
   return (
-    <div className="device-card">
-        {/* Hlavička s veľkou ikonou */}
-        <div className="relay-header">
-            <Zap className="relay-icon" style={{ color: isOn ? '#10b981' : '#4b5563' }} />
-            <span className="relay-name">{device.name}</span>
-        </div>
-
-        {/* Prepínač (Segmented Control) */}
-        <div className="btn-group-dual">
-            <button 
-                className={`btn-dual off ${!isOn ? 'active' : ''}`}
+    <Card 
+        title={device.name} 
+        icon={device.icon ? Zap : undefined} 
+        className="device-card"
+    >
+        <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: '1fr 1fr', 
+            gap: '10px', 
+            marginTop: '10px' 
+        }}>
+            <Button 
+                variant="secondary" 
                 onClick={() => sendCommand("OFF")}
+                icon={PowerOff}
             >
                 Vypnúť
-            </button>
-            <button 
-                className={`btn-dual on ${isOn ? 'active' : ''}`}
+            </Button>
+            <Button 
+                variant="success" 
                 onClick={() => sendCommand("ON")}
+                icon={Power}
             >
                 Zapnúť
-            </button>
+            </Button>
         </div>
-    </div>
+    </Card>
   );
 }
