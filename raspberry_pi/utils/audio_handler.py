@@ -1,4 +1,3 @@
-# raspberry_pi/utils/audio_handler.py
 #!/usr/bin/env python3
 import pygame
 import os
@@ -27,9 +26,10 @@ class AudioHandler:
         self.initialization_attempts += 1
         self.last_init_attempt = time.time()
         
+        # ZMENA: "default" je prvé, aby fungoval software mixing (prehrávanie zvuku a videa naraz)
         audio_configs = [
-            {"freq": 44100, "size": -16, "channels": 2, "buffer": 2048, "env": "hw:0,0"},
-            {"freq": 44100, "size": -16, "channels": 2, "buffer": 4096, "env": "default"},
+            {"freq": 48000, "size": -16, "channels": 2, "buffer": 8192, "env": "default"},
+            {"freq": 44100, "size": -16, "channels": 2, "buffer": 4096, "env": "hw:0,0"},
             {"freq": 22050, "size": -16, "channels": 1, "buffer": 4096, "env": None}
         ]
         
@@ -55,7 +55,7 @@ class AudioHandler:
                 pygame.mixer.get_init()
                 
                 self.audio_available = True
-                device_info = "3.5mm jack" if i == 0 else f"fallback device {i+1}"
+                device_info = "3.5mm jack (default)" if config["env"] == "default" else f"device config {i+1}"
                 self.logger.info(f"Audio initialized successfully using {device_info}")
                 return
                 
@@ -129,7 +129,7 @@ class AudioHandler:
             pygame.mixer.music.load(full_path)
             pygame.mixer.music.play()
             self.currently_playing = resolved_file
-            self.was_playing = True # FIX: Ensure we track that it started playing
+            self.was_playing = True
             self.logger.info(f"Playing audio: {resolved_file}")
             return True
             
@@ -281,25 +281,19 @@ class AudioHandler:
         return self.audio_available
 
     def set_end_callback(self, callback):
-        """Set callback function called when audio ends"""
         self.end_callback = callback
     
     def check_if_ended(self):
-        """Check if audio ended and call callback. Call this in main loop!"""
-        if not self.audio_available:
-            return
-        
         is_playing_now = self.is_playing()
         
-        # Detect transition from playing to not playing
-        if self.was_playing and not is_playing_now and self.currently_playing:
+        if self.was_playing and not is_playing_now:
             finished_file = self.currently_playing
             self.logger.info(f"Audio ended: {finished_file}")
             
             if self.end_callback:
                 self.end_callback(finished_file)
             
-            self.currently_playing = None
+            self.currently_playing = None # Pridané pre istotu vyčistenia
         
         self.was_playing = is_playing_now
 
@@ -311,31 +305,3 @@ class AudioHandler:
             self.logger.info("Audio handler cleaned up")
         except Exception as e:
             self.logger.error(f"Error during audio cleanup: {e}")
-
-if __name__ == "__main__":
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    audio_dir = os.path.join(script_dir, "..", "audio")
-    
-    print(f"Audio directory: {audio_dir}")
-    
-    audio_handler = AudioHandler(audio_dir)
-    
-    print("Available audio files:")
-    files = audio_handler.list_audio_files()
-    if files:
-        for i, file in enumerate(files, 1):
-            print(f"  {i}. {file}")
-    else:
-        print("  No audio files found")
-    
-    print(f"\nAudio status: {audio_handler.get_audio_status()}")
-    
-    if files and audio_handler.audio_available:
-        print(f"\nTesting playback of first file: {files[0]}")
-        audio_handler.play_audio_with_volume(files[0], 1.0)
-        import time
-        print("Playing for 5 seconds...")
-        time.sleep(5)
-        audio_handler.stop_audio()
-    
-    audio_handler.cleanup()

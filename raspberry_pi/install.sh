@@ -100,10 +100,13 @@ setup_service "$INSTALL_DIR/services/museum-watchdog.service.template" "museum-w
 
 sudo systemctl daemon-reload
 
-# F. Audio Fix
-echo -e "\n${GREEN}🔊 Nastavujem audio...${NC}"
+# 7. Audio Fix
+echo -e "\n${GREEN}🔊 Nastavujem audio výstup a hlasitosť...${NC}"
 sudo amixer cset numid=3 1 2>/dev/null || true
 
-echo -e "\n${GREEN}✅ HOTOVO! Systém je čistý a nainštalovaný.${NC}"
+sudo amixer cset numid=1 80% 2>/dev/null || true
+# ------------------------------------------------------------
+
+echo -e "\n${GREEN}✅ HOTOVO!${NC}"
 echo "======================================================"
 echo "🚀 Spusti príkazom: sudo systemctl start museum-system"
