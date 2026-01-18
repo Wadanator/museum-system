@@ -3,6 +3,7 @@ import { useDevices } from '../../hooks/useDevices';
 import MotorCard from '../Devices/MotorCard';
 import RelayCard from '../Devices/RelayCard';
 import Button from '../ui/Button';
+import PageHeader from '../ui/PageHeader';
 import '../../styles/views/commands-view.css';
 
 export default function CommandsView() {
@@ -26,21 +27,19 @@ export default function CommandsView() {
 
     return (
         <div className="view-container commands-view">
-            {/* Header */}
-            <div className="view-header-row">
-                <div>
-                    <h2 className="view-title">Ovládanie Zariadení</h2>
-                    <p className="view-subtitle">Manuálna kontrola motorov a efektov</p>
-                </div>
-                <div className="header-actions">
-                    <Button variant="secondary" icon={RefreshCw} onClick={handleRefresh} size="small">
-                        Obnoviť
-                    </Button>
-                </div>
-            </div>
+            {/* Nový Header */}
+            <PageHeader 
+                title="Ovládanie Zariadení" 
+                subtitle="Manuálna kontrola motorov a efektov"
+                icon={Zap}
+            >
+                <Button variant="secondary" icon={RefreshCw} onClick={handleRefresh} size="small">
+                    Obnoviť
+                </Button>
+            </PageHeader>
 
             <div className="devices-content">
-                {/* 1. SEKCIA: MOTORY (Ak existujú) */}
+                {/* 1. SEKCIA: MOTORY */}
                 {motors.length > 0 && (
                     <section className="device-section">
                         <div className="section-header">
@@ -59,7 +58,7 @@ export default function CommandsView() {
                 {/* Čiara medzi sekciami */}
                 {motors.length > 0 && relays.length > 0 && <div className="section-divider"></div>}
 
-                {/* 2. SEKCIA: SVETLÁ A RELÉ (Ak existujú) */}
+                {/* 2. SEKCIA: SVETLÁ A RELÉ */}
                 {relays.length > 0 && (
                     <section className="device-section">
                         <div className="section-header">

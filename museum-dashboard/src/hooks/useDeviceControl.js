@@ -10,9 +10,12 @@ export function useDeviceControl(topic, deviceName) {
             if (successLabel) {
                 toast.success(`${deviceName}: ${successLabel}`);
             }
+            
+            return { success: true };
         } catch (e) {
-            console.error(e);
+            console.error(`Device command error for ${deviceName}:`, e);
             toast.error(`Chyba zariadenia ${deviceName}`);
+            return { success: false, error: e };
         }
     };
 

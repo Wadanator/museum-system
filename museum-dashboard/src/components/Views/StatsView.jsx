@@ -3,6 +3,7 @@ import { socket } from '../../services/socket';
 import { BarChart3, Clapperboard, Timer, Plug, ScrollText } from 'lucide-react';
 import PageHeader from '../ui/PageHeader';
 import StatusBadge from '../ui/StatusBadge';
+import '../../styles/views/stats-view.css';
 
 export default function StatsView() {
   const [stats, setStats] = useState({
@@ -26,7 +27,12 @@ export default function StatsView() {
 
   return (
     <div className="tab-content active">
-      <PageHeader title="Prehľad systému" icon={BarChart3} />
+      {/* Nový Header */}
+      <PageHeader 
+        title="Prehľad systému" 
+        subtitle="Štatistiky a stav"
+        icon={BarChart3} 
+      />
       
       <div className="stats-grid">
           <div className="stats-card primary-gradient">

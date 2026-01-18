@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Plus, Loader2, RefreshCw } from 'lucide-react';
+import { Plus, Loader2, RefreshCw, Drama } from 'lucide-react';
 import { useScenes } from '../../hooks/useScenes';
 import SceneCard from '../Scenes/SceneCard';
 import SceneEditorModal from '../Scenes/SceneEditorModal';
 import Button from '../ui/Button';
+import PageHeader from '../ui/PageHeader';
 import '../../styles/views/scenes-view.css';
 
 export default function ScenesView() {
@@ -39,7 +40,6 @@ export default function ScenesView() {
         const name = prompt("Zadajte názov novej scény (bez .json):");
         if (name) {
             const filename = name.endsWith('.json') ? name : `${name}.json`;
-            // Základný template pre novú scénu
             const template = [
                 { type: "log", message: `Začiatok scény ${name}` },
                 { type: "delay", value: 1 }
@@ -50,21 +50,19 @@ export default function ScenesView() {
 
     return (
         <div className="view-container scenes-view">
-            {/* Header */}
-            <div className="view-header-row">
-                <div>
-                    <h2 className="view-title">Scenáre</h2>
-                    <p className="view-subtitle">Správa a editácia show súborov</p>
-                </div>
-                <div className="header-actions">
-                    <Button variant="secondary" icon={RefreshCw} onClick={fetchScenes} disabled={loading} size="small">
-                        Obnoviť
-                    </Button>
-                    <Button variant="primary" icon={Plus} onClick={handleCreate}>
-                        Nová scéna
-                    </Button>
-                </div>
-            </div>
+            {/* Nový Header */}
+            <PageHeader 
+                title="Scenáre" 
+                subtitle="Správa a editácia show súborov"
+                icon={Drama}
+            >
+                <Button variant="secondary" icon={RefreshCw} onClick={fetchScenes} disabled={loading} size="small">
+                    Obnoviť
+                </Button>
+                <Button variant="primary" icon={Plus} onClick={handleCreate}>
+                    Nová scéna
+                </Button>
+            </PageHeader>
 
             {/* Grid */}
             {loading ? (

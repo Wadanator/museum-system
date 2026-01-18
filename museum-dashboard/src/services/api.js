@@ -106,10 +106,30 @@ export const api = {
     return res.json();
   },
 
-  // --- MEDIA CONTROL (NEW) ---
+  // --- MEDIA CONTROL ---
+  
+  getMedia: async (type) => {
+    const res = await authFetch(`${API_URL}/media/${type}`);
+    return res.json();
+  },
+
+  uploadMedia: async (type, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await authFetch(`${API_URL}/media/${type}`, {
+        method: 'POST',
+        body: formData
+    });
+    return res.json();
+  },
+
+  deleteMedia: async (type, filename) => {
+    return await authFetch(`${API_URL}/media/${type}/${filename}`, {
+        method: 'DELETE'
+    });
+  },
   
   playMedia: async (type, filename) => {
-    // type: 'audio' alebo 'video'
     const res = await authFetch(`${API_URL}/media/play/${type}`, {
       method: 'POST',
       body: JSON.stringify({ filename })

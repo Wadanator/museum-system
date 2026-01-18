@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { api, authFetch } from '../services/api'; // <--- ZMENA: Importujeme aj authFetch
+import { api } from '../services/api';
 
 export const useMedia = () => {
     const [videos, setVideos] = useState([]);
@@ -13,9 +13,8 @@ export const useMedia = () => {
         try {
             setIsLoading(true);
             const [videoData, audioData] = await Promise.all([
-                // ZMENA: api.authFetch -> authFetch
-                authFetch('/api/media/video').then(res => res.json()),
-                authFetch('/api/media/audio').then(res => res.json())
+                api.getMedia('video'),
+                api.getMedia('audio')
             ]);
             setVideos(videoData || []);
             setAudios(audioData || []);
@@ -35,18 +34,7 @@ export const useMedia = () => {
     const uploadMedia = async (type, file) => {
         const loadToast = toast.loading(`Nahrávam ${file.name}...`);
         try {
-            const formData = new FormData();
-            formData.append('file', file);
-            
-            // ZMENA: api.authFetch -> authFetch
-            const res = await authFetch(`/api/media/${type}`, {
-                method: 'POST',
-                body: formData
-            });
-
-            if (!res.ok) throw new Error("Upload failed");
-            
-            const data = await res.json();
+            const data = await api.uploadMedia(type, file);
             
             // Optimisticky update
             if (type === 'video') setVideos(prev => [...prev, data.file]);
@@ -55,6 +43,7 @@ export const useMedia = () => {
             toast.success("Súbor nahraný", { id: loadToast });
             return true;
         } catch (error) {
+            console.error(error);
             toast.error("Chyba pri nahrávaní", { id: loadToast });
             return false;
         }
@@ -64,10 +53,7 @@ export const useMedia = () => {
     const deleteMedia = async (type, filename) => {
         const loadToast = toast.loading(`Mažem ${filename}...`);
         try {
-            // ZMENA: api.authFetch -> authFetch
-            const res = await authFetch(`/api/media/${type}/${filename}`, {
-                method: 'DELETE'
-            });
+            const res = await api.deleteMedia(type, filename);
 
             if (!res.ok) throw new Error("Delete failed");
 
@@ -78,6 +64,7 @@ export const useMedia = () => {
             toast.success("Súbor vymazaný", { id: loadToast });
             return true;
         } catch (error) {
+            console.error(error);
             toast.error("Chyba pri mazaní", { id: loadToast });
             return false;
         }
@@ -87,7 +74,6 @@ export const useMedia = () => {
     const playMediaFile = async (type, filename) => {
         try {
             setPlayingFile(filename);
-            // Toto ostáva api.playMedia, lebo sme to tak pridali do objektu api
             await api.playMedia(type, filename);
             toast.success(`Prehrávam: ${filename}`);
             
@@ -101,7 +87,6 @@ export const useMedia = () => {
     // 5. Stop All
     const stopAllMedia = async () => {
         try {
-            // Toto ostáva api.stopAllMedia
             await api.stopAllMedia();
             toast.success("Prehrávanie zastavené");
             setPlayingFile(null);

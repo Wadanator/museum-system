@@ -1,31 +1,25 @@
-export default function PageHeader({ title, icon: Icon, children }) {
+export default function PageHeader({ title, subtitle, icon: Icon, children }) {
   return (
-    <div className="header-row" style={{
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        marginBottom: '24px',
-        paddingBottom: '16px',
-        borderBottom: '1px solid #e5e7eb',
-        flexWrap: 'wrap',
-        gap: '16px'
-    }}>
-      <h2 style={{ 
-          margin: 0, 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '12px',
-          color: '#111827',
-          fontSize: '1.5rem'
-      }}>
-        {Icon && <Icon size={32} style={{ color: '#2563eb' }} />}
-        {title}
-      </h2>
-      
-      {/* Priestor pre tlačidlá vpravo */}
-      <div className="header-actions" style={{ display: 'flex', gap: '10px' }}>
-        {children}
+    <div className="page-header-container">
+      {/* Ľavá časť: Ikona + Texty */}
+      <div className="page-header-left">
+        {Icon && (
+          <div className="page-header-icon-box">
+            <Icon size={28} />
+          </div>
+        )}
+        <div className="page-header-titles">
+          <h1 className="page-title">{title}</h1>
+          {subtitle && <p className="page-subtitle">{subtitle}</p>}
+        </div>
       </div>
+      
+      {/* Pravá časť: Tlačidlá / Akcie */}
+      {children && (
+        <div className="page-header-actions">
+          {children}
+        </div>
+      )}
     </div>
   );
 }

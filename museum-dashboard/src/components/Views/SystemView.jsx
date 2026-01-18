@@ -1,15 +1,21 @@
-import { Server, Power, RefreshCw, HardDrive } from 'lucide-react';
+import { Server, Power, RefreshCw, HardDrive, Settings } from 'lucide-react';
 import { useSystemActions } from '../../hooks/useSystemActions';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import ButtonGroup from '../ui/ButtonGroup';
+import PageHeader from '../ui/PageHeader';
 
 export default function SystemView() {
     const { restartService, rebootSystem, shutdownSystem } = useSystemActions();
 
     return (
         <div className="view-container">
-            <h2 className="view-title">Systémové nastavenia</h2>
+            {/* Nový Header */}
+            <PageHeader 
+                title="Systémové nastavenia" 
+                subtitle="Správa servera a hardvéru"
+                icon={Settings}
+            />
             
             <div style={{ display: 'grid', gap: '20px', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
                 

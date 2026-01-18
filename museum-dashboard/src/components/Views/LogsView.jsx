@@ -1,21 +1,20 @@
 import { useState } from 'react';
-import { Trash2, Filter, AlertCircle, Info, Bug } from 'lucide-react';
+import { Trash2, Filter, AlertCircle, Info, Bug, ClipboardList } from 'lucide-react';
 import { useLogs } from '../../hooks/useLogs';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
-import '../../styles/views/logs-view.css'; // Nezabudni importovať CSS!
+import PageHeader from '../ui/PageHeader';
+import '../../styles/views/logs-view.css';
 
 export default function LogsView() {
     const { logs, clearLogs } = useLogs();
     const [filter, setFilter] = useState('ALL');
 
-    // Filtrovanie logov
     const filteredLogs = logs.filter(log => {
         if (filter === 'ALL') return true;
         return log.level === filter;
     });
 
-    // Pomocná funkcia pre ikonu podľa levelu
     const getLevelIcon = (level) => {
         switch (level) {
             case 'ERROR': return <AlertCircle size={14} />;
@@ -27,40 +26,24 @@ export default function LogsView() {
 
     return (
         <div className="view-container logs-view">
-            {/* Header s ovládacími prvkami */}
-            <div className="logs-header">
-                <div className="filters">
+            {/* Nový Header s filtrami v pravej časti */}
+            <PageHeader 
+                title="Logy" 
+                subtitle="História udalostí" 
+                icon={ClipboardList}
+            >
+                <div className="filters" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '10px' }}>
                     <Filter size={18} className="filter-icon" />
-                    <button 
-                        className={`filter-btn ${filter === 'ALL' ? 'active' : ''}`} 
-                        onClick={() => setFilter('ALL')}
-                    >
-                        Všetky
-                    </button>
-                    <button 
-                        className={`filter-btn info ${filter === 'INFO' ? 'active' : ''}`} 
-                        onClick={() => setFilter('INFO')}
-                    >
-                        Info
-                    </button>
-                    <button 
-                        className={`filter-btn warning ${filter === 'WARNING' ? 'active' : ''}`} 
-                        onClick={() => setFilter('WARNING')}
-                    >
-                        Warning
-                    </button>
-                    <button 
-                        className={`filter-btn error ${filter === 'ERROR' ? 'active' : ''}`} 
-                        onClick={() => setFilter('ERROR')}
-                    >
-                        Error
-                    </button>
+                    <button className={`filter-btn ${filter === 'ALL' ? 'active' : ''}`} onClick={() => setFilter('ALL')}>Všetky</button>
+                    <button className={`filter-btn info ${filter === 'INFO' ? 'active' : ''}`} onClick={() => setFilter('INFO')}>Info</button>
+                    <button className={`filter-btn warning ${filter === 'WARNING' ? 'active' : ''}`} onClick={() => setFilter('WARNING')}>Warning</button>
+                    <button className={`filter-btn error ${filter === 'ERROR' ? 'active' : ''}`} onClick={() => setFilter('ERROR')}>Error</button>
                 </div>
 
                 <Button onClick={clearLogs} variant="secondary" size="small" icon={Trash2}>
                     Vyčistiť
                 </Button>
-            </div>
+            </PageHeader>
 
             {/* Samotná konzola */}
             <Card className="logs-console-card">

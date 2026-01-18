@@ -1,3 +1,5 @@
+/* src/styles/views/commands-view.css */
+
 /* --- HLAVNÝ KONTAJNER --- */
 .commands-view {
     display: flex;
@@ -26,8 +28,8 @@
     display: flex;
     flex-direction: column;
     gap: 30px;
-    overflow-y: auto; /* Aby sa dalo scrollovať ak je veľa zariadení */
-    padding-right: 5px; /* Priestor pre scrollbar */
+    overflow-y: auto;
+    padding-right: 5px;
 }
 
 .device-section {
@@ -36,7 +38,6 @@
     gap: 15px;
 }
 
-/* Hlavička sekcie (ikona + názov) */
 .section-header {
     display: flex;
     align-items: center;
@@ -64,7 +65,6 @@
     font-weight: bold;
 }
 
-/* Oddeľovač sekcií */
 .section-divider {
     height: 1px;
     background: var(--border-color);
@@ -76,16 +76,20 @@
 .devices-grid {
     display: grid;
     gap: 20px;
+    /* FIX 1: Zväčšili sme minimálnu šírku stĺpca na 300px, aby mala karta dosť miesta */
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    /* FIX 2: Výška riadku sa prispôsobí obsahu, minimálne 280px */
+    grid-auto-rows: minmax(280px, auto); 
 }
 
-/* Motory: širšie karty (3 tlačidlá vedľa seba) */
+/* Špecifické nastavenie pre motory, tie potrebujú viac miesta (3 tlačidlá) */
 .motors-grid {
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
 }
 
-/* Relátka: užšie karty (2 tlačidlá) */
+/* Relátka (svetlá) môžu mať tých 300px */
 .relays-grid {
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 }
 
 /* --- KARTA ZARIADENIA --- */
@@ -104,50 +108,62 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
+.device-card .card-content {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    justify-content: space-between;
+}
+
+/* FIX 3: Tlačidlá vo vnútri device-card budú mať menší padding, aby sa zmestili */
+.device-card .btn {
+    padding: 10px 14px; /* Zmenšené z globálnych 12px 24px */
+    width: 100%;       /* Roztiahnuť na dostupnú šírku v rámci flexu */
+    white-space: nowrap; /* Zabrániť zalomeniu textu */
+}
+
 .card-description {
     font-size: 0.85rem;
     color: var(--text-muted);
     margin-bottom: 15px;
     line-height: 1.5;
-    flex: 1; /* Vytlačí ovládacie prvky na spodok karty */
 }
 
-/* Emoji pre relé (voliteľné) */
+/* --- EMOJI & ICONS --- */
 .device-emoji-preview {
-    font-size: 2.5rem;
+    font-size: 4rem;
     text-align: center;
-    margin: 10px 0 20px 0;
-    opacity: 0.9;
-    filter: drop-shadow(0 0 5px rgba(255,255,255,0.1));
-    overflow: hidden;
-    text-overflow: ellipsis; 
+    margin: 20px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
 }
 
-/* --- STATUS BADGE (Oprava pretekania textu) --- */
+/* --- OVLÁDACIE PRVKY --- */
+.relay-controls {
+    margin-top: auto;
+    width: 100%;
+}
+
+/* --- STATUS BADGE --- */
 .status-badge {
-    display: inline-flex;       /* Dôležité: inline-flex sa prispôsobí obsahu */
+    display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    
-    padding: 6px 12px;          /* Väčší padding pre lepší vzhľad */
+    padding: 6px 12px;
     border-radius: 6px;
-    
     font-size: 0.85rem;
     font-weight: 700;
     line-height: 1;
-    
-    white-space: nowrap;        /* ZÁKAZ zalomenia textu */
-    flex-shrink: 0;             /* ZÁKAZ zmenšovania elementu */
-    min-width: max-content;     /* Vždy aspoň tak široké ako text vnútri */
-    
-    /* Farby (Info modrá) */
+    white-space: nowrap;
     background: rgba(59, 130, 246, 0.15); 
     color: #60a5fa;             
     border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
-/* --- LOADING, ERROR, EMPTY STATES --- */
+/* --- STATES --- */
 .loading-state, .error-state, .empty-state {
     display: flex;
     flex-direction: column;
