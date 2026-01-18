@@ -130,7 +130,7 @@ class ConfigManager:
                 
                 # Video
                 'ipc_socket': self.config.get('Video', 'ipc_socket', fallback='/tmp/mpv_socket'),
-                'black_image': self.config.get('Video', 'black_image', fallback='black.png'),
+                'iddle_image': self.config.get('Video', 'iddle_image', fallback='black.png'),
                 'video_health_check_interval': self.config.getint('Video', 'health_check_interval', fallback=60),
                 'video_max_restart_attempts': self.config.getint('Video', 'max_restart_attempts', fallback=3),
                 'video_restart_cooldown': self.config.getint('Video', 'restart_cooldown', fallback=60),

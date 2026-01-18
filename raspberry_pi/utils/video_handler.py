@@ -11,12 +11,12 @@ from threading import Lock
 from utils.logging_setup import get_logger
 
 class VideoHandler:
-    def __init__(self, video_dir=None, ipc_socket=None, black_image=None, logger=None, 
+    def __init__(self, video_dir=None, ipc_socket=None, iddle_image=None, logger=None, 
                  health_check_interval=60, max_restart_attempts=3, restart_cooldown=60):
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.video_dir = video_dir or os.path.join(script_dir, "..", "videos")
         self.ipc_socket = ipc_socket or "/tmp/mpv_socket"
-        self.black_image = os.path.join(self.video_dir, black_image or "black.png")
+        self.iddle_image = os.path.join(self.video_dir, iddle_image or "black.png")
         self.logger = logger or get_logger('video')
         self.process = None
         self.currently_playing = None
@@ -35,20 +35,20 @@ class VideoHandler:
         self.was_playing = False
 
         os.makedirs(self.video_dir, exist_ok=True)
-        self._ensure_black_image()
+        self._ensure_iddle_image()
         self._start_mpv()
         self.logger.info("Video handler initialized")
 
-    def _ensure_black_image(self):
-        if not os.path.exists(self.black_image):
+    def _ensure_iddle_image(self):
+        if not os.path.exists(self.iddle_image):
             try:
                 import pygame
                 pygame.init()
                 surface = pygame.Surface((640, 480))
                 surface.fill((0, 0, 0))
-                pygame.image.save(surface, self.black_image)
+                pygame.image.save(surface, self.iddle_image)
                 pygame.quit()
-                self.logger.info(f"Created black image at {self.black_image}")
+                self.logger.info(f"Created black image at {self.iddle_image}")
             except Exception as e:
                 self.logger.error(f"Failed to create black image: {e}")
 
@@ -74,8 +74,8 @@ class VideoHandler:
 
     def _start_mpv(self):
         with self.process_lock:
-            if not os.path.exists(self.black_image):
-                self.logger.error(f"Black image missing: {self.black_image}")
+            if not os.path.exists(self.iddle_image):
+                self.logger.error(f"Black image missing: {self.iddle_image}")
                 return False
 
             if not self._check_tmp_permissions():
@@ -98,7 +98,7 @@ class VideoHandler:
                 '--no-input-default-bindings', '--input-conf=/dev/null', '--quiet',
                 '--no-terminal', 
                 f'--input-ipc-server={self.ipc_socket}',
-                self.black_image
+                self.iddle_image
             ]
 
             try:
@@ -107,7 +107,7 @@ class VideoHandler:
                 for _ in range(5):
                     time.sleep(1)
                     if os.path.exists(self.ipc_socket):
-                        self.currently_playing = os.path.basename(self.black_image)
+                        self.currently_playing = os.path.basename(self.iddle_image)
                         self.restart_count = 0
                         self.logger.info("MPV process started and IPC socket created")
                         return True
@@ -238,8 +238,8 @@ class VideoHandler:
     def stop_video(self):
         self._send_ipc_command(["set_property", "loop-file", "inf"])
         
-        if self._send_ipc_command(["loadfile", self.black_image, "replace"]):
-            self.currently_playing = os.path.basename(self.black_image)
+        if self._send_ipc_command(["loadfile", self.iddle_image, "replace"]):
+            self.currently_playing = os.path.basename(self.iddle_image)
             return True
         return False
 
@@ -253,7 +253,7 @@ class VideoHandler:
         return self._send_ipc_command(["seek", seconds, "absolute"])
 
     def is_playing(self):
-        if self.currently_playing == os.path.basename(self.black_image):
+        if self.currently_playing == os.path.basename(self.iddle_image):
             return False
 
         response = self._send_ipc_command(["get_property", "idle-active"], get_response=True)

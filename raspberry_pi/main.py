@@ -206,8 +206,7 @@ class MuseumController:
                 return False
             
             if not self.mqtt_client or not self.mqtt_client.is_connected():
-                log.error("Cannot start scene: MQTT not connected")
-                return False
+                log.warning("Starting scene without MQTT connection - external devices may not respond")
             
             self.scene_running = True
             log.info(log_message)
@@ -239,8 +238,6 @@ class MuseumController:
             log.debug(f"Loading scene: {scene_path}")
             if self.scene_parser.load_scene(scene_path):
                 try:
-                    # FIX: Odstránené volanie start_scene() tu. Presunuté do run_scene()
-                    # aby sa zabezpečilo, že tracking je zapnutý PRED odoslaním príkazov.
                     self.run_scene()
                 except Exception as e:
                     log.error(f"An error occurred during scene execution: {e}")
@@ -263,15 +260,14 @@ class MuseumController:
 
         log.debug("Starting state machine scene execution")
 
-        # 1. ZAPNUTIE TRACKINGU (Musí byť pred start_scene)
+        # 1. ZAPNUTIE TRACKINGU
         if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
             if self.mqtt_client.feedback_tracker:
                 self.mqtt_client.feedback_tracker.enable_feedback_tracking()
 
-        # 2. ŠTART SCÉNY (Tu sa odošlú prvé MQTT príkazy 'onEnter')
+        # 2. ŠTART SCÉNY
         if not self.scene_parser.start_scene():
             log.error("Failed to start scene state machine")
-            # Ak štart zlyhá, vypneme tracking a končíme
             if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
                 if self.mqtt_client.feedback_tracker:
                     self.mqtt_client.feedback_tracker.disable_feedback_tracking()
@@ -313,7 +309,6 @@ class MuseumController:
         except Exception as e:
             log.error(f"Error updating stats: {e}")
 
-    # --- SYSTEM CONTROL METHODS ---
     
     def system_restart(self):
         """Reboots the entire Raspberry Pi."""
@@ -327,7 +322,6 @@ class MuseumController:
         """Shuts down the Raspberry Pi."""
         log.warning("Initiating System Shutdown...")
         try:
-            # -h now = halt immediately
             subprocess.Popen(['sudo', 'shutdown', '-h', 'now'], shell=False)
         except Exception as e:
             log.error(f"Failed to initiate shutdown: {e}")
@@ -335,7 +329,6 @@ class MuseumController:
     def service_restart(self):
         """Restarts the Python service (by exiting, assuming systemd will restart it)."""
         log.warning("Initiating Service Restart (Exit)...")
-        # Systemd (ak je nastavený Restart=always) službu automaticky nahodí znova
         self.shutdown_requested = True
         sys.exit(0) 
 
@@ -343,11 +336,11 @@ class MuseumController:
         """Run the main application loop."""
         log.info("Starting Museum Controller")
         
-        if not self.mqtt_client or not self.mqtt_client.establish_initial_connection():
-            if self.shutdown_requested:
-                return
-            log.critical("CRITICAL: Unable to establish MQTT connection")
-            sys.exit(1)
+        if self.mqtt_client:
+            if not self.mqtt_client.establish_initial_connection():
+                if self.shutdown_requested:
+                    return
+                log.warning("⚠️ NETWORK ERROR: System starting in OFFLINE MODE. Will retry connection in background.")
         
         last_device_cleanup = time.time()
         device_cleanup_interval = self.config['device_cleanup_interval']
@@ -358,7 +351,10 @@ class MuseumController:
         try:
             while not self.shutdown_requested:      
                 current_time = time.time()
-                
+                if self.system_monitor:
+                    self.system_monitor.perform_periodic_health_check(self.mqtt_client)
+                # --------------------------------------
+
                 if use_polling and self.button_handler:
                     self.button_handler.check_button_polling()
                 

@@ -161,15 +161,7 @@ class AudioHandler:
                 filename = parts[1]
                 volume = float(parts[2]) if len(parts) > 2 else 0.7
                 return self.play_audio_with_volume(filename, volume)
-                
-            elif message.startswith("FADE_IN:"):
-                self.logger.info(f"FADE_IN command not implemented: {message}")
-                return True
-                
-            elif message.startswith("BASS_BOOST:"):
-                self.logger.info(f"BASS_BOOST command not implemented: {message}")
-                return True
-                
+                                
             elif message == "STOP":
                 return self.stop_audio()
             elif message == "PAUSE":
