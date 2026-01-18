@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import os
 import logging
-from flask import Blueprint, jsonify, request, send_from_directory
+from flask import Blueprint, jsonify, request, send_from_directory, current_app
 from werkzeug.utils import secure_filename
 from pathlib import Path
 import time
@@ -21,17 +21,13 @@ def get_media_path(media_type):
     """
     Načíta cestu priamo z config.ini súboru.
     """
-    # 1. Zistíme, kde sa nachádza tento skript, aby sme našli config.ini
-    # Cesta: raspberry_pi/Web/routes/media.py -> musíme ísť o 2 úrovne vyššie do raspberry_pi
     current_dir = os.path.dirname(os.path.abspath(__file__))
     root_dir = os.path.dirname(os.path.dirname(current_dir)) # raspberry_pi/
     config_path = os.path.join(root_dir, 'config', 'config.ini')
     
-    # 2. Načítame config.ini
     config = configparser.ConfigParser()
     config.read(config_path)
     
-    # 3. Zistíme room_id a názvy priečinkov
     room_id = config.get('Room', 'room_id', fallback='room1')
     scenes_dir = config.get('Scenes', 'directory', fallback='scenes')
     
@@ -40,7 +36,6 @@ def get_media_path(media_type):
     else:
         media_dir_name = config.get('Audio', 'directory', fallback='audio')
 
-    # 4. Zložíme finálnu cestu: raspberry_pi/scenes/room1/videos
     full_path = os.path.join(root_dir, scenes_dir, room_id, media_dir_name)
     return Path(full_path)
 
@@ -71,15 +66,9 @@ def list_files(media_type):
     try:
         folder_path = get_media_path(media_type)
         
-        # DEBUG VÝPIS do konzoly (aby si videl, čo sa deje)
-        print(f"MEDIA DEBUG: Hľadám v: {folder_path}")
-
         if not folder_path.exists():
-            print(f"MEDIA DEBUG: Priečinok neexistuje!")
-            # Ak priečinok neexistuje, skúsime ho vytvoriť, aby sme predišli chybám
             try:
                 folder_path.mkdir(parents=True, exist_ok=True)
-                print(f"MEDIA DEBUG: Priečinok vytvorený.")
             except:
                 pass
             return jsonify([]), 200
@@ -91,7 +80,7 @@ def list_files(media_type):
         
         return jsonify(files), 200
     except Exception as e:
-        print(f"MEDIA ERROR: {e}")
+        logger.error(f"Error listing files: {e}")
         return jsonify({'error': str(e)}), 500
 
 @media_bp.route('/<media_type>', methods=['POST'])
@@ -116,10 +105,10 @@ def upload_file(media_type):
             file_path = folder_path / filename
             file.save(str(file_path))
             
-            print(f"MEDIA UPLOAD: Súbor uložený do {file_path}")
+            logger.info(f"File uploaded: {file_path}")
             return jsonify({'message': 'OK', 'file': get_file_info(file_path)}), 201
         except Exception as e:
-            print(f"UPLOAD ERROR: {e}")
+            logger.error(f"Upload error: {e}")
             return jsonify({'error': str(e)}), 500
             
     return jsonify({'error': 'File type not allowed'}), 400
@@ -133,8 +122,84 @@ def delete_file(media_type, filename):
         
         if file_path.exists():
             file_path.unlink()
-            print(f"MEDIA DELETE: Vymazané {file_path}")
+            logger.info(f"File deleted: {file_path}")
             return jsonify({'message': 'Deleted'}), 200
         return jsonify({'error': 'Not found'}), 404
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# --- NOVÉ ENDPOINTY PRE PREHRÁVANIE A STOP ---
+
+@media_bp.route('/play/audio', methods=['POST'])
+def play_audio():
+    """Okamžite prehrá vybraný audio súbor."""
+    try:
+        data = request.json
+        filename = data.get('filename')
+        
+        if not filename:
+            return jsonify({'error': 'Filename missing'}), 400
+
+        # Získame controller z kontextu aplikácie
+        controller = current_app.config.get('CONTROLLER')
+        
+        if controller and controller.audio_handler:
+            success = controller.audio_handler.play_audio(filename)
+            if success:
+                return jsonify({'status': 'playing', 'file': filename})
+            else:
+                return jsonify({'error': 'Failed to play audio (check logs)'}), 500
+        else:
+            return jsonify({'error': 'Audio Handler not initialized'}), 500
+
+    except Exception as e:
+        logger.error(f"Play Audio Error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@media_bp.route('/play/video', methods=['POST'])
+def play_video():
+    """Okamžite prehrá vybraný video súbor."""
+    try:
+        data = request.json
+        filename = data.get('filename')
+        
+        if not filename:
+            return jsonify({'error': 'Filename missing'}), 400
+
+        controller = current_app.config.get('CONTROLLER')
+        
+        if controller and controller.video_handler:
+            success = controller.video_handler.play_video(filename)
+            if success:
+                return jsonify({'status': 'playing', 'file': filename})
+            else:
+                return jsonify({'error': 'Failed to play video'}), 500
+        else:
+            return jsonify({'error': 'Video Handler not initialized'}), 500
+
+    except Exception as e:
+        logger.error(f"Play Video Error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@media_bp.route('/stop', methods=['POST'])
+def stop_all_media():
+    """Zastaví všetko Audio aj Video (Panic Button)."""
+    try:
+        controller = current_app.config.get('CONTROLLER')
+        if not controller:
+             return jsonify({'error': 'Controller unavailable'}), 500
+        
+        stopped = []
+        if controller.audio_handler:
+            controller.audio_handler.stop_audio()
+            stopped.append('audio')
+            
+        if controller.video_handler:
+            controller.video_handler.stop_video()
+            stopped.append('video')
+            
+        return jsonify({'status': 'stopped', 'components': stopped})
+
+    except Exception as e:
+        logger.error(f"Stop Media Error: {e}")
         return jsonify({'error': str(e)}), 500

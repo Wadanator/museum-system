@@ -239,7 +239,8 @@ class MuseumController:
             log.debug(f"Loading scene: {scene_path}")
             if self.scene_parser.load_scene(scene_path):
                 try:
-                    self.scene_parser.start_scene()
+                    # FIX: Odstránené volanie start_scene() tu. Presunuté do run_scene()
+                    # aby sa zabezpečilo, že tracking je zapnutý PRED odoslaním príkazov.
                     self.run_scene()
                 except Exception as e:
                     log.error(f"An error occurred during scene execution: {e}")
@@ -262,10 +263,21 @@ class MuseumController:
 
         log.debug("Starting state machine scene execution")
 
+        # 1. ZAPNUTIE TRACKINGU (Musí byť pred start_scene)
         if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
             if self.mqtt_client.feedback_tracker:
                 self.mqtt_client.feedback_tracker.enable_feedback_tracking()
 
+        # 2. ŠTART SCÉNY (Tu sa odošlú prvé MQTT príkazy 'onEnter')
+        if not self.scene_parser.start_scene():
+            log.error("Failed to start scene state machine")
+            # Ak štart zlyhá, vypneme tracking a končíme
+            if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
+                if self.mqtt_client.feedback_tracker:
+                    self.mqtt_client.feedback_tracker.disable_feedback_tracking()
+            return
+
+        # 3. HLAVNÁ SLUČKA
         while not self.shutdown_requested:
             if not self.scene_running:
                 log.info("Scene execution was stopped externally.")
@@ -280,6 +292,7 @@ class MuseumController:
 
         log.info("Scene execution finished")
 
+        # 4. VYPNUTIE TRACKINGU
         if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
             if self.mqtt_client.feedback_tracker:
                 self.mqtt_client.feedback_tracker.disable_feedback_tracking()
