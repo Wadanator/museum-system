@@ -10,6 +10,7 @@ extern bool allDevicesOff;
 void initializeHardware();
 void setDevice(int deviceIndex, bool state);
 void turnOffAllDevices();
+void handleAutoOff();
 String getDeviceStatus();
 
 #endif

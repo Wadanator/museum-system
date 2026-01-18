@@ -1,14 +1,17 @@
 #include "config.h"
 
-// Configuration Constants Implementation
-// -----------------------------------------------------------------------------
-
-// Debug
+// Debug Mode
 const bool DEBUG = true;
 
-// WiFi
-const char* WIFI_SSID = "Museum-Room1";
-const char* WIFI_PASSWORD = "88888888";
+// WiFi Configuration
+
+// Router 1
+//const char* WIFI_SSID = "Museum-Room1";
+//const char* WIFI_PASSWORD = "88888888";
+
+// Router 2 (Home) - FajnArt
+const char* WIFI_SSID = "Majo-home";
+const char* WIFI_PASSWORD = "Mmajcher7680home";
 
 // MQTT
 const char* MQTT_SERVER = "TechMuzeumRoom1.local";
@@ -32,7 +35,7 @@ const int PWM_RESOLUTION = 8;
 const int SMOOTH_STEP = 2;
 const int SMOOTH_DELAY = 100;
 
-// Connection Management
+// Connection Management Settings
 const unsigned long WIFI_RETRY_INTERVAL = 3000;
 const unsigned long MQTT_RETRY_INTERVAL = 2000;
 const unsigned long MAX_RETRY_INTERVAL = 30000;
@@ -42,7 +45,7 @@ const int MAX_WIFI_ATTEMPTS = 3;
 const int MAX_MQTT_ATTEMPTS = 3;
 const int MQTT_KEEP_ALIVE = 10;
 
-// Watchdog Timer Configuration
+// Watchdog Timer Configuration 
 const unsigned long WDT_TIMEOUT = 60;
 
 // OTA Configuration

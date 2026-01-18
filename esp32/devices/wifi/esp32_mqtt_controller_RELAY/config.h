@@ -6,11 +6,7 @@
 // =============================================================================
 // KONFIGURACIA HARDVERU
 // =============================================================================
-// Ak je true, pouzije sa ovladanie cez I2C expander (pre Waveshare modul)
-// Ak je false, pouzije sa priame ovladanie GPIO (pre klasicke ESP32)
 extern const bool USE_RELAY_MODULE;
-
-// I2C Nastavenia pre Waveshare modul
 extern const int I2C_SDA_PIN;
 extern const int I2C_SCL_PIN;
 extern const int I2C_EXPANDER_ADDR;
@@ -19,9 +15,10 @@ extern const int I2C_EXPANDER_ADDR;
 // DEFINICIA ZARIADENI
 // =============================================================================
 struct Device {
-  const char* name;  // Nazov pre MQTT topic (napr. "light1", "fan")
-  int pin;           // GPIO pin (ak USE_RELAY_MODULE=false) ALEBO cislo bitu 0-7 (ak USE_RELAY_MODULE=true)
-  bool inverted;     // true = rele je aktivne na LOW (bezne pre releove moduly)
+  const char* name;       // Nazov pre MQTT topic
+  int pin;                // GPIO pin alebo bit expandera
+  bool inverted;          // true = rele je aktivne na LOW
+  unsigned long autoOffMs; // NOVÉ: Cas v ms pre automaticke vypnutie (0 = vypnute)
 };
 
 // Zariadenia

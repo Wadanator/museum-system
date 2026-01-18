@@ -1,4 +1,3 @@
-#include <esp_task_wdt.h>
 #include "config.h"
 #include "debug.h"
 #include "hardware.h"
@@ -6,6 +5,7 @@
 #include "mqtt_manager.h"
 #include "connection_monitor.h"
 #include "ota_manager.h"
+#include "wdt_manager.h"
 
 void setup() {
   Serial.begin(115200);
@@ -15,14 +15,7 @@ void setup() {
   debugPrint("=== ESP32 MQTT Controller Starting ===");
 
   // Initialize Watchdog Timer
-  esp_task_wdt_config_t wdt_config = {
-    .timeout_ms = WDT_TIMEOUT * 1000,
-    .idle_core_mask = 0,
-    .trigger_panic = true
-  };
-  esp_task_wdt_init(&wdt_config);
-  esp_task_wdt_add(NULL);
-  debugPrint("Watchdog Timer initialized");
+  initializeWatchdog();
 
   // Initialize hardware and Wi-Fi
   initializeHardware();
@@ -65,7 +58,8 @@ void loop() {
 
   // Watchdog reset (only if not doing an OTA update)
   if (!isOTAInProgress()) {
-    esp_task_wdt_reset();
+
+    resetWatchdog();
   }
 
   static unsigned long lastQuickCheck = 0;
@@ -87,7 +81,7 @@ void loop() {
     }
   }
 
-  // Detailed connection monitoring (less frequent)
+  // Perform more detailed checks less frequently
   static unsigned long lastDetailedCheck = 0;
   if (currentTime - lastDetailedCheck >= 10000) {
     lastDetailedCheck = currentTime;

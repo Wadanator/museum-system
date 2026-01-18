@@ -4,30 +4,26 @@
 // IMPLEMENTACIA KONSTANT
 // =============================================================================
 
-// !!! HLAVNY PREPINAC REZIMU !!!
-// true  = Pre Waveshare Industrial 8-Channel Relay Module (ovladanie cez I2C)
-// false = Pre bezne ESP32 (priame ovladanie GPIO pinov)
 const bool USE_RELAY_MODULE = true;
 
-// I2C Konfiguracia pre Waveshare ESP32-S3-ETH-8DI-8RO
+// I2C Konfiguracia
 const int I2C_SDA_PIN = 42;
 const int I2C_SCL_PIN = 41;
-const int I2C_EXPANDER_ADDR = 0x20; // Standardna adresa TCA9554
+const int I2C_EXPANDER_ADDR = 0x20; 
 
 // =============================================================================
 // DEFINICIA ZARIADENI
 // =============================================================================
-// POZOR: Ak je USE_RELAY_MODULE = true, 'pin' znamena cislo bitu expandera (0-7)
 
 const Device DEVICES[] = {
-  // Nazov topicu          Pin/Bit   Inverted
-  {"effect/smoke",         0,        false},   // Rele 1
-  {"light/1",              1,        false},   // Rele 2
-  {"light/2",              2,        false},   // Rele 3
-  {"light/3",              3,        false},   // Rele 4
-  {"light/4",              4,        false},   // Rele 5
-  {"light/5",              5,        false},   // Rele 6
-  {"light/6",              6,        false}    // Rele 7
+  // Nazov topicu          Pin/Bit   Inverted  AutoOff(ms)
+  {"effect/smoke",         0,        false,    5000},  // <--- LIMIT 5 SEKÚND PRE DYM
+  {"light/1",              1,        false,    0},     // 0 = bez limitu (trvale zapnutie)
+  {"light/2",              2,        false,    0},
+  {"light/3",              3,        false,    0},
+  {"light/4",              4,        false,    0},
+  {"light/5",              5,        false,    0},
+  {"light/6",              6,        false} 
   // Rele 8 (bit 7) ostava volne
 };
 
@@ -41,8 +37,11 @@ const int DEVICE_COUNT = sizeof(DEVICES) / sizeof(Device);
 const bool DEBUG = true;
 
 // WiFi
-const char* WIFI_SSID = "Museum-Room1";
-const char* WIFI_PASSWORD = "88888888";
+//const char* WIFI_SSID = "Museum-Room1";
+//const char* WIFI_PASSWORD = "88888888";
+
+const char* WIFI_SSID = "Majo-home";
+const char* WIFI_PASSWORD = "Mmajcher7680home";
 
 // MQTT
 const char* MQTT_SERVER = "TechMuzeumRoom1.local";
@@ -60,7 +59,7 @@ const int MAX_WIFI_ATTEMPTS = 3;
 const int MAX_MQTT_ATTEMPTS = 3;
 const int MQTT_KEEP_ALIVE = 10;
 
-// 10 minut * 60 sekund * 1000 milisekund = 600000
+// 10 minut timeout pre necinnost
 const unsigned long NO_COMMAND_TIMEOUT = 600000;
 
 // Watchdog Timer
