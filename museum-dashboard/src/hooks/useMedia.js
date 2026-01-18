@@ -1,20 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { api } from '../services/api'; // Alebo authFetch, podľa toho čo používate
+import { api, authFetch } from '../services/api'; // <--- ZMENA: Importujeme aj authFetch
 
 export const useMedia = () => {
     const [videos, setVideos] = useState([]);
     const [audios, setAudios] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [playingFile, setPlayingFile] = useState(null); // Pre vizuálny efekt
+    const [playingFile, setPlayingFile] = useState(null);
 
     // 1. Načítanie dát
     const fetchMedia = useCallback(async () => {
         try {
             setIsLoading(true);
             const [videoData, audioData] = await Promise.all([
-                api.authFetch('/api/media/video').then(res => res.json()),
-                api.authFetch('/api/media/audio').then(res => res.json())
+                // ZMENA: api.authFetch -> authFetch
+                authFetch('/api/media/video').then(res => res.json()),
+                authFetch('/api/media/audio').then(res => res.json())
             ]);
             setVideos(videoData || []);
             setAudios(audioData || []);
@@ -37,7 +38,8 @@ export const useMedia = () => {
             const formData = new FormData();
             formData.append('file', file);
             
-            const res = await api.authFetch(`/api/media/${type}`, {
+            // ZMENA: api.authFetch -> authFetch
+            const res = await authFetch(`/api/media/${type}`, {
                 method: 'POST',
                 body: formData
             });
@@ -46,7 +48,7 @@ export const useMedia = () => {
             
             const data = await res.json();
             
-            // Optimisticky update alebo refresh
+            // Optimisticky update
             if (type === 'video') setVideos(prev => [...prev, data.file]);
             else setAudios(prev => [...prev, data.file]);
             
@@ -62,7 +64,8 @@ export const useMedia = () => {
     const deleteMedia = async (type, filename) => {
         const loadToast = toast.loading(`Mažem ${filename}...`);
         try {
-            const res = await api.authFetch(`/api/media/${type}/${filename}`, {
+            // ZMENA: api.authFetch -> authFetch
+            const res = await authFetch(`/api/media/${type}/${filename}`, {
                 method: 'DELETE'
             });
 
@@ -83,11 +86,11 @@ export const useMedia = () => {
     // 4. Play (Audio/Video)
     const playMediaFile = async (type, filename) => {
         try {
-            setPlayingFile(filename); // UI efekt
+            setPlayingFile(filename);
+            // Toto ostáva api.playMedia, lebo sme to tak pridali do objektu api
             await api.playMedia(type, filename);
             toast.success(`Prehrávam: ${filename}`);
             
-            // Reset vizuálneho stavu po 3 sekundách
             setTimeout(() => setPlayingFile(null), 3000);
         } catch (error) {
             toast.error("Chyba pri spustení prehrávania");
@@ -98,6 +101,7 @@ export const useMedia = () => {
     // 5. Stop All
     const stopAllMedia = async () => {
         try {
+            // Toto ostáva api.stopAllMedia
             await api.stopAllMedia();
             toast.success("Prehrávanie zastavené");
             setPlayingFile(null);
