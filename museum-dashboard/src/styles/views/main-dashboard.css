@@ -5,7 +5,7 @@
 }
 
 /* =======================================
-   1. VEĽKÉ OVLÁDACIE TLAČIDLÁ (Chýbajúce)
+   1. VEĽKÉ OVLÁDACIE TLAČIDLÁ
    ======================================= */
 
 .main-controls {
@@ -125,6 +125,14 @@
 
 .status-header { font-size: 0.9rem; color: #6b7280; margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 .status-value { font-size: 1.2rem; font-weight: 700; color: #111827; }
+
+/* Flex zarovnanie pre ikonku a text v status-value */
+.status-value-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+}
 
 /* =======================================
    3. PROGRESS BAR

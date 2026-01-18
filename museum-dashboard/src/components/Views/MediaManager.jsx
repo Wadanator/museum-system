@@ -1,27 +1,28 @@
 import { useState } from 'react';
-import { 
-    Video, Upload, Trash2, Music, Volume2, 
-    Clapperboard, Play, Square, FolderOpen
-} from 'lucide-react';
+import { Video, Upload, Square, FolderOpen, Volume2 } from 'lucide-react';
 import { useMedia } from '../../hooks/useMedia';
 import '../../styles/views/media-manager.css';
 
+// Komponenty UI
 import PageHeader from '../ui/PageHeader';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Modal from '../ui/Modal';
+// Nový import
+import FileItem from '../Media/FileItem';
 
 const MediaManager = () => {
+  // Logika je správne v Hooku
   const { 
     videos, audios, isLoading, playingFile, 
     uploadMedia, deleteMedia, playMediaFile, stopAllMedia 
   } = useMedia();
 
+  // UI State pre Modal (toto patrí sem, nie do hooku)
   const [deleteModal, setDeleteModal] = useState({
     isOpen: false, type: '', fileName: '', inputValue: ''
   });
 
-  // Handlery
   const handleUploadClick = (type) => {
     const input = document.createElement('input');
     input.type = 'file';
@@ -42,32 +43,10 @@ const MediaManager = () => {
     if (success) closeDeleteModal();
   };
 
-  // Komponent pre položku súboru
-  const FileItem = ({ file, type }) => (
-    <div className={`media-card ${playingFile === file.name ? 'playing-now' : ''}`}>
-      <div className={`media-icon-box ${type}`}>
-        {type === 'video' ? <Clapperboard size={20} /> : <Music size={20} />}
-      </div>
-      <div className="media-info">
-        <div className="media-name" title={file.name}>{file.name}</div>
-        <div className="media-meta">{file.size} • {file.modified}</div>
-      </div>
-      <div className="media-actions">
-        <button className="action-btn-icon play" onClick={() => playMediaFile(type, file.name)} title="Prehrať">
-            <Play size={16} fill="currentColor" />
-        </button>
-        <button className="action-btn-icon delete" onClick={() => openDeleteModal(type, file.name)} title="Vymazať">
-            <Trash2 size={16} />
-        </button>
-      </div>
-    </div>
-  );
-
-  if (isLoading) return <div className="p-8 text-center text-slate-500">Načítavam knižnicu médií...</div>;
+  if (isLoading) return <div className="loading-state">Načítavam knižnicu médií...</div>;
 
   return (
-    <div className="tab-content active">
-        {/* Nový Header */}
+    <div className="media-manager-view">
         <PageHeader 
             title="Správca Médií" 
             subtitle="Audio a Video knižnica"
@@ -83,7 +62,8 @@ const MediaManager = () => {
             </Button>
         </PageHeader>
       
-      <div className="media-grid-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '24px' }}>
+      {/* Grid trieda namiesto inline štýlu */}
+      <div className="media-grid-container">
           {/* VIDEO SECTION */}
           <Card 
             title={`Video & Obrázky (${videos.length})`} 
@@ -95,7 +75,20 @@ const MediaManager = () => {
             }
           >
               <div className="files-list">
-                 {videos.length > 0 ? videos.map(f => <FileItem key={f.name} file={f} type="video" />) : <div className="empty-state">Žiadne video súbory</div>}
+                 {videos.length > 0 ? (
+                    videos.map(f => (
+                        <FileItem 
+                            key={f.name} 
+                            file={f} 
+                            type="video" 
+                            isPlaying={playingFile === f.name}
+                            onPlay={playMediaFile}
+                            onDelete={openDeleteModal}
+                        />
+                    ))
+                 ) : (
+                    <div className="empty-state">Žiadne video súbory</div>
+                 )}
               </div>
           </Card>
 
@@ -110,7 +103,20 @@ const MediaManager = () => {
             }
           >
                <div className="files-list">
-                 {audios.length > 0 ? audios.map(f => <FileItem key={f.name} file={f} type="audio" />) : <div className="empty-state">Žiadne audio súbory</div>}
+                 {audios.length > 0 ? (
+                    audios.map(f => (
+                        <FileItem 
+                            key={f.name} 
+                            file={f} 
+                            type="audio" 
+                            isPlaying={playingFile === f.name}
+                            onPlay={playMediaFile}
+                            onDelete={openDeleteModal}
+                        />
+                    ))
+                 ) : (
+                    <div className="empty-state">Žiadne audio súbory</div>
+                 )}
               </div>
           </Card>
       </div>
@@ -130,12 +136,12 @@ const MediaManager = () => {
             </>
         }
       >
-        <p className="text-slate-300 mb-4">
-            Pre potvrdenie napíšte názov súboru: <strong className="text-white bg-slate-700 px-1 rounded">{deleteModal.fileName}</strong>
+        <p className="modal-text">
+            Pre potvrdenie napíšte názov súboru: <strong className="highlight-text">{deleteModal.fileName}</strong>
         </p>
         <input 
             type="text" 
-            className="w-full p-2 bg-slate-900 border border-slate-700 rounded text-white font-mono focus:border-red-500 outline-none" 
+            className="modal-input"
             value={deleteModal.inputValue}
             onChange={(e) => setDeleteModal(prev => ({...prev, inputValue: e.target.value}))}
             autoFocus
