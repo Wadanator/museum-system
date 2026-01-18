@@ -10,7 +10,8 @@ export default function StatsGrid({ status, deviceCount }) {
         
         <div className={`status-item ${status.mqtt_connected ? 'good' : 'error'}`}>
             <div className="status-header">Komunikácia</div>
-            <div className="status-value" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* Oprava: Použitie CSS triedy namiesto style={{...}} */}
+            <div className="status-value status-value-row">
                 {status.mqtt_connected ? <><Wifi size={20} /> Pripojené</> : <><WifiOff size={20} /> Odpojené</>}
             </div>
         </div>

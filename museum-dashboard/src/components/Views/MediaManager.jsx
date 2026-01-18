@@ -45,6 +45,8 @@ const MediaManager = () => {
 
   if (isLoading) return <div className="loading-state">Načítavam knižnicu médií...</div>;
 
+  const areItemsDisabled = isLoading || playingFile !== null;
+
   return (
     <div className="media-manager-view">
         <PageHeader 
@@ -56,6 +58,7 @@ const MediaManager = () => {
                 onClick={stopAllMedia} 
                 className="bg-red-500 hover:bg-red-600 text-white border-red-600 gap-2"
                 variant="danger"
+                disabled={areItemsDisabled} // Tiež zablokujeme STOP ak systém pracuje
             >
                 <Square size={16} fill="currentColor" />
                 STOP VŠETKO
@@ -69,7 +72,7 @@ const MediaManager = () => {
             title={`Video & Obrázky (${videos.length})`} 
             icon={Video} 
             actions={
-              <Button size="small" variant="secondary" onClick={() => handleUploadClick('video')} icon={Upload}>
+              <Button size="small" variant="secondary" onClick={() => handleUploadClick('video')} icon={Upload} disabled={isLoading}>
                   Nahrať
               </Button>
             }
@@ -84,6 +87,7 @@ const MediaManager = () => {
                             isPlaying={playingFile === f.name}
                             onPlay={playMediaFile}
                             onDelete={openDeleteModal}
+                            isDisabled={areItemsDisabled} // Aplikovaný spam fix
                         />
                     ))
                  ) : (
@@ -97,7 +101,7 @@ const MediaManager = () => {
             title={`Zvukové efekty (${audios.length})`} 
             icon={Volume2} 
             actions={
-              <Button size="small" variant="secondary" onClick={() => handleUploadClick('audio')} icon={Upload}>
+              <Button size="small" variant="secondary" onClick={() => handleUploadClick('audio')} icon={Upload} disabled={isLoading}>
                   Nahrať
               </Button>
             }
@@ -112,6 +116,7 @@ const MediaManager = () => {
                             isPlaying={playingFile === f.name}
                             onPlay={playMediaFile}
                             onDelete={openDeleteModal}
+                            isDisabled={areItemsDisabled} // Aplikovaný spam fix
                         />
                     ))
                  ) : (

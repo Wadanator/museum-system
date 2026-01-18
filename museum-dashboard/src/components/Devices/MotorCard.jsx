@@ -1,3 +1,4 @@
+import { useState } from 'react'; // Pridaný useState
 import { Rewind, FastForward, Square, Gauge } from 'lucide-react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -8,13 +9,22 @@ import { useDeviceControl } from '../../hooks/useDeviceControl';
 export default function MotorCard({ device }) {
   const speed = device.speed || 100;
   const { sendCommand } = useDeviceControl(device.topic, device.name);
+  const [loading, setLoading] = useState(false);
 
-  const handleAction = (direction, label) => {
+  const handleAction = async (direction, label) => { 
+      if (loading) return;
+
+      setLoading(true);
+      
       let payload = `OFF`;
       if (direction === 'LEFT') payload = `ON:${speed}:L`;
       else if (direction === 'RIGHT') payload = `ON:${speed}:R`;
 
-      sendCommand(payload, label);
+      try {
+        await sendCommand(payload, label);
+      } finally {
+        setLoading(false);
+      }
   };
 
   return (
@@ -28,7 +38,6 @@ export default function MotorCard({ device }) {
             Ovládanie smeru a rýchlosti motorickej jednotky.
         </div>
 
-        {/* Preview pre motor - Tu môžeme dať ikonu alebo nechať prázdne pre space */}
         <div className="device-preview" style={{ opacity: 0.1 }}>
              <Gauge size={64} color="var(--text-primary)" />
         </div>
@@ -40,6 +49,7 @@ export default function MotorCard({ device }) {
                     onClick={() => handleAction('LEFT', 'Vzad')} 
                     icon={Rewind}
                     style={{ flex: 1 }}
+                    isLoading={loading}
                 >
                     Vzad
                 </Button>
@@ -48,6 +58,7 @@ export default function MotorCard({ device }) {
                     variant="danger" 
                     onClick={() => handleAction('STOP', 'Stop')}
                     icon={Square}
+                    isLoading={loading}
                 >
                     STOP
                 </Button>
@@ -57,6 +68,7 @@ export default function MotorCard({ device }) {
                     onClick={() => handleAction('RIGHT', 'Vpred')} 
                     icon={FastForward}
                     style={{ flex: 1 }}
+                    isLoading={loading}
                 >
                     Vpred
                 </Button>

@@ -1,34 +1,63 @@
+import { useState, useCallback, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 
 export default function Button({ 
     children, 
     onClick, 
-    variant = 'primary', // Možnosti: primary, secondary, danger, success, ghost
+    variant = 'primary', 
     icon: Icon, 
     isLoading = false, 
     disabled = false,
     className = '',
-    size = 'medium',     // Možnosti: small, medium, large
+    size = 'medium',
     type = 'button',
+    cooldown = 1000,
     ...props
 }) {
-  const baseClass = "btn"; 
-  const variantClass = variant !== 'primary' ? `btn-${variant}` : 'btn-primary';
-  const sizeClass = size === 'small' ? 'btn-small' : (size === 'large' ? 'btn-large' : '');
-  
+  const [inCooldown, setInCooldown] = useState(false);
+
+  // Bezpečné čistenie timeoutu ak by sa komponent odpojil
+  useEffect(() => {
+    return () => setInCooldown(false);
+  }, []);
+
+  const handleClick = useCallback((e) => {
+    // Ak je loading, disabled alebo v cooldowne, stop
+    if (disabled || isLoading || inCooldown) {
+        e.preventDefault();
+        return;
+    }
+
+    // Vykonaj akciu
+    if (onClick) onClick(e);
+
+    // Aktivuj cooldown ak je nastavený (teraz defaultne je)
+    if (cooldown > 0) {
+        setInCooldown(true);
+        setTimeout(() => {
+            setInCooldown(false);
+        }, cooldown);
+    }
+  }, [onClick, disabled, isLoading, inCooldown, cooldown]);
+
+  const isDisabled = disabled || isLoading || inCooldown;
+
+  // Pridanie vizuálnej triedy pre cooldown
+  const finalClassName = `btn ${variant !== 'primary' ? `btn-${variant}` : 'btn-primary'} ${size === 'small' ? 'btn-small' : (size === 'large' ? 'btn-large' : '')} ${className}`;
+
   return (
     <button 
         type={type}
-        className={`${baseClass} ${variantClass} ${sizeClass} ${className}`}
-        onClick={onClick}
-        disabled={disabled || isLoading}
+        className={finalClassName}
+        onClick={handleClick}
+        disabled={isDisabled}
         style={{ 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center', 
             gap: size === 'small' ? '6px' : '8px',
-            opacity: (disabled || isLoading) ? 0.7 : 1,
-            cursor: (disabled || isLoading) ? 'not-allowed' : 'pointer',
+            opacity: isDisabled ? 0.7 : 1,
+            cursor: isDisabled ? 'not-allowed' : 'pointer',
             ...props.style
         }}
         {...props}
