@@ -1,16 +1,18 @@
-/* --- HLAVNÝ LAYOUT --- */
+/* src/styles/views/scenes-view.css */
+
+/* --- HLAVNÝ LAYOUT A GRID --- */
 .scenes-view {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: 32px;
     height: 100%;
 }
 
-/* --- GRID SYSTÉM --- */
 .scenes-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 24px;
+    padding-bottom: 40px;
 }
 
 .loading-state, .empty-state {
@@ -27,181 +29,140 @@
     border: 1px dashed var(--border-color);
 }
 
-/* --- KARTA SCÉNY --- */
+/* --- SCENE CARD (CINEMATIC DESIGN) --- */
+
 .scene-card {
-    border: 1px solid var(--border-color) !important; /* Force override */
-    transition: all 0.2s ease;
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    height: 220px;
+    border: 1px solid var(--border-color);
 }
 
 .scene-card:hover {
-    transform: translateY(-4px);
+    transform: translateY(-5px);
     box-shadow: var(--shadow-lg);
-    border-color: var(--primary) !important;
+    border-color: var(--primary);
 }
 
-.scene-header {
+/* Reset paddingu z globálneho Card komponentu */
+.scene-card .card-content {
+    padding: 0 !important;
     display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 20px;
+    flex-direction: column;
+    height: 100%;
 }
 
-.scene-icon {
-    background: var(--info-bg);
-    color: var(--primary);
-    width: 48px;
-    height: 48px;
+/* Cover (Vrch) */
+.scene-cover {
+    height: 90px;
+    background: linear-gradient(135deg, var(--bg-main) 0%, #e5e7eb 100%);
+    position: relative;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Telo (Spodok) */
+.scene-body {
+    flex: 1;
+    background: var(--bg-card);
+    padding: 40px 20px 20px 20px; 
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* Plávajúca ikona */
+.scene-icon-float {
+    position: absolute;
+    top: 60px;
+    left: 20px;
+    width: 54px;
+    height: 54px;
+    background: var(--bg-card);
+    border-radius: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    z-index: 2;
 }
 
-.scene-info {
-    flex: 1;
-    overflow: hidden;
+.scene-card.featured .scene-icon-float {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
 }
 
-.scene-title {
-    margin: 0;
-    font-size: 1.1rem;
+/* Texty */
+.scene-name {
+    font-size: 1.2rem;
     font-weight: 700;
     color: var(--text-primary);
+    margin: 0 0 6px 0;
+    line-height: 1.2;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .scene-meta {
+    font-size: 0.85rem;
+    color: var(--text-muted);
     display: flex;
     align-items: center;
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    margin-top: 4px;
+    gap: 6px;
 }
 
-.scene-actions {
-    margin-top: auto;
-    padding-top: 16px;
-    border-top: 1px solid var(--bg-main);
-}
-
-/* --- EDITOR MODAL --- */
-
-/* Pozadie (Overlay) */
-.modal-overlay {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
+/* Tlačidlá na karte */
+.edit-btn-absolute {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.6);
     backdrop-filter: blur(4px);
+    border-radius: 8px;
     display: flex;
+    align-items: center;
     justify-content: center;
-    align-items: center;
-    z-index: 1000;
-}
-
-/* Okno editora */
-.modal-content.large-editor {
-    width: 90vw;
-    height: 85vh;
-    max-width: 1200px;
-    display: flex;
-    flex-direction: column;
-    padding: 0; 
-    overflow: hidden;
-    background: var(--bg-card);
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow-lg);
-}
-
-/* Hlavička modalu */
-.modal-header {
-    padding: 16px 24px;
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: var(--bg-card);
-}
-
-.modal-title-group {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}
-
-.modal-title-group h3 {
-    margin: 0;
-    font-size: 1.25rem;
-    color: var(--text-primary);
-}
-
-.file-badge {
-    background: var(--info-bg);
-    color: var(--primary);
-    padding: 4px 10px;
-    border-radius: 6px;
-    font-family: monospace;
-    font-size: 0.9rem;
-    font-weight: 600;
-}
-
-/* Tlačidlo zatvoriť (X) */
-.close-btn {
-    background: transparent;
+    color: var(--text-secondary);
     border: 1px solid transparent;
-    color: var(--text-muted);
     cursor: pointer;
-    padding: 8px;
-    border-radius: var(--radius-md);
+    transition: all 0.2s;
+    z-index: 5;
+}
+
+.edit-btn-absolute:hover {
+    background: var(--bg-card);
+    color: var(--primary);
+    box-shadow: var(--shadow-sm);
+}
+
+.play-fab {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--bg-main);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease;
+    z-index: 5;
 }
 
-.close-btn:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-    border-color: var(--border-color);
-}
-
-/* Telo editora */
-.modal-body-editor {
-    flex: 1;
-    overflow: hidden; 
-    position: relative;
-    background-color: #f8f9fa; /* Svetlejšie pozadie pod editorom */
-}
-
-/* Pätička */
-.modal-footer {
-    padding: 16px 24px;
-    border-top: 1px solid var(--border-color);
-    background: var(--bg-card);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.validation-status {
-    flex: 1;
-}
-
-.error-text {
-    color: var(--danger);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    background: var(--danger-bg);
-    padding: 6px 12px;
-    border-radius: 6px;
-    display: inline-flex;
-}
-
-.footer-buttons {
-    display: flex;
-    gap: 12px;
+.play-fab:hover {
+    background: var(--success);
+    color: white;
+    border-color: var(--success);
+    transform: scale(1.1);
+    box-shadow: var(--shadow-md);
 }

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Save, X, AlertTriangle } from 'lucide-react';
 import Button from '../ui/Button';
-import JsonEditor from '../Shared/JsonEditor'; // Import tvojho existujúceho editora
+import JsonEditor from '../Shared/JsonEditor'; 
+import '../../styles/views/scene-editor.css';
 
 export default function SceneEditorModal({ isOpen, onClose, filename, initialContent, onSave }) {
     const [jsonString, setJsonString] = useState('');
@@ -10,7 +11,6 @@ export default function SceneEditorModal({ isOpen, onClose, filename, initialCon
     // Inicializácia editora
     useEffect(() => {
         if (isOpen && initialContent) {
-            // Prevedieme objekt na pekne formátovaný string pre editor
             setJsonString(JSON.stringify(initialContent, null, 2));
             setIsValid(true);
         }
@@ -30,7 +30,6 @@ export default function SceneEditorModal({ isOpen, onClose, filename, initialCon
     const handleSave = () => {
         if (!isValid) return;
         try {
-            // Pred uložením parse-neme string späť na objekt
             const parsed = JSON.parse(jsonString);
             onSave(filename, parsed);
         } catch (e) {

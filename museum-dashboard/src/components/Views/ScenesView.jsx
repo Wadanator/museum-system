@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Loader2, RefreshCw, Drama } from 'lucide-react';
+import { Plus, Loader2, RefreshCw, Sparkles } from 'lucide-react'; // Sparkles ikona pre lepší efekt
 import { useScenes } from '../../hooks/useScenes';
 import SceneCard from '../Scenes/SceneCard';
 import SceneEditorModal from '../Scenes/SceneEditorModal';
@@ -51,9 +51,9 @@ export default function ScenesView() {
     return (
         <div className="view-container scenes-view">
             <PageHeader 
-                title="Scenáre" 
-                subtitle="Správa a editácia show súborov"
-                icon={Drama}
+                title="Knižnica Scén" 
+                subtitle="Dostupné show súbory"
+                icon={Sparkles} // Zmena ikony na niečo "magickejšie"
             >
                 <Button variant="secondary" icon={RefreshCw} onClick={fetchScenes} disabled={loading} size="small">
                     Obnoviť
@@ -65,13 +65,16 @@ export default function ScenesView() {
 
             {loading ? (
                 <div className="loading-state">
-                    <Loader2 className="animate-spin" size={32} />
-                    <span>Načítavam zoznam scén...</span>
+                    <Loader2 className="animate-spin" size={40} strokeWidth={1.5} />
+                    <span style={{marginTop: 10}}>Načítavam scenáre...</span>
                 </div>
             ) : (
                 <div className="scenes-grid">
                     {scenes.length === 0 ? (
-                        <div className="empty-state">Žiadne scény sa nenašli.</div>
+                        <div className="empty-state">
+                            <Sparkles size={48} opacity={0.2} />
+                            Žiadne scény sa nenašli. Vytvorte novú.
+                        </div>
                     ) : (
                         scenes.map((scene) => (
                             <SceneCard 
