@@ -2,80 +2,74 @@
 .scenes-view {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 24px;
     height: 100%;
-}
-
-.view-header-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding-bottom: 15px;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.view-subtitle {
-    color: var(--text-muted);
-    font-size: 0.9rem;
-    margin-top: 4px;
-}
-
-.header-actions {
-    display: flex;
-    gap: 10px;
 }
 
 /* --- GRID SYSTÉM --- */
 .scenes-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 20px;
-    padding-bottom: 20px;
+    gap: 24px;
 }
 
 .loading-state, .empty-state {
+    grid-column: 1 / -1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 15px;
-    height: 300px;
+    gap: 16px;
+    padding: 60px;
     color: var(--text-muted);
-    grid-column: 1 / -1;
-    font-size: 1.1rem;
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px dashed var(--border-color);
 }
 
 /* --- KARTA SCÉNY --- */
 .scene-card {
+    border: 1px solid var(--border-color) !important; /* Force override */
     transition: all 0.2s ease;
-    border: 1px solid var(--border-color);
 }
 
 .scene-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-    border-color: var(--primary-color);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary) !important;
 }
 
 .scene-header {
     display: flex;
     align-items: center;
-    gap: 15px;
-    margin-bottom: 15px;
+    gap: 16px;
+    margin-bottom: 20px;
 }
 
 .scene-icon {
-    background: rgba(255, 255, 255, 0.05);
-    padding: 12px;
-    border-radius: 10px;
-    color: var(--primary-color);
+    background: var(--info-bg);
+    color: var(--primary);
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+}
+
+.scene-info {
+    flex: 1;
+    overflow: hidden;
 }
 
 .scene-title {
     margin: 0;
     font-size: 1.1rem;
-    font-weight: 600;
+    font-weight: 700;
     color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .scene-meta {
@@ -86,16 +80,19 @@
     margin-top: 4px;
 }
 
-/* --- EDITOR MODAL (Toto chýbalo) --- */
+.scene-actions {
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid var(--bg-main);
+}
+
+/* --- EDITOR MODAL --- */
 
 /* Pozadie (Overlay) */
 .modal-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(4px);
     display: flex;
     justify-content: center;
@@ -113,14 +110,13 @@
     padding: 0; 
     overflow: hidden;
     background: var(--bg-card);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius-lg);
-    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
 }
 
 /* Hlavička modalu */
 .modal-header {
-    padding: 15px 20px;
+    padding: 16px 24px;
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
@@ -131,32 +127,33 @@
 .modal-title-group {
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 16px;
 }
 
 .modal-title-group h3 {
     margin: 0;
-    font-size: 1.2rem;
+    font-size: 1.25rem;
+    color: var(--text-primary);
 }
 
 .file-badge {
-    background: rgba(59, 130, 246, 0.15);
-    color: #60a5fa;
+    background: var(--info-bg);
+    color: var(--primary);
     padding: 4px 10px;
-    border-radius: 4px;
+    border-radius: 6px;
     font-family: monospace;
     font-size: 0.9rem;
-    border: 1px solid rgba(59, 130, 246, 0.3);
+    font-weight: 600;
 }
 
 /* Tlačidlo zatvoriť (X) */
 .close-btn {
     background: transparent;
-    border: none;
+    border: 1px solid transparent;
     color: var(--text-muted);
     cursor: pointer;
-    padding: 5px;
-    border-radius: 5px;
+    padding: 8px;
+    border-radius: var(--radius-md);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -164,21 +161,22 @@
 }
 
 .close-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--bg-hover);
     color: var(--text-primary);
+    border-color: var(--border-color);
 }
 
-/* Telo editora (pre Monaco) */
+/* Telo editora */
 .modal-body-editor {
     flex: 1;
     overflow: hidden; 
     position: relative;
-    background-color: #1e1e1e;
+    background-color: #f8f9fa; /* Svetlejšie pozadie pod editorom */
 }
 
 /* Pätička */
 .modal-footer {
-    padding: 15px 20px;
+    padding: 16px 24px;
     border-top: 1px solid var(--border-color);
     background: var(--bg-card);
     display: flex;
@@ -191,15 +189,19 @@
 }
 
 .error-text {
-    color: #ef4444;
+    color: var(--danger);
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     font-size: 0.9rem;
-    font-weight: 500;
+    font-weight: 600;
+    background: var(--danger-bg);
+    padding: 6px 12px;
+    border-radius: 6px;
+    display: inline-flex;
 }
 
 .footer-buttons {
     display: flex;
-    gap: 10px;
+    gap: 12px;
 }

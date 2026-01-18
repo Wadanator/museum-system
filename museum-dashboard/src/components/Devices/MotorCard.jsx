@@ -9,36 +9,31 @@ export default function MotorCard({ device }) {
   const speed = device.speed || 100;
   const { sendCommand } = useDeviceControl(device.topic, device.name);
 
-  // Funkcia na odoslanie príkazu
   const handleAction = (direction, label) => {
-      let payload;
+      let payload = `OFF`;
       if (direction === 'LEFT') payload = `ON:${speed}:L`;
       else if (direction === 'RIGHT') payload = `ON:${speed}:R`;
-      else payload = `OFF`;
 
       sendCommand(payload, label);
   };
-
-  // Hlavička karty s rýchlosťou
-  const headerAction = (
-      <StatusBadge 
-          status="info" 
-          label={`${speed}%`} 
-      />
-  );
 
   return (
     <Card 
         title={device.name} 
         icon={Gauge} 
-        actions={headerAction}
+        actions={<StatusBadge status="info" label={`${speed}%`} />}
         className="device-card motor-card"
     >
         <div className="card-description">
             Ovládanie smeru a rýchlosti motorickej jednotky.
         </div>
 
-        <div className="motor-controls" style={{ marginTop: 'auto' }}>
+        {/* Preview pre motor - Tu môžeme dať ikonu alebo nechať prázdne pre space */}
+        <div className="device-preview" style={{ opacity: 0.1 }}>
+             <Gauge size={64} color="var(--text-primary)" />
+        </div>
+
+        <div className="card-controls-footer">
             <ButtonGroup>
                 <Button 
                     variant="secondary" 

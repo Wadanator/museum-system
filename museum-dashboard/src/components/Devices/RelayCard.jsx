@@ -9,11 +9,12 @@ export default function RelayCard({ device }) {
   const { sendCommand } = useDeviceControl(device.topic, device.name);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Determine which icon to use in the header
+  // Ikona v hlavičke karty
   const HeaderIcon = device.id?.includes('light') ? Lightbulb : Zap;
-  const customIcon = device.icon || null;
+  
+  // Veľká ikona v strede (ak nie je definovaná v configu, dáme default)
+  const customIcon = device.icon || (device.id?.includes('light') ? '💡' : '⚡');
 
-  // Handle command with loading state
   const handleCommand = useCallback(async (command, displayText) => {
     setIsLoading(true);
     try {
@@ -23,38 +24,23 @@ export default function RelayCard({ device }) {
     }
   }, [sendCommand]);
 
-  const handleTurnOff = useCallback(() => {
-    handleCommand("OFF", "VYPNUTÉ");
-  }, [handleCommand]);
-
-  const handleTurnOn = useCallback(() => {
-    handleCommand("ON", "ZAPNUTÉ");
-  }, [handleCommand]);
-
   return (
     <Card 
       title={device.name} 
       icon={HeaderIcon} 
       className="device-card relay-card"
     >
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        
-        {/* Custom emoji icon display */}
-        {customIcon && (
-          <div className="device-emoji-preview">
-            {customIcon}
-          </div>
-        )}
-        
-        {/* Flexible spacer */}
-        <div style={{ flex: 1 }} />
+        {/* Preview Sekcia - Veľká ikona */}
+        <div className="device-preview">
+            <div className="emoji-large">{customIcon}</div>
+        </div>
 
-        {/* Control buttons at the bottom */}
-        <div className="relay-controls">
+        {/* Tlačidlá naspodku */}
+        <div className="card-controls-footer">
           <ButtonGroup>
             <Button 
               variant="secondary" 
-              onClick={handleTurnOff}
+              onClick={() => handleCommand("OFF", "VYPNUTÉ")}
               icon={PowerOff}
               isLoading={isLoading}
               style={{ flex: 1 }}
@@ -64,7 +50,7 @@ export default function RelayCard({ device }) {
             </Button>
             <Button 
               variant="success" 
-              onClick={handleTurnOn}
+              onClick={() => handleCommand("ON", "ZAPNUTÉ")}
               icon={Power}
               isLoading={isLoading}
               style={{ flex: 1 }}
@@ -74,7 +60,6 @@ export default function RelayCard({ device }) {
             </Button>
           </ButtonGroup>
         </div>
-      </div>
     </Card>
   );
 }

@@ -50,7 +50,6 @@ export default function ScenesView() {
 
     return (
         <div className="view-container scenes-view">
-            {/* Nový Header */}
             <PageHeader 
                 title="Scenáre" 
                 subtitle="Správa a editácia show súborov"
@@ -64,7 +63,6 @@ export default function ScenesView() {
                 </Button>
             </PageHeader>
 
-            {/* Grid */}
             {loading ? (
                 <div className="loading-state">
                     <Loader2 className="animate-spin" size={32} />
@@ -87,7 +85,6 @@ export default function ScenesView() {
                 </div>
             )}
 
-            {/* Editor Modal */}
             <SceneEditorModal 
                 isOpen={editorOpen}
                 onClose={() => setEditorOpen(false)}

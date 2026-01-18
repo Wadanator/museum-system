@@ -1,136 +1,106 @@
-/* Kontajner pre logy */
+/* src/styles/views/logs-view.css */
+
 .logs-view {
     display: flex;
     flex-direction: column;
     height: 100%;
-    gap: 15px;
+    gap: 24px;
 }
 
-/* Hlavička s filtrami */
-.logs-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: var(--bg-card);
-    padding: 10px 15px;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border-color);
-}
-
+/* --- FILTRE --- */
 .filters {
     display: flex;
     align-items: center;
     gap: 8px;
-}
-
-.filter-icon {
-    color: var(--text-muted);
-    margin-right: 8px;
+    background: var(--bg-hover);
+    padding: 4px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
 }
 
 .filter-btn {
     background: transparent;
-    border: 1px solid var(--border-color);
-    color: var(--text-muted);
-    padding: 4px 12px;
-    border-radius: 4px;
+    border: none;
+    color: var(--text-secondary);
+    padding: 6px 12px;
+    border-radius: 6px;
     font-size: 0.85rem;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
 }
 
 .filter-btn:hover {
-    background: var(--bg-hover);
     color: var(--text-primary);
+    background: rgba(0,0,0,0.05);
 }
 
-/* Aktívne stavy filtrov - Farbičky */
 .filter-btn.active {
-    background: var(--text-primary);
-    color: var(--bg-main);
-    border-color: var(--text-primary);
+    background: var(--bg-card);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
     font-weight: 600;
 }
 
-.filter-btn.info.active {
-    background: #3b82f6;
-    border-color: #3b82f6;
-    color: white;
-}
+.filter-btn.info.active { color: var(--info); }
+.filter-btn.warning.active { color: var(--warning); }
+.filter-btn.error.active { color: var(--danger); }
 
-.filter-btn.warning.active {
-    background: #f59e0b;
-    border-color: #f59e0b;
-    color: black;
-}
-
-.filter-btn.error.active {
-    background: #ef4444;
-    border-color: #ef4444;
-    color: white;
-}
-
-/* Konzola */
-.logs-console-card {
+.card-component.logs-console-card {
+    background-color: #1e1e1e !important;
+    border-color: #333 !important;
+    color: #e5e7eb !important;
+    padding: 0 !important;
     flex: 1;
-    padding: 0 !important; /* Reset paddingu z Card komponentu */
-    overflow: hidden;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .logs-console {
-    background-color: #1e1e1e; /* Tmavé pozadie */
-    color: #d4d4d4;
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
-    font-size: 13px;
-    padding: 15px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.9rem;
+    padding: 16px;
     overflow-y: auto;
-    height: 600px; /* Fixná výška alebo flex */
     flex: 1;
+    background-color: transparent; /* Pozadie dedí z karty */
 }
 
-/* Riadok logu */
+/* --- RIADKY LOGOV --- */
 .log-row {
     display: grid;
-    grid-template-columns: 85px 80px 120px 1fr;
-    gap: 10px;
-    padding: 2px 0;
-    border-bottom: 1px solid #333;
-    align-items: start;
-    line-height: 1.4;
+    grid-template-columns: 90px 80px 140px 1fr;
+    gap: 12px;
+    padding: 4px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    align-items: baseline;
+    line-height: 1.5;
 }
 
 .log-row:hover {
-    background-color: #2d2d2d;
+    background-color: rgba(255,255,255,0.05);
 }
 
-/* Jednotlivé stĺpce */
-.log-time {
-    color: #6b7280;
-}
+/* Farby textov v konzole */
+.log-time { color: #6b7280; font-size: 0.8rem; }
+.log-module { color: #a78bfa; }
 
 .log-level {
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
     display: flex;
     align-items: center;
-    gap: 4px;
-    font-weight: bold;
+    gap: 6px;
 }
 
-.log-module {
-    color: #8b5cf6; /* Fialová pre modul */
-}
+.log-row.info .log-level { color: #60a5fa; }
+.log-row.warning .log-level { color: #fbbf24; }
+.log-row.error .log-level { color: #f87171; }
+.log-row.debug .log-level { color: #34d399; }
 
-.log-message {
-    color: #e5e7eb;
-    word-break: break-word;
-}
-
-/* Farby pre levely */
-.log-row.info .log-level { color: #3b82f6; } /* Modrá */
-.log-row.warning .log-level { color: #f59e0b; } /* Oranžová */
-.log-row.error .log-level { color: #ef4444; } /* Červená */
-.log-row.debug .log-level { color: #10b981; } /* Zelená */
+.log-message { color: #e5e7eb; word-break: break-word; }
 
 .log-row.error {
     background-color: rgba(239, 68, 68, 0.1);
@@ -138,9 +108,11 @@
 
 .empty-logs {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     height: 100%;
-    color: #555;
+    color: #6b7280;
     font-style: italic;
+    gap: 10px;
 }

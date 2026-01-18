@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Trash2, Filter, AlertCircle, Info, Bug, ClipboardList } from 'lucide-react';
+import { Trash2, Filter, AlertCircle, Info, Bug, ClipboardList, Terminal } from 'lucide-react';
 import { useLogs } from '../../hooks/useLogs';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -17,23 +17,22 @@ export default function LogsView() {
 
     const getLevelIcon = (level) => {
         switch (level) {
-            case 'ERROR': return <AlertCircle size={14} />;
-            case 'WARNING': return <AlertCircle size={14} />;
-            case 'DEBUG': return <Bug size={14} />;
-            default: return <Info size={14} />;
+            case 'ERROR': return <AlertCircle size={12} />;
+            case 'WARNING': return <AlertCircle size={12} />;
+            case 'DEBUG': return <Bug size={12} />;
+            default: return <Info size={12} />;
         }
     };
 
     return (
         <div className="view-container logs-view">
-            {/* Nový Header s filtrami v pravej časti */}
             <PageHeader 
-                title="Logy" 
-                subtitle="História udalostí" 
+                title="Logy systému" 
+                subtitle="Živý výpis udalostí servera" 
                 icon={ClipboardList}
             >
-                <div className="filters" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '10px' }}>
-                    <Filter size={18} className="filter-icon" />
+                {/* Filtre presunuté priamo do header akcií */}
+                <div className="filters">
                     <button className={`filter-btn ${filter === 'ALL' ? 'active' : ''}`} onClick={() => setFilter('ALL')}>Všetky</button>
                     <button className={`filter-btn info ${filter === 'INFO' ? 'active' : ''}`} onClick={() => setFilter('INFO')}>Info</button>
                     <button className={`filter-btn warning ${filter === 'WARNING' ? 'active' : ''}`} onClick={() => setFilter('WARNING')}>Warning</button>
@@ -45,21 +44,21 @@ export default function LogsView() {
                 </Button>
             </PageHeader>
 
-            {/* Samotná konzola */}
             <Card className="logs-console-card">
                 <div className="logs-console">
                     {filteredLogs.length === 0 ? (
                         <div className="empty-logs">
-                            <span className="cursor">_</span> Žiadne záznamy pre zobrazenie
+                            <Terminal size={48} opacity={0.2} />
+                            <span>Žiadne záznamy pre zobrazenie</span>
                         </div>
                     ) : (
                         filteredLogs.map((log, index) => (
                             <div key={index} className={`log-row ${log.level.toLowerCase()}`}>
-                                <span className="log-time">[{log.timestamp?.split(' ')[1] || '00:00:00'}]</span>
+                                <span className="log-time">{log.timestamp?.split(' ')[1] || '--:--:--'}</span>
                                 <span className={`log-level ${log.level.toLowerCase()}`}>
                                     {getLevelIcon(log.level)} {log.level}
                                 </span>
-                                <span className="log-module">[{log.module}]</span>
+                                <span className="log-module">{log.module}</span>
                                 <span className="log-message">{log.message}</span>
                             </div>
                         ))
