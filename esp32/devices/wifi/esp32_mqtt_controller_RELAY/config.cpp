@@ -64,3 +64,8 @@ const unsigned long NO_COMMAND_TIMEOUT = 600000;
 
 // Watchdog Timer
 const unsigned long WDT_TIMEOUT = 60;
+
+// OTA Configuration
+const char* OTA_HOSTNAME = "ESP32-Room1-Relay"; // Zmen si nazov ak chces
+const char* OTA_PASSWORD = "room1"; // Zmen si heslo
+const bool OTA_ENABLED = true;

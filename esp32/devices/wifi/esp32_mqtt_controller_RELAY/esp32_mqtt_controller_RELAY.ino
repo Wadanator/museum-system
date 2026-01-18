@@ -5,6 +5,7 @@
 #include "wifi_manager.h"
 #include "mqtt_manager.h"
 #include "connection_monitor.h"
+#include "ota_manager.h"
 
 void setup() {
   Serial.begin(115200);
@@ -15,9 +16,8 @@ void setup() {
   Serial.println("------------------------------------------");
   debugPrint("=== System startuje ===");
   
-  // FIX PRE WATCHDOG
+  // Watchdog konfiguracia
   esp_task_wdt_deinit();
-  
   esp_task_wdt_config_t wdt_config = {
     .timeout_ms = WDT_TIMEOUT * 1000,
     .idle_core_mask = 0,
@@ -35,11 +35,15 @@ void setup() {
     Serial.println("WiFi zlyhalo, skusim znovu...");
   }
 
+  // OTA inicializacia
+  if (wifiConnected) {
+    initializeOTA();
+  }
+
   Serial.println("\n--- MQTT konfiguracia ---");
   initializeMqtt();
   
   lastCommandTime = millis();
-
   Serial.println("\n------------------------------------------");
   Serial.println(" Setup dokonceny");
   Serial.println(" Pocuvam na: " + String(BASE_TOPIC_PREFIX) + "*");
@@ -47,27 +51,39 @@ void setup() {
 }
 
 void loop() {
-  // 1. Reset Watchdog
+  // OTA Handle - musi byt na zaciatku
+  if (wifiConnected) {
+    handleOTA();
+    if (isOTAInProgress()) {
+      delay(10);
+      return; 
+    }
+  }
+
+  // Reset Watchdog
   esp_task_wdt_reset();
 
-  // 2. MQTT Logika
+  // MQTT Logika
   if (isMqttConnected()) {
     mqttLoop();
   }
 
-  // 3. NOVÉ: Kontrola časovačov pre dymostroj a iné limitované veci
-  // Toto zabezpečí, že sa dymostroj vypne po 5 sekundách, aj keď spadne WiFi
+  // Kontrola casovacov (auto-off)
   handleAutoOff();
 
   static unsigned long lastQuickCheck = 0;
   unsigned long currentTime = millis();
 
-  // 4. Rýchla kontrola spojenia (100ms)
+  // Rychla kontrola spojenia (100ms)
   if (currentTime - lastQuickCheck >= 100) {
     lastQuickCheck = currentTime;
-
+    
     if (!isWiFiConnected()) {
       reconnectWiFi();
+      // Re-init OTA po obnoveni WiFi
+      if (wifiConnected) {
+        reinitializeOTAAfterWiFiReconnect();
+      }
     }
 
     if (wifiConnected && !isMqttConnected()) {
@@ -75,14 +91,14 @@ void loop() {
     }
   }
 
-  // 5. Detailná kontrola (10s)
+  // Detailna kontrola (10s)
   static unsigned long lastDetailedCheck = 0;
   if (currentTime - lastDetailedCheck >= 10000) {
     lastDetailedCheck = currentTime;
     monitorConnections();
   }
 
-  // 6. Bezpečnostné ochrany
+  // Bezpecnostne ochrany
   if (!isMqttConnected() && !allDevicesOff) {
     debugPrint("Strata MQTT spojenia -> Vypinam zariadenia");
     turnOffAllDevices();

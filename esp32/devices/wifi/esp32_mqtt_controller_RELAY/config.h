@@ -58,4 +58,9 @@ extern const unsigned long NO_COMMAND_TIMEOUT;
 // Watchdog Timer
 extern const unsigned long WDT_TIMEOUT;
 
+// OTA Configuration
+extern const char* OTA_HOSTNAME;
+extern const char* OTA_PASSWORD;
+extern const bool OTA_ENABLED;
+
 #endif
