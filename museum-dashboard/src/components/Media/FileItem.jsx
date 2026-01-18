@@ -1,6 +1,5 @@
 import { Clapperboard, Music, Play, Trash2 } from 'lucide-react';
 
-// Tento komponent je "hlúpy" - len zobrazuje dáta, ktoré dostane
 export default function FileItem({ file, type, isPlaying, onPlay, onDelete }) {
   return (
     <div className={`media-card ${isPlaying ? 'playing-now' : ''}`}>
