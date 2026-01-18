@@ -6,13 +6,14 @@
 #include "mqtt_manager.h"
 #include "connection_monitor.h"
 #include "ota_manager.h"
+#include "status_led.h" // Includujeme nový modul pre LED
 
 void setup() {
   Serial.begin(115200);
   delay(100);
 
   Serial.println("\n------------------------------------------");
-  Serial.println(" ESP32 MQTT Relay Controller v2.2");
+  Serial.println(" ESP32 MQTT Relay Controller v2.3");
   Serial.println("------------------------------------------");
   debugPrint("=== System startuje ===");
   
@@ -46,41 +47,43 @@ void setup() {
   lastCommandTime = millis();
   Serial.println("\n------------------------------------------");
   Serial.println(" Setup dokonceny");
-  Serial.println(" Pocuvam na: " + String(BASE_TOPIC_PREFIX) + "*");
   Serial.println("------------------------------------------");
 }
 
 void loop() {
-  // OTA Handle - musi byt na zaciatku
+  // 1. OTA Handle (musi byt prve)
   if (wifiConnected) {
     handleOTA();
     if (isOTAInProgress()) {
       delay(10);
-      return; 
+      return; // Ak bezi update, prerusime loop
     }
   }
 
-  // Reset Watchdog
+  // 2. Obsluha Status LED
+  // (Funkcia vnutri sama zisti, ci ma blikat alebo byt ticho)
+  handleStatusLed(isWiFiConnected(), isMqttConnected());
+
+  // 3. Reset Watchdog
   esp_task_wdt_reset();
 
-  // MQTT Logika
+  // 4. MQTT Logika
   if (isMqttConnected()) {
     mqttLoop();
   }
 
-  // Kontrola casovacov (auto-off)
+  // 5. Kontrola casovacov (auto-off)
   handleAutoOff();
 
+  // 6. Rychla kontrola spojenia
   static unsigned long lastQuickCheck = 0;
   unsigned long currentTime = millis();
 
-  // Rychla kontrola spojenia (100ms)
   if (currentTime - lastQuickCheck >= 100) {
     lastQuickCheck = currentTime;
     
     if (!isWiFiConnected()) {
       reconnectWiFi();
-      // Re-init OTA po obnoveni WiFi
       if (wifiConnected) {
         reinitializeOTAAfterWiFiReconnect();
       }
@@ -91,14 +94,14 @@ void loop() {
     }
   }
 
-  // Detailna kontrola (10s)
+  // 7. Detailna kontrola a logovanie
   static unsigned long lastDetailedCheck = 0;
   if (currentTime - lastDetailedCheck >= 10000) {
     lastDetailedCheck = currentTime;
     monitorConnections();
   }
 
-  // Bezpecnostne ochrany
+  // 8. Bezpecnostne ochrany
   if (!isMqttConnected() && !allDevicesOff) {
     debugPrint("Strata MQTT spojenia -> Vypinam zariadenia");
     turnOffAllDevices();

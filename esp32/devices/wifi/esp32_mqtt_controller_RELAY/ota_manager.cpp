@@ -4,61 +4,57 @@
 #include "config.h"
 #include "debug.h"
 #include "wifi_manager.h"
-#include "hardware.h"
+#include "hardware.h"   // Pre funkciu turnOffAllDevices()
+#include "status_led.h" // Pre ovládanie LED počas update
 
-// OTA state
+// OTA stav
 bool otaInProgress = false;
 bool otaInitialized = false;
 
 void initializeOTA() {
   if (!wifiConnected || !isWiFiConnected()) {
-    debugPrint("OTA: WiFi not connected, skipping OTA setup");
+    debugPrint("OTA: WiFi not connected, skipping setup");
     return;
   }
 
-  if (otaInitialized) {
-    debugPrint("OTA: Already initialized");
-    return;
-  }
+  if (otaInitialized) return;
 
   ArduinoOTA.setHostname(OTA_HOSTNAME);
-
   if (strlen(OTA_PASSWORD) > 0) {
     ArduinoOTA.setPassword(OTA_PASSWORD);
   }
 
-  // OTA Start callback - prepare for upload
+  // Callback pri štarte nahrávania
   ArduinoOTA.onStart([]() {
     otaInProgress = true;
-    debugPrint("OTA: Update starting - preparing system...");
     Serial.println("=== OTA UPDATE STARTING ===");
 
-    // Step 1: Disable watchdog immediately
+    // 1. Zapnutie modrej LED (ak je podporovaná)
+    setOtaLedState(true);
+
+    // 2. Vypnutie Watchdogu
     try {
       esp_task_wdt_deinit();
-      Serial.println("✅ Watchdog disabled");
-    } catch (...) {
-      Serial.println("⚠️  Watchdog already disabled");
-    }
+    } catch (...) {}
 
-    // Step 2: Turn off all hardware
+    // 3. Bezpečné vypnutie všetkých relé
     turnOffAllDevices(); 
-    Serial.println("✅ All hardware turned OFF");
-    debugPrint("OTA: Hardware safely disabled");
+    Serial.println("✅ Hardware safely disabled");
 
     String update_type = (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "filesystem";
     Serial.println("Updating: " + update_type);
   });
 
-  // OTA End callback
+  // Callback pri ukončení
   ArduinoOTA.onEnd([]() {
     otaInProgress = false;
+    setOtaLedState(false); // Vypnutie LED
     Serial.println("\n=== OTA UPDATE COMPLETE ===");
     Serial.println("🔄 Rebooting...");
     delay(1000);
   });
 
-  // Progress callback
+  // Callback počas nahrávania
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
     static unsigned int lastPercent = 0;
     unsigned int percent = (progress * 100) / total;
@@ -68,11 +64,13 @@ void initializeOTA() {
     }
   });
 
-  // Error handling
+  // Callback pri chybe
   ArduinoOTA.onError([](ota_error_t error) {
     otaInProgress = false;
+    setOtaLedState(false);
     Serial.printf("❌ OTA Error[%u]\n", error);
-    // Re-enable watchdog after failed upload
+    
+    // Obnova Watchdogu
     try {
       esp_task_wdt_config_t wdt_config = {
         .timeout_ms = WDT_TIMEOUT * 1000,

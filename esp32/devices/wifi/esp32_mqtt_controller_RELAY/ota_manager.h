@@ -1,14 +1,14 @@
 #ifndef OTA_MANAGER_H
 #define OTA_MANAGER_H
 
-// OTA management functions
+// OTA funkcionalita
 void initializeOTA();
 void handleOTA();
 bool isOTAInProgress();
 void reinitializeOTAAfterWiFiReconnect();
 
-// OTA state
+// OTA stav
 extern bool otaInProgress;
 extern bool otaInitialized;
 
-#endif // OTA_MANAGER_H
+#endif

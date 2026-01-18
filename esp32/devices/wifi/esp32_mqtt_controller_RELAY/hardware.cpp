@@ -1,9 +1,10 @@
 #include "hardware.h"
 #include "config.h"
 #include "debug.h"
+#include "status_led.h"
 #include <Wire.h>
 
-// Global hardware state
+// Globalne stavy
 bool deviceStates[20] = {false}; 
 unsigned long deviceStartTimes[20] = {0};
 bool allDevicesOff = true;
@@ -23,6 +24,9 @@ void writeExpander(byte data) {
 
 void initializeHardware() {
   debugPrint("Inicializujem " + String(DEVICE_COUNT) + " zariadeni...");
+
+  // Inicializacia LED modulu (ak je povoleny)
+  initializeStatusLed();
 
   if (USE_RELAY_MODULE) {
     debugPrint("Rezim: Waveshare Relay Module (I2C)");
@@ -107,13 +111,10 @@ void handleAutoOff() {
   unsigned long currentTime = millis();
   
   for (int i = 0; i < DEVICE_COUNT; i++) {
-    // Kontrolujeme len ak je zariadenie zapnute (ON) a ma nastaveny limit (>0)
     if (deviceStates[i] && DEVICES[i].autoOffMs > 0) {
-      
-      // Pozor na pretecenia millis(), pouzivame odcitanie
       if (currentTime - deviceStartTimes[i] >= DEVICES[i].autoOffMs) {
-        debugPrint("⏱️ AUTO-OFF: " + String(DEVICES[i].name) + " bezal " + String(DEVICES[i].autoOffMs) + "ms -> Vypinam.");
-        setDevice(i, false); // Vypneme ho
+        debugPrint("AUTO-OFF: " + String(DEVICES[i].name) + " -> Vypinam.");
+        setDevice(i, false);
       }
     }
   }
