@@ -1,21 +1,31 @@
-import { useState, useEffect } from 'react';
-import toast from 'react-hot-toast';
-import { authFetch } from '../../services/api';
-import { Video, Upload, Trash2, Music, Volume2, Clapperboard, AlertTriangle } from 'lucide-react';
+import { useState } from 'react';
+import { 
+    Video, Upload, Trash2, Music, Volume2, 
+    Clapperboard, Play, Square 
+} from 'lucide-react';
+import { useMedia } from '../../hooks/useMedia'; // Import hooku
 import '../../styles/views/media-manager.css';
 
-// Import UI
+// Import UI komponentov
 import PageHeader from '../ui/PageHeader';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Modal from '../ui/Modal';
 
 const MediaManager = () => {
-  const [videos, setVideos] = useState([]);
-  const [audios, setAudios] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Použitie Custom Hooku (Business Logic)
+  const { 
+    videos, 
+    audios, 
+    isLoading, 
+    playingFile, 
+    uploadMedia, 
+    deleteMedia, 
+    playMediaFile, 
+    stopAllMedia 
+  } = useMedia();
 
-  // Stav pre modal
+  // Lokálny UI state pre Modálne okno (to patrí do UI, nie do Business Logic)
   const [deleteModal, setDeleteModal] = useState({
     isOpen: false,
     type: '',
@@ -23,107 +33,133 @@ const MediaManager = () => {
     inputValue: ''
   });
 
-  useEffect(() => { fetchMedia(); }, []);
+  // --- UI EVENT HANDLERS ---
 
-  const fetchMedia = async () => {
-    try {
-      const [videoRes, audioRes] = await Promise.all([
-        authFetch('/api/media/video'),
-        authFetch('/api/media/audio')
-      ]);
-      if (videoRes.ok) setVideos(await videoRes.json());
-      if (audioRes.ok) setAudios(await audioRes.json());
-    } catch (error) {
-      toast.error("Nepodarilo sa načítať médiá");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const openDeleteModal = (type, fileName) => setDeleteModal({ isOpen: true, type, fileName, inputValue: '' });
-  const closeDeleteModal = () => setDeleteModal(prev => ({ ...prev, isOpen: false }));
-
-  const confirmDelete = async () => {
-    const { type, fileName, inputValue } = deleteModal;
-    if (inputValue !== fileName) return toast.error("Názov sa nezhoduje!");
-
-    closeDeleteModal();
-    const loadToast = toast.loading(`Mažem ${fileName}...`);
-
-    try {
-      const res = await authFetch(`/api/media/${type}/${fileName}`, { method: 'DELETE' });
-      if (res.ok) {
-        if (type === 'video') setVideos(p => p.filter(v => v.name !== fileName));
-        else setAudios(p => p.filter(a => a.name !== fileName));
-        toast.success("Vymazané", { id: loadToast });
-      } else {
-        toast.error("Chyba pri mazaní", { id: loadToast });
-      }
-    } catch (e) { toast.error("Chyba pripojenia", { id: loadToast }); }
-  };
-
-  const handleUpload = (type) => {
+  const handleUploadClick = (type) => {
+    // Vytvorenie skrytého inputu pre file upload
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = type === 'video' ? "video/*,image/*,.mkv" : "audio/*";
-    input.onchange = async (e) => {
+    input.onchange = (e) => {
       const file = e.target.files[0];
-      if (!file) return;
-      const loadToast = toast.loading(`Nahrávam ${file.name}...`);
-      const formData = new FormData();
-      formData.append('file', file);
-      try {
-        const res = await authFetch(`/api/media/${type}`, { method: 'POST', body: formData });
-        if (res.ok) {
-          const data = await res.json();
-          type === 'video' ? setVideos(p => [...p, data.file]) : setAudios(p => [...p, data.file]);
-          toast.success("Nahrané", { id: loadToast });
-        } else toast.error("Upload zlyhal", { id: loadToast });
-      } catch (e) { toast.error("Chyba uploadu", { id: loadToast }); }
+      if (file) {
+        uploadMedia(type, file);
+      }
     };
     input.click();
   };
 
-  // Sub-komponent pre súbor (lokálne definovaný, alebo ho môžeš dať do samostatného súboru)
+  const openDeleteModal = (type, fileName) => {
+      setDeleteModal({ isOpen: true, type, fileName, inputValue: '' });
+  };
+
+  const closeDeleteModal = () => {
+      setDeleteModal(prev => ({ ...prev, isOpen: false }));
+  };
+
+  const confirmDelete = async () => {
+    if (deleteModal.inputValue !== deleteModal.fileName) return;
+    
+    const success = await deleteMedia(deleteModal.type, deleteModal.fileName);
+    if (success) {
+        closeDeleteModal();
+    }
+  };
+
+  // --- RENDERERS ---
+
   const FileItem = ({ file, type }) => (
-    <div className="media-card" style={{display: 'flex', alignItems: 'center', padding: 12, border: '1px solid #e5e7eb', borderRadius: 8, gap: 12, background: 'white'}}>
-      <div className={`media-icon-box ${type}`} style={{padding: 10, borderRadius: 8, background: type === 'video' ? '#eff6ff' : '#f0fdf4', color: type === 'video' ? '#2563eb' : '#16a34a'}}>
+    <div className={`media-card ${playingFile === file.name ? 'playing-now' : ''}`}>
+      <div className={`media-icon-box ${type}`}>
         {type === 'video' ? <Clapperboard size={20} /> : <Music size={20} />}
       </div>
-      <div style={{flex: 1, overflow: 'hidden'}}>
-        <div style={{fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}} title={file.name}>{file.name}</div>
-        <div style={{fontSize: '0.8em', color: '#6b7280'}}>{file.size} • {file.modified}</div>
+      
+      <div className="media-info">
+        <div className="media-name" title={file.name}>{file.name}</div>
+        <div className="media-meta">{file.size} • {file.modified}</div>
       </div>
-      <Button variant="ghost" size="small" onClick={() => openDeleteModal(type, file.name)} icon={Trash2} style={{color: '#ef4444'}} />
+
+      <div className="media-actions">
+        <button 
+            className="action-btn-icon play" 
+            onClick={() => playMediaFile(type, file.name)}
+            title="Prehrať"
+        >
+            <Play size={16} fill="currentColor" />
+        </button>
+
+        <button 
+            className="action-btn-icon delete" 
+            onClick={() => openDeleteModal(type, file.name)}
+            title="Vymazať"
+        >
+            <Trash2 size={16} />
+        </button>
+      </div>
     </div>
   );
 
-  if (loading) return <div style={{padding: 40, textAlign: 'center'}}>Načítavam médiá...</div>;
+  if (isLoading) {
+      return <div className="p-8 text-center text-slate-500">Načítavam knižnicu médií...</div>;
+  }
 
   return (
     <div className="tab-content active">
-      <PageHeader title="Správca Médií" icon={Video} />
+        {/* Header with Global STOP */}
+        <div className="flex justify-between items-start mb-6">
+            <PageHeader title="Správca Médií" icon={Video} />
+            
+            <Button 
+                onClick={stopAllMedia} 
+                className="bg-red-500 hover:bg-red-600 text-white border-red-600 gap-2"
+            >
+                <Square size={16} fill="currentColor" />
+                STOP VŠETKO
+            </Button>
+        </div>
       
-      <div className="media-grid-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '24px' }}>
+      <div className="media-grid-container" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '24px' }}>
+          
           {/* VIDEO SECTION */}
-          <Card title={`Video & Obrázky (${videos.length})`} icon={Video} actions={
-              <Button size="small" variant="secondary" onClick={() => handleUpload('video')} icon={Upload}>Nahrať</Button>
-          }>
-              <div style={{display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 500, overflowY: 'auto'}}>
-                 {videos.length > 0 ? videos.map(f => <FileItem key={f.name} file={f} type="video" />) : <div style={{padding: 20, textAlign: 'center', color: '#9ca3af'}}>Prázdne</div>}
+          <Card 
+            title={`Video & Obrázky (${videos.length})`} 
+            icon={Video} 
+            actions={
+              <Button size="small" variant="secondary" onClick={() => handleUploadClick('video')} icon={Upload}>
+                  Nahrať
+              </Button>
+            }
+          >
+              <div className="files-list">
+                 {videos.length > 0 ? (
+                    videos.map(f => <FileItem key={f.name} file={f} type="video" />)
+                 ) : (
+                    <div className="empty-state">Žiadne video súbory</div>
+                 )}
               </div>
           </Card>
 
           {/* AUDIO SECTION */}
-          <Card title={`Zvukové efekty (${audios.length})`} icon={Volume2} actions={
-              <Button size="small" variant="secondary" onClick={() => handleUpload('audio')} icon={Upload}>Nahrať</Button>
-          }>
-               <div style={{display: 'flex', flexDirection: 'column', gap: 10, maxHeight: 500, overflowY: 'auto'}}>
-                 {audios.length > 0 ? audios.map(f => <FileItem key={f.name} file={f} type="audio" />) : <div style={{padding: 20, textAlign: 'center', color: '#9ca3af'}}>Prázdne</div>}
+          <Card 
+            title={`Zvukové efekty (${audios.length})`} 
+            icon={Volume2} 
+            actions={
+              <Button size="small" variant="secondary" onClick={() => handleUploadClick('audio')} icon={Upload}>
+                  Nahrať
+              </Button>
+            }
+          >
+               <div className="files-list">
+                 {audios.length > 0 ? (
+                    audios.map(f => <FileItem key={f.name} file={f} type="audio" />)
+                 ) : (
+                    <div className="empty-state">Žiadne audio súbory</div>
+                 )}
               </div>
           </Card>
       </div>
 
+      {/* DELETE MODAL */}
       <Modal 
         isOpen={deleteModal.isOpen} 
         title="Vymazať súbor?" 
@@ -132,18 +168,26 @@ const MediaManager = () => {
         footer={
             <>
                 <Button variant="secondary" onClick={closeDeleteModal}>Zrušiť</Button>
-                <Button variant="danger" disabled={deleteModal.inputValue !== deleteModal.fileName} onClick={confirmDelete}>Vymazať súbor</Button>
+                <Button 
+                    variant="danger" 
+                    disabled={deleteModal.inputValue !== deleteModal.fileName} 
+                    onClick={confirmDelete}
+                >
+                    Vymazať súbor
+                </Button>
             </>
         }
       >
-        <p>Pre potvrdenie napíšte názov súboru: <strong>{deleteModal.fileName}</strong></p>
+        <p className="text-slate-300 mb-4">
+            Pre potvrdenie napíšte názov súboru: <strong className="text-white bg-slate-700 px-1 rounded">{deleteModal.fileName}</strong>
+        </p>
         <input 
             type="text" 
-            className="form-control" 
+            className="w-full p-2 bg-slate-900 border border-slate-700 rounded text-white font-mono focus:border-red-500 outline-none" 
             value={deleteModal.inputValue}
             onChange={(e) => setDeleteModal(prev => ({...prev, inputValue: e.target.value}))}
-            style={{width: '100%', padding: '10px', marginTop: '10px', borderRadius: '6px', border: '1px solid #d1d5db'}}
             autoFocus
+            placeholder="Opíšte názov súboru..."
         />
       </Modal>
     </div>

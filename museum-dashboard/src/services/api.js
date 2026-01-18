@@ -98,27 +98,28 @@ export const api = {
     return res.json();
   },
 
-  // --- MEDIA CONTROL ---
-  playMedia: async (type, filename) => {
-    const res = await authFetch(`${API_URL}/media/play`, {
-      method: 'POST',
-      body: JSON.stringify({ type, filename })
-    });
-    return res.json();
-  },
-
-  stopMedia: async (type) => {
-    const res = await authFetch(`${API_URL}/media/stop`, {
-      method: 'POST',
-      body: JSON.stringify({ type })
-    });
-    return res.json();
-  },
-
   sendMqtt: async (topic, message) => {
     const res = await authFetch(`${API_URL}/mqtt/send`, {
       method: 'POST',
       body: JSON.stringify({ topic, message })
+    });
+    return res.json();
+  },
+
+  // --- MEDIA CONTROL (NEW) ---
+  
+  playMedia: async (type, filename) => {
+    // type: 'audio' alebo 'video'
+    const res = await authFetch(`${API_URL}/media/play/${type}`, {
+      method: 'POST',
+      body: JSON.stringify({ filename })
+    });
+    return res.json();
+  },
+
+  stopAllMedia: async () => {
+    const res = await authFetch(`${API_URL}/media/stop`, {
+      method: 'POST'
     });
     return res.json();
   },
@@ -130,19 +131,16 @@ export const api = {
     return res.json();
   },
 
-  // Reštart iba služby (Python skriptu)
   restartService: async () => {
     const res = await authFetch(`${API_URL}/system/restart_service`, { method: 'POST' });
     return res.json();
   },
 
-  // Reštart celého Raspberry Pi (sudo reboot)
   rebootSystem: async () => {
     const res = await authFetch(`${API_URL}/system/reboot`, { method: 'POST' });
     return res.json();
   },
 
-  // Vypnutie Raspberry Pi (sudo shutdown)
   shutdownSystem: async () => {
     const res = await authFetch(`${API_URL}/system/shutdown`, { method: 'POST' });
     return res.json();
