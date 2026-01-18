@@ -64,6 +64,7 @@ class MuseumController:
         
         # Scene execution state
         self.scene_running = False
+        self.current_scene_name = None  # Track current scene name for stats
         self.scene_lock = threading.Lock()
         
         # Initialize components
@@ -85,7 +86,14 @@ class MuseumController:
         
         # Video Handler
         try:
-            self.video_handler = VideoHandler(self.config['video_dir'])
+            self.video_handler = VideoHandler(
+                video_dir=self.config['video_dir'],
+                ipc_socket=self.config['ipc_socket'],
+                iddle_image=self.config['iddle_image'],
+                health_check_interval=self.config['video_health_check_interval'],
+                max_restart_attempts=self.config['video_max_restart_attempts'],
+                restart_cooldown=self.config['video_restart_cooldown']
+            )
         except Exception as e:
             log.warning(f"Video handler initialization failed: {e}")
             self.video_handler = None
@@ -222,6 +230,9 @@ class MuseumController:
         """Worker thread function containing the core logic to load and run a scene."""
         scene_path = os.path.join(self.scenes_dir, self.room_id, scene_filename)
         
+        # Store current scene name for statistics
+        self.current_scene_name = scene_filename
+        
         try:
             log.debug(f"Attempting to load scene from: {scene_path}")
             
@@ -303,9 +314,17 @@ class MuseumController:
         if not self.web_dashboard:
             return
         try:
-            self.web_dashboard.stats['total_scenes_played'] += 1
-            self.web_dashboard.save_stats()
-            self.web_dashboard.socketio.emit('stats_update', self.web_dashboard.stats)
+            # Use current_scene_name to update both total and specific stats
+            if self.current_scene_name:
+                self.web_dashboard.update_scene_stats(self.current_scene_name)
+                self.web_dashboard.socketio.emit('stats_update', self.web_dashboard.stats)
+            else:
+                log.warning("Cannot update scene stats: Unknown scene name")
+                # Fallback just in case
+                self.web_dashboard.stats['total_scenes_played'] += 1
+                self.web_dashboard.save_stats()
+                self.web_dashboard.socketio.emit('stats_update', self.web_dashboard.stats)
+
         except Exception as e:
             log.error(f"Error updating stats: {e}")
 

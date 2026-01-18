@@ -93,7 +93,6 @@ def setup_scenes_routes(dashboard):
                 controller.scene_running = True
                 dashboard.log.info(f"Web dashboard starting scene: {scene_name}")
 
-            # OKAMŽITÝ STATUS UPDATE
             dashboard.socketio.emit('status_update', _get_current_status_data(controller))
 
             def run_scene_thread():
@@ -110,10 +109,12 @@ def setup_scenes_routes(dashboard):
                             controller.scene_parser.set_progress_emitter(scene_progress_emitter)
 
                         if controller.scene_parser.load_scene(str(scene_path)):
+                            controller.current_scene_name = scene_path.name
+
                             controller.scene_parser.start_scene()
                             if hasattr(controller, 'run_scene'):
                                 controller.run_scene()
-                            dashboard.update_scene_stats(scene_name)
+
                             dashboard.socketio.emit('stats_update', dashboard.stats)
                         else:
                             dashboard.log.error("Scene parser failed to load scene")
@@ -122,7 +123,6 @@ def setup_scenes_routes(dashboard):
                 except Exception as e:
                     dashboard.log.error(f"Error running scene {scene_name}: {e}")
                 finally:
-                    # TOTO JE KRITICKÉ MIESTO - VŽDY RESETOVAŤ STAV
                     controller.scene_running = False
                     dashboard.socketio.emit('status_update', _get_current_status_data(controller))
                     

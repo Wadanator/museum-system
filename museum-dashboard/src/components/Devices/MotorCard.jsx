@@ -19,7 +19,7 @@ export default function MotorCard({ device }) {
       sendCommand(payload, label);
   };
 
-  // Hlavička karty s rýchlosťou - teraz používame StatusBadge
+  // Hlavička karty s rýchlosťou
   const headerAction = (
       <StatusBadge 
           status="info" 
