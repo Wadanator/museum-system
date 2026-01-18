@@ -1,0 +1,42 @@
+:root {
+    /* Hlavné farby - Modrá */
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    
+    /* Sekundárne farby - Sivá */
+    --secondary: #6b7280;
+    --secondary-hover: #4b5563;
+    
+    /* Stavové farby */
+    --success: #22c55e;
+    --success-bg: #f0fdf4;
+    --danger: #ef4444;
+    --danger-bg: #fef2f2;
+    --warning: #f59e0b;
+    --warning-bg: #fffbeb;
+    --info: #3b82f6;
+    --info-bg: #eff6ff;
+
+    /* Pozadia */
+    --bg-main: #f3f4f6;
+    --bg-card: #ffffff;
+    --bg-hover: #f9fafb;
+    --bg-dark: #111827;
+
+    /* Texty */
+    --text-primary: #111827;
+    --text-secondary: #4b5563;
+    --text-muted: #9ca3af;
+    --text-white: #ffffff;
+
+    /* Ostatné */
+    --border-color: #e5e7eb;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    
+    /* Tiene */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}

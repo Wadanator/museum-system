@@ -8,6 +8,7 @@ import App from './App.jsx'
 
 import './index.css'
 import './styles/base.css'
+import './styles/theme.css'
 import './styles/layout.css'
 import './styles/controls.css'
 import './styles/components.css'

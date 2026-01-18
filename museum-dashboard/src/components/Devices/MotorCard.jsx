@@ -2,6 +2,7 @@ import { Rewind, FastForward, Square, Gauge } from 'lucide-react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import ButtonGroup from '../ui/ButtonGroup';
+import StatusBadge from '../ui/StatusBadge';
 import { useDeviceControl } from '../../hooks/useDeviceControl';
 
 export default function MotorCard({ device }) {
@@ -18,17 +19,18 @@ export default function MotorCard({ device }) {
       sendCommand(payload, label);
   };
 
-  // Hlavička karty s rýchlosťou (Opravený Badge)
+  // Hlavička karty s rýchlosťou - teraz používame StatusBadge
   const headerAction = (
-      <div className="status-badge info">
-          <Gauge size={14} />
-          <span>{speed}%</span>
-      </div>
+      <StatusBadge 
+          status="info" 
+          label={`${speed}%`} 
+      />
   );
 
   return (
     <Card 
         title={device.name} 
+        icon={Gauge} 
         actions={headerAction}
         className="device-card motor-card"
     >
@@ -36,7 +38,7 @@ export default function MotorCard({ device }) {
             Ovládanie smeru a rýchlosti motorickej jednotky.
         </div>
 
-        <div className="motor-controls">
+        <div className="motor-controls" style={{ marginTop: 'auto' }}>
             <ButtonGroup>
                 <Button 
                     variant="secondary" 
