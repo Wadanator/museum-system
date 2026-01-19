@@ -23,14 +23,14 @@ int RGB_LED_PIN = 38;
 
 const Device DEVICES[] = {
   // Nazov topicu          Pin/Bit   Inverted  AutoOff(ms)
-  {"effect/smoke",         3,        false,    12000},  // Limit 12s pre dym
-  {"light/1",              0,        false,    0},     
-  {"light/2",              1,        false,    0},
-  {"light/3",              2,        false,    0},
-  {"light/4",              4,        false,    0},
-  {"light/5",              5,        false,    0},
-  {"light/6",              6,        false,    0},
-  {"light/7",              7,        false,    0}
+  {"effect/smoke_ON",      0,        false, 0},
+  {"light/fire",           1,        false,    0},     
+  {"light/1",              2,        false,    0},
+  {"effect/smoke",         3,        false,    12000},
+  {"light/2",              4,        false,    0},
+  {"light/3",              5,        false,    0},
+  {"light/4",              6,        false,    0},
+  {"light/5",              7,        false,    0}
 };
 
 const int DEVICE_COUNT = sizeof(DEVICES) / sizeof(Device);
