@@ -6,7 +6,7 @@
 #include "mqtt_manager.h"
 #include "connection_monitor.h"
 #include "ota_manager.h"
-#include "status_led.h" // Includujeme nový modul pre LED
+#include "status_led.h" // Includujeme modul pre LED
 
 void setup() {
   Serial.begin(115200);
@@ -31,6 +31,10 @@ void setup() {
   Serial.println("\n--- Inicializacia hardwaru ---");
   initializeHardware();
   
+  // --- OPRAVA: Inicializácia Status LED ---
+  initializeStatusLed();
+  // ----------------------------------------
+  
   Serial.println("\n--- WiFi pripojenie ---");
   if (!initializeWiFi()) {
     Serial.println("WiFi zlyhalo, skusim znovu...");
@@ -43,8 +47,8 @@ void setup() {
 
   Serial.println("\n--- MQTT konfiguracia ---");
   initializeMqtt();
-  
   lastCommandTime = millis();
+  
   Serial.println("\n------------------------------------------");
   Serial.println(" Setup dokonceny");
   Serial.println("------------------------------------------");
@@ -61,7 +65,7 @@ void loop() {
   }
 
   // 2. Obsluha Status LED
-  // (Funkcia vnutri sama zisti, ci ma blikat alebo byt ticho)
+  // (LED teraz bude reagovať na stav WiFi a MQTT)
   handleStatusLed(isWiFiConnected(), isMqttConnected());
 
   // 3. Reset Watchdog

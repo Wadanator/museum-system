@@ -116,7 +116,7 @@ const MediaManager = () => {
                             isPlaying={playingFile === f.name}
                             onPlay={playMediaFile}
                             onDelete={openDeleteModal}
-                            isDisabled={areItemsDisabled} // Aplikovaný spam fix
+                            isDisabled={areItemsDisabled}
                         />
                     ))
                  ) : (
