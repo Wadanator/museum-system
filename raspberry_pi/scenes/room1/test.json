@@ -1,53 +1,113 @@
 {
-  "sceneId": "test_main",
-  "description": "Hlavná testovacia scéna - motory, audio, video",
-  "version": "2.0",
+  "description": "Hlavn\u00e1 testovacia sc\u00e9na - RELAY verzia (Svetl\u00e1 a Dym)",
   "initialState": "intro",
-  
+  "sceneId": "test_main",
   "states": {
-    "intro": {
-      "description": "Začiatok - svetlo, audio, motor1",
-      "onEnter": [
-        {"action": "mqtt", "topic": "room1/light", "message": "ON"},
-        {"action": "audio", "message": "PLAY:welcome.mp3:0.7"},
-        {"action": "mqtt", "topic": "room1/motor1", "message": "ON:50:L"},
-        {"action": "mqtt", "topic": "room1/motor2", "message": "ON:50:L"}
-      ],
-      "timeline": [
-        {"at": 3.0, "action": "video", "message": "PLAY_VIDEO:ghost2.mp4"},
-        {"at": 4.0, "action": "mqtt", "topic": "room1/motor1", "message": "DIR:R"},
-        {"at": 4.0, "action": "mqtt", "topic": "room1/motor2", "message": "DIR:R"}
-      ],
-      "transitions": [
-        {"type": "timeout", "delay": 6.0, "goto": "middle"}
-      ]
-    },
-    
-    "middle": {
-      "description": "Stredná časť - vypne svetlo, zmení smer",
-      "onEnter": [
-        {"action": "mqtt", "topic": "room1/light", "message": "OFF"},
-        {"action": "mqtt", "topic": "room1/motor1", "message": "DIR:L"},
-        {"action": "mqtt", "topic": "room1/motor2", "message": "DIR:L"}
-      ],
-      "transitions": [
-        {"type": "timeout", "delay": 2.0, "goto": "finale"}
-      ]
-    },
-    
     "finale": {
-      "description": "Ukončenie - vypne všetko",
+      "description": "Ukon\u010denie - Vypne v\u0161etko",
       "onEnter": [
-        {"action": "mqtt", "topic": "room1/motor1", "message": "OFF"},
-        {"action": "mqtt", "topic": "room1/motor2", "message": "OFF"}
+        {
+          "action": "mqtt",
+          "message": "TRUE",
+          "topic": "room1/STOP"
+        }
       ],
       "timeline": [
-        {"at": 2.0, "action": "audio", "message": "STOP"},
-        {"at": 4.0, "action": "video", "message": "STOP_VIDEO"}
+        {
+          "action": "audio",
+          "at": 1,
+          "message": "STOP"
+        },
+        {
+          "action": "video",
+          "at": 2,
+          "message": "STOP_VIDEO"
+        }
       ],
       "transitions": [
-        {"type": "timeout", "delay": 4.0, "goto": "END"}
+        {
+          "delay": 4,
+          "goto": "END",
+          "type": "timeout"
+        }
+      ]
+    },
+    "intro": {
+      "description": "Za\u010diatok - Zapne hlavn\u00e9 svetlo, dym a audio",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/1"
+        },
+        {
+          "action": "audio",
+          "message": "PLAY:welcome.mp3:0.7"
+        },
+        {
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/effect/smoke"
+        },
+        {
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/2"
+        }
+      ],
+      "timeline": [
+        {
+          "action": "video",
+          "at": 3,
+          "message": "PLAY_VIDEO:ghost2.mp4"
+        },
+        {
+          "action": "mqtt",
+          "at": 4,
+          "message": "ON",
+          "topic": "room1/light/3"
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 6,
+          "goto": "middle",
+          "type": "timeout"
+        }
+      ]
+    },
+    "middle": {
+      "description": "Stredn\u00e1 \u010das\u0165 - Vypne dym, prepne svetl\u00e1",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/1"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/effect/smoke"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/2"
+        },
+        {
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/4"
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 4,
+          "goto": "finale",
+          "type": "timeout"
+        }
       ]
     }
-  }
+  },
+  "version": "2.1"
 }
