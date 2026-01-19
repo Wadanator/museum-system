@@ -176,7 +176,6 @@ void controlMotor1(const char* command, const char* speed, const char* direction
       debugPrint("Motor1 ON - CUSTOM RAMP Target Speed: " + String(motor1State.speed) + "%, Duration: " + String(rampDuration) + "ms");
     } else {
       // POUŽIJE SA ŠTANDARDNÝ SMOOTH PRECHOD
-      motor1State.currentSpeed = 0; // Pre ON štartujeme vždy z 0
       motor1State.targetSpeed = motor1State.speed;
       motor1State.rampActive = false;
       debugPrint("Motor1 ON - STANDARD SMOOTH Target Speed: " + String(motor1State.speed) + "%, Dir: " + String(motor1State.direction));
@@ -252,7 +251,6 @@ void controlMotor2(const char* command, const char* speed, const char* direction
       motor2State.targetSpeed = motor2State.speed;
       debugPrint("Motor2 ON - CUSTOM RAMP Target Speed: " + String(motor2State.speed) + "%, Duration: " + String(rampDuration) + "ms");
     } else {
-      motor2State.currentSpeed = 0;
       motor2State.targetSpeed = motor2State.speed;
       motor2State.rampActive = false;
       debugPrint("Motor2 ON - STANDARD SMOOTH Target Speed: " + String(motor2State.speed) + "%, Dir: " + String(motor2State.direction));
