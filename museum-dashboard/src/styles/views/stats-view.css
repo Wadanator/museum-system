@@ -62,7 +62,8 @@
 /* Zariadenia - Grid vnútri Card */
 .device-grid { 
     display: grid; 
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); 
+    /* UPRAVENÉ: Zväčšené z 140px na 260px, aby sa názov vošiel */
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); 
     gap: 12px; 
 }
 
@@ -88,17 +89,23 @@
 .device-header { 
     display: flex; 
     justify-content: space-between; 
-    align-items: center; 
-    margin-bottom: 8px; 
+    /* UPRAVENÉ: Zarovnanie hore, ak sa text zalomí na 2 riadky */
+    align-items: flex-start; 
+    margin-bottom: 8px;
+    gap: 8px; 
 }
 
 .device-name { 
     font-weight: 700; 
     font-size: 0.9rem; 
     color: var(--text-primary); 
-    overflow: hidden; 
-    text-overflow: ellipsis; 
-    white-space: nowrap; 
+    
+    /* OPRAVA PRE ZALAMOVANIE TEXTU */
+    white-space: normal;      /* Povolí viac riadkov (pôvodne nowrap) */
+    word-break: break-all;    /* Rozbije dlhé slová (esp32...) na nový riadok */
+    line-height: 1.3;         /* Lepšia čitateľnosť */
+    flex: 1;                  /* Zaberie dostupný priestor */
+    min-width: 0;             /* Nutné pre flexbox zalamovanie */
 }
 
 .device-meta { 
@@ -130,9 +137,9 @@
     font-size: 0.9rem; 
 }
 
-.ranking-item:nth-child(1) .rank-number { color: var(--warning); font-size: 1.1rem; } /* Zlatá */
-.ranking-item:nth-child(2) .rank-number { color: var(--text-secondary); } /* Strieborná */
-.ranking-item:nth-child(3) .rank-number { color: var(--warning); opacity: 0.7; } /* Bronzová - simulovaná */
+.ranking-item:nth-child(1) .rank-number { color: var(--warning); font-size: 1.1rem; }
+.ranking-item:nth-child(2) .rank-number { color: var(--text-secondary); }
+.ranking-item:nth-child(3) .rank-number { color: var(--warning); opacity: 0.7; }
 
 .rank-info { flex: 1; margin: 0 12px; }
 

@@ -30,7 +30,7 @@ const Device DEVICES[] = {
   {"light/4",              4,        false,    0},
   {"light/5",              5,        false,    0},
   {"light/6",              6,        false,    0},
-  {"light/7",              5,        false,    0}
+  {"light/7",              7,        false,    0}
 };
 
 const int DEVICE_COUNT = sizeof(DEVICES) / sizeof(Device);
@@ -57,7 +57,7 @@ const char* WIFI_PASSWORD = "88888888";
 const char* MQTT_SERVER = "TechMuzeumRoom1.local";
 int MQTT_PORT = 1883;
 const char* BASE_TOPIC_PREFIX = "room1/";
-const char* CLIENT_ID = "esp32_relay_controller";
+const char* CLIENT_ID = "Room1_Relays_Ctrl";
 
 // Connection Management
 unsigned long WIFI_RETRY_INTERVAL = 3000;

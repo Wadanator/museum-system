@@ -1,5 +1,7 @@
-import { Loader2, Zap, Settings2, RefreshCw } from 'lucide-react';
+import { Loader2, Zap, Settings2, RefreshCw, OctagonX } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useDevices } from '../../hooks/useDevices';
+import { api } from '../../services/api';
 import MotorCard from '../Devices/MotorCard';
 import RelayCard from '../Devices/RelayCard';
 import Button from '../ui/Button';
@@ -10,6 +12,31 @@ export default function CommandsView() {
     const { motors, relays, loading, error } = useDevices();
 
     const handleRefresh = () => window.location.reload();
+
+    // Nová logika pre hromadné vypnutie
+    const handleStopAll = async () => {
+        // Potvrdenie akcie
+        const confirmed = window.confirm("Naozaj chcete okamžite vypnúť všetky motory a relé?");
+        if (!confirmed) return;
+
+        const toastId = toast.loading("Vypínam všetky zariadenia...");
+
+        try {
+            // Vytvoríme pole všetkých požiadaviek (paralelné odoslanie)
+            const promises = [
+                // Vypnúť motory (poslať 0)
+                ...motors.map(m => api.sendMqtt(m.topic, 0)),
+                // Vypnúť relé (poslať 0)
+                ...relays.map(r => api.sendMqtt(r.topic, 0))
+            ];
+
+            await Promise.all(promises);
+            toast.success("Všetky zariadenia boli vypnuté.", { id: toastId });
+        } catch (e) {
+            console.error("Stop All Error:", e);
+            toast.error("Chyba pri hromadnom vypínaní.", { id: toastId });
+        }
+    };
 
     if (loading) return (
         <div className="loading-state">
@@ -27,15 +54,27 @@ export default function CommandsView() {
 
     return (
         <div className="view-container commands-view">
-            {/* Nový Header */}
+            {/* Header s novým tlačidlom STOP ALL */}
             <PageHeader 
                 title="Ovládanie Zariadení" 
                 subtitle="Manuálna kontrola motorov a efektov"
                 icon={Zap}
             >
-                <Button variant="secondary" icon={RefreshCw} onClick={handleRefresh} size="small">
-                    Obnoviť
-                </Button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    {/* Tlačidlo STOP ALL - variant danger pre červenú farbu podľa témy */}
+                    <Button 
+                        variant="danger" 
+                        icon={OctagonX} 
+                        onClick={handleStopAll} 
+                        disabled={motors.length === 0 && relays.length === 0}
+                    >
+                        VYPNÚŤ VŠETKO
+                    </Button>
+
+                    <Button variant="secondary" icon={RefreshCw} onClick={handleRefresh} size="small">
+                        Obnoviť
+                    </Button>
+                </div>
             </PageHeader>
 
             <div className="devices-content">

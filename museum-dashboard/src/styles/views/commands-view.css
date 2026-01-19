@@ -57,13 +57,13 @@
 .devices-grid {
     display: grid;
     gap: 24px;
-    /* Automatické prispôsobenie stĺpcov */
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    /* UPRAVENÉ: Zväčšené na 380px pre viac miesta */
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
 }
 
 .motors-grid {
-    /* Motory potrebujú viac miesta kvôli 3 tlačidlám */
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); 
+    /* UPRAVENÉ: Zväčšené na 380px (zjednotené) */
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); 
 }
 
 /* --- UPDATE DEVICE CARD (Overrides) --- */
