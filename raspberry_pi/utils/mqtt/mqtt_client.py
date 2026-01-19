@@ -251,7 +251,7 @@ class MQTTClient:
         try:
             result = self.client.subscribe(topic, qos)
             if result[0] == mqtt.MQTT_ERR_SUCCESS:
-                self.logger.info(f"Subscribed to topic: {topic}")
+                self.logger.debug(f"Subscribed to topic: {topic}")
                 return True
             else:
                 self.logger.error(f"Failed to subscribe to {topic}: RC {result[0]}")
@@ -273,10 +273,10 @@ class MQTTClient:
         if self.connected:
             self.client.loop_stop()
             self.client.disconnect()
-            self.logger.info("MQTT disconnected")
+            self.logger.warning("MQTT disconnected")
     
     def cleanup(self):
         """Clean up MQTT resources."""
         self.shutdown_requested = True
         self.disconnect()
-        self.logger.info("MQTT client cleaned up")
+        self.logger.debug("MQTT client cleaned up")

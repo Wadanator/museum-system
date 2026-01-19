@@ -107,7 +107,7 @@ class StateExecutor:
             try:
                 success = self.mqtt_client.publish(topic, message, retain=False)
                 if success:
-                    self.logger.info(f"MQTT: {topic} = {message}")
+                    self.logger.debug(f"MQTT: {topic} = {message}")
                 else:
                     self.logger.error(f"MQTT publish failed: {topic}")
             except Exception as exc:
@@ -131,7 +131,7 @@ class StateExecutor:
                 success = False
 
             if success:
-                self.logger.info(f"Audio: {message}")
+                self.logger.debug(f"Audio: {message}")
             else:
                 self.logger.error(f"Audio command failed: {message}")
         else:
@@ -153,7 +153,7 @@ class StateExecutor:
                 success = False
 
             if success:
-                self.logger.info(f"Video: {message}")
+                self.logger.debug(f"Video: {message}")
             else:
                 self.logger.error(f"Video command failed: {message}")
         else:

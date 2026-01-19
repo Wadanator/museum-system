@@ -83,7 +83,7 @@ class SceneParser:
             )
             
             if next_state_global and next_state_global != self.state_machine.current_state:
-                self.logger.info(f"GLOBAL EVENT TRIGGERED -> Jumping to {next_state_global}")
+                self.logger.debug(f"GLOBAL EVENT TRIGGERED -> Jumping to {next_state_global}")
                 self._change_state(next_state_global, current_state_data)
                 return True
 

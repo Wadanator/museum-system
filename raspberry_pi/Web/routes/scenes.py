@@ -110,8 +110,6 @@ def setup_scenes_routes(dashboard):
 
                         if controller.scene_parser.load_scene(str(scene_path)):
                             controller.current_scene_name = scene_path.name
-
-                            controller.scene_parser.start_scene()
                             if hasattr(controller, 'run_scene'):
                                 controller.run_scene()
 

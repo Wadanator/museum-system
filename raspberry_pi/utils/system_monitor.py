@@ -39,7 +39,7 @@ class SystemMonitor:
                 import psutil
                 mem = psutil.virtual_memory()
                 memory_mb = mem.used / 1024 / 1024
-                cpu_percent = psutil.cpu_percent(interval=0.2)
+                cpu_percent = psutil.cpu_percent(interval=None)
                 disk_usage = psutil.disk_usage('/')
                 disk_percent = (disk_usage.used / disk_usage.total) * 100
                 
@@ -106,7 +106,7 @@ class SystemMonitor:
             stats.update({
                 'memory_mb': mem.used / 1024 / 1024,
                 'memory_percent': mem.percent,
-                'cpu_percent': psutil.cpu_percent(interval=0.1),
+                'cpu_percent': psutil.cpu_percent(interval=None),
                 'disk_percent': (psutil.disk_usage('/').used / psutil.disk_usage('/').total) * 100
             })
         except ImportError:
@@ -128,7 +128,7 @@ class SystemMonitor:
         try:
             import psutil
             self.logger.info(f"Memory: {psutil.virtual_memory().percent:.1f}% used")
-            self.logger.info(f"CPU: {psutil.cpu_percent(interval=0.1):.1f}% used")
+            self.logger.info(f"CPU: {psutil.cpu_percent(interval=None):.1f}% used")
         except ImportError:
             self.logger.debug("psutil not available for startup stats")
         

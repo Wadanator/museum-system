@@ -48,7 +48,7 @@ class VideoHandler:
                 surface.fill((0, 0, 0))
                 pygame.image.save(surface, self.iddle_image)
                 pygame.quit()
-                self.logger.info(f"Created black image at {self.iddle_image}")
+                self.logger.debug(f"Created black image at {self.iddle_image}")
             except Exception as e:
                 self.logger.error(f"Failed to create black image: {e}")
 
@@ -109,7 +109,7 @@ class VideoHandler:
                     if os.path.exists(self.ipc_socket):
                         self.currently_playing = os.path.basename(self.iddle_image)
                         self.restart_count = 0
-                        self.logger.info("MPV process started and IPC socket created")
+                        self.logger.debug("MPV process started and IPC socket created")
                         return True
                 self.logger.error("IPC socket not created after retries")
                 self._stop_current_process()
@@ -284,4 +284,4 @@ class VideoHandler:
     def cleanup(self):
         self._stop_current_process()
         self._kill_existing_mpv_processes()
-        self.logger.info("Video handler cleaned up")
+        self.logger.debug("Video handler cleaned up")

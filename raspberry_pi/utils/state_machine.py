@@ -101,7 +101,7 @@ class StateMachine:
         self.current_state = state_name
         self.state_start_time = time.time()
         
-        self.logger.info(f"State changed -> {state_name}")
+        self.logger.debug(f"State changed -> {state_name}")
         self._emit_progress()
         return True
     

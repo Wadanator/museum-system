@@ -37,7 +37,7 @@ class ConfigManager:
             raise FileNotFoundError(f"Configuration file missing: {config_file}")
         
         self.config.read(config_file)
-        self.logger.info(f"Config loaded from: {self.config_file}")
+        self.logger.debug(f"Config loaded from: {self.config_file}")
     
     def get_logging_config(self):
         if 'Logging' not in self.config:

@@ -167,4 +167,4 @@ class MQTTDeviceRegistry:
     def clear_devices(self):
         """Clear all device records from registry."""
         self.connected_devices.clear()
-        self.logger.info("Device registry cleared")
+        self.logger.debug("Device registry cleared")

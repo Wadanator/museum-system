@@ -105,6 +105,10 @@ class MQTTFeedbackTracker:
         """Get expected feedback topic for a command."""
         parts = original_topic.split('/')
         
+        # NOVÉ: Ignoruj STOP príkazy a iné globálne správy
+        if parts[-1].upper() in ['STOP', 'RESET', 'GLOBAL']:
+            return None
+
         # Room device topics: prefix/motor1 -> prefix/motor1/feedback
         if len(parts) == 2 and parts[0].startswith('room'):
             return f"{original_topic}/feedback"

@@ -59,22 +59,22 @@ log_format = detailed
 # Core system components - use full logger names with museum. prefix
 museum.main = INFO
 museum.scene_parser = INFO 
-museum.mqtt = WARNING
-museum.audio = WARNING
-museum.video = WARNING
-museum.web = WARNING
-museum.btn_handler = WARNING
-museum.sys_monitor = WARNING
+museum.mqtt = INFO
+museum.audio = INFO
+museum.video = INFO
+museum.web = INFO
+museum.btn_handler = INFO
+museum.sys_monitor = INFO
 
 # Reduce noise from these components
-museum.mqtt_handler = WARNING
-museum.mqtt_feedback = WARNING
-museum.mqtt_devices = WARNING
-museum.config = WARNING
-museum.setup = WARNING
+museum.mqtt_handler = INFO
+museum.mqtt_feedback = INFO
+museum.mqtt_devices = INFO
+museum.config = INFO
+museum.setup = INFO
 
 # External libraries - suppress unless critical
-werkzeug = ERROR
-flask = ERROR
-urllib3 = ERROR
-paho = ERROR
+werkzeug = WARNING
+flask = WARNING
+urllib3 = WARNING
+paho = WARNING

@@ -28,7 +28,7 @@ class ButtonHandler:
                 self.last_press_time = current_time
                 if self.callback:
                     if self.logger:
-                        self.logger.info(f"Button pressed on GPIO {self.pin}")
+                        self.logger.debug(f"Button pressed on GPIO {self.pin}")
                     self.callback()
         
         self.last_state = current_state
