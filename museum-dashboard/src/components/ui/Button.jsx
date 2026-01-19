@@ -27,16 +27,15 @@ export default function Button({
         e.preventDefault();
         return;
     }
-
-    // Vykonaj akciu
     if (onClick) onClick(e);
 
-    // Aktivuj cooldown ak je nastavený (teraz defaultne je)
     if (cooldown > 0) {
-        setInCooldown(true);
         setTimeout(() => {
-            setInCooldown(false);
-        }, cooldown);
+            setInCooldown(true);
+            setTimeout(() => {
+                setInCooldown(false);
+            }, cooldown);
+        }, 0);
     }
   }, [onClick, disabled, isLoading, inCooldown, cooldown]);
 
