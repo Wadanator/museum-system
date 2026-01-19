@@ -262,6 +262,47 @@ class MuseumController:
             log.error(f"Critical error in scene thread: {e}")
             self.scene_running = False
 
+    def stop_scene(self):
+        """Zastaví prebiehajúcu scénu a vypne všetky externé zariadenia cez MQTT."""
+        log.info(f"Initiating GLOBAL STOP for {self.room_id}")
+        
+        # 1. Nastavenie príznaku na zastavenie slučiek
+        self.scene_running = False
+        
+        # 2. Zastavenie Parseru (StateMachine)
+        if self.scene_parser:
+            try:
+                self.scene_parser.stop_scene()
+            except Exception as e:
+                log.error(f"Error stopping parser: {e}")
+
+        # 3. Zastavenie lokálnych médií
+        if self.audio_handler:
+            try:
+                self.audio_handler.stop_audio()
+            except Exception as e:
+                log.error(f"Error stopping audio: {e}")
+        
+        if self.video_handler:
+            try:
+                self.video_handler.stop_video()
+            except Exception as e:
+                log.error(f"Error stopping video: {e}")
+
+        # 4. MQTT Broadcast STOP (Kľúčový FIX)
+        self.broadcast_stop()
+        return True
+
+    def broadcast_stop(self):
+        """Odošle STOP správu všetkým MQTT zariadeniam v miestnosti."""
+        if self.mqtt_client and self.mqtt_client.is_connected():
+            stop_topic = f"{self.room_id}/STOP"
+            log.info(f"Broadcasting STOP signal to MQTT: {stop_topic}")
+            try:
+                self.mqtt_client.publish(stop_topic, "STOP")
+            except Exception as e:
+                log.error(f"Failed to publish stop message: {e}")
+
     def run_scene(self):
         """Execute the loaded state machine scene."""
         if not self.scene_parser.scene_data:
@@ -306,6 +347,9 @@ class MuseumController:
 
         if self.video_handler:
             self.video_handler.stop_video()
+
+        # FIX: Aj po prirodzenom skončení scény pošleme STOP broadcast
+        self.broadcast_stop()
 
         self._update_scene_statistics()
 
@@ -372,7 +416,6 @@ class MuseumController:
                 current_time = time.time()
                 if self.system_monitor:
                     self.system_monitor.perform_periodic_health_check(self.mqtt_client)
-                # --------------------------------------
 
                 if use_polling and self.button_handler:
                     self.button_handler.check_button_polling()
@@ -382,7 +425,7 @@ class MuseumController:
                         self.mqtt_device_registry.cleanup_stale_devices()
                     last_device_cleanup = current_time
                 
-                sleep_time = self.main_loop_sleep if self.scene_running else (self.main_loop_sleep + 0.1)
+                sleep_time = self.main_loop_sleep if self.scene_running else 0.1
                 time.sleep(sleep_time)
                 
         except KeyboardInterrupt:

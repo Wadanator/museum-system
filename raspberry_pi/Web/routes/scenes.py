@@ -140,39 +140,19 @@ def setup_scenes_routes(dashboard):
     @scenes_bp.route('/stop_scene', methods=['POST'])
     @requires_auth
     def stop_scene():
-        """Stop the currently running scene safely."""
+        """Zastaví prebiehajúcu scénu a vyčistí stav systému."""
         try:
-            if not getattr(controller, 'scene_running', False):
-                dashboard.socketio.emit('status_update', _get_current_status_data(controller))
-                return jsonify({'error': 'No scene is currently running', 'code': 'NOT_RUNNING'}), 400
+            # FIX: Odstránená prísna kontrola, aby STOP fungoval vždy ako "panic button"
+            dashboard.log.info("Web dashboard requested GLOBAL STOP")
 
-            dashboard.log.info("Requesting scene stop...")
-
-            if hasattr(controller, 'scene_parser') and controller.scene_parser:
-                if hasattr(controller.scene_parser, 'stop_scene'):
-                    controller.scene_parser.stop_scene()
-                else:
-                    dashboard.log.warning("SceneParser missing 'stop_scene' method!")
-
-            # 2. Záložné zastavenie Audio/Video handlerov priamo
-            if hasattr(controller, 'audio_handler') and controller.audio_handler:
-                try:
-                    controller.audio_handler.stop_audio()
-                except Exception as e:
-                    dashboard.log.error(f"Error forcing stop audio: {e}")
-            
-            if hasattr(controller, 'video_handler') and controller.video_handler:
-                try:
-                    controller.video_handler.stop_video()
-                except Exception as e:
-                    dashboard.log.error(f"Error forcing stop video: {e}")
+            # Voláme centrálnu stop metódu v MuseumController (v main.py)
+            controller.stop_scene()
 
         except Exception as e:
-            dashboard.log.error(f"Critical error during stop_scene: {e}")
+            dashboard.log.error(f"Critical error during stop_scene route: {e}")
+            return jsonify({'error': str(e)}), 500
             
         finally:
-            controller.scene_running = False
-            
             # Vyčistenie emittera
             if hasattr(controller, 'scene_parser') and hasattr(controller.scene_parser, 'set_progress_emitter'):
                 controller.scene_parser.set_progress_emitter(None)
@@ -181,7 +161,7 @@ def setup_scenes_routes(dashboard):
             dashboard.socketio.emit('status_update', _get_current_status_data(controller))
             dashboard.log.info("Scene stop sequence finished.")
             
-            return jsonify({'success': True, 'message': 'Scene stopped successfully'})
+            return jsonify({'success': True, 'message': 'Stop signal broadcasted to all devices'})
 
     @scenes_bp.route('/config/main_scene')
     @requires_auth

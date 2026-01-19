@@ -1,113 +1,154 @@
 {
-  "description": "Hlavn\u00e1 testovacia sc\u00e9na - RELAY verzia (Svetl\u00e1 a Dym)",
+  "sceneId": "relays_media_stress_test_v4",
+  "description": "Test rel\u00e9 (Dymostroje, Ohe\u0148, Svetl\u00e1) a m\u00e9di\u00ed pod\u013ea aktu\u00e1lneho HW",
+  "version": "2.1",
   "initialState": "intro",
-  "sceneId": "test_main",
+  "globalEvents": [
+    {
+      "type": "mqttMessage",
+      "topic": "room1/emergency",
+      "message": "STOP",
+      "goto": "END"
+    },
+    {
+      "type": "timeout",
+      "delay": 300,
+      "goto": "END"
+    }
+  ],
   "states": {
-    "finale": {
-      "description": "Ukon\u010denie - Vypne v\u0161etko",
+    "intro": {
+      "description": "\u0160tart Audia, zapnutie Oh\u0148a a Svetla 1",
       "onEnter": [
         {
+          "action": "audio",
+          "message": "PLAY:welcome.mp3:0.8"
+        },
+        {
           "action": "mqtt",
-          "message": "TRUE",
-          "topic": "room1/STOP"
+          "topic": "room1/light/fire",
+          "message": "ON"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/1",
+          "message": "ON"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 5,
+          "goto": "smoke_show"
+        }
+      ]
+    },
+    "smoke_show": {
+      "description": "\u0160tart Videa a test oboch dymostrojov",
+      "onEnter": [
+        {
+          "action": "video",
+          "message": "PLAY_VIDEO:ghost2.mp4"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/effect/smoke_ON",
+          "message": "ON"
         }
       ],
       "timeline": [
         {
-          "action": "audio",
+          "at": 2.5,
+          "action": "mqtt",
+          "topic": "room1/effect/smoke",
+          "message": "ON"
+        },
+        {
+          "at": 6,
+          "action": "mqtt",
+          "topic": "room1/effect/smoke_ON",
+          "message": "OFF"
+        },
+        {
+          "at": 8,
+          "action": "mqtt",
+          "topic": "room1/light/2",
+          "message": "ON"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 15,
+          "goto": "light_sequence"
+        }
+      ]
+    },
+    "light_sequence": {
+      "description": "Postupn\u00e9 sp\u00ednanie svetiel 3, 4, 5",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/light/3",
+          "message": "ON"
+        }
+      ],
+      "timeline": [
+        {
+          "at": 2,
+          "action": "mqtt",
+          "topic": "room1/light/4",
+          "message": "ON"
+        },
+        {
+          "at": 4,
+          "action": "mqtt",
+          "topic": "room1/light/5",
+          "message": "ON"
+        },
+        {
+          "at": 6,
+          "action": "mqtt",
+          "topic": "room1/light/fire",
+          "message": "OFF"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 10,
+          "goto": "final_stop"
+        }
+      ]
+    },
+    "final_stop": {
+      "description": "Hromadn\u00e9 vypnutie a koniec",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/STOP",
+          "message": "TRUE"
+        }
+      ],
+      "timeline": [
+        {
           "at": 1,
+          "action": "audio",
           "message": "STOP"
         },
         {
+          "at": 1.5,
           "action": "video",
-          "at": 2,
           "message": "STOP_VIDEO"
         }
       ],
       "transitions": [
         {
+          "type": "timeout",
           "delay": 4,
-          "goto": "END",
-          "type": "timeout"
-        }
-      ]
-    },
-    "intro": {
-      "description": "Za\u010diatok - Zapne hlavn\u00e9 svetlo, dym a audio",
-      "onEnter": [
-        {
-          "action": "mqtt",
-          "message": "ON",
-          "topic": "room1/light/1"
-        },
-        {
-          "action": "audio",
-          "message": "PLAY:welcome.mp3:0.7"
-        },
-        {
-          "action": "mqtt",
-          "message": "ON",
-          "topic": "room1/effect/smoke"
-        },
-        {
-          "action": "mqtt",
-          "message": "ON",
-          "topic": "room1/light/2"
-        }
-      ],
-      "timeline": [
-        {
-          "action": "video",
-          "at": 3,
-          "message": "PLAY_VIDEO:ghost2.mp4"
-        },
-        {
-          "action": "mqtt",
-          "at": 4,
-          "message": "ON",
-          "topic": "room1/light/3"
-        }
-      ],
-      "transitions": [
-        {
-          "delay": 6,
-          "goto": "middle",
-          "type": "timeout"
-        }
-      ]
-    },
-    "middle": {
-      "description": "Stredn\u00e1 \u010das\u0165 - Vypne dym, prepne svetl\u00e1",
-      "onEnter": [
-        {
-          "action": "mqtt",
-          "message": "OFF",
-          "topic": "room1/light/1"
-        },
-        {
-          "action": "mqtt",
-          "message": "OFF",
-          "topic": "room1/effect/smoke"
-        },
-        {
-          "action": "mqtt",
-          "message": "OFF",
-          "topic": "room1/light/2"
-        },
-        {
-          "action": "mqtt",
-          "message": "ON",
-          "topic": "room1/light/4"
-        }
-      ],
-      "transitions": [
-        {
-          "delay": 4,
-          "goto": "finale",
-          "type": "timeout"
+          "goto": "END"
         }
       ]
     }
-  },
-  "version": "2.1"
+  }
 }

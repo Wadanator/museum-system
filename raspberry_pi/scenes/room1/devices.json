@@ -3,7 +3,7 @@
     {
       "id": "Kolesa",
       "name": "Kolesa",
-      "speed": 50,
+      "speed": 55,
       "topic": "room1/motor1"
     },
     {
@@ -16,15 +16,27 @@
   "relays": [
     {
       "icon": "\ud83d\udca8",
-      "id": "smoke",
-      "name": "Dymostroj",
-      "topic": "room1/effect/smoke"
+      "id": "smoke_on",
+      "name": "Dymostroj ON",
+      "topic": "room1/effect/smoke_ON"
+    },
+    {
+      "icon": "\ud83d\udd25",
+      "id": "light_fire",
+      "name": "Svetlo Ohe\u0148",
+      "topic": "room1/light/fire"
     },
     {
       "icon": "\ud83d\udca1",
       "id": "light_1",
       "name": "Svetlo 1",
       "topic": "room1/light/1"
+    },
+    {
+      "icon": "\ud83d\udca8",
+      "id": "smoke_timed",
+      "name": "Dymostroj \u010casovan\u00fd",
+      "topic": "room1/effect/smoke"
     },
     {
       "icon": "\ud83d\udca1",
@@ -49,42 +61,6 @@
       "id": "light_5",
       "name": "Svetlo 5",
       "topic": "room1/light/5"
-    },
-    {
-      "icon": "\ud83d\udca1",
-      "id": "light_6",
-      "name": "Svetlo 6",
-      "topic": "room1/light/6"
-    },
-    {
-      "icon": "\ud83d\udca1",
-      "id": "light_7",
-      "name": "Svetlo 7",
-      "topic": "room1/light/7"
-    },
-    {
-      "icon": "\ud83d\udca1",
-      "id": "light_8",
-      "name": "Svetlo 8",
-      "topic": "room1/light/8"
-    },
-    {
-      "icon": "\ud83d\udca1",
-      "id": "light_9",
-      "name": "Svetlo 9",
-      "topic": "room1/light/9"
-    },
-    {
-      "icon": "\ud83d\udca1",
-      "id": "light_10",
-      "name": "Svetlo 10",
-      "topic": "room1/light/10"
-    },
-    {
-      "icon": "\ud83d\udca1",
-      "id": "light_11",
-      "name": "Svetlo 11",
-      "topic": "room1/light/11"
     }
   ]
 }

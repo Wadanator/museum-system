@@ -1,0 +1,82 @@
+{
+  "sceneId": "infinite_flash_lights",
+  "description": "Nekone\u010dn\u00e9 blikanie svetiel 4 a 5 (ka\u017ed\u00fdch 0.5s) s 4-min\u00fatov\u00fdm limitom",
+  "version": "2.1",
+  "initialState": "flash_4",
+  "globalEvents": [
+    {
+      "type": "mqttMessage",
+      "topic": "room1/emergency",
+      "message": "STOP",
+      "goto": "END"
+    },
+    {
+      "type": "timeout",
+      "delay": 240,
+      "goto": "shutdown"
+    }
+  ],
+  "states": {
+    "flash_4": {
+      "description": "Svetlo 4 zapnut\u00e9, Svetlo 5 vypnut\u00e9",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/light/4",
+          "message": "ON"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/5",
+          "message": "OFF"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 0.5,
+          "goto": "flash_5"
+        }
+      ]
+    },
+    "flash_5": {
+      "description": "Svetlo 4 vypnut\u00e9, Svetlo 5 zapnut\u00e9",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/light/4",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/5",
+          "message": "ON"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 0.5,
+          "goto": "flash_4"
+        }
+      ]
+    },
+    "shutdown": {
+      "description": "Vypnutie v\u0161etk\u00e9ho po uplynut\u00ed limitu",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/STOP",
+          "message": "TRUE"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 1,
+          "goto": "END"
+        }
+      ]
+    }
+  }
+}
