@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Landmark, Lock, User } from 'lucide-react';
 import Button from '../ui/Button'; 
-import '../../styles/views/login-view.css'; // Import nového CSS
+import '../../styles/views/login-view.css';
 
 export default function LoginView() {
   const [username, setUsername] = useState('');
@@ -54,7 +54,7 @@ export default function LoginView() {
                 type="submit" 
                 isLoading={isSubmitting} 
                 size="large" 
-                style={{ marginTop: 10, borderRadius: 12 }} // Inline style povolený pre špecifický override layoutu
+                className="login-submit-btn" /* Nahradený inline style triedou */
             >
                 Prihlásiť sa
             </Button>

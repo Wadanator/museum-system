@@ -1,36 +1,36 @@
 :root {
-    /* Hlavné farby - Modrá */
-    --primary: #2563eb;
-    --primary-hover: #1d4ed8;
+    /* Hlavné farby - Fialová/Indigo */
+    --primary: #6366f1;
+    --primary-hover: #4f46e5;
     
-    /* Sekundárne farby - Sivá */
-    --secondary: #6b7280;
-    --secondary-hover: #4b5563;
+    /* Sekundárne farby - Slate */
+    --secondary: #64748b;
+    --secondary-hover: #475569;
     
     /* Stavové farby */
-    --success: #22c55e;
-    --success-bg: #f0fdf4;
-    --danger: #ef4444;
-    --danger-bg: #fef2f2;
+    --success: #10b981;
+    --success-bg: #ecfdf5;
+    --danger: #f43f5e;
+    --danger-bg: #fff1f2;
     --warning: #f59e0b;
     --warning-bg: #fffbeb;
-    --info: #3b82f6;
-    --info-bg: #eff6ff;
+    --info: #06b6d4;
+    --info-bg: #ecfeff;
 
     /* Pozadia */
-    --bg-main: #f3f4f6;
+    --bg-main: #f8fafc;
     --bg-card: #ffffff;
-    --bg-hover: #f9fafb;
-    --bg-dark: #111827;
+    --bg-hover: #f1f5f9;
+    --bg-dark: #0f172a;
 
     /* Texty */
-    --text-primary: #111827;
-    --text-secondary: #4b5563;
-    --text-muted: #9ca3af;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
     --text-white: #ffffff;
 
     /* Ostatné */
-    --border-color: #e5e7eb;
+    --border-color: #e2e8f0;
     --radius-md: 8px;
     --radius-lg: 12px;
     --radius-xl: 16px;

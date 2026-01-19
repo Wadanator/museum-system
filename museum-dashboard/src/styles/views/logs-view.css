@@ -116,3 +116,8 @@
     font-style: italic;
     gap: 10px;
 }
+
+.login-submit-btn {
+    margin-top: 10px;
+    border-radius: 12px;
+}

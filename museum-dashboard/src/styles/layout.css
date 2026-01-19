@@ -6,7 +6,7 @@
     display: grid;
     grid-template-columns: 260px 1fr; /* Fixný sidebar, zvyšok obsah */
     min-height: 100vh;
-    background-color: #f3f4f6; /* Svetlosivé pozadie pre obsah */
+    background-color: var(--bg-main);
     overflow: hidden; /* Zabráni dvojitému scrollbaru */
 }
 
@@ -15,14 +15,14 @@
    ======================================= */
 
 .sidebar {
-    background-color: #111827; /* Tmavá profi farba */
-    color: #e5e7eb;
+    background-color: var(--bg-dark);
+    color: var(--border-color);
     display: flex;
     flex-direction: column;
     height: 100vh;
     position: sticky;
     top: 0;
-    box-shadow: 4px 0 24px rgba(0,0,0,0.05);
+    box-shadow: var(--shadow-lg);
     z-index: 50;
     overflow-y: auto;
 }
@@ -33,20 +33,22 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    border-bottom: 1px solid #1f2937;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     margin-bottom: 10px;
 }
 
 .brand-icon {
-    background: #2563eb;
-    color: white;
+    background: var(--primary);
+    color: var(--text-white);
     width: 40px;
     height: 40px;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 0 15px rgba(37, 99, 235, 0.3);
+    /* Pre glow efekt použijeme tieň bez hardcoded farby, prípadne definovaný v theme, 
+       tu ponecháme transparentný alebo var(--primary) ak to prehliadač podporuje */
+    box-shadow: 0 0 15px var(--primary); 
 }
 
 .brand-text h1 {
@@ -54,12 +56,12 @@
     font-weight: 700;
     margin: 0;
     letter-spacing: 0.5px;
-    color: white;
+    color: var(--text-white);
 }
 
 .brand-text span {
     font-size: 0.75rem;
-    color: #9ca3af;
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 1px;
     display: block;
@@ -78,24 +80,24 @@
     display: flex;
     align-items: center;
     padding: 12px 16px;
-    color: #9ca3af;
+    color: var(--text-muted);
     text-decoration: none;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     transition: all 0.2s ease;
     position: relative;
     font-weight: 500;
 }
 
 .nav-item:hover {
-    background-color: #1f2937;
-    color: #f3f4f6;
+    background-color: rgba(255, 255, 255, 0.05);
+    color: var(--bg-main);
     transform: translateX(4px);
 }
 
 .nav-item.active {
-    background-color: #2563eb;
-    color: white;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    background-color: var(--primary);
+    color: var(--text-white);
+    box-shadow: var(--shadow-md);
 }
 
 .nav-icon {
@@ -110,11 +112,11 @@
 /* Footer Sidebaru */
 .sidebar-footer {
     padding: 20px;
-    border-top: 1px solid #1f2937;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background-color: #0f1522;
+    background-color: rgba(0, 0, 0, 0.2);
     margin-top: auto;
 }
 
@@ -127,14 +129,14 @@
 .user-avatar {
     width: 36px;
     height: 36px;
-    background: #374151;
+    background: var(--text-secondary);
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: bold;
-    color: white;
-    border: 2px solid #1f2937;
+    color: var(--text-white);
+    border: 2px solid var(--bg-dark);
 }
 
 .user-details {
@@ -144,19 +146,19 @@
 
 .user-details .name {
     font-size: 0.9rem;
-    color: white;
+    color: var(--text-white);
     font-weight: 500;
 }
 
 .user-details .role {
     font-size: 0.75rem;
-    color: #6b7280;
+    color: var(--text-secondary);
 }
 
 .logout-btn {
     background: transparent;
     border: none;
-    color: #6b7280;
+    color: var(--text-secondary);
     cursor: pointer;
     padding: 8px;
     border-radius: 6px;
@@ -164,8 +166,8 @@
 }
 
 .logout-btn:hover {
-    background: #ef444420;
-    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1); /* Danger s opacitou */
+    color: var(--danger);
 }
 
 /* =======================================
@@ -191,10 +193,9 @@
 }
 
 /* =======================================
-   GRIDY A ROZLOŽENIE OBSAHU (Pôvodné - Nutné)
+   GRIDY A ROZLOŽENIE OBSAHU
    ======================================= */
 
-/* Odsadenie sekcií */
 .main-dashboard,
 .system-status-card,
 .status-overview,
@@ -203,7 +204,6 @@
     margin-bottom: 30px;
 }
 
-/* Mriežky pre Dashboard a StatsView */
 .status-grid,
 .stats-grid {
     display: grid;
@@ -218,7 +218,6 @@
     margin-bottom: 40px;
 }
 
-/* Grid pre statusy (Online/Offline/Room) */
 .status-overview {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -231,18 +230,15 @@
 
 @media (max-width: 768px) {
     .app-layout {
-        grid-template-columns: 1fr; /* Sidebar zmizne alebo sa presunie hore */
+        grid-template-columns: 1fr;
     }
 
     .sidebar {
         height: auto;
         position: relative;
-        display: none; /* Dočasne skryté na mobile, alebo treba dorobiť hamburger menu */
+        display: none; 
     }
 
-    /* Ak chceš na mobile aspoň ikonky, treba zložitejšiu logiku, 
-       alebo jednoducho nechať sidebar ako top menu */
-    
     .main-content {
         padding: 16px;
     }

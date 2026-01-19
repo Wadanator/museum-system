@@ -12,9 +12,9 @@
 
 /* Karta súboru */
 .media-card {
-    background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
     padding: 12px;
     display: flex;
     align-items: center;
@@ -23,28 +23,35 @@
 }
 
 .media-card:hover {
-    border-color: #93c5fd;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    border-color: var(--info);
+    box-shadow: var(--shadow-md);
 }
 
 .media-card.playing-now {
-    border-color: #22c55e;
-    background-color: #f0fdf4;
+    border-color: var(--success);
+    background-color: var(--success-bg);
 }
 
 /* Ikona typu */
 .media-icon-box {
     width: 40px;
     height: 40px;
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
 }
 
-.media-icon-box.video { background: #eff6ff; color: #2563eb; }
-.media-icon-box.audio { background: #fefce8; color: #ca8a04; }
+.media-icon-box.video { 
+    background: var(--info-bg); 
+    color: var(--primary); 
+}
+
+.media-icon-box.audio { 
+    background: var(--warning-bg); 
+    color: var(--warning); 
+}
 
 /* Info */
 .media-info {
@@ -54,7 +61,7 @@
 
 .media-name {
     font-weight: 500;
-    color: #1f2937;
+    color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -62,7 +69,7 @@
 
 .media-meta {
     font-size: 0.75rem;
-    color: #6b7280;
+    color: var(--text-muted);
     margin-top: 2px;
 }
 
@@ -87,36 +94,36 @@
 
 /* Play tlačidlo */
 .action-btn-icon.play {
-    color: #10b981;
-    background: rgba(16, 185, 129, 0.1);
+    color: var(--success);
+    background: var(--success-bg);
 }
 .action-btn-icon.play:hover {
-    background: #10b981;
-    color: white;
+    background: var(--success);
+    color: var(--text-white);
 }
 
 /* Delete tlačidlo */
 .action-btn-icon.delete {
-    color: #ef4444;
-    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+    background: var(--danger-bg);
 }
 .action-btn-icon.delete:hover {
-    background: #ef4444;
-    color: white;
+    background: var(--danger);
+    color: var(--text-white);
 }
 
 /* Empty State */
 .empty-state {
     padding: 30px;
     text-align: center;
-    color: #9ca3af;
+    color: var(--text-muted);
     font-style: italic;
-    background: #f9fafb;
-    border-radius: 8px;
-    border: 1px dashed #d1d5db;
+    background: var(--bg-hover);
+    border-radius: var(--radius-md);
+    border: 1px dashed var(--border-color);
 }
 
-/* Layout pre grid kariet (náhrada za inline style) */
+/* Layout pre grid kariet */
 .media-grid-container {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
@@ -127,17 +134,17 @@
 .loading-state {
     padding: 32px;
     text-align: center;
-    color: #6b7280;
+    color: var(--text-secondary);
 }
 
 .modal-text {
-    color: #9ca3af;
+    color: var(--text-muted);
     margin-bottom: 16px;
 }
 
 .highlight-text {
-    color: white;
-    background-color: #374151;
+    color: var(--text-white);
+    background-color: var(--text-secondary);
     padding: 2px 6px;
     border-radius: 4px;
 }
@@ -145,15 +152,15 @@
 .modal-input {
     width: 100%;
     padding: 8px 12px;
-    background-color: #111827;
-    border: 1px solid #374151;
-    border-radius: 8px;
-    color: white;
+    background-color: var(--bg-dark);
+    border: 1px solid var(--text-secondary);
+    border-radius: var(--radius-md);
+    color: var(--text-white);
     font-family: monospace;
     outline: none;
     transition: border-color 0.2s;
 }
 
 .modal-input:focus {
-    border-color: #ef4444;
+    border-color: var(--danger);
 }

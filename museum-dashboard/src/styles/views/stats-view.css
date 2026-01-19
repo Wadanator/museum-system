@@ -9,11 +9,11 @@
 
 .stats-content-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); /* Mierne zväčšené pre Card */
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
     gap: 24px;
 }
 
-/* Gradient Karty (KPIs) - Ponecháme unikátny vzhľad, ale použijeme theme farby */
+/* Gradient Karty (KPIs) */
 .stats-card {
     display: flex;
     align-items: center;
@@ -27,13 +27,12 @@
     overflow: hidden;
 }
 
-/* Použitie var(--primary) a var(--info) pre gradienty */
 .stats-card.primary-gradient { 
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%); 
 }
 
 .stats-card.info-gradient { 
-    background: linear-gradient(135deg, var(--info) 0%, #7c3aed 100%); /* Fialová nie je v téme, hardcode povolený pre akcent, alebo definovať v theme */
+    background: linear-gradient(135deg, var(--info) 0%, var(--primary) 100%); 
 }
 
 .stats-card h3 { 
@@ -112,7 +111,7 @@
 .scene-ranking-list { 
     display: flex;
     flex-direction: column;
-    gap: 0; /* Card už má padding */
+    gap: 0;
 }
 
 .ranking-item { 
@@ -133,7 +132,7 @@
 
 .ranking-item:nth-child(1) .rank-number { color: var(--warning); font-size: 1.1rem; } /* Zlatá */
 .ranking-item:nth-child(2) .rank-number { color: var(--text-secondary); } /* Strieborná */
-.ranking-item:nth-child(3) .rank-number { color: #b45309; } /* Bronzová - nie je v téme, hardcode ok */
+.ranking-item:nth-child(3) .rank-number { color: var(--warning); opacity: 0.7; } /* Bronzová - simulovaná */
 
 .rank-info { flex: 1; margin: 0 12px; }
 
