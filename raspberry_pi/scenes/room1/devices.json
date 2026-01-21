@@ -18,7 +18,7 @@
       "icon": "\ud83d\udca8",
       "id": "smoke_on",
       "name": "Dymostroj ON",
-      "topic": "room1/effect/smoke_ON"
+      "topic": "room1/power/smoke_ON"
     },
     {
       "icon": "\ud83d\udd25",
@@ -61,6 +61,12 @@
       "id": "light_5",
       "name": "Svetlo 5",
       "topic": "room1/light/5"
+    },
+    {
+      "icon": "\ud83d\udca1 \ud83d\udca1",
+      "id": "Blikanie Budiky",
+      "name": "Blikanie Budiky",
+      "topic": "room1/effects/group1"
     }
   ]
 }

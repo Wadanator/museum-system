@@ -1,0 +1,198 @@
+{
+  "id": "demo_scene_complex",
+  "name": "DEMO: Dramatick\u00fd \u00davod",
+  "initialState": "IDLE_WAIT",
+  "states": {
+    "IDLE_WAIT": {
+      "description": "\u010cakanie na re\u017eis\u00e9ra. Sc\u00e9na je v tme, v\u0161etky efektov\u00e9 stroje s\u00fa v re\u017eime Standby. \u010cak\u00e1 sa na pokyn z pultu.",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "lights/main",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "fog/machine",
+          "message": "HEATING"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "mqttMessage",
+          "topic": "director/console",
+          "message": "START_SHOW",
+          "goto": "INTRO_MUSIC"
+        }
+      ]
+    },
+    "INTRO_MUSIC": {
+      "description": "Spustenie \u00favodnej zvu\u010dky a postupn\u00e9 rozsvecovanie svetiel. Ak hudba skon\u010d\u00ed, prejde sa \u010falej automaticky.",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "epic_intro_v2.mp3"
+        },
+        {
+          "action": "mqtt",
+          "topic": "lights/spot",
+          "message": "DIM_20"
+        }
+      ],
+      "timeline": [
+        {
+          "at": 5,
+          "action": "mqtt",
+          "topic": "lights/main",
+          "message": "FADE_IN_50"
+        },
+        {
+          "at": 10,
+          "action": "mqtt",
+          "topic": "lights/main",
+          "message": "FULL_100"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "audioEnd",
+          "goto": "ACTOR_DECISION_POINT"
+        },
+        {
+          "type": "mqttMessage",
+          "topic": "director/console",
+          "message": "SKIP",
+          "goto": "ACTOR_DECISION_POINT"
+        }
+      ]
+    },
+    "ACTOR_DECISION_POINT": {
+      "description": "K\u013e\u00fa\u010dov\u00fd moment: \u010cak\u00e1me na herca. M\u00e1 30s na pr\u00edchod. Ak pr\u00edde sk\u00f4r, re\u017eis\u00e9r stla\u010d\u00ed tla\u010didlo. Ak nepr\u00edde, spust\u00ed sa ALARM.",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "lights/spot",
+          "message": "ON_ACTOR_MARK"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "mqttMessage",
+          "topic": "director/console",
+          "message": "ACTOR_READY",
+          "goto": "FIRE_EFFECT"
+        },
+        {
+          "type": "timeout",
+          "delay": 30,
+          "goto": "DELAYED_START"
+        },
+        {
+          "type": "mqttMessage",
+          "topic": "safety/sensor",
+          "message": "FALL_DETECTED",
+          "goto": "EMERGENCY_STOP"
+        }
+      ]
+    },
+    "DELAYED_START": {
+      "description": "Herec me\u0161kal, sp\u00fa\u0161\u0165ame z\u00e1lo\u017en\u00fd scen\u00e1r s jemnej\u0161\u00edm n\u00e1stupom.",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "ambient_fill.mp3"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 5,
+          "goto": "FIRE_EFFECT"
+        }
+      ]
+    },
+    "FIRE_EFFECT": {
+      "description": "Ve\u013ek\u00e1 oh\u0148ov\u00e1 \u0161ou. Pozor, nebezpe\u010dn\u00e9! Sp\u00fa\u0161\u0165a sa sekvencia ventilov.",
+      "onEnter": [
+        {
+          "action": "video",
+          "message": "fire_background_loop.mp4"
+        },
+        {
+          "action": "mqtt",
+          "topic": "pyro/safety",
+          "message": "ARMED"
+        }
+      ],
+      "timeline": [
+        {
+          "at": 1,
+          "action": "mqtt",
+          "topic": "pyro/valve_1",
+          "message": "FIRE"
+        },
+        {
+          "at": 1.5,
+          "action": "mqtt",
+          "topic": "pyro/valve_1",
+          "message": "OFF"
+        },
+        {
+          "at": 3,
+          "action": "mqtt",
+          "topic": "pyro/valve_2",
+          "message": "FIRE_BIG"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 8,
+          "goto": "FINALE"
+        }
+      ]
+    },
+    "EMERGENCY_STOP": {
+      "description": "N\u00daDZOV\u00dd STAV! Vyp\u00edna v\u0161etko.",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "ALL",
+          "message": "KILL_SWITCH"
+        },
+        {
+          "action": "audio",
+          "message": "warning_siren.wav"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "mqttMessage",
+          "topic": "admin/system",
+          "message": "RESET",
+          "goto": "IDLE_WAIT"
+        },
+        {
+          "goto": "END"
+        }
+      ]
+    },
+    "FINALE": {
+      "description": "Z\u00e1vere\u010dn\u00e1 kla\u0148a\u010dka.",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "lights/house",
+          "message": "ON"
+        }
+      ],
+      "transitions": [
+        {
+          "goto": "END",
+          "type": "timeout",
+          "delay": 10
+        }
+      ]
+    }
+  }
+}
