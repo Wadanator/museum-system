@@ -15,7 +15,8 @@ export default function Modal({ isOpen, title, onClose, children, footer, type =
             </button>
         </div>
         
-        <div style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+        {/* FIX: Použitie CSS triedy namiesto inline style */}
+        <div className="modal-body-text">
             {children}
         </div>
 

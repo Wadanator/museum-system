@@ -13,12 +13,12 @@ const nodeTypes = {
     custom: CustomFlowNode,
 };
 
-// ARCHITECTURE FIX: Definícia farieb v konštante namiesto hardcoded stringov
+// ARCHITECTURE FIX: Použitie CSS premenných namiesto hex kódov
 const FLOW_COLORS = {
-    mqtt: '#8b5cf6',      // Violet-500
-    timeout: '#f59e0b',   // Amber-500
-    audio: '#0ea5e9',     // Sky-500
-    default: '#94a3b8'    // Slate-400
+    mqtt: 'var(--primary)',
+    timeout: 'var(--warning)',
+    audio: 'var(--info)',
+    default: 'var(--text-muted)'
 };
 
 export default function SceneVisualizer({ data }) {
@@ -191,7 +191,7 @@ export default function SceneVisualizer({ data }) {
             attributionPosition="bottom-right"
             minZoom={0.1}
         >
-            <Background color="#cbd5e1" gap={20} />
+            <Background color="var(--border-color)" gap={20} />
             <Controls />
         </ReactFlow>
     );

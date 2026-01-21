@@ -228,6 +228,12 @@
     margin-top: 24px;
 }
 
+/* Nová trieda nahrádzajúca inline štýl v Modal.jsx */
+.modal-body-text {
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
 /* --- CONFIRM MODAL (New) --- */
 .confirm-overlay {
     position: fixed;
@@ -274,6 +280,35 @@
     display: flex;
     justify-content: flex-end;
     gap: 12px;
+}
+
+/* --- BUTTON EXTENSIONS --- */
+/* Nahrádza inline style v Button.jsx */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px; /* Default gap */
+}
+
+.btn.btn-small { gap: 6px; }
+
+/* Stavy tlačidla */
+.btn:disabled,
+.btn.is-loading,
+.btn.is-disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* --- MEDIA FILE ITEM EXTENSIONS --- */
+/* Nahrádza inline style v FileItem.jsx */
+.action-btn-icon:disabled,
+.action-btn-icon.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: transparent;
+    color: var(--text-muted);
 }
 
 /* --- UTILITIES --- */

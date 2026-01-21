@@ -17,7 +17,6 @@ export default function FileItem({ file, type, isPlaying, onPlay, onDelete, isDi
             className="action-btn-icon play" 
             onClick={() => !isDisabled && onPlay(type, file.name)} 
             disabled={isDisabled}
-            style={{ opacity: isDisabled ? 0.5 : 1, cursor: isDisabled ? 'not-allowed' : 'pointer' }}
             title="Prehrať"
         >
             <Play size={16} fill="currentColor" />
@@ -26,7 +25,6 @@ export default function FileItem({ file, type, isPlaying, onPlay, onDelete, isDi
             className="action-btn-icon delete" 
             onClick={() => !isDisabled && onDelete(type, file.name)} 
             disabled={isDisabled}
-            style={{ opacity: isDisabled ? 0.5 : 1, cursor: isDisabled ? 'not-allowed' : 'pointer' }}
             title="Vymazať"
         >
             <Trash2 size={16} />

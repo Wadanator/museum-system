@@ -16,13 +16,11 @@ export default function Button({
 }) {
   const [inCooldown, setInCooldown] = useState(false);
 
-  // Bezpečné čistenie timeoutu ak by sa komponent odpojil
   useEffect(() => {
     return () => setInCooldown(false);
   }, []);
 
   const handleClick = useCallback((e) => {
-    // Ak je loading, disabled alebo v cooldowne, stop
     if (disabled || isLoading || inCooldown) {
         e.preventDefault();
         return;
@@ -41,8 +39,15 @@ export default function Button({
 
   const isDisabled = disabled || isLoading || inCooldown;
 
-  // Pridanie vizuálnej triedy pre cooldown
-  const finalClassName = `btn ${variant !== 'primary' ? `btn-${variant}` : 'btn-primary'} ${size === 'small' ? 'btn-small' : (size === 'large' ? 'btn-large' : '')} ${className}`;
+  // FIX: Pridané stavové triedy
+  const finalClassName = [
+    'btn',
+    variant !== 'primary' ? `btn-${variant}` : 'btn-primary',
+    size === 'small' ? 'btn-small' : (size === 'large' ? 'btn-large' : ''),
+    isDisabled ? 'is-disabled' : '',
+    isLoading ? 'is-loading' : '',
+    className
+  ].filter(Boolean).join(' ');
 
   return (
     <button 
@@ -50,15 +55,6 @@ export default function Button({
         className={finalClassName}
         onClick={handleClick}
         disabled={isDisabled}
-        style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            gap: size === 'small' ? '6px' : '8px',
-            opacity: isDisabled ? 0.7 : 1,
-            cursor: isDisabled ? 'not-allowed' : 'pointer',
-            ...props.style
-        }}
         {...props}
     >
         {isLoading ? (

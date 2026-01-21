@@ -7,14 +7,21 @@
     --secondary: #64748b;
     --secondary-hover: #475569;
     
-    /* Stavové farby */
+    /* Stavové farby - Pridané -hover varianty pre gradienty */
     --success: #10b981;
+    --success-hover: #059669; /* Pridané pre gradient */
     --success-bg: #ecfdf5;
+    
     --danger: #f43f5e;
+    --danger-hover: #e11d48; /* Pridané pre gradient */
     --danger-bg: #fff1f2;
+    
     --warning: #f59e0b;
+    --warning-hover: #d97706; /* Pridané pre gradient */
     --warning-bg: #fffbeb;
+    
     --info: #06b6d4;
+    --info-hover: #0891b2;   /* Pridané pre konzistenciu */
     --info-bg: #ecfeff;
 
     /* Pozadia */
