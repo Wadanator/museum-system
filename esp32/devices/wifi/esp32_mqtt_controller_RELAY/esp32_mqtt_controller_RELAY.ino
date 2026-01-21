@@ -6,14 +6,14 @@
 #include "mqtt_manager.h"
 #include "connection_monitor.h"
 #include "ota_manager.h"
-#include "status_led.h" // Includujeme modul pre LED
+#include "status_led.h"
+#include "effects_manager.h"
 
 void setup() {
   Serial.begin(115200);
   delay(100);
-
   Serial.println("\n------------------------------------------");
-  Serial.println(" ESP32 MQTT Relay Controller v2.3");
+  Serial.println(" ESP32 MQTT Relay Controller v2.3 + Effects");
   Serial.println("------------------------------------------");
   debugPrint("=== System startuje ===");
   
@@ -31,9 +31,10 @@ void setup() {
   Serial.println("\n--- Inicializacia hardwaru ---");
   initializeHardware();
   
-  // --- OPRAVA: Inicializácia Status LED ---
+  // Inicializácia Status LED
   initializeStatusLed();
-  // ----------------------------------------
+
+  initializeEffects();
   
   Serial.println("\n--- WiFi pripojenie ---");
   if (!initializeWiFi()) {
@@ -65,7 +66,6 @@ void loop() {
   }
 
   // 2. Obsluha Status LED
-  // (LED teraz bude reagovať na stav WiFi a MQTT)
   handleStatusLed(isWiFiConnected(), isMqttConnected());
 
   // 3. Reset Watchdog
@@ -76,16 +76,17 @@ void loop() {
     mqttLoop();
   }
 
-  // 5. Kontrola casovacov (auto-off)
+  handleEffects();
+
+  // 6. Kontrola casovacov (auto-off pre bežné zariadenia)
   handleAutoOff();
 
-  // 6. Rychla kontrola spojenia
+  // 7. Rychla kontrola spojenia
   static unsigned long lastQuickCheck = 0;
   unsigned long currentTime = millis();
 
   if (currentTime - lastQuickCheck >= 100) {
     lastQuickCheck = currentTime;
-    
     if (!isWiFiConnected()) {
       reconnectWiFi();
       if (wifiConnected) {
@@ -98,22 +99,24 @@ void loop() {
     }
   }
 
-  // 7. Detailna kontrola a logovanie
+  // 8. Detailna kontrola a logovanie
   static unsigned long lastDetailedCheck = 0;
   if (currentTime - lastDetailedCheck >= 10000) {
     lastDetailedCheck = currentTime;
     monitorConnections();
   }
 
-  // 8. Bezpecnostne ochrany
+  // 9. Bezpecnostne ochrany
   if (!isMqttConnected() && !allDevicesOff) {
     debugPrint("Strata MQTT spojenia -> Vypinam zariadenia");
     turnOffAllDevices();
+    stopAllEffects();
   }
   
   if (!allDevicesOff && (currentTime - lastCommandTime > NO_COMMAND_TIMEOUT)) {
      debugPrint("TIMEOUT: Vypinam zariadenia z dovodu necinnosti");
      turnOffAllDevices();
+     stopAllEffects();
      lastCommandTime = currentTime;
   }
 

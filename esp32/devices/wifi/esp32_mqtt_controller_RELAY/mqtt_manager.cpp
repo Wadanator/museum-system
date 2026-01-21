@@ -3,6 +3,7 @@
 #include "debug.h"
 #include "hardware.h"
 #include "wifi_manager.h"
+#include "effects_manager.h"
 
 // Global MQTT objects and state
 WiFiClient wifiClient;
@@ -37,17 +38,43 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   
   if (topicStr.startsWith(basePrefix)) {
     
-    // --- NOVE: Reset timeout casovaca pri prijatí prikazu ---
+    // Reset timeout casovaca pri prijatí prikazu
     lastCommandTime = millis();
-    // --------------------------------------------------------
+
+    // =========================================================================
+    // OGIKA PRE EFEKTY
+    // =========================================================================
+    if (topicStr.indexOf("/effects/") != -1) {
+      // Získame názov efektu (všetko za posledným lomítkom)
+      // Očakávame: room1/effects/nazov_skupiny
+      String effectName = topicStr.substring(topicStr.lastIndexOf("/") + 1);
+      String cmd = String(message);
+      cmd.toUpperCase();
+
+      debugPrint("EFEKT Prikaz: " + effectName + " -> " + cmd);
+
+      if (cmd == "ON" || cmd == "1" || cmd == "START") {
+        startEffect(effectName);
+        client.publish(feedbackTopic.c_str(), "ACTIVE", false);
+      } 
+      else if (cmd == "OFF" || cmd == "0" || cmd == "STOP") {
+        stopEffect(effectName);
+        client.publish(feedbackTopic.c_str(), "INACTIVE", false);
+      } else {
+        debugPrint("Neznamy prikaz pre efekt");
+      }
+      
+      return; 
+    }
 
     String deviceName = topicStr.substring(basePrefix.length());
 
     // STOP prikaz
     if (deviceName == "STOP") {
       turnOffAllDevices();
+      stopAllEffects();
       commandSuccessful = true;
-      debugPrint("STOP prikaz vykonany");
+      debugPrint("STOP prikaz vykonany (vratane efektov)");
     }
     // Prikazy pre jednotlive zariadenia
     else {
@@ -125,6 +152,11 @@ void connectToMqtt() {
         client.subscribe(topic.c_str(), 0);
         debugPrint("Subscribed: " + topic);
       }
+
+      // MQTT wildcard '#' pre všetky efekty: room1/effects/#
+      String effectsTopic = basePrefix + "effects/#";
+      client.subscribe(effectsTopic.c_str(), 0);
+      debugPrint("Subscribed: " + effectsTopic);
 
       // Subscribe na STOP prikaz
       client.subscribe((basePrefix + "STOP").c_str(), 0);
