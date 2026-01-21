@@ -17,13 +17,19 @@ import SystemView from './components/Views/SystemView';
 import LoginView from './components/Views/LoginView';
 import MediaManager from './components/Views/MediaManager';
 
-import './styles/layout.css'; // Nezabudni importovať nové štýly
+import './styles/layout.css'; 
 
 function App() {
   const { isConnected } = useSocket();
   const { isAuthenticated, isLoading } = useAuth();
 
-  if (isLoading) return <div style={{padding: 50, textAlign: 'center'}}>Načítavam...</div>;
+  if (isLoading) {
+    return (
+        <div className="app-loading-screen">
+            Načítavam...
+        </div>
+    );
+  }
 
   if (!isAuthenticated) {
       return (
@@ -38,7 +44,6 @@ function App() {
     <>
       <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
 
-      {/* Tu použijeme nový Layout s Sidebarom */}
       <AppLayout>
         <Routes>
           <Route path="/" element={<MainDashboard />} />

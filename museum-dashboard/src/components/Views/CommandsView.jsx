@@ -13,20 +13,15 @@ export default function CommandsView() {
 
     const handleRefresh = () => window.location.reload();
 
-    // Nová logika pre hromadné vypnutie
     const handleStopAll = async () => {
-        // Potvrdenie akcie
         const confirmed = window.confirm("Naozaj chcete okamžite vypnúť všetky motory a relé?");
         if (!confirmed) return;
 
         const toastId = toast.loading("Vypínam všetky zariadenia...");
 
         try {
-            // Vytvoríme pole všetkých požiadaviek (paralelné odoslanie)
             const promises = [
-                // Vypnúť motory (poslať 0)
                 ...motors.map(m => api.sendMqtt(m.topic, 0)),
-                // Vypnúť relé (poslať 0)
                 ...relays.map(r => api.sendMqtt(r.topic, 0))
             ];
 
@@ -54,14 +49,13 @@ export default function CommandsView() {
 
     return (
         <div className="view-container commands-view">
-            {/* Header s novým tlačidlom STOP ALL */}
             <PageHeader 
                 title="Ovládanie Zariadení" 
                 subtitle="Manuálna kontrola motorov a efektov"
                 icon={Zap}
             >
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    {/* Tlačidlo STOP ALL - variant danger pre červenú farbu podľa témy */}
+                {/* Opravené: Použitie CSS triedy namiesto inline štýlu */}
+                <div className="page-header-actions">
                     <Button 
                         variant="danger" 
                         icon={OctagonX} 
@@ -78,7 +72,6 @@ export default function CommandsView() {
             </PageHeader>
 
             <div className="devices-content">
-                {/* 1. SEKCIA: MOTORY */}
                 {motors.length > 0 && (
                     <section className="device-section">
                         <div className="section-header">
@@ -94,10 +87,8 @@ export default function CommandsView() {
                     </section>
                 )}
 
-                {/* Čiara medzi sekciami */}
                 {motors.length > 0 && relays.length > 0 && <div className="section-divider"></div>}
 
-                {/* 2. SEKCIA: SVETLÁ A RELÉ */}
                 {relays.length > 0 && (
                     <section className="device-section">
                         <div className="section-header">
@@ -113,7 +104,6 @@ export default function CommandsView() {
                     </section>
                 )}
 
-                {/* Empty State */}
                 {motors.length === 0 && relays.length === 0 && (
                     <div className="empty-state">
                         Nenašli sa žiadne zariadenia v konfigurácii.

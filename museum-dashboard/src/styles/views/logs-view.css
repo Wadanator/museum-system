@@ -46,10 +46,11 @@
 .filter-btn.warning.active { color: var(--warning); }
 .filter-btn.error.active { color: var(--danger); }
 
+/* Oprava hardcoded farieb -> použitie Theme Variables */
 .card-component.logs-console-card {
-    background-color: #1e1e1e !important;
-    border-color: #333 !important;
-    color: #e5e7eb !important;
+    background-color: var(--bg-dark) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: var(--text-white) !important;
     padding: 0 !important;
     flex: 1;
     display: flex;
@@ -63,7 +64,7 @@
     padding: 16px;
     overflow-y: auto;
     flex: 1;
-    background-color: transparent; /* Pozadie dedí z karty */
+    background-color: transparent;
 }
 
 /* --- RIADKY LOGOV --- */
@@ -82,8 +83,8 @@
 }
 
 /* Farby textov v konzole */
-.log-time { color: #6b7280; font-size: 0.8rem; }
-.log-module { color: #a78bfa; }
+.log-time { color: var(--text-muted); font-size: 0.8rem; }
+.log-module { color: #a78bfa; /* Zachované pre syntax highlight, ale ladí s dark mode */ }
 
 .log-level {
     font-weight: 700;
@@ -100,7 +101,7 @@
 .log-row.error .log-level { color: #f87171; }
 .log-row.debug .log-level { color: #34d399; }
 
-.log-message { color: #e5e7eb; word-break: break-word; }
+.log-message { color: var(--text-white); word-break: break-word; }
 
 .log-row.error {
     background-color: rgba(239, 68, 68, 0.1);
@@ -112,7 +113,7 @@
     justify-content: center;
     align-items: center;
     height: 100%;
-    color: #6b7280;
+    color: var(--text-muted);
     font-style: italic;
     gap: 10px;
 }

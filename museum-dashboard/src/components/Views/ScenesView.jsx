@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Loader2, RefreshCw, Sparkles } from 'lucide-react'; // Sparkles ikona pre lepší efekt
+import { Plus, Loader2, RefreshCw, Sparkles } from 'lucide-react';
 import { useScenes } from '../../hooks/useScenes';
 import SceneCard from '../Scenes/SceneCard';
 import SceneEditorModal from '../Scenes/SceneEditorModal';
@@ -10,12 +10,10 @@ import '../../styles/views/scenes-view.css';
 export default function ScenesView() {
     const { scenes, loading, fetchScenes, playScene, loadSceneContent, saveSceneContent } = useScenes();
 
-    // State pre Editor
     const [editorOpen, setEditorOpen] = useState(false);
     const [editingFile, setEditingFile] = useState(null);
     const [editorContent, setEditorContent] = useState(null);
 
-    // Otvorenie editora
     const handleEdit = async (filename) => {
         try {
             const content = await loadSceneContent(filename);
@@ -27,7 +25,6 @@ export default function ScenesView() {
         }
     };
 
-    // Uloženie
     const handleSave = async (filename, content) => {
         const success = await saveSceneContent(filename, content);
         if (success) {
@@ -35,7 +32,6 @@ export default function ScenesView() {
         }
     };
 
-    // Nová scéna
     const handleCreate = () => {
         const name = prompt("Zadajte názov novej scény (bez .json):");
         if (name) {
@@ -53,7 +49,7 @@ export default function ScenesView() {
             <PageHeader 
                 title="Knižnica Scén" 
                 subtitle="Dostupné show súbory"
-                icon={Sparkles} // Zmena ikony na niečo "magickejšie"
+                icon={Sparkles}
             >
                 <Button variant="secondary" icon={RefreshCw} onClick={fetchScenes} disabled={loading} size="small">
                     Obnoviť
@@ -66,7 +62,8 @@ export default function ScenesView() {
             {loading ? (
                 <div className="loading-state">
                     <Loader2 className="animate-spin" size={40} strokeWidth={1.5} />
-                    <span style={{marginTop: 10}}>Načítavam scenáre...</span>
+                    {/* Oprava: Odstránený inline style, parent .loading-state má gap: 16px v CSS */}
+                    <span>Načítavam scenáre...</span>
                 </div>
             ) : (
                 <div className="scenes-grid">
