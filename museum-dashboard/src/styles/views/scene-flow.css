@@ -1,0 +1,117 @@
+/* src/styles/views/scene-flow.css */
+
+/* --- ZÁKLADNÉ WRAPPERY (už máte) --- */
+.flow-wrapper { width: 100%; height: 100%; min-height: 500px; background-color: #f8fafc; display: flex; flex-direction: column; }
+.flow-container { flex: 1; width: 100%; height: 100%; }
+.editor-tabs { display: flex; gap: 8px; padding: 12px 24px; background: white; border-bottom: 1px solid #e2e8f0; }
+.editor-tab-btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 500; color: #64748b; background: transparent; }
+.editor-tab-btn:hover { background: #f1f5f9; color: #0f172a; }
+.editor-tab-btn.active { background: #6366f1; color: white; }
+
+/* --- CUSTOM NODE STYLING --- */
+.custom-flow-node {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    width: 240px; /* Fixná šírka pre peknú mriežku */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+.custom-flow-node:hover {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+    border-color: #6366f1;
+    z-index: 10;
+}
+
+/* Rozbalený stav */
+.custom-flow-node.expanded {
+    width: 320px; /* Rozšíri sa */
+    z-index: 20;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+/* Špecifické typy */
+.custom-flow-node.start-node { border: 2px solid #22c55e; }
+.custom-flow-node.start-node .node-header { background: #f0fdf4; color: #15803d; }
+
+.custom-flow-node.end-node { border: 2px solid #ef4444; background: #fef2f2; }
+.custom-flow-node.end-node .node-header { background: #fee2e2; color: #b91c1c; }
+
+/* Header */
+.node-header {
+    padding: 12px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    border-radius: 12px 12px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #334155;
+}
+
+.custom-flow-node.end-node .node-header,
+.custom-flow-node:not(.expanded) .node-header {
+    border-radius: 12px; /* Ak je zbalený, radius je aj dole */
+    border-bottom: none;
+}
+
+.custom-flow-node.expanded .node-header {
+    border-bottom: 1px solid #e2e8f0;
+    border-radius: 12px 12px 0 0;
+}
+
+.node-icon { margin-right: 8px; display: flex; align-items: center; }
+
+/* Tlačidlo rozbalenia */
+.expand-btn {
+    background: transparent; border: none; cursor: pointer;
+    color: #94a3b8; padding: 4px; border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+}
+.expand-btn:hover { background: rgba(0,0,0,0.05); color: #0f172a; }
+
+/* Obsah */
+.node-content {
+    /* Skryté v zbalenom stave ak nie je popis, rieši to React render */
+}
+
+.node-description {
+    padding: 12px;
+    font-size: 0.85rem;
+    color: #64748b;
+    line-height: 1.4;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+/* Zoznam akcií */
+.node-actions-list {
+    padding: 8px 12px;
+    background: #fff;
+    border-radius: 0 0 12px 12px;
+}
+
+.list-label {
+    font-size: 0.7rem; text-transform: uppercase; color: #94a3b8; 
+    font-weight: 700; margin-bottom: 6px; letter-spacing: 0.5px;
+}
+
+.action-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 0;
+    font-family: 'Consolas', monospace;
+    font-size: 0.8rem;
+    color: #334155;
+    border-bottom: 1px dashed #f1f5f9;
+}
+.action-item:last-child { border-bottom: none; }
+.action-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Handles */
+.node-handle { width: 10px; height: 10px; border: 2px solid white; }
+.node-handle.target { background: #64748b; top: -5px; }
+.node-handle.source { background: #6366f1; bottom: -5px; }
