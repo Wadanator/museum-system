@@ -1,31 +1,40 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import ReactFlow, { 
     Background, 
     Controls, 
     useNodesState, 
     useEdgesState,
-    MarkerType
+    MarkerType,
+    Panel
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import CustomFlowNode from './CustomFlowNode';
+// Importujeme SmartEdge (uistite sa, že tento súbor existuje podľa predchádzajúceho kroku)
+import SmartEdge from './SmartEdge';
 
 const nodeTypes = {
     custom: CustomFlowNode,
 };
 
-// ARCHITECTURE FIX: Použitie CSS premenných namiesto hex kódov
-const FLOW_COLORS = {
-    mqtt: 'var(--primary)',
-    timeout: 'var(--warning)',
-    audio: 'var(--info)',
-    default: 'var(--text-muted)'
+// Registrácia nášho nového typu čiary
+const edgeTypes = {
+    smart: SmartEdge,
+};
+
+// Definícia farieb pre legendu a čiary
+const STYLES = {
+    default: { stroke: '#94a3b8', bg: '#f1f5f9', color: '#475569' },
+    mqtt:    { stroke: '#6366f1', bg: '#e0e7ff', color: '#4338ca' }, // Indigo
+    timeout: { stroke: '#f59e0b', bg: '#fffbeb', color: '#b45309' }, // Amber
+    audio:   { stroke: '#06b6d4', bg: '#ecfeff', color: '#0e7490' }, // Cyan
+    video:   { stroke: '#ec4899', bg: '#fce7f3', color: '#be185d' }, // Pink
 };
 
 export default function SceneVisualizer({ data }) {
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
-    useEffect(() => {
+    const calculateLayout = useCallback(() => {
         if (!data || !data.states) {
             setNodes([]);
             setEdges([]);
@@ -34,37 +43,39 @@ export default function SceneVisualizer({ data }) {
 
         const newNodes = [];
         const newEdges = [];
-        
-        // --- 1. PRÍPRAVA DÁT ---
         const stateKeys = Object.keys(data.states);
         const startState = data.initialState || stateKeys[0];
-        let hasEnd = false;
 
+        // --- 1. PARSOVANIE AKCIÍ PRE NODE ---
         const parseActions = (stateData) => {
             const list = [];
+            // On Enter
             if (stateData.onEnter) {
                 stateData.onEnter.forEach(a => {
                     let val = a.action;
-                    if (a.action === 'mqtt') val = `${a.topic} -> ${a.message}`;
-                    if (a.action === 'audio' || a.action === 'video') val = a.message;
+                    if (a.action === 'mqtt') val = `${a.topic} ➔ ${a.message}`;
+                    if (a.action === 'audio') val = `🎵 ${a.message}`;
+                    if (a.action === 'video') val = `🎬 ${a.message}`;
                     list.push({ type: a.action, val });
                 });
             }
+            // Timeline
             if (stateData.timeline) {
                 stateData.timeline.forEach(t => {
-                     list.push({ type: 'clock', val: `Wait ${t.at}s: ${t.action}` });
+                     let desc = t.action;
+                     if (t.action === 'mqtt') desc = `${t.topic} ➔ ${t.message}`;
+                     else if (t.action === 'audio') desc = `Audio: ${t.message}`;
+                     list.push({ type: 'clock', val: `+${t.at}s: ${desc}` });
                 });
             }
             return list;
         };
 
-        // --- 2. VÝPOČET LAYOUTU ---
+        // --- 2. VÝPOČET LEVELOV (BFS) ---
         const levels = {};
         const visited = new Set();
         const queue = [{ id: startState, level: 0 }];
-        
-        stateKeys.forEach(k => visited.add(k));
-        visited.clear();
+        let maxDepth = 0;
 
         while (queue.length > 0) {
             const { id, level } = queue.shift();
@@ -73,103 +84,126 @@ export default function SceneVisualizer({ data }) {
 
             if (!levels[level]) levels[level] = [];
             levels[level].push(id);
+            if (level > maxDepth) maxDepth = level;
 
             const state = data.states[id];
             if (state && state.transitions) {
                 state.transitions.forEach(t => {
-                    if (t.goto === 'END') {
-                        hasEnd = true;
-                    } else if (data.states[t.goto]) {
+                    if (t.goto !== 'END' && data.states[t.goto] && !visited.has(t.goto)) {
                         queue.push({ id: t.goto, level: level + 1 });
                     }
                 });
             }
         }
-
+        // Siroty
         stateKeys.forEach(key => {
             if (!visited.has(key)) {
-                const lastLevel = Math.max(...Object.keys(levels).map(Number), 0) + 1;
-                if (!levels[lastLevel]) levels[lastLevel] = [];
-                levels[lastLevel].push(key);
+                const orphanLevel = maxDepth + 1;
+                if (!levels[orphanLevel]) levels[orphanLevel] = [];
+                levels[orphanLevel].push(key);
             }
         });
 
         // --- 3. GENEROVANIE NODES ---
-        const NODE_WIDTH = 280;
-        
+        const NODE_WIDTH = 380; 
+        const LEVEL_HEIGHT = 350; 
+
         Object.entries(levels).forEach(([levelStr, stateIds]) => {
             const level = parseInt(levelStr);
-            const count = stateIds.length;
-            const totalWidth = count * NODE_WIDTH;
-            const startX = -(totalWidth / 2) + (NODE_WIDTH / 2);
+            const startX = -(stateIds.length * NODE_WIDTH / 2) + (NODE_WIDTH / 2);
 
             stateIds.forEach((stateId, index) => {
                 const stateData = data.states[stateId];
-                const isStart = stateId === startState;
-                
+                // Spočítame výstupy pre dynamické handles
+                const transCount = stateData.transitions ? stateData.transitions.length : 0;
+
                 newNodes.push({
                     id: stateId,
                     type: 'custom',
                     position: { 
                         x: startX + (index * NODE_WIDTH), 
-                        y: level * 250 + 50 
+                        y: level * LEVEL_HEIGHT + 50 
                     },
                     data: {
                         label: stateId,
-                        type: isStart ? 'start' : 'step',
+                        type: stateId === startState ? 'start' : 'step',
                         description: stateData.description,
-                        actions: parseActions(stateData)
+                        actions: parseActions(stateData),
+                        transitionCount: transCount 
                     }
                 });
             });
         });
 
+        // End Node
+        let hasEnd = false;
+        stateKeys.forEach(k => data.states[k]?.transitions?.forEach(t => { if(t.goto === 'END') hasEnd = true; }));
         if (hasEnd) {
-            const lastLevel = Math.max(...Object.keys(levels).map(Number), 0);
             newNodes.push({
                 id: 'END',
                 type: 'custom',
-                position: { x: 0, y: (lastLevel + 1) * 250 + 50 },
-                data: {
-                    label: 'KONIEC SCÉNY',
-                    type: 'end',
-                    description: 'Ukončenie behu scény'
-                }
+                position: { x: 0, y: (maxDepth + 1) * LEVEL_HEIGHT + 100 },
+                data: { label: 'KONIEC', type: 'end', transitionCount: 0 }
             });
         }
 
-        // --- 4. GENEROVANIE EDGES ---
+        // --- 4. GENEROVANIE EDGES (SMART) ---
         stateKeys.forEach(stateName => {
             const stateData = data.states[stateName];
             if (stateData.transitions) {
                 stateData.transitions.forEach((trans, idx) => {
                     const target = trans.goto;
                     
-                    let color = FLOW_COLORS.default;
+                    let styleConfig = STYLES.default;
                     let label = '';
-                    
+                    let animated = false;
+                    let strokeDasharray = '0';
+
                     if (trans.type === 'mqttMessage') { 
-                        color = FLOW_COLORS.mqtt; 
-                        label = trans.message || 'Button'; 
+                        styleConfig = STYLES.mqtt;
+                        const topic = trans.topic || 'mqtt';
+                        const msg = trans.message || '*';
+                        label = `📩 ${topic} ➔ ${msg}`; 
                     }
                     else if (trans.type === 'timeout') { 
-                        color = FLOW_COLORS.timeout; 
-                        label = `${trans.delay}s`; 
+                        styleConfig = STYLES.timeout;
+                        label = `⏱️ Po ${trans.delay}s`; 
+                        animated = true;
+                        strokeDasharray = '5 5';
                     }
                     else if (trans.type === 'audioEnd') { 
-                        color = FLOW_COLORS.audio; 
-                        label = 'Audio End'; 
+                        styleConfig = STYLES.audio;
+                        const audioAction = stateData.onEnter?.find(a => a.action === 'audio');
+                        const fileName = audioAction ? audioAction.message : '???';
+                        label = `🎵 Koniec: ${fileName}`; 
+                    }
+                    else if (trans.type === 'videoEnd') { 
+                        styleConfig = STYLES.video;
+                        label = `🎬 Video End`; 
                     }
 
                     newEdges.push({
                         id: `e-${stateName}-${target}-${idx}`,
                         source: stateName,
                         target: target,
-                        type: 'smoothstep',
+                        sourceHandle: `handle-${idx}`, // Pripájame na konkrétny handle
+                        type: 'smart',                 // Používame našu novú Smart čiaru
                         label: label,
-                        style: { stroke: color, strokeWidth: 2 },
-                        labelStyle: { fill: color, fontWeight: 700, fontSize: 11 },
-                        markerEnd: { type: MarkerType.ArrowClosed, color: color }
+                        animated: animated,
+                        style: { 
+                            stroke: styleConfig.stroke, 
+                            strokeWidth: 2,
+                            strokeDasharray: strokeDasharray
+                        },
+                        // SmartEdge props:
+                        labelStyle: { 
+                            color: styleConfig.color, // Farba textu
+                        },
+                        labelBgStyle: { 
+                            fill: styleConfig.bg,     // Farba bubliny
+                            stroke: styleConfig.stroke,
+                        },
+                        markerEnd: { type: MarkerType.ArrowClosed, color: styleConfig.stroke }
                     });
                 });
             }
@@ -177,8 +211,11 @@ export default function SceneVisualizer({ data }) {
 
         setNodes(newNodes);
         setEdges(newEdges);
-
     }, [data, setNodes, setEdges]);
+
+    useEffect(() => {
+        calculateLayout();
+    }, [calculateLayout]);
 
     return (
         <ReactFlow
@@ -187,12 +224,46 @@ export default function SceneVisualizer({ data }) {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes} 
             fitView
-            attributionPosition="bottom-right"
             minZoom={0.1}
+            maxZoom={1.5}
         >
-            <Background color="var(--border-color)" gap={20} />
-            <Controls />
+            <Background color="var(--border-color)" gap={30} size={1} />
+            <Controls showInteractive={false} />
+            
+            {/* LEGENDA - Presunutá do Top Right */}
+            <Panel position="top-right" style={{ 
+                background: 'var(--bg-card)', 
+                padding: '12px 16px', 
+                borderRadius: '8px', 
+                border: '1px solid var(--border-color)',
+                fontSize: '0.8rem', 
+                color: 'var(--text-secondary)',
+                boxShadow: 'var(--shadow-md)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px'
+            }}>
+                <div style={{ fontWeight: 'bold', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>
+                    Legenda prechodov:
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: STYLES.mqtt.stroke }}></div>
+                    <span>MQTT / Tlačidlo</span>
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: STYLES.timeout.stroke, border: '1px dashed #fff' }}></div>
+                    <span>Časovač (Automaticky)</span>
+                </div>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: STYLES.audio.stroke }}></div>
+                    <span>Audio / Video koniec</span>
+                </div>
+            </Panel>
         </ReactFlow>
     );
 }
