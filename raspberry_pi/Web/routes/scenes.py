@@ -2,12 +2,10 @@
 """API routes for Scene Management and Execution."""
 
 import json
-import threading
-from pathlib import Path
 from flask import Blueprint, jsonify, request
 from werkzeug.utils import secure_filename
 from ..auth import requires_auth
-from ..utils.helpers import get_scenes_path, get_scene_path, get_commands_path
+from ..utils.helpers import get_scenes_path, get_scene_path
 
 from .status import _get_current_status_data 
 
@@ -80,70 +78,28 @@ def setup_scenes_routes(dashboard):
     @scenes_bp.route('/run_scene/<scene_name>', methods=['POST'])
     @requires_auth
     def run_scene(scene_name):
-        """Start a scene in a separate thread if none is currently running."""
-        try:
-            with controller.scene_lock:
-                if controller.scene_running:
-                    return jsonify({'error': 'Scene already running'}), 400
-                
-                scene_path = get_scene_path(controller, scene_name)
-                if not scene_path.exists():
-                    return jsonify({'error': 'Scene not found'}), 404
-                
-                controller.scene_running = True
-                dashboard.log.info(f"Web dashboard starting scene: {scene_name}")
+        """Start a scene utilizing the main controller logic."""
+        if not scene_name.endswith('.json'):
+            scene_name += '.json'
 
+        if controller.scene_running:
+             return jsonify({'error': 'Scene already running'}), 400
+
+        # Spustenie scény cez centrálnu logiku v main.py
+        success = controller.start_scene_by_name(scene_name)
+
+        if success:
             dashboard.socketio.emit('status_update', _get_current_status_data(controller))
-
-            def run_scene_thread():
-                """Thread function to execute a scene."""
-                
-                def scene_progress_emitter(progress_data):
-                    progress_data['scene_running'] = getattr(controller, 'scene_running', False) 
-                    dashboard.socketio.emit('scene_progress_update', progress_data)
-                    
-                try:
-                    if hasattr(controller, 'scene_parser') and controller.scene_parser:
-                        
-                        if hasattr(controller.scene_parser, 'set_progress_emitter'):
-                            controller.scene_parser.set_progress_emitter(scene_progress_emitter)
-
-                        if controller.scene_parser.load_scene(str(scene_path)):
-                            controller.current_scene_name = scene_path.name
-                            if hasattr(controller, 'run_scene'):
-                                controller.run_scene()
-
-                            dashboard.socketio.emit('stats_update', dashboard.stats)
-                        else:
-                            dashboard.log.error("Scene parser failed to load scene")
-                    else:
-                        dashboard.log.error("Scene parser not available on controller")
-                except Exception as e:
-                    dashboard.log.error(f"Error running scene {scene_name}: {e}")
-                finally:
-                    controller.scene_running = False
-                    dashboard.socketio.emit('status_update', _get_current_status_data(controller))
-                    
-                    if hasattr(controller.scene_parser, 'set_progress_emitter'):
-                        controller.scene_parser.set_progress_emitter(None)
-
-            thread = threading.Thread(target=run_scene_thread, daemon=True)
-            thread.start()
             return jsonify({'success': True, 'message': f'Scene {scene_name} started'})
-        except Exception as e:
-            controller.scene_running = False
-            dashboard.socketio.emit('status_update', _get_current_status_data(controller))
-            return jsonify({'error': f"Error starting scene {scene_name}: {e}"}), 500
+        else:
+            return jsonify({'error': 'Failed to start scene'}), 500
 
     @scenes_bp.route('/stop_scene', methods=['POST'])
     @requires_auth
     def stop_scene():
         """Zastaví prebiehajúcu scénu a vyčistí stav systému."""
         try:
-            # FIX: Odstránená prísna kontrola, aby STOP fungoval vždy ako "panic button"
             dashboard.log.info("Web dashboard requested GLOBAL STOP")
-
-            # Voláme centrálnu stop metódu v MuseumController (v main.py)
             controller.stop_scene()
 
         except Exception as e:
@@ -151,11 +107,9 @@ def setup_scenes_routes(dashboard):
             return jsonify({'error': str(e)}), 500
             
         finally:
-            # Vyčistenie emittera
             if hasattr(controller, 'scene_parser') and hasattr(controller.scene_parser, 'set_progress_emitter'):
                 controller.scene_parser.set_progress_emitter(None)
             
-            # Odoslanie statusu klientom
             dashboard.socketio.emit('status_update', _get_current_status_data(controller))
             dashboard.log.info("Scene stop sequence finished.")
             

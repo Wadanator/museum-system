@@ -1,5 +1,5 @@
 {
-  "description": "Test rel\u00e9 (Dymostroje, Ohe\u0148, Svetl\u00e1) a m\u00e9di\u00ed pod\u013ea aktu\u00e1lneho HW",
+  "description": "Komplexn\u00fd test: Audio -> Video (End) -> Lights -> Motors (L/R/Speed). NO SMOKE.",
   "globalEvents": [
     {
       "goto": "END",
@@ -13,74 +13,141 @@
       "type": "timeout"
     }
   ],
-  "initialState": "intro",
-  "sceneId": "relays_media_stress_test_v4",
+  "initialState": "check_audio_start",
+  "sceneId": "full_system_check_v1",
   "states": {
-    "final_stop": {
-      "description": "Hromadn\u00e9 vypnutie a koniec",
-      "onEnter": [
-        {
-          "action": "mqtt",
-          "message": "TRUE",
-          "topic": "room1/STOP"
-        }
-      ],
-      "timeline": [
-        {
-          "action": "audio",
-          "at": 1,
-          "message": "STOP"
-        },
-        {
-          "action": "video",
-          "at": 1.5,
-          "message": "STOP_VIDEO"
-        }
-      ],
-      "transitions": [
-        {
-          "delay": 4,
-          "goto": "END",
-          "type": "timeout"
-        }
-      ]
-    },
-    "intro": {
-      "description": "\u0160tart Audia, zapnutie Oh\u0148a a Svetla 1",
+    "check_audio_start": {
+      "description": "1. AUDIO TEST: Pust\u00ed welcome.mp3 a z\u00e1kladn\u00e9 svetl\u00e1.",
       "onEnter": [
         {
           "action": "audio",
-          "message": "PLAY:welcome.mp3:0.8"
-        },
-        {
-          "action": "mqtt",
-          "message": "ON",
-          "topic": "room1/light/fire"
+          "message": "PLAY:welcome.mp3:1.0"
         },
         {
           "action": "mqtt",
           "message": "ON",
           "topic": "room1/light/1"
+        },
+        {
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/2"
+        },
+        {
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/fire"
         }
       ],
       "transitions": [
         {
           "delay": 5,
-          "goto": "smoke_show",
+          "goto": "check_video_lights",
           "type": "timeout"
         }
       ]
     },
-    "light_sequence": {
-      "description": "Postupn\u00e9 sp\u00ednanie svetiel 3, 4, 5",
+    "check_motors_left": {
+      "description": "3. MOTOR L: Rozbeh motorov DO\u013dAVA (Ramp 3s na 100%). Bud\u00edky ON.",
       "onEnter": [
         {
           "action": "mqtt",
+          "message": "ON:50:L:3000",
+          "topic": "room1/motor1"
+        },
+        {
+          "action": "mqtt",
+          "message": "ON:50:L:3000",
+          "topic": "room1/motor2"
+        },
+        {
+          "action": "mqtt",
           "message": "ON",
-          "topic": "room1/light/3"
+          "topic": "room1/effects/group1"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/fire"
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 10,
+          "goto": "check_motors_right",
+          "type": "timeout"
+        }
+      ]
+    },
+    "check_motors_right": {
+      "description": "4. MOTOR R: Zmena smeru DOPRAVA a n\u00e1sledn\u00e9 spomalenie.",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "message": "ON:40:R:2000",
+          "topic": "room1/motor1"
+        },
+        {
+          "action": "mqtt",
+          "message": "ON:50:R:2000",
+          "topic": "room1/motor2"
         }
       ],
       "timeline": [
+        {
+          "actions": [
+            {
+              "action": "mqtt",
+              "message": "SPEED:30",
+              "topic": "room1/motor1"
+            },
+            {
+              "action": "mqtt",
+              "message": "SPEED:35",
+              "topic": "room1/motor2"
+            },
+            {
+              "action": "mqtt",
+              "message": "OFF",
+              "topic": "room1/light/5"
+            }
+          ],
+          "at": 5
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 10,
+          "goto": "cleanup_and_end",
+          "type": "timeout"
+        }
+      ]
+    },
+    "check_video_lights": {
+      "description": "2. VIDEO & LIGHTS: Pust\u00ed ghost2.mp4. Po\u010das videa testuje zvy\u0161n\u00e9 svetl\u00e1.",
+      "onEnter": [
+        {
+          "action": "video",
+          "message": "PLAY_VIDEO:ghost2.mp4"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/1"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/2"
+        }
+      ],
+      "timeline": [
+        {
+          "action": "mqtt",
+          "at": 1,
+          "message": "ON",
+          "topic": "room1/light/3"
+        },
         {
           "action": "mqtt",
           "at": 2,
@@ -89,66 +156,96 @@
         },
         {
           "action": "mqtt",
-          "at": 4,
+          "at": 3,
           "message": "ON",
           "topic": "room1/light/5"
         },
         {
           "action": "mqtt",
-          "at": 6,
+          "at": 4,
           "message": "OFF",
-          "topic": "room1/light/fire"
+          "topic": "room1/light/3"
+        },
+        {
+          "action": "mqtt",
+          "at": 5,
+          "message": "OFF",
+          "topic": "room1/light/4"
         }
       ],
       "transitions": [
         {
-          "delay": 10,
-          "goto": "final_stop",
-          "type": "timeout"
+          "goto": "check_motors_left",
+          "target": "ghost2.mp4",
+          "type": "videoEnd"
         }
       ]
     },
-    "smoke_show": {
-      "description": "\u0160tart Videa a test oboch dymostrojov",
+    "cleanup_and_end": {
+      "description": "5. CLEANUP: V\u0161etko vypn\u00fa\u0165 a koniec.",
       "onEnter": [
         {
-          "action": "video",
-          "message": "PLAY_VIDEO:ghost2.mp4"
-        },
-        {
           "action": "mqtt",
-          "message": "ON",
-          "topic": "room1/effect/smoke_ON"
-        }
-      ],
-      "timeline": [
-        {
-          "action": "mqtt",
-          "at": 2.5,
-          "message": "ON",
-          "topic": "room1/effect/smoke"
-        },
-        {
-          "action": "mqtt",
-          "at": 6,
           "message": "OFF",
-          "topic": "room1/effect/smoke_ON"
+          "topic": "room1/motor1"
         },
         {
           "action": "mqtt",
-          "at": 8,
-          "message": "ON",
+          "message": "OFF",
+          "topic": "room1/motor2"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/1"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
           "topic": "room1/light/2"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/3"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/4"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/5"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/fire"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/effects/group1"
+        },
+        {
+          "action": "video",
+          "message": "STOP_VIDEO"
+        },
+        {
+          "action": "audio",
+          "message": "STOP"
         }
       ],
       "transitions": [
         {
-          "delay": 15,
-          "goto": "light_sequence",
+          "delay": 1,
+          "goto": "END",
           "type": "timeout"
         }
       ]
     }
   },
-  "version": "2.1"
+  "version": "2.4"
 }

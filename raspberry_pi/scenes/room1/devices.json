@@ -3,7 +3,7 @@
     {
       "id": "Kolesa",
       "name": "Kolesa",
-      "speed": 55,
+      "speed": 75,
       "topic": "room1/motor1"
     },
     {
@@ -67,6 +67,12 @@
       "id": "Blikanie Budiky",
       "name": "Blikanie Budiky",
       "topic": "room1/effects/group1"
+    },
+    {
+      "icon": "\ud83d\udca1",
+      "id": "Blikanie 1 Ziarovka",
+      "name": "Blikanie 1 Ziarovka",
+      "topic": "room1/effects/alone"
     }
   ]
 }

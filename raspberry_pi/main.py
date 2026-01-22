@@ -48,6 +48,8 @@ class MuseumController:
         self.shutdown_requested = False
         self._cleaned_up = False
         
+        self.start_time = time.monotonic()
+
         # Setup signal handlers for graceful shutdown
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
@@ -230,9 +232,26 @@ class MuseumController:
         """Worker thread function containing the core logic to load and run a scene."""
         scene_path = os.path.join(self.scenes_dir, self.room_id, scene_filename)
         
-        # Store current scene name for statistics
         self.current_scene_name = scene_filename
         
+        def scene_progress_emitter(progress_data):
+            # 1. Pridáme info o behu scény
+            progress_data['scene_running'] = self.scene_running
+            # 2. Pre istotu nastavíme viditeľnosť
+            progress_data['visible'] = self.scene_running
+            
+            if 'progress' in progress_data and isinstance(progress_data['progress'], float):
+                progress_data['progress'] = int(progress_data['progress'] * 100)
+
+            # 4. Odoslanie cez socket
+            if self.web_dashboard and self.web_dashboard.socketio:
+                self.web_dashboard.socketio.emit('scene_progress_update', progress_data)
+
+        if self.scene_parser and hasattr(self.scene_parser, 'set_progress_emitter'):
+            self.scene_parser.set_progress_emitter(scene_progress_emitter)
+        else:
+            log.warning("SceneParser does not support progress emitting!")
+
         try:
             log.debug(f"Attempting to load scene from: {scene_path}")
             
@@ -253,7 +272,15 @@ class MuseumController:
                 except Exception as e:
                     log.error(f"An error occurred during scene execution: {e}")
                 finally:
-                    self.scene_running = False
+                    # 1. Vypneme video
+                    if self.video_handler:
+                        self.video_handler.stop_video()
+
+                    if self.scene_running:
+                        self.broadcast_stop()
+                        self.scene_running = False 
+
+                    self._update_scene_statistics()
             else:
                 log.error(f"Failed to load scene: {scene_filename}")
                 self.scene_running = False
@@ -261,6 +288,11 @@ class MuseumController:
         except Exception as e:
             log.error(f"Critical error in scene thread: {e}")
             self.scene_running = False
+            
+        finally:
+            # Upratanie emittera po skončení vlákna
+            if self.scene_parser and hasattr(self.scene_parser, 'set_progress_emitter'):
+                self.scene_parser.set_progress_emitter(None)
 
     def stop_scene(self):
         """Zastaví prebiehajúcu scénu a vypne všetky externé zariadenia cez MQTT."""
@@ -441,6 +473,14 @@ class MuseumController:
         if self._cleaned_up:
             return
         
+        if self.web_dashboard:
+            try:
+                self.web_dashboard.update_stats()
+                self.web_dashboard.save_stats()
+                log.info("Dashboard stats saved.")
+            except Exception as e:
+                log.error(f"Failed to save stats during cleanup: {e}")
+
         log.info("Initiating cleanup...")
         self._cleaned_up = True
         

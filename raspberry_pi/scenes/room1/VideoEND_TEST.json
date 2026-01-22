@@ -1,0 +1,40 @@
+{
+  "description": "Test VideoEnd pre ghost2.mp4 (Opraveny prikaz)",
+  "initialState": "pusti_ghost",
+  "sceneId": "test_ghost_video_final",
+  "states": {
+    "KONIEC_TESTU": {
+      "description": "Sem sa systém dostane IBA ak ghost2.mp4 reálne skončí",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "message": "TEST_SUCCESS_GHOST_FINISHED",
+          "topic": "room1/system"
+        }
+      ],
+      "transitions": [
+        {
+          "goto": "END",
+          "type": "always"
+        }
+      ]
+    },
+    "pusti_ghost": {
+      "description": "Prehráva ghost2.mp4 a čaká na koniec",
+      "onEnter": [
+        {
+          "action": "video",
+          "message": "PLAY_VIDEO:ghost2.mp4"
+        }
+      ],
+      "transitions": [
+        {
+          "goto": "KONIEC_TESTU",
+          "target": "ghost2.mp4",
+          "type": "videoEnd"
+        }
+      ]
+    }
+  },
+  "version": "2.0"
+}
