@@ -29,13 +29,6 @@ class SceneParser:
         
         self.scene_data = None
 
-    # --- TOTO JE TÁ KĽÚČOVÁ OPRAVA ---
-    def set_progress_emitter(self, emitter_func):
-        """Pass the emitter down to the StateMachine."""
-        if self.state_machine:
-            self.state_machine.set_progress_emitter(emitter_func)
-    # ---------------------------------
-
     def _on_audio_ended(self, filename):
         self.logger.debug(f"Audio finished callback received: {filename}")
         self.transition_manager.register_audio_end(filename)
@@ -129,8 +122,6 @@ class SceneParser:
         if new_state_data:
             self.state_executor.execute_onEnter(new_state_data)
 
-    def get_progress_info(self):
-        return self.state_machine.get_progress_info()
     
     def cleanup(self):
         pass

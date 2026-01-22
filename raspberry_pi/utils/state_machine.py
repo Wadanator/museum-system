@@ -21,11 +21,8 @@ class StateMachine:
         self.scene_start_time = None
         self.state_history = []
         self.total_states = 0
-        
-        self.progress_emitter = None
+    
 
-    def set_progress_emitter(self, emitter_func):
-        self.progress_emitter = emitter_func
 
     def load_scene(self, scene_file):
         try:
@@ -88,7 +85,6 @@ class StateMachine:
         if state_name == "END":
             self.current_state = "END"
             self.state_start_time = None
-            self._emit_progress()
             return True
         
         if state_name not in self.states:
@@ -102,7 +98,6 @@ class StateMachine:
         self.state_start_time = time.time()
         
         self.logger.debug(f"State changed -> {state_name}")
-        self._emit_progress()
         return True
     
     def get_global_events(self):
@@ -126,23 +121,3 @@ class StateMachine:
         self.state_start_time = None
         self.scene_start_time = None
         self.state_history = []
-        self.progress_emitter = None 
-
-    def _emit_progress(self):
-        if self.progress_emitter:
-            self.progress_emitter(self.get_progress_info())
-
-    def get_progress_info(self):
-        total_definable_states = len([k for k in self.states.keys() if k != "END"])
-        return {
-            "scene_running": not self.is_finished(),
-            "mode": "state_machine",
-            "scene_id": self.scene_id,
-            "current_state": self.current_state,
-            "state_description": self.states.get(self.current_state, {}).get("description", "") if self.current_state != "END" else "Finished",
-            "states_completed": len(self.state_history),
-            "total_states": total_definable_states,
-            "state_elapsed": round(self.get_state_elapsed_time(), 1),
-            "scene_elapsed": round(self.get_scene_elapsed_time(), 1),
-            "progress": min(1.0, len(self.state_history) / max(total_definable_states, 1)),
-        }

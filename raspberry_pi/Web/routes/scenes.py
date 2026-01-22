@@ -107,8 +107,6 @@ def setup_scenes_routes(dashboard):
             return jsonify({'error': str(e)}), 500
             
         finally:
-            if hasattr(controller, 'scene_parser') and hasattr(controller.scene_parser, 'set_progress_emitter'):
-                controller.scene_parser.set_progress_emitter(None)
             
             dashboard.socketio.emit('status_update', _get_current_status_data(controller))
             dashboard.log.info("Scene stop sequence finished.")
