@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-State Executor - Vykonáva akcie v stavoch
+State Executor - Vykonáva akcie v stavoch (Refactored for Expandability)
 """
 from utils.logging_setup import get_logger
 
@@ -13,6 +13,15 @@ class StateExecutor:
         
         # Tracking
         self.executed_timeline_actions = set()
+        
+        # --- KROK 1: Registrácia Handlerov ---
+        # Tu definujeme, ktorá akcia ("action": "typ") volá ktorú funkciu.
+        # Pre pridanie nového typu (napr. "lights") stačí pridať riadok sem.
+        self.action_handlers = {
+            "mqtt": self._execute_mqtt,
+            "audio": self._execute_audio,
+            "video": self._execute_video
+        }
         
     def execute_onEnter(self, state_data):
         """Vykoná onEnter akcie (okamžite pri vstupe do stavu)"""
@@ -74,25 +83,28 @@ class StateExecutor:
         self.executed_timeline_actions.clear()
     
     def _execute_action(self, action):
-        """Vykoná jednu akciu"""
+        """Vykoná jednu akciu dynamicky podľa typu"""
         if not isinstance(action, dict):
             self.logger.error(f"Action must be a dict: {action}")
             return
 
         action_type = action.get("action")
-
         if not action_type:
             self.logger.error(f"Action missing 'action' type: {action}")
             return
 
-        if action_type == "mqtt":
-            self._execute_mqtt(action)
-        elif action_type == "audio":
-            self._execute_audio(action)
-        elif action_type == "video":
-            self._execute_video(action)
+        # --- KROK 1: Dynamické volanie ---
+        handler = self.action_handlers.get(action_type)
+        
+        if handler:
+            try:
+                handler(action)
+            except Exception as e:
+                self.logger.error(f"Error executing action '{action_type}': {e}")
         else:
             self.logger.warning(f"Unknown action type: {action_type}")
+
+    # --- Konkrétne implementácie ---
 
     def _execute_mqtt(self, action):
         """Pošle MQTT správu"""

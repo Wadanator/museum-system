@@ -14,29 +14,15 @@ if script_dir not in sys.path:
 
 from utils.config_manager import ConfigManager
 from utils.logging_setup import setup_logging_from_config, get_logger
+from utils.service_container import ServiceContainer
+from utils.scene_parser import SceneParser
+from Web import start_web_dashboard
 
 # Initialize configuration and logging
 config_manager = ConfigManager()
 logging_config = config_manager.get_logging_config()
 log = setup_logging_from_config(logging_config)
 log = get_logger('main')
-
-# Import core system modules
-try:
-    from utils.mqtt.mqtt_client import MQTTClient
-    from utils.mqtt.mqtt_message_handler import MQTTMessageHandler
-    from utils.mqtt.mqtt_feedback_tracker import MQTTFeedbackTracker
-    from utils.mqtt.mqtt_device_registry import MQTTDeviceRegistry
-    from utils.scene_parser import SceneParser
-    from utils.audio_handler import AudioHandler
-    from utils.video_handler import VideoHandler
-    from utils.system_monitor import SystemMonitor
-    from utils.button_handler import ButtonHandler
-    from Web import start_web_dashboard
-    log.debug("Core modules imported successfully")
-except ImportError as e:
-    log.critical(f"Failed to import core modules: {e}")
-    sys.exit(1)
 
 class MuseumController:
     """Main controller for the museum system, managing all components and operations."""
@@ -66,111 +52,28 @@ class MuseumController:
         
         # Scene execution state
         self.scene_running = False
-        self.current_scene_name = None  # Track current scene name for stats
+        self.current_scene_name = None
         self.scene_lock = threading.Lock()
         
-        # Initialize components
+        # --- KROK 2: Inicializácia cez Service Container ---
         log.info(f"Initializing Museum Controller for {self.room_id}")
-        self._initialize_components()
+        
+        self.services = ServiceContainer(self.config, self.room_id, log)
+        self.services.init_all_services()
+        
+        # Vytiahneme si referencie pre ľahší prístup v kóde
+        self.audio_handler = self.services.audio_handler
+        self.video_handler = self.services.video_handler
+        self.mqtt_client = self.services.mqtt_client
+        self.mqtt_message_handler = self.services.mqtt_message_handler
+        self.mqtt_device_registry = self.services.mqtt_device_registry
+        self.mqtt_feedback_tracker = self.services.mqtt_feedback_tracker
+        self.system_monitor = self.services.system_monitor
+        self.button_handler = self.services.button_handler
 
-    def _initialize_components(self):
-        """Initialize all system components in the correct order."""
-        # Audio Handler
-        try:
-            self.audio_handler = AudioHandler(
-                self.config['audio_dir'],
-                max_init_attempts=self.config.get('audio_max_init_attempts', 3),
-                init_retry_delay=self.config.get('audio_init_retry_delay', 5)
-            )
-        except Exception as e:
-            log.warning(f"Audio handler initialization failed: {e}")
-            self.audio_handler = None
-        
-        # Video Handler
-        try:
-            self.video_handler = VideoHandler(
-                video_dir=self.config['video_dir'],
-                ipc_socket=self.config['ipc_socket'],
-                iddle_image=self.config['iddle_image'],
-                health_check_interval=self.config['video_health_check_interval'],
-                max_restart_attempts=self.config['video_max_restart_attempts'],
-                restart_cooldown=self.config['video_restart_cooldown']
-            )
-        except Exception as e:
-            log.warning(f"Video handler initialization failed: {e}")
-            self.video_handler = None
-        
-        # MQTT Components
-        self.mqtt_device_registry = MQTTDeviceRegistry(
-            device_timeout=int(self.config.get('device_timeout', 180))
-        )
-        
-        self.mqtt_feedback_tracker = MQTTFeedbackTracker(
-            feedback_timeout=float(self.config.get('feedback_timeout', 2))
-        )
-        
-        # Create message handler
-        self.mqtt_message_handler = MQTTMessageHandler()
-        self.mqtt_message_handler.set_handlers(
-            device_registry=self.mqtt_device_registry,
-            feedback_tracker=self.mqtt_feedback_tracker,
-            button_callback=self.on_button_press,
-            named_scene_callback=self.start_scene_by_name
-        )
-        
-        self.mqtt_client = MQTTClient(
-            broker_host=self.config['broker_ip'],
-            broker_port=int(self.config['port']),
-            client_id=f"{self.room_id}_controller",
-            room_id=self.room_id,
-            retry_attempts=self.config.get('mqtt_retry_attempts', 3),
-            retry_sleep=self.config.get('mqtt_retry_sleep', 2),
-            connect_timeout=self.config.get('mqtt_connect_timeout', 10),
-            reconnect_timeout=self.config.get('mqtt_reconnect_timeout', 5),
-            reconnect_sleep=self.config.get('mqtt_reconnect_sleep', 0.5),
-            check_interval=self.config.get('mqtt_check_interval', 60)
-        )
-        
-        self.mqtt_client.set_handlers(
-            self.mqtt_message_handler,
-            self.mqtt_feedback_tracker,
-            self.mqtt_device_registry
-        )
-        
-        self.mqtt_client.connection_lost_callback = self._on_mqtt_connection_lost
-        self.mqtt_client.connection_restored_callback = self._on_mqtt_connection_restored
-        
-        # Scene Parser
-        self.scene_parser = SceneParser(
-            mqtt_client=self.mqtt_client,
-            audio_handler=self.audio_handler,
-            video_handler=self.video_handler
-        )
-        
-        # Connect scene parser to MQTT message handler
-        self.mqtt_message_handler.scene_parser = self.scene_parser
-        log.debug("Scene parser connected to MQTT message handler for transitions")
-        
-        # System Monitor
-        self.system_monitor = SystemMonitor(
-            health_check_interval=self.config.get('health_check_interval', 120)
-        )
-        self.system_monitor.log_startup_info(
-            self.room_id, 
-            self.config['broker_ip'], 
-            self.config['button_pin']
-        )
-        
-        # Button Handler
-        try:
-            self.button_handler = ButtonHandler(
-                pin=self.config['button_pin'],
-                debounce_time=self.config.get('debounce_time', 300)
-            )
-            self.button_handler.set_callback(self.on_button_press)
-        except Exception as e:
-            log.warning(f"Button handler initialization failed: {e}")
-            self.button_handler = None
+        # --- Wiring (Prepojenie Callbackov) ---
+        # Teraz, keď máme služby aj controller, prepojíme ich logiku
+        self._wire_dependencies()
         
         # Web Dashboard
         self.web_dashboard = None
@@ -180,6 +83,40 @@ class MuseumController:
                 self.web_dashboard = start_web_dashboard_func(self, port=self.web_dashboard_port)
             except Exception as e:
                 log.warning(f"Web dashboard failed to start: {e}")
+
+    def _wire_dependencies(self):
+        """Prepojenie callbackov a závislostí medzi službami a controllerom."""
+        
+        # 1. MQTT Callbacks
+        if self.mqtt_message_handler:
+            self.mqtt_message_handler.set_handlers(
+                device_registry=self.mqtt_device_registry,
+                feedback_tracker=self.mqtt_feedback_tracker,
+                button_callback=self.on_button_press,
+                named_scene_callback=self.start_scene_by_name
+            )
+        
+        # 2. MQTT Connection callbacks
+        if self.mqtt_client:
+            self.mqtt_client.connection_lost_callback = self._on_mqtt_connection_lost
+            self.mqtt_client.connection_restored_callback = self._on_mqtt_connection_restored
+            
+        # 3. Scene Parser
+        # SceneParser potrebuje prístup k službám
+        self.scene_parser = SceneParser(
+            mqtt_client=self.mqtt_client,
+            audio_handler=self.audio_handler,
+            video_handler=self.video_handler
+        )
+        
+        # Prepojenie Parser -> MQTT Handler
+        if self.mqtt_message_handler:
+            self.mqtt_message_handler.scene_parser = self.scene_parser
+            log.debug("Scene parser connected to MQTT message handler for transitions")
+            
+        # 4. Button Handler Callback
+        if self.button_handler:
+            self.button_handler.set_callback(self.on_button_press)
 
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals."""
@@ -192,7 +129,8 @@ class MuseumController:
         log.warning("MQTT connection lost - system will continue with limited functionality")
 
     def _on_mqtt_connection_restored(self):
-        self.system_monitor.send_ready_notification()
+        if self.system_monitor:
+            self.system_monitor.send_ready_notification()
         log.info(f"System ready - {self.room_id} operational")
 
     def on_button_press(self):
@@ -231,7 +169,6 @@ class MuseumController:
     def _run_scene_logic(self, scene_filename):
         """Worker thread function containing the core logic to load and run a scene."""
         scene_path = os.path.join(self.scenes_dir, self.room_id, scene_filename)
-        
         self.current_scene_name = scene_filename
 
         try:
@@ -275,17 +212,14 @@ class MuseumController:
         """Zastaví prebiehajúcu scénu a vypne všetky externé zariadenia cez MQTT."""
         log.info(f"Initiating GLOBAL STOP for {self.room_id}")
         
-        # 1. Nastavenie príznaku na zastavenie slučiek
         self.scene_running = False
         
-        # 2. Zastavenie Parseru (StateMachine)
         if self.scene_parser:
             try:
                 self.scene_parser.stop_scene()
             except Exception as e:
                 log.error(f"Error stopping parser: {e}")
 
-        # 3. Zastavenie lokálnych médií
         if self.audio_handler:
             try:
                 self.audio_handler.stop_audio()
@@ -298,7 +232,6 @@ class MuseumController:
             except Exception as e:
                 log.error(f"Error stopping video: {e}")
 
-        # 4. MQTT Broadcast STOP (Kľúčový FIX)
         self.broadcast_stop()
         return True
 
@@ -321,12 +254,12 @@ class MuseumController:
 
         log.debug("Starting state machine scene execution")
 
-        # 1. ZAPNUTIE TRACKINGU
+        # 1. Tracking ON
         if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
             if self.mqtt_client.feedback_tracker:
                 self.mqtt_client.feedback_tracker.enable_feedback_tracking()
 
-        # 2. ŠTART SCÉNY
+        # 2. Start
         if not self.scene_parser.start_scene():
             log.error("Failed to start scene state machine")
             if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
@@ -334,7 +267,7 @@ class MuseumController:
                     self.mqtt_client.feedback_tracker.disable_feedback_tracking()
             return
 
-        # 3. HLAVNÁ SLUČKA
+        # 3. Loop
         while not self.shutdown_requested:
             if not self.scene_running:
                 log.info("Scene execution was stopped externally.")
@@ -349,7 +282,7 @@ class MuseumController:
 
         log.info("Scene execution finished")
 
-        # 4. VYPNUTIE TRACKINGU
+        # 4. Tracking OFF & Cleanup
         if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
             if self.mqtt_client.feedback_tracker:
                 self.mqtt_client.feedback_tracker.disable_feedback_tracking()
@@ -357,9 +290,7 @@ class MuseumController:
         if self.video_handler:
             self.video_handler.stop_video()
 
-        # FIX: Aj po prirodzenom skončení scény pošleme STOP broadcast
         self.broadcast_stop()
-
         self._update_scene_statistics()
 
     def _update_scene_statistics(self):
@@ -367,23 +298,18 @@ class MuseumController:
         if not self.web_dashboard:
             return
         try:
-            # Use current_scene_name to update both total and specific stats
             if self.current_scene_name:
                 self.web_dashboard.update_scene_stats(self.current_scene_name)
                 self.web_dashboard.socketio.emit('stats_update', self.web_dashboard.stats)
             else:
                 log.warning("Cannot update scene stats: Unknown scene name")
-                # Fallback just in case
                 self.web_dashboard.stats['total_scenes_played'] += 1
                 self.web_dashboard.save_stats()
                 self.web_dashboard.socketio.emit('stats_update', self.web_dashboard.stats)
-
         except Exception as e:
             log.error(f"Error updating stats: {e}")
 
-    
     def system_restart(self):
-        """Reboots the entire Raspberry Pi."""
         log.warning("Initiating System Reboot...")
         try:
             subprocess.Popen(['sudo', 'reboot'], shell=False)
@@ -391,7 +317,6 @@ class MuseumController:
             log.error(f"Failed to initiate reboot: {e}")
 
     def system_shutdown(self):
-        """Shuts down the Raspberry Pi."""
         log.warning("Initiating System Shutdown...")
         try:
             subprocess.Popen(['sudo', 'shutdown', '-h', 'now'], shell=False)
@@ -399,7 +324,6 @@ class MuseumController:
             log.error(f"Failed to initiate shutdown: {e}")
 
     def service_restart(self):
-        """Restarts the Python service (by exiting, assuming systemd will restart it)."""
         log.warning("Initiating Service Restart (Exit)...")
         self.shutdown_requested = True
         sys.exit(0) 
@@ -408,6 +332,7 @@ class MuseumController:
         """Run the main application loop."""
         log.info("Starting Museum Controller")
         
+        # Check MQTT Connection (Moved here from ServiceContainer init to keep flow logic)
         if self.mqtt_client:
             if not self.mqtt_client.establish_initial_connection():
                 if self.shutdown_requested:
@@ -423,6 +348,7 @@ class MuseumController:
         try:
             while not self.shutdown_requested:      
                 current_time = time.time()
+                
                 if self.system_monitor:
                     self.system_monitor.perform_periodic_health_check(self.mqtt_client)
 
@@ -461,23 +387,13 @@ class MuseumController:
         log.info("Initiating cleanup...")
         self._cleaned_up = True
         
-        if self.mqtt_client:
-            self.mqtt_client.cleanup()
-        
-        components = [
-            (self.button_handler, "Button Handler"),
-            (self.audio_handler, "Audio Handler"),
-            (self.video_handler, "Video Handler"),
-            (self.scene_parser, "Scene Parser")
-        ]
-        
-        for component, name in components:
-            if component and hasattr(component, 'cleanup'):
-                try:
-                    component.cleanup()
-                except Exception as e:
-                    log.error(f"{name} cleanup error: {e}")
-        
+        # --- KROK 3: Unified Cleanup ---
+        if self.services:
+            self.services.cleanup()
+            
+        if self.scene_parser:
+             self.scene_parser.cleanup()
+
         log.info("Museum Controller stopped cleanly")
 
 def main():
