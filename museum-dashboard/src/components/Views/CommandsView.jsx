@@ -20,13 +20,16 @@ export default function CommandsView() {
         const toastId = toast.loading("Vypínam všetky zariadenia...");
 
         try {
-            const promises = [
-                ...motors.map(m => api.sendMqtt(m.topic, 0)),
-                ...relays.map(r => api.sendMqtt(r.topic, 0))
-            ];
+            const status = await api.getStatus(); 
+            const roomId = status.room_id;
 
-            await Promise.all(promises);
-            toast.success("Všetky zariadenia boli vypnuté.", { id: toastId });
+            if (!roomId) {
+                throw new Error("Nepodarilo sa zistiť Room ID zo servera.");
+            }
+
+            await api.sendMqtt(`${roomId}/STOP`, 'STOP');
+
+            toast.success(`Všetky zariadenia v ${roomId} boli vypnuté.`, { id: toastId });
         } catch (e) {
             console.error("Stop All Error:", e);
             toast.error("Chyba pri hromadnom vypínaní.", { id: toastId });
@@ -54,7 +57,6 @@ export default function CommandsView() {
                 subtitle="Manuálna kontrola motorov a efektov"
                 icon={Zap}
             >
-                {/* Opravené: Použitie CSS triedy namiesto inline štýlu */}
                 <div className="page-header-actions">
                     <Button 
                         variant="danger" 
