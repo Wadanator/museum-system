@@ -53,30 +53,34 @@
     background: var(--bg-card);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    width: 380px; /* Šírka prispôsobená pre dlhšie texty */
+    width: 380px; 
     box-shadow: var(--shadow-md);
     transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
-/* Hover efekt pre kartu */
 .custom-flow-node:hover {
     box-shadow: var(--shadow-xl);
     border-color: var(--primary);
     transform: translateY(-2px);
-    z-index: 100 !important; /* Vždy navrchu pri hoveri */
+    z-index: 100 !important;
 }
 
-/* Varianty pre Start a End */
+.custom-flow-node.selected {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary-hover);
+}
+
 .custom-flow-node.start-node { 
     border-top: 4px solid var(--success); 
 }
 
 .custom-flow-node.end-node { 
     border-top: 4px solid var(--danger); 
-    background: #fffafa; /* Jemný nádych červenej/bielej */
+    background: var(--danger-bg);
 }
 
 /* --- HEADER NODE-U --- */
@@ -90,15 +94,6 @@
     cursor: pointer;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     transition: background 0.2s;
-}
-
-.custom-flow-node:not(.expanded) .node-header {
-    border-bottom: 1px solid transparent; /* Aby pri zbalení nebola dvojitá čiara */
-    border-radius: var(--radius-lg);
-}
-
-.node-header:hover {
-    background: var(--bg-hover);
 }
 
 .node-title-group {
@@ -120,8 +115,23 @@
     flex-shrink: 0;
 }
 
-.start-node .node-icon-box { background: var(--success-bg); color: var(--success); border-color: transparent; }
-.end-node .node-icon-box { background: var(--danger-bg); color: var(--danger); border-color: transparent; }
+.start-node .node-icon-box { 
+    background: var(--success-bg); 
+    color: var(--success); 
+    border-color: transparent; 
+}
+
+.end-node .node-icon-box { 
+    background: var(--danger-bg); 
+    color: var(--danger); 
+    border-color: transparent; 
+}
+
+.node-title-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
 
 .node-label {
     font-weight: 700;
@@ -129,56 +139,55 @@
     color: var(--text-primary);
 }
 
+.node-meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.meta-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 8px;
+    background: var(--bg-main);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
 .expand-btn {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    border: none;
     background: transparent;
+    border: none;
     color: var(--text-muted);
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
-    cursor: pointer;
 }
 
-.expand-btn:hover {
-    background: var(--bg-active);
-    color: var(--text-primary);
-}
-
-/* --- ZBALENÝ STAV (PREVIEW DESCRIPTION) --- */
-.node-preview-bar.description-only {
+/* --- PREVIEW (keď je node zavretý) --- */
+.node-preview {
     padding: 10px 16px 14px 16px;
     background: var(--bg-card);
-    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-    /* border-top: 1px solid var(--border-color); */
-    min-height: 40px;
 }
 
-.preview-desc-row {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    width: 100%;
-}
-
-.desc-text {
+.preview-text {
     font-size: 0.85rem;
     color: var(--text-secondary);
     line-height: 1.5;
     font-style: italic;
-    
-    /* Oreže text po 3 riadkoch a pridá '...' */
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-/* --- ROZBALENÝ STAV (CONTENT) --- */
+/* --- CONTENT --- */
 .node-content {
     background: var(--bg-card);
     border-radius: 0 0 var(--radius-lg) var(--radius-lg);
@@ -191,33 +200,67 @@
     line-height: 1.5;
     background: var(--bg-main);
     border-bottom: 1px dashed var(--border-color);
-    font-style: italic;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
 }
 
-/* Sekcie (On Enter / Timeline) */
+.desc-icon {
+    color: var(--primary);
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+/* --- SEKCIE (PRIEČINKY) --- */
 .node-section {
+    border-top: 1px solid var(--border-color);
+}
+
+.section-header {
+    padding: 8px 16px;
+    background: var(--bg-hover);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.section-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.section-title {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-muted);
+    font-weight: 800;
+    flex: 1;
+}
+
+.section-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    background: var(--primary);
+    color: var(--text-white);
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 700;
+}
+
+.section-body {
     padding: 0;
 }
 
-.section-label {
-    padding: 8px 16px;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--text-muted);
-    font-weight: 700;
-    background: var(--bg-hover);
-    border-top: 1px solid var(--border-color);
-    border-bottom: 1px solid var(--border-color);
+/* --- ACTION ITEMS --- */
+.action-item {
     display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-/* Riadky s akciami */
-.action-row {
-    display: flex;
-    align-items: flex-start; /* Zarovnanie hore kvoli viacriadkovemu textu */
+    align-items: flex-start;
     gap: 12px;
     padding: 10px 16px;
     border-bottom: 1px solid var(--border-color);
@@ -225,47 +268,123 @@
     transition: background 0.1s;
 }
 
-.action-row:last-child {
+.action-item:last-child {
     border-bottom: none;
-    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
 }
 
-.action-row:hover {
+.action-item:hover {
     background: var(--bg-hover);
 }
 
-.action-icon {
-    color: var(--text-secondary);
-    margin-top: 3px; /* Opticke zarovnanie s prvým riadkom textu */
+.action-index {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: var(--primary-hover);
+    color: var(--text-white);
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
     flex-shrink: 0;
-    opacity: 0.8;
+    margin-top: 2px;
 }
 
-.action-text {
-    font-family: 'Consolas', 'Monaco', monospace; /* Monospace pre technické dáta */
-    font-size: 0.85rem;
+.action-code {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.8rem;
     color: var(--text-primary);
-    line-height: 1.5;
-    
-    /* Povoliť zalamovanie dlhých textov */
+    line-height: 1.4;
     white-space: pre-wrap;
-    word-break: break-word;
+    word-break: break-all;
 }
 
-/* Timeline špecifiká */
-.action-row.timeline {
-    background: #fffbeb; /* Veľmi svetlá žltá/amber */
-}
-/* Tmavý režim fallback (ak máte dark mode, toto by malo byť cez premenné) */
-@media (prefers-color-scheme: dark) {
-    .action-row.timeline { background: rgba(245, 158, 11, 0.1); }
+/* --- TIMELINE ŠPECIFICKÉ --- */
+.section-timeline .section-icon {
+    color: var(--warning);
 }
 
-.action-row.timeline .action-text {
-    color: #b45309; /* Tmavá amber farba */
+.section-timeline .section-count {
+    background: var(--warning);
 }
 
-/* --- HANDLES (Guličky na pripojenie) --- */
+.timeline-item {
+    background-color: var(--warning-bg);
+    border-left: 3px solid var(--warning);
+}
+
+.timeline-marker {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.timeline-dot {
+    width: 10px;
+    height: 10px;
+    background: var(--warning);
+    border: 2px solid var(--bg-card);
+    border-radius: 50%;
+}
+
+.timeline-time {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--warning-hover);
+    background: var(--bg-card);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+/* --- TRANSITIONS ŠPECIFICKÉ --- */
+.section-transitions .section-icon {
+    color: var(--info);
+}
+
+.section-transitions .section-count {
+    background: var(--info);
+}
+
+.transition-item {
+    background: var(--info-bg);
+    border-left: 3px solid var(--info);
+}
+
+.transition-index {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    background: var(--info);
+    color: var(--text-white);
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.transition-content {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.8rem;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+/* --- ON ENTER ŠPECIFICKÉ --- */
+.section-onenter .section-icon {
+    color: var(--primary);
+}
+
+.section-onenter .action-item {
+    border-left: 3px solid var(--primary);
+}
+
+/* --- HANDLES (React Flow) --- */
 .react-flow__handle {
     width: 10px;
     height: 10px;
@@ -282,44 +401,24 @@
     box-shadow: 0 0 0 2px var(--primary-bg);
 }
 
-.node-handle.target { 
-    top: -6px; 
-    border-radius: 0 0 4px 4px; 
-}
-
-.node-handle.source { 
-    bottom: -6px; 
-    border-radius: 4px 4px 0 0; 
-    background: var(--primary); 
-}
-
-/* --- LEGENDA (Panel vľavo dole) --- */
-.panel-legend {
-    background: var(--bg-card);
-    padding: 12px 16px;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border-color);
-    box-shadow: var(--shadow-lg);
-    color: var(--text-primary);
-    min-width: 200px;
-}
+.node-handle.target { top: -6px; border-radius: 0 0 4px 4px; }
+.node-handle.source { bottom: -6px; border-radius: 4px 4px 0 0; background: var(--primary); }
 
 .node-handles-container {
     position: absolute;
-    bottom: -6px; /* Aby "pretŕčali" polovicou von */
+    bottom: -6px;
     left: 0;
     width: 100%;
     display: flex;
-    justify-content: space-evenly; /* Rozložíme ich rovnomerne po šírke */
-    padding: 0 20px; /* Odsadenie od krajov */
-    pointer-events: none; /* Aby neblokovali klikanie na kartu */
+    justify-content: space-evenly;
+    padding: 0 20px;
+    pointer-events: none;
 }
 
-/* Prepíšeme default štýl pre dynamické handles */
 .custom-flow-node .react-flow__handle.dynamic-source {
-    position: static; /* Flexbox ich umiestni, nie absolute positioning */
+    position: static;
     transform: none;
-    pointer-events: all; /* Samotný gulička musí byť klikateľná */
+    pointer-events: all;
     background: var(--primary);
     width: 10px;
     height: 10px;
@@ -327,8 +426,60 @@
     border: 2px solid var(--bg-card);
 }
 
-.custom-flow-node .react-flow__handle.dynamic-source:hover {
-    width: 14px;
-    height: 14px;
-    background: var(--primary-hover);
+/* --- LEGENDA (Panel) --- */
+.flow-legend-panel {
+    background: var(--bg-card);
+    padding: 16px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 180px;
+}
+
+.legend-title {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 6px;
+    margin-bottom: 2px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.dot-mqtt    { background-color: var(--primary); }
+.dot-timeout { background-color: var(--warning); border: 1px dashed var(--border-color); }
+.dot-audio   { background-color: var(--info); }
+.dot-video   { background-color: #ec4899; }
+
+/* --- EDGE STYLES --- */
+.react-flow__edge-textbg {
+    fill: var(--bg-card);
+    rx: 4;
+}
+
+.react-flow__edge-text {
+    fill: var(--text-primary);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+@media (prefers-color-scheme: dark) {
+    .action-item.timeline { background: rgba(245, 158, 11, 0.1); }
 }

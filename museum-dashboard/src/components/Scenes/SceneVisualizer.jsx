@@ -9,69 +9,65 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import CustomFlowNode from './CustomFlowNode';
-// Importujeme SmartEdge (uistite sa, že tento súbor existuje podľa predchádzajúceho kroku)
 import SmartEdge from './SmartEdge';
 
-const nodeTypes = {
-    custom: CustomFlowNode,
-};
+const nodeTypes = { custom: CustomFlowNode };
+const edgeTypes = { smart: SmartEdge };
 
-// Registrácia nášho nového typu čiary
-const edgeTypes = {
-    smart: SmartEdge,
-};
-
-// Definícia farieb pre legendu a čiary
+// Farby zladené s theme.css pre čiary (Edges)
 const STYLES = {
-    default: { stroke: '#94a3b8', bg: '#f1f5f9', color: '#475569' },
-    mqtt:    { stroke: '#6366f1', bg: '#e0e7ff', color: '#4338ca' }, // Indigo
-    timeout: { stroke: '#f59e0b', bg: '#fffbeb', color: '#b45309' }, // Amber
-    audio:   { stroke: '#06b6d4', bg: '#ecfeff', color: '#0e7490' }, // Cyan
-    video:   { stroke: '#ec4899', bg: '#fce7f3', color: '#be185d' }, // Pink
+    default: { stroke: 'var(--secondary)', bg: 'var(--bg-hover)', color: 'var(--text-secondary)' },
+    mqtt:    { stroke: 'var(--primary)',   bg: 'var(--bg-main)',  color: 'var(--primary)' },
+    timeout: { stroke: 'var(--warning)',   bg: 'var(--warning-bg)', color: 'var(--warning-hover)' },
+    audio:   { stroke: 'var(--info)',      bg: 'var(--info-bg)',    color: 'var(--info-hover)' },
+    video:   { stroke: '#ec4899',          bg: '#fce7f3',           color: '#be185d' },
 };
 
 export default function SceneVisualizer({ data }) {
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
-    const calculateLayout = useCallback(() => {
-        if (!data || !data.states) {
-            setNodes([]);
-            setEdges([]);
-            return;
+    // Pomocná funkcia: Zobrazí čokoľvek, čo príde v JSON
+    const formatAnyAction = (a) => {
+        if (!a) return 'Neznámy príkaz';
+        if (a.action === 'mqtt') return `${a.topic} ➔ ${a.message}`;
+        if (a.action === 'audio' || a.action === 'video') return `${a.action.toUpperCase()}: ${a.message}`;
+        // Akýkoľvek iný príkaz (napr. motor, lights, custom...)
+        return `${a.action || 'cmd'}: ${a.message || (a.topic ? a.topic : JSON.stringify(a))}`;
+    };
+
+    const parseStateData = (stateData) => {
+        const sections = { onEnter: [], timeline: [], transitions: [] };
+        
+        if (stateData.onEnter) {
+            stateData.onEnter.forEach(a => sections.onEnter.push(formatAnyAction(a)));
         }
+
+        if (stateData.timeline) {
+            stateData.timeline.forEach(t => {
+                const actions = t.actions || (t.action ? [t] : []);
+                actions.forEach(a => sections.timeline.push({ time: t.at, text: formatAnyAction(a) }));
+            });
+        }
+
+        if (stateData.transitions) {
+            stateData.transitions.forEach(tr => {
+                let desc = tr.type === 'timeout' ? `⏱️ Po ${tr.delay}s` : `📩 ${tr.type}`;
+                sections.transitions.push(`${desc} ➔ GOTO: ${tr.goto}`);
+            });
+        }
+        return sections;
+    };
+
+    const calculateLayout = useCallback(() => {
+        if (!data || !data.states) return;
 
         const newNodes = [];
         const newEdges = [];
         const stateKeys = Object.keys(data.states);
         const startState = data.initialState || stateKeys[0];
 
-        // --- 1. PARSOVANIE AKCIÍ PRE NODE ---
-        const parseActions = (stateData) => {
-            const list = [];
-            // On Enter
-            if (stateData.onEnter) {
-                stateData.onEnter.forEach(a => {
-                    let val = a.action;
-                    if (a.action === 'mqtt') val = `${a.topic} ➔ ${a.message}`;
-                    if (a.action === 'audio') val = `🎵 ${a.message}`;
-                    if (a.action === 'video') val = `🎬 ${a.message}`;
-                    list.push({ type: a.action, val });
-                });
-            }
-            // Timeline
-            if (stateData.timeline) {
-                stateData.timeline.forEach(t => {
-                     let desc = t.action;
-                     if (t.action === 'mqtt') desc = `${t.topic} ➔ ${t.message}`;
-                     else if (t.action === 'audio') desc = `Audio: ${t.message}`;
-                     list.push({ type: 'clock', val: `+${t.at}s: ${desc}` });
-                });
-            }
-            return list;
-        };
-
-        // --- 2. VÝPOČET LEVELOV (BFS) ---
+        // --- BFS Layout Logika ---
         const levels = {};
         const visited = new Set();
         const queue = [{ id: startState, level: 0 }];
@@ -81,21 +77,18 @@ export default function SceneVisualizer({ data }) {
             const { id, level } = queue.shift();
             if (visited.has(id)) continue;
             visited.add(id);
-
             if (!levels[level]) levels[level] = [];
             levels[level].push(id);
             if (level > maxDepth) maxDepth = level;
 
-            const state = data.states[id];
-            if (state && state.transitions) {
-                state.transitions.forEach(t => {
-                    if (t.goto !== 'END' && data.states[t.goto] && !visited.has(t.goto)) {
-                        queue.push({ id: t.goto, level: level + 1 });
-                    }
-                });
-            }
+            data.states[id]?.transitions?.forEach(t => {
+                if (t.goto !== 'END' && data.states[t.goto] && !visited.has(t.goto)) {
+                    queue.push({ id: t.goto, level: level + 1 });
+                }
+            });
         }
-        // Siroty
+
+        // Pridanie osamotených stavov
         stateKeys.forEach(key => {
             if (!visited.has(key)) {
                 const orphanLevel = maxDepth + 1;
@@ -104,9 +97,9 @@ export default function SceneVisualizer({ data }) {
             }
         });
 
-        // --- 3. GENEROVANIE NODES ---
-        const NODE_WIDTH = 380; 
-        const LEVEL_HEIGHT = 350; 
+        // --- Generovanie Nodes ---
+        const NODE_WIDTH = 420; 
+        const LEVEL_HEIGHT = 450; 
 
         Object.entries(levels).forEach(([levelStr, stateIds]) => {
             const level = parseInt(levelStr);
@@ -114,31 +107,23 @@ export default function SceneVisualizer({ data }) {
 
             stateIds.forEach((stateId, index) => {
                 const stateData = data.states[stateId];
-                // Spočítame výstupy pre dynamické handles
-                const transCount = stateData.transitions ? stateData.transitions.length : 0;
-
                 newNodes.push({
                     id: stateId,
                     type: 'custom',
-                    position: { 
-                        x: startX + (index * NODE_WIDTH), 
-                        y: level * LEVEL_HEIGHT + 50 
-                    },
+                    position: { x: startX + (index * NODE_WIDTH), y: level * LEVEL_HEIGHT },
                     data: {
                         label: stateId,
                         type: stateId === startState ? 'start' : 'step',
-                        description: stateData.description,
-                        actions: parseActions(stateData),
-                        transitionCount: transCount 
+                        description: stateData?.description || '',
+                        sections: parseStateData(stateData),
+                        transitionCount: stateData?.transitions?.length || 0
                     }
                 });
             });
         });
 
         // End Node
-        let hasEnd = false;
-        stateKeys.forEach(k => data.states[k]?.transitions?.forEach(t => { if(t.goto === 'END') hasEnd = true; }));
-        if (hasEnd) {
+        if (stateKeys.some(k => data.states[k]?.transitions?.some(t => t.goto === 'END'))) {
             newNodes.push({
                 id: 'END',
                 type: 'custom',
@@ -147,123 +132,47 @@ export default function SceneVisualizer({ data }) {
             });
         }
 
-        // --- 4. GENEROVANIE EDGES (SMART) ---
+        // --- Generovanie Edges ---
         stateKeys.forEach(stateName => {
-            const stateData = data.states[stateName];
-            if (stateData.transitions) {
-                stateData.transitions.forEach((trans, idx) => {
-                    const target = trans.goto;
-                    
-                    let styleConfig = STYLES.default;
-                    let label = '';
-                    let animated = false;
-                    let strokeDasharray = '0';
+            data.states[stateName].transitions?.forEach((trans, idx) => {
+                let styleConfig = STYLES.default;
+                if (trans.type === 'mqttMessage') styleConfig = STYLES.mqtt;
+                else if (trans.type === 'timeout') styleConfig = STYLES.timeout;
+                else if (trans.type === 'audioEnd') styleConfig = STYLES.audio;
+                else if (trans.type === 'videoEnd') styleConfig = STYLES.video;
 
-                    if (trans.type === 'mqttMessage') { 
-                        styleConfig = STYLES.mqtt;
-                        const topic = trans.topic || 'mqtt';
-                        const msg = trans.message || '*';
-                        label = `📩 ${topic} ➔ ${msg}`; 
-                    }
-                    else if (trans.type === 'timeout') { 
-                        styleConfig = STYLES.timeout;
-                        label = `⏱️ Po ${trans.delay}s`; 
-                        animated = true;
-                        strokeDasharray = '5 5';
-                    }
-                    else if (trans.type === 'audioEnd') { 
-                        styleConfig = STYLES.audio;
-                        const audioAction = stateData.onEnter?.find(a => a.action === 'audio');
-                        const fileName = audioAction ? audioAction.message : '???';
-                        label = `🎵 Koniec: ${fileName}`; 
-                    }
-                    else if (trans.type === 'videoEnd') { 
-                        styleConfig = STYLES.video;
-                        label = `🎬 Video End`; 
-                    }
-
-                    newEdges.push({
-                        id: `e-${stateName}-${target}-${idx}`,
-                        source: stateName,
-                        target: target,
-                        sourceHandle: `handle-${idx}`, // Pripájame na konkrétny handle
-                        type: 'smart',                 // Používame našu novú Smart čiaru
-                        label: label,
-                        animated: animated,
-                        style: { 
-                            stroke: styleConfig.stroke, 
-                            strokeWidth: 2,
-                            strokeDasharray: strokeDasharray
-                        },
-                        // SmartEdge props:
-                        labelStyle: { 
-                            color: styleConfig.color, // Farba textu
-                        },
-                        labelBgStyle: { 
-                            fill: styleConfig.bg,     // Farba bubliny
-                            stroke: styleConfig.stroke,
-                        },
-                        markerEnd: { type: MarkerType.ArrowClosed, color: styleConfig.stroke }
-                    });
+                newEdges.push({
+                    id: `e-${stateName}-${trans.goto}-${idx}`,
+                    source: stateName,
+                    target: trans.goto,
+                    sourceHandle: `handle-${idx}`,
+                    type: 'smart',
+                    label: trans.type === 'timeout' ? `⏱️ ${trans.delay}s` : '',
+                    style: { stroke: styleConfig.stroke, strokeWidth: 2 },
+                    markerEnd: { type: MarkerType.ArrowClosed, color: styleConfig.stroke }
                 });
-            }
+            });
         });
 
         setNodes(newNodes);
         setEdges(newEdges);
     }, [data, setNodes, setEdges]);
 
-    useEffect(() => {
-        calculateLayout();
-    }, [calculateLayout]);
+    useEffect(() => { calculateLayout(); }, [calculateLayout]);
 
     return (
-        <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes} 
-            fitView
-            minZoom={0.1}
-            maxZoom={1.5}
-        >
-            <Background color="var(--border-color)" gap={30} size={1} />
-            <Controls showInteractive={false} />
-            
-            {/* LEGENDA - Presunutá do Top Right */}
-            <Panel position="top-right" style={{ 
-                background: 'var(--bg-card)', 
-                padding: '12px 16px', 
-                borderRadius: '8px', 
-                border: '1px solid var(--border-color)',
-                fontSize: '0.8rem', 
-                color: 'var(--text-secondary)',
-                boxShadow: 'var(--shadow-md)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px'
-            }}>
-                <div style={{ fontWeight: 'bold', borderBottom: '1px solid var(--border-color)', paddingBottom: '4px' }}>
-                    Legenda prechodov:
-                </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: STYLES.mqtt.stroke }}></div>
-                    <span>MQTT / Tlačidlo</span>
-                </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: STYLES.timeout.stroke, border: '1px dashed #fff' }}></div>
-                    <span>Časovač (Automaticky)</span>
-                </div>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ width: 12, height: 12, borderRadius: '50%', background: STYLES.audio.stroke }}></div>
-                    <span>Audio / Video koniec</span>
-                </div>
-            </Panel>
-        </ReactFlow>
+        <div className="flow-wrapper">
+            <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} nodeTypes={nodeTypes} edgeTypes={edgeTypes} fitView>
+                <Background color="var(--border-color)" gap={30} size={1} />
+                <Controls showInteractive={false} />
+                <Panel position="top-right" className="flow-legend-panel">
+                    <div className="legend-title">Legenda prechodov</div>
+                    <div className="legend-item"><div className="legend-dot dot-mqtt"></div><span>MQTT</span></div>
+                    <div className="legend-item"><div className="legend-dot dot-timeout"></div><span>Časovač</span></div>
+                    <div className="legend-item"><div className="legend-dot dot-audio"></div><span>Audio koniec</span></div>
+                    <div className="legend-item"><div className="legend-dot dot-video"></div><span>Video koniec</span></div>
+                </Panel>
+            </ReactFlow>
+        </div>
     );
 }
