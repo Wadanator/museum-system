@@ -1,0 +1,179 @@
+/* src/styles/views/live-view.css */
+
+/* --- HLAVNÝ KONTAJNER --- */
+.live-view-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    gap: var(--spacing-md);
+}
+
+.live-header-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.live-select {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
+    min-width: 240px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.live-select:focus {
+    border-color: var(--primary);
+}
+
+/* --- GRID LAYOUT --- */
+.live-grid {
+    display: grid;
+    grid-template-columns: 1fr 340px; /* Graf vs Panel */
+    gap: var(--spacing-lg);
+    flex: 1;
+    min-height: 0;
+}
+
+/* --- ĽAVÁ ČASŤ: VIZUALIZÉR --- */
+.visualizer-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-sm);
+}
+
+.visualizer-overlay {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 10;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(4px);
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: 1px solid var(--primary);
+    color: var(--primary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+/* --- AKTÍVNY NODE (Animácia) --- */
+/* Toto sa aplikuje na Node v ReactFlow */
+.node-active {
+    border: 2px solid #10b981 !important; /* Emerald-500 */
+    box-shadow: 0 0 25px rgba(16, 185, 129, 0.4), inset 0 0 10px rgba(16, 185, 129, 0.1);
+    transform: scale(1.05);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+    z-index: 1000 !important;
+}
+
+/* --- PRAVÁ ČASŤ: DEVICES PANEL --- */
+.devices-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.devices-header {
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.devices-list {
+    padding: 12px;
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* --- DEVICE ITEM --- */
+.device-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    background: var(--bg-main);
+    transition: all 0.3s ease;
+}
+
+/* Aktívny stav zariadenia */
+.device-item.active {
+    background: rgba(16, 185, 129, 0.08); /* Jemná zelená */
+    border-color: #10b981;
+}
+
+.device-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.device-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: var(--bg-card);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: all 0.3s;
+}
+
+.device-item.active .device-icon {
+    background: #10b981;
+    color: white;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.device-name {
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.device-id {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-family: monospace;
+}
+
+.device-status {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    background: var(--bg-card);
+    color: var(--text-muted);
+    min-width: 40px;
+    text-align: center;
+}
+
+.device-item.active .device-status {
+    background: #10b981;
+    color: white;
+}

@@ -4,7 +4,7 @@ import { TRANSITION_TYPES } from '../../../utils/constants';
 
 /**
  * GlobalEventsEditor Component
- * Manages global events (emergency stops, etc.)
+ * Manages global events (emergency stops, timeouts)
  */
 const GlobalEventsEditor = ({ globalEvents, onChange, states, globalPrefix }) => {
   const addGlobalEvent = () => {
@@ -42,7 +42,7 @@ const GlobalEventsEditor = ({ globalEvents, onChange, states, globalPrefix }) =>
       </div>
 
       <div className="text-xs text-gray-400 mb-3">
-        Global events sa spúšťajú kedykoľvek, bez ohľadu na aktuálny stav (napr. emergency stop)
+        Pravidlá, ktoré platia neustále (napr. Emergency Stop alebo celkový časový limit scény).
       </div>
 
       {globalEvents.map((event, index) => (
@@ -52,10 +52,22 @@ const GlobalEventsEditor = ({ globalEvents, onChange, states, globalPrefix }) =>
             <div className="grid grid-cols-12 gap-2 items-center">
               <select
                 value={event.type}
-                onChange={(e) => updateGlobalEvent(index, { type: e.target.value })}
+                onChange={(e) => {
+                    const newType = e.target.value;
+                    const updates = { type: newType };
+                    // Inicializácia hodnôt pri zmene typu
+                    if (newType === TRANSITION_TYPES.TIMEOUT) {
+                        updates.delay = event.delay || 600; // Default 10 min
+                    } else {
+                        updates.topic = event.topic || `${globalPrefix}/emergency`;
+                        updates.message = event.message || 'STOP';
+                    }
+                    updateGlobalEvent(index, updates);
+                }}
                 className="col-span-11 px-2 py-1 bg-gray-600 rounded text-sm"
               >
-                <option value={TRANSITION_TYPES.MQTT_MESSAGE}>📡 MQTT Message</option>
+                <option value={TRANSITION_TYPES.MQTT_MESSAGE}>📡 MQTT Message (Emergency)</option>
+                <option value={TRANSITION_TYPES.TIMEOUT}>⏱️ Global Timeout (Max Time)</option>
               </select>
 
               {/* Delete Button */}
@@ -96,6 +108,27 @@ const GlobalEventsEditor = ({ globalEvents, onChange, states, globalPrefix }) =>
               </div>
             )}
 
+            {/* Timeout Fields - NOVÉ */}
+            {event.type === TRANSITION_TYPES.TIMEOUT && (
+              <div>
+                <label className="block text-xs text-gray-400 mb-1">
+                  Časový limit pre celú hru (sekundy)
+                </label>
+                <div className="flex items-center gap-2">
+                    <input
+                        type="number"
+                        min="1"
+                        value={event.delay || 0}
+                        onChange={(e) => updateGlobalEvent(index, { delay: parseFloat(e.target.value) })}
+                        className="w-24 px-2 py-1 bg-gray-600 rounded text-sm font-mono text-center"
+                    />
+                    <span className="text-xs text-gray-500">
+                        ({Math.floor((event.delay || 0) / 60)} min {(event.delay || 0) % 60} s)
+                    </span>
+                </div>
+              </div>
+            )}
+
             {/* Go To State Selector */}
             <div>
               <label className="block text-xs text-gray-400 mb-1">Goto (cieľový stav)</label>
@@ -117,7 +150,7 @@ const GlobalEventsEditor = ({ globalEvents, onChange, states, globalPrefix }) =>
 
       {globalEvents.length === 0 && (
         <div className="text-sm text-gray-400 italic py-2 bg-gray-700 p-3 rounded">
-          No global events defined. Global events are useful for emergency stops.
+          Žiadne globálne udalosti. Pridaj Emergency Stop alebo časový limit.
         </div>
       )}
     </div>

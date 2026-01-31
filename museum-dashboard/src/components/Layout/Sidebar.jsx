@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { 
   Home, Drama, FolderOpen, Zap, ClipboardList, 
-  BarChart3, Settings, LogOut, Landmark 
+  BarChart3, Settings, LogOut, Landmark, Activity
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -10,6 +10,7 @@ export default function Sidebar() {
 
   const navItems = [
     { to: "/", icon: Home, label: "Prehľad" },
+    { to: "/live", icon: Activity, label: "Live Test" },
     { to: "/scenes", icon: Drama, label: "Scény" },
     { to: "/media", icon: FolderOpen, label: "Médiá" },
     { to: "/commands", icon: Zap, label: "Ovládanie" },

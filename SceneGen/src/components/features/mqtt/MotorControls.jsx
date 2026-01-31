@@ -5,12 +5,10 @@ const MotorControls = ({ action, onChange }) => {
     const msg = action.message || '';
     
     if (msg === 'OFF') {
-      // Pridané rampTime: 0 pre konzistenciu
       return { command: 'OFF', speed: 50, direction: 'L', rampTime: 0 };
     }
     
     if (msg === 'STOP') {
-      // Pridané rampTime: 0 pre konzistenciu
       return { command: 'STOP', speed: 50, direction: 'L', rampTime: 0 };
     }
     
@@ -18,7 +16,7 @@ const MotorControls = ({ action, onChange }) => {
     if (parts[0] === 'ON') {
       const speed = parseInt(parts[1]) || 50;
       const direction = parts[2] || 'L';
-      // NOVÁ LOGIKA: RampTime je parts[3], defaultne 0 ak neexistuje alebo je neplatný
+      // RampTime je štvrtý parameter (index 3)
       const rampTime = parts.length > 3 ? parseInt(parts[3]) || 0 : 0;
       
       return {
@@ -37,9 +35,9 @@ const MotorControls = ({ action, onChange }) => {
   const [motorCommand, setMotorCommand] = useState(parsed.command);
   const [motorSpeed, setMotorSpeed] = useState(parsed.speed);
   const [motorDirection, setMotorDirection] = useState(parsed.direction);
-  const [motorRampTime, setMotorRampTime] = useState(parsed.rampTime); // NOVÝ STATE
+  const [motorRampTime, setMotorRampTime] = useState(parsed.rampTime);
 
-  const updateMotorMessage = (cmd, speed, dir, rampTime) => { // Upravená hlavička funkcie
+  const updateMotorMessage = (cmd, speed, dir, rampTime) => {
     let message = '';
     
     if (cmd === 'OFF') {
@@ -47,17 +45,13 @@ const MotorControls = ({ action, onChange }) => {
     } else if (cmd === 'STOP') {
       message = 'STOP';
     } else if (cmd === 'ON') {
-      message = `ON:${speed}:${dir}`;
-      // NOVÁ LOGIKA: Pridaj rampTime, len ak je väčší ako 0
-      if (rampTime && rampTime > 0) {
-        message += `:${rampTime}`;
-      }
+      // VŽDY pošleme aj rampTime, aj keď je 0 (pre konzistenciu parsera)
+      const safeRamp = rampTime || 0;
+      message = `ON:${speed}:${dir}:${safeRamp}`;
     }
     
     onChange({ ...action, message });
   };
-
-  // --- Handlery musia teraz posielať rampTime ---
 
   const handleCommandChange = (cmd) => {
     setMotorCommand(cmd);
@@ -78,16 +72,13 @@ const MotorControls = ({ action, onChange }) => {
     }
   };
 
-  // NOVÝ Handler pre čas rozbehu
   const handleRampTimeChange = (time) => {
-    // Zabezpečí, že hodnota je číslo a nie je záporná
     const newTime = parseInt(time) || 0;
     setMotorRampTime(newTime < 0 ? 0 : newTime);
     if (motorCommand === 'ON') {
       updateMotorMessage('ON', motorSpeed, motorDirection, newTime);
     }
   };
-
 
   return (
     <>
@@ -127,18 +118,22 @@ const MotorControls = ({ action, onChange }) => {
             </div>
           </div>
           
-          {/* NOVÉ POLE PRE RAMP TIME */}
           <div>
             <label className="block text-xs text-gray-400 mb-1">
-              Čas rozbehu (Ramp Time) v ms (0 pre štandardný smooth)
+              Čas rozbehu (Ramp Time) v ms
             </label>
             <input
               type="number"
               min="0"
+              step="100"
               value={motorRampTime}
               onChange={(e) => handleRampTimeChange(e.target.value)}
               className="w-full px-3 py-2 bg-gray-600 rounded text-sm focus:ring-2 focus:ring-blue-500"
+              placeholder="0 (okamžite)"
             />
+            <div className="text-xs text-gray-500 mt-1">
+              💡 0 = Okamžitý štart. Napr. 2000 = Motor sa rozbehne na cieľovú rýchlosť za 2 sekundy.
+            </div>
           </div>
 
           <div>

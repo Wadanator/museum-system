@@ -8,37 +8,69 @@ import MqttPreview from './MqttPreview';
 
 const PresetDeviceEditor = ({ action, onChange, globalPrefix }) => {
   const parseCurrentTopic = () => {
-    const parts = action.topic?.split('/') || ['', ''];
-    return parts[1] || '';
+    // Ak je action.topic prázdny (audio/video), vrátime podľa typu akcie ak existuje v zozname
+    // Ale primárne sa snažíme parsovať topic pre MQTT zariadenia
+    if (action.action === 'audio') return 'audio';
+    if (action.action === 'video') return 'video';
+    
+    // Pre MQTT zariadenia hľadáme suffix
+    const parts = action.topic?.split('/') || [];
+    // Skúsime nájsť zhodu v MQTT_DEVICES podľa suffixu
+    // Toto je jednoduchý check, pre zložitejšie suffixy (napr. light/fire) by to chcelo robustnejšie hľadanie,
+    // ale pre editor stačí, ak user vyberie znovu zo zoznamu.
+    // Pre základnú inicializáciu skúsime nájsť kľúč, ktorého topicSuffix sedí.
+    const suffix = action.topic ? action.topic.replace(`${globalPrefix}/`, '') : '';
+    const foundKey = Object.keys(MQTT_DEVICES).find(key => MQTT_DEVICES[key].topicSuffix === suffix);
+    return foundKey || '';
   };
 
   const [selectedDevice, setSelectedDevice] = useState(parseCurrentTopic());
 
-  const updateTopic = (device) => {
-    if (!device) return;
-    const newTopic = `${globalPrefix}/${device}`;
-    onChange({ ...action, topic: newTopic });
-  };
-
+  // Update topicu pri zmene prefixu (len pre MQTT)
   useEffect(() => {
-    if (selectedDevice) {
-      updateTopic(selectedDevice);
+    if (selectedDevice && MQTT_DEVICES[selectedDevice]) {
+       const deviceInfo = MQTT_DEVICES[selectedDevice];
+       if (deviceInfo.type !== 'audio' && deviceInfo.type !== 'video') {
+           const newTopic = `${globalPrefix}/${deviceInfo.topicSuffix}`;
+           if (action.topic !== newTopic) {
+               onChange({ ...action, topic: newTopic });
+           }
+       }
     }
   }, [globalPrefix]);
 
-  const handleDeviceChange = (device) => {
-    setSelectedDevice(device);
+  const handleDeviceChange = (deviceKey) => {
+    setSelectedDevice(deviceKey);
+    const deviceInfo = MQTT_DEVICES[deviceKey];
     
-    const deviceInfo = MQTT_DEVICES[device];
-    const newTopic = `${globalPrefix}/${device}`;
-    const updatedAction = { ...action, topic: newTopic };
+    if (!deviceInfo) return;
+
+    // 1. Zisti správny typ akcie pre JSON export
+    let newActionType = 'mqtt'; // default
+    if (deviceInfo.type === 'audio') newActionType = 'audio';
+    if (deviceInfo.type === 'video') newActionType = 'video';
+
+    // 2. Vyskladaj Topic (Audio/Video ho nemajú)
+    const newTopic = (newActionType === 'mqtt') 
+        ? `${globalPrefix}/${deviceInfo.topicSuffix}`
+        : ''; 
+
+    // 3. Priprav update objekt
+    const updatedAction = { 
+        ...action, 
+        action: newActionType, 
+        topic: newTopic 
+    };
     
-    // Reset to defaults based on device type
-    if (deviceInfo?.type === 'motor') {
-      onChange({ ...updatedAction, message: 'ON:50:L' });
-    } else if (deviceInfo?.type === 'simple') {
+    // 4. Nastav predvolenú správu
+    if (deviceInfo.type === 'motor') {
+      const speed = deviceInfo.defaultSpeed || 50;
+      // Default: Rýchlosť, Smer L, Rampa 0
+      onChange({ ...updatedAction, message: `ON:${speed}:L:0` });
+    } else if (deviceInfo.type === 'simple') {
       onChange({ ...updatedAction, message: 'ON' });
     } else {
+      // Pre Audio/Video správu vyčistíme (alebo necháme prázdnu), nech si ju user nastaví cez UI
       onChange({ ...updatedAction, message: '' });
     }
   };
@@ -88,9 +120,12 @@ const PresetDeviceEditor = ({ action, onChange, globalPrefix }) => {
       )}
 
       {/* Preview or warning */}
-      {selectedDevice ? (
+      {/* Zobrazujeme Preview len pre MQTT zariadenia (Audio/Video ho nepotrebujú) */}
+      {selectedDevice && deviceInfo?.type !== 'audio' && deviceInfo?.type !== 'video' ? (
         <MqttPreview action={action} globalPrefix={globalPrefix} />
-      ) : (
+      ) : null}
+
+      {!selectedDevice && (
         <div className="bg-yellow-900 p-3 rounded border border-yellow-600">
           <div className="text-sm text-yellow-200">
             ⚠️ Najprv vyber zariadenie

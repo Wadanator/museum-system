@@ -16,6 +16,7 @@ import StatsView from './components/Views/StatsView';
 import SystemView from './components/Views/SystemView';
 import LoginView from './components/Views/LoginView';
 import MediaManager from './components/Views/MediaManager';
+import LiveView from './components/Views/LiveView';
 
 import './styles/layout.css'; 
 
@@ -47,6 +48,7 @@ function App() {
       <AppLayout>
         <Routes>
           <Route path="/" element={<MainDashboard />} />
+          <Route path="/live" element={<LiveView />} />
           <Route path="/scenes" element={<ScenesView />} />
           <Route path="/media" element={<MediaManager />} />
           <Route path="/commands" element={<CommandsView />} />

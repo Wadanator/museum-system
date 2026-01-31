@@ -11,10 +11,10 @@ import 'reactflow/dist/style.css';
 import CustomFlowNode from './CustomFlowNode';
 import SmartEdge from './SmartEdge';
 
+// Import CSS pre vizualizér (ak nie je importovaný globálne, ale live-view.css ho rieši)
 const nodeTypes = { custom: CustomFlowNode };
 const edgeTypes = { smart: SmartEdge };
 
-// Farby zladené s theme.css pre čiary (Edges)
 const STYLES = {
     default: { stroke: 'var(--secondary)', bg: 'var(--bg-hover)', color: 'var(--text-secondary)' },
     mqtt:    { stroke: 'var(--primary)',   bg: 'var(--bg-main)',  color: 'var(--primary)' },
@@ -23,33 +23,26 @@ const STYLES = {
     video:   { stroke: '#ec4899',          bg: '#fce7f3',           color: '#be185d' },
 };
 
-export default function SceneVisualizer({ data }) {
+export default function SceneVisualizer({ data, activeStateId }) {
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
-    // Pomocná funkcia: Zobrazí čokoľvek, čo príde v JSON
     const formatAnyAction = (a) => {
         if (!a) return 'Neznámy príkaz';
         if (a.action === 'mqtt') return `${a.topic} ➔ ${a.message}`;
         if (a.action === 'audio' || a.action === 'video') return `${a.action.toUpperCase()}: ${a.message}`;
-        // Akýkoľvek iný príkaz (napr. motor, lights, custom...)
         return `${a.action || 'cmd'}: ${a.message || (a.topic ? a.topic : JSON.stringify(a))}`;
     };
 
     const parseStateData = (stateData) => {
         const sections = { onEnter: [], timeline: [], transitions: [] };
-        
-        if (stateData.onEnter) {
-            stateData.onEnter.forEach(a => sections.onEnter.push(formatAnyAction(a)));
-        }
-
+        if (stateData.onEnter) stateData.onEnter.forEach(a => sections.onEnter.push(formatAnyAction(a)));
         if (stateData.timeline) {
             stateData.timeline.forEach(t => {
                 const actions = t.actions || (t.action ? [t] : []);
                 actions.forEach(a => sections.timeline.push({ time: t.at, text: formatAnyAction(a) }));
             });
         }
-
         if (stateData.transitions) {
             stateData.transitions.forEach(tr => {
                 let desc = tr.type === 'timeout' ? `⏱️ Po ${tr.delay}s` : `📩 ${tr.type}`;
@@ -67,7 +60,7 @@ export default function SceneVisualizer({ data }) {
         const stateKeys = Object.keys(data.states);
         const startState = data.initialState || stateKeys[0];
 
-        // --- BFS Layout Logika ---
+        // --- BFS Layout ---
         const levels = {};
         const visited = new Set();
         const queue = [{ id: startState, level: 0 }];
@@ -88,7 +81,6 @@ export default function SceneVisualizer({ data }) {
             });
         }
 
-        // Pridanie osamotených stavov
         stateKeys.forEach(key => {
             if (!visited.has(key)) {
                 const orphanLevel = maxDepth + 1;
@@ -97,7 +89,7 @@ export default function SceneVisualizer({ data }) {
             }
         });
 
-        // --- Generovanie Nodes ---
+        // --- Nodes ---
         const NODE_WIDTH = 420; 
         const LEVEL_HEIGHT = 450; 
 
@@ -107,10 +99,14 @@ export default function SceneVisualizer({ data }) {
 
             stateIds.forEach((stateId, index) => {
                 const stateData = data.states[stateId];
+                const isActive = stateId === activeStateId;
+                
                 newNodes.push({
                     id: stateId,
                     type: 'custom',
                     position: { x: startX + (index * NODE_WIDTH), y: level * LEVEL_HEIGHT },
+                    // TU SA POUŽÍVA CSS TRIEDA
+                    className: isActive ? 'node-active' : '',
                     data: {
                         label: stateId,
                         type: stateId === startState ? 'start' : 'step',
@@ -124,15 +120,17 @@ export default function SceneVisualizer({ data }) {
 
         // End Node
         if (stateKeys.some(k => data.states[k]?.transitions?.some(t => t.goto === 'END'))) {
+            const isEndActive = activeStateId === 'END';
             newNodes.push({
                 id: 'END',
                 type: 'custom',
                 position: { x: 0, y: (maxDepth + 1) * LEVEL_HEIGHT + 100 },
+                className: isEndActive ? 'node-active' : '',
                 data: { label: 'KONIEC', type: 'end', transitionCount: 0 }
             });
         }
 
-        // --- Generovanie Edges ---
+        // --- Edges ---
         stateKeys.forEach(stateName => {
             data.states[stateName].transitions?.forEach((trans, idx) => {
                 let styleConfig = STYLES.default;
@@ -149,14 +147,15 @@ export default function SceneVisualizer({ data }) {
                     type: 'smart',
                     label: trans.type === 'timeout' ? `⏱️ ${trans.delay}s` : '',
                     style: { stroke: styleConfig.stroke, strokeWidth: 2 },
-                    markerEnd: { type: MarkerType.ArrowClosed, color: styleConfig.stroke }
+                    markerEnd: { type: MarkerType.ArrowClosed, color: styleConfig.stroke },
+                    animated: activeStateId === stateName
                 });
             });
         });
 
         setNodes(newNodes);
         setEdges(newEdges);
-    }, [data, setNodes, setEdges]);
+    }, [data, setNodes, setEdges, activeStateId]);
 
     useEffect(() => { calculateLayout(); }, [calculateLayout]);
 
