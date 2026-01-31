@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSocket } from '../../context/SocketContext';
 import { useScenes } from '../../hooks/useScenes';
 import { useDevices } from '../../hooks/useDevices';
@@ -6,8 +6,6 @@ import SceneVisualizer from '../Scenes/SceneVisualizer';
 import PageHeader from '../ui/PageHeader';
 import Button from '../ui/Button';
 import { Activity, Play, Zap, Power, Cpu, RefreshCw } from 'lucide-react';
-
-// Import nového CSS
 import '../../styles/views/live-view.css';
 
 export default function LiveView() {
@@ -18,93 +16,98 @@ export default function LiveView() {
     const [selectedScene, setSelectedScene] = useState(null);
     const [sceneData, setSceneData] = useState(null);
     const [activeState, setActiveState] = useState(null);
-    
-    // Stav pre simuláciu (ID zariadenia -> textový stav alebo bool)
     const [simulatedDeviceStatus, setSimulatedDeviceStatus] = useState({});
+
+    const timersRef = useRef([]);
 
     useEffect(() => {
         fetchScenes();
     }, []);
 
-    // 1. Socket Listener
     useEffect(() => {
         if (!socket) return;
         
         const handleProgress = (data) => {
             if (data && data.activeState) {
                 setActiveState(data.activeState);
-                if (sceneData && sceneData.states && sceneData.states[data.activeState]) {
-                    updateDevicesFromState(sceneData.states[data.activeState]);
-                }
             }
         };
 
         socket.on('scene_progress', handleProgress);
         return () => socket.off('scene_progress', handleProgress);
-    }, [socket, sceneData]); 
+    }, [socket]); 
 
-    // 2. Logika pre aktualizáciu zariadení (Motory aj Relé)
-    const updateDevicesFromState = (stateNode) => {
-        const newUpdates = {};
-        
-        const processAction = (action) => {
-            if (!action || !action.topic) return;
-            
-            // Nájdi zariadenie podľa topicu
-            const targetDevice = devices.find(d => d.topic === action.topic);
-            
-            if (targetDevice) {
-                const msg = action.message;
-                const isMotor = targetDevice.type === 'motor'; // Predpokladáme, že devices.json má typ 'motor'
+    useEffect(() => {
+        timersRef.current.forEach(timer => clearTimeout(timer));
+        timersRef.current = [];
 
-                if (isMotor) {
-                    // --- LOGIKA PRE MOTORY (Parsuje JSON) ---
-                    try {
-                        // Skúsime či je to JSON objekt {"speed": 50}
-                        const jsonCmd = typeof msg === 'string' && msg.startsWith('{') ? JSON.parse(msg) : null;
-                        
-                        if (jsonCmd) {
-                            if (jsonCmd.speed !== undefined) {
-                                // Ak je rýchlosť > 0, je ON
-                                if (Number(jsonCmd.speed) > 0) {
-                                    newUpdates[targetDevice.id] = `ON (${jsonCmd.speed}%)`;
-                                } else {
-                                    newUpdates[targetDevice.id] = "OFF";
-                                }
-                            }
-                        } else {
-                            // Fallback pre jednoduché príkazy "ON" / "OFF" / "START"
-                            if (msg === "ON" || msg === "START") newUpdates[targetDevice.id] = "ON";
-                            else if (msg === "OFF" || msg === "STOP") newUpdates[targetDevice.id] = "OFF";
-                        }
-                    } catch (e) {
-                        console.warn("Chyba parsovania motor príkazu:", e);
-                    }
-                } else {
-                    // --- LOGIKA PRE RELÉ (Jednoduché ON/OFF) ---
-                    const isTurningOn = msg === "ON" || msg === "1" || msg === "true";
-                    newUpdates[targetDevice.id] = isTurningOn ? "ON" : "OFF";
-                }
+        if (activeState && sceneData && sceneData.states && sceneData.states[activeState]) {
+            const stateNode = sceneData.states[activeState];
+            
+            if (stateNode.onEnter) {
+                applyActions(stateNode.onEnter);
             }
+
+            if (stateNode.timeline) {
+                stateNode.timeline.forEach(item => {
+                    const delayMs = (item.at || 0) * 1000;
+                    
+                    const timerId = setTimeout(() => {
+                        const actionsToRun = item.actions ? item.actions : [item];
+                        applyActions(actionsToRun);
+                    }, delayMs);
+                    
+                    timersRef.current.push(timerId);
+                });
+            }
+        }
+        
+        return () => {
+            timersRef.current.forEach(timer => clearTimeout(timer));
+            timersRef.current = [];
         };
+    }, [activeState, sceneData]);
 
-        // Spracuj onEnter
-        if (stateNode.onEnter) {
-            stateNode.onEnter.forEach(processAction);
-        }
-        // Spracuj Timeline
-        if (stateNode.timeline) {
-            stateNode.timeline.forEach(item => {
-                if (item.actions) item.actions.forEach(processAction);
-                else if (item.action) processAction(item);
+    const applyActions = (actions) => {
+        setSimulatedDeviceStatus(prevStatus => {
+            const nextStatus = { ...prevStatus };
+
+            actions.forEach(action => {
+                if (!action || !action.topic) return;
+                
+                const targetDevice = devices.find(d => d.topic === action.topic);
+                
+                if (targetDevice) {
+                    const msg = action.message;
+                    const isMotor = targetDevice.type === 'motor';
+
+                    if (isMotor) {
+                        try {
+                            const jsonCmd = typeof msg === 'string' && msg.startsWith('{') ? JSON.parse(msg) : null;
+                            
+                            if (jsonCmd) {
+                                if (jsonCmd.speed !== undefined) {
+                                    if (Number(jsonCmd.speed) > 0) {
+                                        nextStatus[targetDevice.id] = `ON (${jsonCmd.speed}%)`;
+                                    } else {
+                                        nextStatus[targetDevice.id] = "OFF";
+                                    }
+                                }
+                            } else {
+                                if (msg === "ON" || msg === "START") nextStatus[targetDevice.id] = "ON";
+                                else if (msg === "OFF" || msg === "STOP") nextStatus[targetDevice.id] = "OFF";
+                            }
+                        } catch (e) {
+                            console.warn("Error parsing motor command:", e);
+                        }
+                    } else {
+                        const isTurningOn = msg === "ON" || msg === "1" || msg === "true";
+                        nextStatus[targetDevice.id] = isTurningOn ? "ON" : "OFF";
+                    }
+                }
             });
-        }
-
-        // Ulož do stavu (zachovaj staré, prepíš nové)
-        setSimulatedDeviceStatus(prev => ({
-            ...prev,
-            ...newUpdates
-        }));
+            return nextStatus;
+        });
     };
 
     const handleSelectScene = async (e) => {
@@ -115,6 +118,9 @@ export default function LiveView() {
             setSceneData(content);
             setActiveState(null);
             setSimulatedDeviceStatus({});
+            
+            timersRef.current.forEach(timer => clearTimeout(timer));
+            timersRef.current = [];
         }
     };
 
@@ -161,7 +167,6 @@ export default function LiveView() {
             </PageHeader>
 
             <div className="live-grid">
-                {/* 1. VIZUALIZÉR */}
                 <div className="visualizer-panel">
                     {sceneData ? (
                         <>
@@ -178,7 +183,6 @@ export default function LiveView() {
                     )}
                 </div>
 
-                {/* 2. PANEL ZARIADENÍ */}
                 <div className="devices-panel">
                     <div className="devices-header">
                         <Zap size={18} className="text-primary" />
@@ -193,11 +197,8 @@ export default function LiveView() {
                         ) : (
                             devices.map(device => {
                                 const statusRaw = simulatedDeviceStatus[device.id];
-                                // Zistíme či je zapnuté (ak je status "ON" alebo string s %)
                                 const isOn = statusRaw === "ON" || (typeof statusRaw === 'string' && statusRaw.includes("ON"));
                                 const isRelay = device.type === 'relay';
-                                
-                                // Display text: Ak nemáme status, je OFF. Ak máme, ukážeme ho (napr "ON (50%)")
                                 const statusText = statusRaw || "OFF";
 
                                 return (
