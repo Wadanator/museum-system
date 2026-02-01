@@ -16,14 +16,18 @@ class StateMachine:
         self.global_events = []
         self.current_state = None
         self.initial_state = None
-
+        
         self.state_start_time = None
         self.scene_start_time = None
         self.state_history = []
         self.total_states = 0
+
+        # --- NOVÉ: Uloženie celých dát scény (pre Audio Preloading) ---
+        self.scene_data = None 
+        
+        # --- PÔVODNÉ: Callback pre monitoring (Dashboard update) ---
+        self.on_state_change = None 
     
-
-
     def load_scene(self, scene_file):
         try:
             with open(scene_file, 'r') as f:
@@ -64,6 +68,10 @@ class StateMachine:
         self.states = states
         self.global_events = global_events
         self.initial_state = initial_state
+        
+        # --- FIX: Uložíme si data pre potreby preloadingu v SceneParseri ---
+        self.scene_data = data
+        
         self.reset_runtime_state()
         self.total_states = len(self.states)
 
@@ -85,6 +93,11 @@ class StateMachine:
         if state_name == "END":
             self.current_state = "END"
             self.state_start_time = None
+            
+            # Notifikácia o konci (PÔVODNÉ)
+            if self.on_state_change:
+                self.on_state_change("END")
+                
             return True
         
         if state_name not in self.states:
@@ -98,6 +111,11 @@ class StateMachine:
         self.state_start_time = time.time()
         
         self.logger.debug(f"State changed -> {state_name}")
+        
+        # Notifikácia o zmene stavu (PÔVODNÉ)
+        if self.on_state_change:
+            self.on_state_change(state_name)
+
         return True
     
     def get_global_events(self):

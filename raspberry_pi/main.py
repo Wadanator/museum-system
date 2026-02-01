@@ -72,7 +72,6 @@ class MuseumController:
         self.button_handler = self.services.button_handler
 
         # --- Wiring (Prepojenie Callbackov) ---
-        # Teraz, keď máme služby aj controller, prepojíme ich logiku
         self._wire_dependencies()
         
         # Web Dashboard
@@ -102,7 +101,6 @@ class MuseumController:
             self.mqtt_client.connection_restored_callback = self._on_mqtt_connection_restored
             
         # 3. Scene Parser
-        # SceneParser potrebuje prístup k službám
         self.scene_parser = SceneParser(
             mqtt_client=self.mqtt_client,
             audio_handler=self.audio_handler,
@@ -186,6 +184,20 @@ class MuseumController:
 
             log.debug(f"Loading scene: {scene_path}")
             if self.scene_parser.load_scene(scene_path):
+                
+                # --- NOVÉ: Prepojenie na Web Dashboard cez SocketIO ---
+                # Toto zabezpečí, že web dostane info o každom prechode
+                if self.web_dashboard:
+                    def notify_web(state_name):
+                        try:
+                            self.web_dashboard.socketio.emit('scene_progress', {'activeState': state_name})
+                        except Exception as e:
+                            log.error(f"Failed to emit socket event: {e}")
+                    
+                    if hasattr(self.scene_parser, 'state_machine'):
+                        self.scene_parser.state_machine.on_state_change = notify_web
+                # ----------------------------------------------------
+
                 try:
                     self.run_scene()
                 except Exception as e:
@@ -332,7 +344,7 @@ class MuseumController:
         """Run the main application loop."""
         log.info("Starting Museum Controller")
         
-        # Check MQTT Connection (Moved here from ServiceContainer init to keep flow logic)
+        # Check MQTT Connection
         if self.mqtt_client:
             if not self.mqtt_client.establish_initial_connection():
                 if self.shutdown_requested:
@@ -387,7 +399,6 @@ class MuseumController:
         log.info("Initiating cleanup...")
         self._cleaned_up = True
         
-        # --- KROK 3: Unified Cleanup ---
         if self.services:
             self.services.cleanup()
             

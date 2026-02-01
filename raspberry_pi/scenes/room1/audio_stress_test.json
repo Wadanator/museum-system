@@ -1,0 +1,228 @@
+{
+  "description": "Test audio systemu: 1. Sekvencne prehravanie, 2. Vrstvenie zvukov (Simultaneous Layering)",
+  "globalEvents": [
+    {
+      "goto": "END",
+      "message": "STOP",
+      "topic": "room1/emergency",
+      "type": "mqttMessage"
+    }
+  ],
+  "initialState": "phase1_step1_welcome",
+  "sceneId": "audio_stress_test",
+  "states": {
+    "cleanup_and_end": {
+      "description": "Koniec testu: Vsetko ticho.",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "STOP"
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 1,
+          "goto": "END",
+          "type": "timeout"
+        }
+      ]
+    },
+    "phase1_step1_welcome": {
+      "description": "Faza 1: Hra iba WELCOME (5s)",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "STOP"
+        },
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_welcome.mp3:1.0"
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 5,
+          "goto": "phase1_step2_uvod",
+          "type": "timeout"
+        }
+      ]
+    },
+    "phase1_step2_uvod": {
+      "description": "Faza 1: Stopne predchadzajuce, hra UVOD (5s)",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "STOP"
+        },
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_uvod_rec.mp3:1.0"
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 5,
+          "goto": "phase1_step3_jednotka",
+          "type": "timeout"
+        }
+      ]
+    },
+    "phase1_step3_jednotka": {
+      "description": "Faza 1: Stopne predchadzajuce, hra JEDNOTKU (5s)",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "STOP"
+        },
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_vybrali_ste_jednotku.mp3:1.0"
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 5,
+          "goto": "phase1_step4_dvojka",
+          "type": "timeout"
+        }
+      ]
+    },
+    "phase1_step4_dvojka": {
+      "description": "Faza 1: Stopne predchadzajuce, hra DVOJKU (5s)",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "STOP"
+        },
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_vybrali_ste_dvojku.mp3:1.0"
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 5,
+          "goto": "phase1_step5_nic",
+          "type": "timeout"
+        }
+      ]
+    },
+    "phase1_step5_nic": {
+      "description": "Faza 1: Stopne predchadzajuce, hra NIC (5s)",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "STOP"
+        },
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_nic_ste_nevybrali.mp3:1.0"
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 5,
+          "goto": "phase2_prep_silence",
+          "type": "timeout"
+        }
+      ]
+    },
+    "phase2_layer1": {
+      "description": "Faza 2: Startuje WELCOME (vrstvenie zacina)",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_welcome.mp3:0.6"
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 2,
+          "goto": "phase2_layer2",
+          "type": "timeout"
+        }
+      ]
+    },
+    "phase2_layer2": {
+      "description": "Faza 2: Pridava UVOD (Welcome stale hra)",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_uvod_rec.mp3:1.0"
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 2,
+          "goto": "phase2_layer3",
+          "type": "timeout"
+        }
+      ]
+    },
+    "phase2_layer3": {
+      "description": "Faza 2: Pridava JEDNOTKU (3 zvuky naraz)",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_vybrali_ste_jednotku.mp3:1.0"
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 2,
+          "goto": "phase2_layer4",
+          "type": "timeout"
+        }
+      ]
+    },
+    "phase2_layer4": {
+      "description": "Faza 2: Pridava DVOJKU (4 zvuky naraz)",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_vybrali_ste_dvojku.mp3:1.0"
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 2,
+          "goto": "phase2_layer5_chaos",
+          "type": "timeout"
+        }
+      ]
+    },
+    "phase2_layer5_chaos": {
+      "description": "Faza 2: Pridava NIC. Vsetko hra naraz 10 sekund.",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_nic_ste_nevybrali.mp3:1.0"
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 10,
+          "goto": "cleanup_and_end",
+          "type": "timeout"
+        }
+      ]
+    },
+    "phase2_prep_silence": {
+      "description": "Pauza a ticho pred burkou (2s)",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "STOP"
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 2,
+          "goto": "phase2_layer1",
+          "type": "timeout"
+        }
+      ]
+    }
+  },
+  "version": "1.0"
+}

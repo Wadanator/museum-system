@@ -110,7 +110,7 @@ class MQTTFeedbackTracker:
             return None
 
         # Room device topics: prefix/motor1 -> prefix/motor1/feedback
-        if len(parts) == 2 and parts[0].startswith('room'):
+        if len(parts) >= 2 and parts[0].startswith('room'):
             return f"{original_topic}/feedback"
         
         # Device topics: devices/esp32_01/relay -> devices/esp32_01/relay/feedback
