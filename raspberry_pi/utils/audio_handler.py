@@ -179,35 +179,40 @@ class AudioHandler:
         if not message: return False
             
         try:
-            if message.startswith("PLAY:"):
-                parts = message.split(":")
+            # --- OPRAVA: Očistenie správy od medzier a prevod na string ---
+            clean_message = str(message).strip()
+            
+            if clean_message.startswith("PLAY:"):
+                parts = clean_message.split(":")
                 filename = parts[1]
                 volume = float(parts[2]) if len(parts) > 2 else 1.0
                 return self.play_audio_file(filename, max(0.0, min(1.0, volume)))
                                 
-            elif message == "STOP":
+            # --- OPRAVA: Robustnejšia kontrola STOP (case-insensitive) ---
+            elif clean_message.upper() == "STOP":
                 return self.stop_all()
                 
-            elif message.startswith("STOP:"):
-                # Zastaví konkrétny súbor (či už je to hudba alebo efekt)
-                target = message.split(":")[1]
+            elif clean_message.startswith("STOP:"):
+                # Zastaví konkrétny súbor
+                target = clean_message.split(":")[1]
                 return self.stop_specific(target)
                 
-            elif message == "PAUSE":
+            elif clean_message == "PAUSE":
                 return self.pause_audio()
                 
-            elif message == "RESUME":
+            elif clean_message == "RESUME":
                 return self.resume_audio()
                 
-            elif message.startswith("VOLUME:"):
+            elif clean_message.startswith("VOLUME:"):
                 try:
-                    vol = float(message.split(":")[1])
+                    vol = float(clean_message.split(":")[1])
                     return self.set_volume(vol)
                 except:
                     return False
             
             else:
-                return self.play_audio_file(message)
+                # Ak to nie je príkaz, skúsime to prehrať ako názov súboru
+                return self.play_audio_file(clean_message)
                 
         except Exception as e:
             self.logger.error(f"Failed to handle audio command '{message}': {e}")
@@ -218,14 +223,20 @@ class AudioHandler:
         if not self.audio_available: return True
         
         try:
-            # 1. Stop Hudby
-            pygame.mixer.music.stop()
+            if pygame.mixer.music.get_busy():
+                self.logger.info("Stopping music stream...")
+                pygame.mixer.music.fadeout(500)
+                time.sleep(0.1)
+                pygame.mixer.music.stop()
+                try: pygame.mixer.music.unload()
+                except: pass
+            
             self.current_music_file = None
             
-            # 2. Stop všetkých SFX kanálov
+            # 2. Stop všetkých SFX kanálov (RAM)
             pygame.mixer.stop() 
             
-            # Vyčistiť tracking
+            # Vyčistiť tracking efektov
             self.active_effects.clear()
             
             self.logger.info("Stopped ALL audio")

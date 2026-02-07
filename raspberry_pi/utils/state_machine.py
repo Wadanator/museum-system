@@ -122,7 +122,12 @@ class StateMachine:
         return self.global_events
 
     def get_current_state_data(self):
-        if not self.current_state or self.current_state == "END": return None
+        if not self.current_state: 
+            return None
+        
+        if self.current_state == "END":
+            return self.states.get("END")
+            
         return self.states.get(self.current_state)
     
     def get_state_elapsed_time(self):

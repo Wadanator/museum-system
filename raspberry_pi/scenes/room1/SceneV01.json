@@ -1,20 +1,21 @@
 {
+  "sceneId": "fire_story_hw_sequence",
   "description": "Pr\u00edbeh Ohe\u0148 (v1.4): Pridan\u00e9 HW ovl\u00e1danie (Dym, Svetl\u00e1, Motory)",
+  "version": "1.0",
+  "initialState": "INIT_ATMOSFERA",
   "globalEvents": [
     {
-      "goto": "END",
-      "message": "STOP",
+      "type": "mqttMessage",
       "topic": "room1/emergency",
-      "type": "mqttMessage"
+      "message": "STOP",
+      "goto": "END"
     },
     {
+      "type": "timeout",
       "delay": 600,
-      "goto": "END",
-      "type": "timeout"
+      "goto": "END"
     }
   ],
-  "initialState": "INIT_ATMOSFERA",
-  "sceneId": "fire_story_hw_sequence",
   "states": {
     "END": {
       "description": "Koniec: Vypnutie v\u0161etk\u00e9ho (Audio, Svetl\u00e1, Motory, Dym).",
@@ -66,18 +67,22 @@
       ]
     },
     "HODINY_KLIKANIE": {
-      "description": "6. Hodiny: Klikanie + Rozsvietenie bud\u00edkov (Light 4+5) (+6s)",
+      "description": "6. Hodiny: Klikanie + Rozsvietenie bud\u00edkov s oneskoren\u00edm 1s",
       "onEnter": [
         {
           "action": "audio",
           "message": "PLAY:sfx_klikanie.wav:1"
-        },
+        }
+      ],
+      "timeline": [
         {
+          "at": 1.4,
           "action": "mqtt",
           "message": "ON",
           "topic": "room1/light/4"
         },
         {
+          "at": 1.4,
           "action": "mqtt",
           "message": "ON",
           "topic": "room1/light/5"
@@ -85,9 +90,9 @@
       ],
       "transitions": [
         {
+          "type": "timeout",
           "delay": 4,
-          "goto": "HODINY_TIKANIE_1",
-          "type": "timeout"
+          "goto": "HODINY_TIKANIE_1"
         }
       ]
     },
@@ -101,9 +106,9 @@
       ],
       "transitions": [
         {
+          "type": "timeout",
           "delay": 2.5,
-          "goto": "HODINY_ODBITIE_2",
-          "type": "timeout"
+          "goto": "HODINY_ODBITIE_2"
         }
       ]
     },
@@ -117,9 +122,9 @@
       ],
       "transitions": [
         {
+          "type": "timeout",
           "delay": 2.5,
-          "goto": "HODINY_ODBITIE_3",
-          "type": "timeout"
+          "goto": "HODINY_ODBITIE_3"
         }
       ]
     },
@@ -133,17 +138,17 @@
       ],
       "timeline": [
         {
-          "action": "mqtt",
           "at": 0,
+          "action": "mqtt",
           "message": "ON",
           "topic": "room1/light/2"
         }
       ],
       "transitions": [
         {
+          "type": "timeout",
           "delay": 3,
-          "goto": "HODINY_TIKANIE_2",
-          "type": "timeout"
+          "goto": "HODINY_TIKANIE_2"
         }
       ]
     },
@@ -157,9 +162,9 @@
       ],
       "transitions": [
         {
+          "type": "timeout",
           "delay": 6,
-          "goto": "HODINY_ODBITIE_1",
-          "type": "timeout"
+          "goto": "HODINY_ODBITIE_1"
         }
       ]
     },
@@ -172,15 +177,15 @@
         },
         {
           "action": "mqtt",
-          "message": "ON:80:L:1000",
-          "topic": "room1/motor2"
+          "message": "ON:70:L:1000",
+          "topic": "room1/motor1"
         }
       ],
       "transitions": [
         {
-          "delay": 5,
-          "goto": "END",
-          "type": "timeout"
+          "type": "timeout",
+          "delay": 20,
+          "goto": "END"
         }
       ]
     },
@@ -197,19 +202,24 @@
         },
         {
           "action": "audio",
-          "message": "PLAY:atmosfera.wav:0.7"
+          "message": "PLAY:atmosfera.wav:0.5"
         },
         {
           "action": "mqtt",
           "message": "ON",
           "topic": "room1/power/smoke_ON"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/3",
+          "message": "ON"
         }
       ],
       "transitions": [
         {
-          "delay": 5,
-          "goto": "START_OHEN",
-          "type": "timeout"
+          "type": "timeout",
+          "delay": 10,
+          "goto": "START_OHEN"
         }
       ]
     },
@@ -221,36 +231,101 @@
           "message": "PLAY:sfx_Zapalenie_Ohna1.wav:1"
         },
         {
-          "action": "mqtt",
-          "message": "ON",
-          "topic": "room1/light/fire"
-        },
-        {
           "action": "audio",
           "message": "PLAY:sfx_Praskanie_Ohna1.wav:0.8"
         }
       ],
+      "timeline": [
+        {
+          "at": 1,
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/fire"
+        }
+      ],
       "transitions": [
         {
+          "type": "timeout",
           "delay": 6,
-          "goto": "ZVUK_ALARM",
-          "type": "timeout"
+          "goto": "ZVUK_ALARM"
         }
       ]
     },
     "ZVUK_ALARM": {
-      "description": "3. Alarm: Spust\u00ed sa p\u00edpanie (+6s)",
+      "description": "3. Alarm: Spust\u00ed sa p\u00edpanie + 6x bliknutie (BPM 120)",
       "onEnter": [
         {
           "action": "audio",
           "message": "PLAY:sfx_Pipanie.wav:0.7"
         }
       ],
+      "timeline": [
+        {
+          "at": 0,
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/1"
+        },
+        {
+          "at": 0.25,
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/1"
+        },
+        {
+          "at": 0.5,
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/1"
+        },
+        {
+          "at": 0.75,
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/1"
+        },
+        {
+          "at": 1,
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/1"
+        },
+        {
+          "at": 1.25,
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/1"
+        },
+        {
+          "at": 1.5,
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/1"
+        },
+        {
+          "at": 1.75,
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/1"
+        },
+        {
+          "at": 2,
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/1"
+        },
+        {
+          "at": 2.25,
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/1"
+        }
+      ],
       "transitions": [
         {
-          "delay": 1.5,
-          "goto": "ZVUK_PARA",
-          "type": "timeout"
+          "type": "timeout",
+          "delay": 3,
+          "goto": "ZVUK_PARA"
         }
       ]
     },
@@ -267,11 +342,25 @@
           "topic": "room1/effect/smoke"
         }
       ],
+      "timeline": [
+        {
+          "at": 3,
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/effect/smoke"
+        },
+        {
+          "at": 11,
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/effect/smoke"
+        }
+      ],
       "transitions": [
         {
-          "delay": 3.5,
-          "goto": "ZVUK_PISTALA",
-          "type": "timeout"
+          "type": "timeout",
+          "delay": 10,
+          "goto": "ZVUK_PISTALA"
         }
       ]
     },
@@ -285,12 +374,11 @@
       ],
       "transitions": [
         {
+          "type": "timeout",
           "delay": 6,
-          "goto": "HODINY_KLIKANIE",
-          "type": "timeout"
+          "goto": "HODINY_KLIKANIE"
         }
       ]
     }
-  },
-  "version": "1.4"
+  }
 }
