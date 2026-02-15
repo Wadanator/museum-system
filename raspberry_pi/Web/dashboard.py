@@ -218,3 +218,7 @@ class WebDashboard:
         if level_filter in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
             filtered_logs = [log for log in filtered_logs if log['level'] == level_filter]
         return filtered_logs[-limit:] if len(filtered_logs) > limit else filtered_logs
+    
+    def broadcast_status(self):
+        """Okamžite pošle aktuálny stav (beží/nebeží) všetkým klientom."""
+        self.socketio.emit('status_update', self._get_status_data())

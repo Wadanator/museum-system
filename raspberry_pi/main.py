@@ -156,6 +156,8 @@ class MuseumController:
             
             self.scene_running = True
             log.info(log_message)
+            if self.web_dashboard:
+                self.web_dashboard.broadcast_status()
 
         threading.Thread(
             target=self._run_scene_logic, 
@@ -207,10 +209,15 @@ class MuseumController:
                     if self.video_handler:
                         self.video_handler.stop_video()
 
+                    # 2. Reset príznaku behu a broadcast STOP
                     if self.scene_running:
                         self.broadcast_stop()
-                        self.scene_running = False 
+                        self.scene_running = False
 
+                    if self.web_dashboard:
+                        self.web_dashboard.broadcast_status() 
+
+                    # 3. Aktualizácia štatistík
                     self._update_scene_statistics()
             else:
                 log.error(f"Failed to load scene: {scene_filename}")
