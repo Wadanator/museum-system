@@ -6,23 +6,46 @@ import signal
 import time
 import threading
 import subprocess
+import logging
 
 # Configure Python path for module imports
 script_dir = os.path.dirname(os.path.abspath(__file__))
 if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
 
-from utils.config_manager import ConfigManager
-from utils.logging_setup import setup_logging_from_config, get_logger
-from utils.service_container import ServiceContainer
-from utils.scene_parser import SceneParser
-from Web import start_web_dashboard
+from utils.bootstrap import setup_bootstrap_logging, log_bootstrap_exception
 
-# Initialize configuration and logging
-config_manager = ConfigManager()
-logging_config = config_manager.get_logging_config()
-log = setup_logging_from_config(logging_config)
-log = get_logger('main')
+log = logging.getLogger('museum.bootstrap')
+config_manager = None
+setup_logging_from_config = None
+get_logger = None
+ServiceContainer = None
+SceneParser = None
+start_web_dashboard = None
+
+
+
+def _initialize_runtime():
+    """Load runtime modules and switch from bootstrap logging to configured logging."""
+    global config_manager, setup_logging_from_config, get_logger
+    global ServiceContainer, SceneParser, start_web_dashboard, log
+
+    from utils.config_manager import ConfigManager
+    from utils.logging_setup import setup_logging_from_config as setup_logging_from_config_impl, get_logger as get_logger_impl
+    from utils.service_container import ServiceContainer as service_container_cls
+    from utils.scene_parser import SceneParser as scene_parser_cls
+    from Web import start_web_dashboard as start_web_dashboard_func
+
+    config_manager = ConfigManager()
+    setup_logging_from_config = setup_logging_from_config_impl
+    get_logger = get_logger_impl
+    ServiceContainer = service_container_cls
+    SceneParser = scene_parser_cls
+    start_web_dashboard = start_web_dashboard_func
+
+    logging_config = config_manager.get_logging_config()
+    setup_logging_from_config(logging_config)
+    log = get_logger('main')
 
 class MuseumController:
     """Main controller for the museum system, managing all components and operations."""
@@ -415,12 +438,18 @@ class MuseumController:
         log.info("Museum Controller stopped cleanly")
 
 def main():
+    setup_bootstrap_logging()
+
     controller = None
     try:
+        _initialize_runtime()
         controller = MuseumController(config_manager)
         controller.run()
     except Exception as e:
-        log.error(f"Critical application error: {e}")
+        if get_logger:
+            log.error(f"Critical application error: {e}")
+        else:
+            log_bootstrap_exception(e)
         sys.exit(1)
     finally:
         if controller:
