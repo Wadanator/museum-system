@@ -6,6 +6,7 @@ from werkzeug.utils import secure_filename
 from pathlib import Path
 import time
 import configparser
+from ..auth import requires_auth
 
 # Inicializácia Blueprintu
 media_bp = Blueprint('media', __name__)
@@ -58,6 +59,7 @@ def get_file_info(file_path):
         return {'name': file_path.name, 'size': '?', 'modified': '?'}
 
 @media_bp.route('/<media_type>', methods=['GET'])
+@requires_auth
 def list_files(media_type):
     """Vráti zoznam súborov."""
     if media_type not in ['video', 'audio']:
@@ -84,6 +86,7 @@ def list_files(media_type):
         return jsonify({'error': str(e)}), 500
 
 @media_bp.route('/<media_type>', methods=['POST'])
+@requires_auth
 def upload_file(media_type):
     """Nahrá súbor."""
     if media_type not in ['video', 'audio']:
@@ -114,6 +117,7 @@ def upload_file(media_type):
     return jsonify({'error': 'File type not allowed'}), 400
 
 @media_bp.route('/<media_type>/<filename>', methods=['DELETE'])
+@requires_auth
 def delete_file(media_type, filename):
     """Vymaže súbor."""
     try:
@@ -131,6 +135,7 @@ def delete_file(media_type, filename):
 # --- NOVÉ ENDPOINTY PRE PREHRÁVANIE A STOP ---
 
 @media_bp.route('/play/audio', methods=['POST'])
+@requires_auth
 def play_audio():
     """Okamžite prehrá vybraný audio súbor."""
     try:
@@ -157,6 +162,7 @@ def play_audio():
         return jsonify({'error': str(e)}), 500
 
 @media_bp.route('/play/video', methods=['POST'])
+@requires_auth
 def play_video():
     """Okamžite prehrá vybraný video súbor."""
     try:
@@ -182,6 +188,7 @@ def play_video():
         return jsonify({'error': str(e)}), 500
 
 @media_bp.route('/stop', methods=['POST'])
+@requires_auth
 def stop_all_media():
     """Zastaví všetko Audio aj Video (Panic Button)."""
     try:
