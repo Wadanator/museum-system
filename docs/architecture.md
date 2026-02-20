@@ -1,90 +1,163 @@
-# Museum Automation System Architecture
+# Architektúra systému (aktuálna implementácia)
 
-## Runtime Topology
+Tento dokument popisuje runtime architektúru tak, ako je implementovaná v `raspberry_pi/` a `esp32/devices/wifi/`.
 
-The museum deployment consists of a single MQTT broker that coordinates multiple Raspberry Pi room controllers and ESP32 device nodes. Each room controller is responsible for executing show scenes for its room:
+---
 
-- **MQTT Broker** – Typically Mosquitto, can run locally on the Raspberry Pi or centrally. All room controllers and ESP32 devices connect here.
-- **Raspberry Pi Room Controller** – Runs `raspberry_pi/main.py` as a systemd service. Hosts the scene engine, media handlers, and the operator dashboard.
-- **ESP32 Peripherals** – Subscribe to room-scoped MQTT topics and drive actuators (lighting, motors, relays, fog machines, etc.). Many sketches live under `esp32/`.
+## 1) Runtime topológia
 
-Controllers communicate only through MQTT topics; no direct socket calls are required between rooms.
+- **MQTT broker** je centrálna message bus.
+- **Raspberry Pi controller** vykonáva scény a koordinuje media + device commands.
+- **ESP32 nodes** vykonávajú fyzické akcie a vracajú status/feedback.
 
-## Controller Internals
-
-```
-+---------------------------+      +----------------------------+
-| MuseumController          |      | SystemMonitor              |
-|  - ConfigManager          |<---->|  health + metrics logging  |
-|  - Logging setup          |      +----------------------------+
-|  - MQTTClient             |
-|  - SceneParser            |      +----------------------------+
-|  - AudioHandler           |----->| Audio subsystem (pygame)   |
-|  - VideoHandler           |----->| Video subsystem (mpv IPC)  |
-|  - ButtonHandler          |      +----------------------------+
-|  - Web dashboard thread   |
-+-------------|-------------+
-              |
-              v
-        +-----------+
-        | State      |
-        | Machine    |
-        | (Scene     |
-        | Executor)  |
-        +-----------+
+```text
+Dashboard / Button / MQTT trigger
+          |
+          v
+  Raspberry Pi MuseumController
+          |
+          v
+      MQTT broker
+      /        \
+ ESP32 relay  ESP32 motors (+button publish trigger)
 ```
 
-### Configuration & Logging
-- `ConfigManager` reads `config/config.ini`, exposing sections for MQTT connection details, file paths, timings, GPIO pins, and dashboard configuration.
-- `logging_setup` builds a multi-handler logging configuration (console, daily rotating files, severity-based files) used across modules. Per-component log levels can be overridden from the config file.
+---
 
-### Scene Engine
-- `SceneParser` loads JSON scenes, validates structure, and builds state machine objects.
-- `state_machine.py` models states, actions, and transitions. Each state can fire MQTT messages, local media commands, or waits.
-- `state_executor.py` schedules actions with precise timing, invoking asynchronous callbacks when MQTT feedback arrives.
-- `transition_manager.py` evaluates transition rules such as `on_complete`, `on_feedback`, or explicit `goto`, enabling loops, branching, and conditional exits.
+## 2) Raspberry Pi vrstva
 
-### MQTT Stack
-- `mqtt_client.py` manages broker connectivity with retry/backoff strategies, heartbeat pings, and connection event callbacks.
-- `mqtt_device_registry.py` keeps track of ESP32 device presence and last-seen timestamps.
-- `mqtt_feedback_tracker.py` matches published commands with acknowledgements, expiring stale requests.
-- `mqtt_message_handler.py` routes incoming MQTT payloads to the scene engine (button presses, device feedback, state overrides).
+## 2.1 Entry point a orchestrácia
+- `raspberry_pi/main.py`
+  - inicializácia runtime modulov
+  - wiring callbackov
+  - spúšťanie/zastavovanie scén
+  - graceful cleanup
 
-### Media & Inputs
-- `audio_handler.py` wraps Pygame mixer for low-latency playback, supporting start/stop/pause and volume adjustments.
-- `video_handler.py` uses an MPV subprocess over IPC, keeping a black frame ready as idle state and restarting the player if it fails.
-- `button_handler.py` polls or interrupts a configured GPIO pin with debounce logic to convert physical button presses into scene triggers.
+`MuseumController` štandardne:
+1. načíta config,
+2. inicializuje služby cez `ServiceContainer`,
+3. prepojí MQTT handlery,
+4. spustí web dashboard,
+5. beží main loop (health checks + poll intervaly).
 
-### Observability & Safety
-- `system_monitor.py` periodically measures CPU, memory, and disk usage, writes heartbeat logs, and can notify `systemd` once ready.
-- `watchdog.py` runs as a companion process to restart the controller if the MQTT connection is lost or health checks fail.
-- The Flask + Socket.IO dashboard (under `Web/`) exposes manual controls, scene uploads, and live log streaming.
+## 2.2 Service container
+- `raspberry_pi/utils/service_container.py`
+  - centrálne vytvára: audio/video handlers, MQTT client + pomocné služby, monitor, button handler.
 
-## MQTT Topic Strategy
+## 2.3 Scene engine
+- `utils/state_machine.py`
+  - load/validate scene JSON,
+  - drží current state + scene čas.
+- `utils/scene_parser.py`
+  - lifecycle scény,
+  - forwarding eventov do transition managera,
+  - dynamic audio preload (`sfx_` súbory).
+- `utils/state_executor.py`
+  - vykonáva akcie typov `mqtt`, `audio`, `video`.
+- `utils/transition_manager.py`
+  - transition typy:
+    - `timeout`
+    - `audioEnd`
+    - `videoEnd`
+    - `mqttMessage`
+    - `always`
 
-Topics follow a `room/device/action` pattern so multiple rooms can coexist without conflicts. Example structure:
+## 2.4 Media vrstva
+- `utils/audio_handler.py`
+  - `pygame` mixer,
+  - RAM cache pre `sfx_...` súbory,
+  - stream music + callback pri dohraní.
+- `utils/video_handler.py`
+  - `mpv` subprocess,
+  - IPC socket commandy,
+  - health-check + auto-restart pri chybe.
 
-```
-room_1/
-  button
-  controller/heartbeat
-  devices/
-    lights/set
-    fogger/set
-    motor/set
-  feedback/
-    lights
-    fogger
-    motor
-```
+## 2.5 MQTT vrstva
+- `utils/mqtt/mqtt_client.py`
+  - connect/reconnect, subscribe, publish.
+- `utils/mqtt/mqtt_message_handler.py`
+  - route incoming messages podľa topic patternov.
+- `utils/mqtt/mqtt_feedback_tracker.py`
+  - track publish -> feedback timeout.
+- `utils/mqtt/mqtt_device_registry.py`
+  - online/offline registry device status topics.
+- `utils/mqtt/mqtt_contract.py`
+  - validácia topic/payload pre publish volania backendu.
 
-Scenes publish to `devices/.../set` topics with structured JSON payloads (e.g., `{ "command": "on", "duration": 5000 }`). ESP32 firmware publishes status to `feedback/...`, which the feedback tracker consumes to advance transitions.
+## 2.6 Web vrstva
+- `raspberry_pi/Web/`
+  - Flask routes + Socket.IO eventy
+  - ovládanie scény, media, commands, system actions
+  - live status/logs pre operátora
 
-## Adding New Capabilities
+---
 
-1. **Extend a scene** – Add new state definitions or transition rules in JSON; `SceneParser` will surface schema errors during load.
-2. **Introduce new hardware** – Program an ESP32 sketch that subscribes to a new topic (e.g., `devices/laser/set`) and add actions in your scenes. Register additional validation in `mqtt_device_registry.py` if the device needs custom heartbeat handling.
-3. **New transition logic** – Implement logic in `transition_manager.py` (e.g., `wait_for_sensor`) and allow scenes to reference it.
-4. **Dashboard tooling** – Modify the Flask blueprint or Socket.IO event handlers under `Web/` to expose new controls or telemetry.
+## 3) MQTT subscriptions na Pi
 
-By keeping configuration, MQTT integration, and scene execution modular, new devices or room behaviors can be added with minimal changes to the controller core.
+Po úspešnom pripojení backend subscribuje minimálne:
+- `devices/+/status`
+- `<room_id>/+/feedback`
+- `<room_id>/scene`
+- `<room_id>/#`
+
+To umožní:
+- detekciu device online/offline,
+- príjem feedbacku na príkazy,
+- trigger default/named scene,
+- prijímanie transition eventov.
+
+---
+
+## 4) ESP32 firmware komponenty v repozitári
+
+## 4.1 `esp32_mqtt_button`
+- publikuje trigger scény na `room1/scene` (`START`)
+- publikuje status na `devices/Room1_ESP_Trigger/status`
+
+## 4.2 `esp32_mqtt_controller_MOTORS`
+- subscribuje `room1/motor1`, `room1/motor2`, `room1/STOP`
+- spracúva payloady `ON:...`, `OFF`, `SPEED:...`, `DIR:...`
+- publikuje `<topic>/feedback` + status topic
+
+## 4.3 `esp32_mqtt_controller_RELAY`
+- subscribuje `room1/<device_name>`, `room1/effects/#`, `room1/STOP`
+- podpora I2C relay modulu aj direct GPIO režimu
+- publikuje feedback/status
+
+---
+
+## 5) Scene JSON kontrakt (praktický prehľad)
+
+Povinné root polia:
+- `sceneId`
+- `initialState`
+- `states`
+
+Voliteľné:
+- `version`
+- `description`
+- `globalEvents`
+
+V stave (`states.<name>`) sú podporované:
+- `description`
+- `onEnter` (array akcií)
+- `timeline` (array časovaných akcií)
+- `onExit` (array akcií)
+- `transitions` (array prechodov)
+
+Akcie:
+- `{"action":"mqtt", ...}`
+- `{"action":"audio", ...}`
+- `{"action":"video", ...}`
+
+---
+
+## 6) Rozšírenie systému (odporúčaný postup)
+
+Pri pridávaní nového zariadenia:
+1. implementácia topic/payload v ESP32 (alebo inom subscriberi),
+2. scene action + transition podľa potreby,
+3. prípadná validácia v `mqtt_contract.py`,
+4. aktualizácia `docs/mqtt_topics.md` a zariadeniovej `info.md`.
+
+Takto ostane dokumentácia aj runtime konzistentná.

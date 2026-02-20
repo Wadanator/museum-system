@@ -1,45 +1,143 @@
-# MQTT Topics Structure
+# MQTT Topics & payloady (kanonická verzia)
 
-## Topic Convention
+Toto je **hlavný referenčný dokument** pre MQTT v tomto repozitári.
+Obsah je zosúladený s:
+- `raspberry_pi/utils/mqtt/*`
+- `esp32/devices/wifi/*`
 
-All topics follow the pattern: `room_id/device_type`
+---
 
-## Standard Topics
+## 1) Triggerovanie scén (Raspberry Pi backend)
 
-### Light Control
-- Topic: `roomX/light`
-- Messages:
-  - `ON`: Turn on all lights
-  - `OFF`: Turn off all lights
-  - `BLINK`: Blink lights sequence
+## 1.1 Default scéna
+- **Topic:** `roomX/scene`
+- **Payload:** `START`
+- **Efekt:** `MQTTMessageHandler` zavolá `button_callback` (`MuseumController.on_button_press`).
 
-### Audio Control
-- Topic: `roomX/audio`
-- Messages:
-  - `PLAY_WELCOME`: Play welcome audio file
-  - `PLAY_INFO`: Play information audio file
-  - `STOP`: Stop audio playback
+## 1.2 Named scéna
+- **Topic:** `roomX/start_scene`
+- **Payload:** `<scene_file>.json`
+- **Efekt:** backend zavolá callback `start_scene_by_name(...)`.
 
-### Motor Control
-- Topic: `roomX/motor`
-- Messages:
-  - `START`: Start motor movement
-  - `STOP`: Stop motor movement
-  - `SPEED:X`: Set motor speed (where X is a value)
+---
 
-## Room-Specific Examples
+## 2) Device status topics
 
-### Room 1
-- `room1/light`
-- `room1/audio`
+- **Topic pattern:** `devices/<client_id>/status`
+- **Typický payload:** `online` / `offline`
+- **Poznámka:** ESP32 používajú retained status + LWT `offline`.
 
-### Room 2
-- `room2/light`
-- `room2/motor`
+Príklady z aktuálneho firmvéru:
+- `devices/Room1_ESP_Trigger/status`
+- `devices/Room1_ESP_Motory/status`
+- `devices/Room1_Relays_Ctrl/status`
 
-## Adding New Topics
+---
 
-When adding new functionality:
-1. Follow the naming convention
-2. Document the topic and messages
-3. Ensure all devices are configured for the new topics
+## 3) Feedback topics
+
+- **Topic pattern:** `<command_topic>/feedback`
+- **Použitie:** backend feedback tracker páruje command publish s odpoveďou zariadenia.
+
+Typické payloady:
+- motory/relé command: `OK` / `ERROR`
+- relay effect group: `ACTIVE` / `INACTIVE`
+
+---
+
+## 4) Topics pre ESP32 zariadenia v tomto repo
+
+## 4.1 `esp32_mqtt_button`
+
+Publish:
+- `room1/scene` -> `START`
+
+Status:
+- `devices/Room1_ESP_Trigger/status`
+
+---
+
+## 4.2 `esp32_mqtt_controller_MOTORS`
+
+Subscribe:
+- `room1/motor1`
+- `room1/motor2`
+- `room1/STOP`
+
+Feedback:
+- `room1/motor1/feedback`
+- `room1/motor2/feedback`
+- `room1/STOP/feedback`
+
+Status:
+- `devices/Room1_ESP_Motory/status`
+
+Podporované payloady (firmware parser):
+- `ON:<speed>:<direction>`
+- `ON:<speed>:<direction>:<rampTime>`
+- `OFF`
+- `SPEED:<value>`
+- `DIR:<value>`
+
+Príklady:
+- `room1/motor1` -> `ON:120:L`
+- `room1/motor2` -> `ON:80:R:5000`
+- `room1/motor1` -> `OFF`
+
+---
+
+## 4.3 `esp32_mqtt_controller_RELAY`
+
+Subscribe:
+- `room1/<device_name>`
+- `room1/effects/#`
+- `room1/STOP`
+
+Status:
+- `devices/Room1_Relays_Ctrl/status`
+
+### Device names (aktuálne `DEVICES[]`)
+- `power/smoke_ON`
+- `light/fire`
+- `light/1`
+- `effect/smoke`
+- `light/2`
+- `light/3`
+- `light/4`
+- `light/5`
+
+Mapovanie na command topic teda vyzerá napr.:
+- `room1/light/1` -> `ON` / `OFF`
+- `room1/effect/smoke` -> `ON` / `OFF`
+
+### Effects groups (`effects_config.h`)
+- `group1`
+- `alone`
+
+Príklady:
+- `room1/effects/group1` -> `ON`
+- `room1/effects/group1` -> `OFF`
+
+---
+
+## 5) Room STOP semantics
+
+`roomX/STOP` je globálny kill signal pre zariadenia v miestnosti.
+
+Backend ho posiela:
+- pri `stop_scene()`,
+- po prirodzenom ukončení scény,
+- po niektorých chybových/cleanup vetvách.
+
+ESP32 firmware ho má subscribnutý a vykoná okamžité vypnutie výstupov.
+
+---
+
+## 6) Poznámky k kompatibilite
+
+- Backend `mqtt_contract.py` akceptuje aj niektoré payload varianty (`ON/OFF`, `STOP`, `RESET`, `BLINK`, motor formáty).
+- Scene action payload môže byť string/number/bool (schema + executor).
+- Ak pridáš nový topic/payload, aktualizuj:
+  1. firmware/backend logiku,
+  2. test scénu,
+  3. tento dokument.

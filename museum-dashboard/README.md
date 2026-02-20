@@ -1,16 +1,48 @@
-# React + Vite
+# museum-dashboard
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Samostatný React/Vite dashboard frontend pre museum-system.
 
-Currently, two official plugins are available:
+> Poznámka: Raspberry Pi backend aktuálne servuje produkčný dashboard z `raspberry_pi/Web/`.
+> Tento projekt je vhodný na vývoj alebo refaktor UI mimo embedded backend runtime.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## React Compiler
+## 1) Spustenie
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+cd museum-dashboard
+npm install
+npm run dev
+```
 
-## Expanding the ESLint configuration
+Build:
+```bash
+npm run build
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+---
+
+## 2) Architektúra frontendu (stručne)
+
+- `src/services/api.js` – REST volania
+- `src/services/socket.js` – socket komunikácia
+- `src/context/*` – Auth/Socket/Confirm kontexty
+- `src/hooks/*` – hooks pre scenes, logs, devices, media, system actions
+- `src/styles/*` – modulárne CSS vrstvy
+
+---
+
+## 3) Integrácia s backendom
+
+Tento frontend očakáva API/socket endpointy kompatibilné s routes v `raspberry_pi/Web/routes/*`.
+Pri zmene backend endpointov aktualizuj aj:
+- `src/services/api.js`
+- príslušné hooks
+
+---
+
+## 4) Typické použitie v tíme
+
+- návrh a iterácia UI komponentov,
+- oddelené testovanie dashboard správania,
+- príprava zmien pred portovaním do `raspberry_pi/Web/` produkčnej verzie.

@@ -1,104 +1,94 @@
-# ESP32 MQTT Controller - Dokumentácia
+# ESP32 MQTT Relay Controller (`esp32_mqtt_controller_RELAY`)
 
-## Prehľad projektu
+Firmware pre ovládanie relé zariadení a efektových skupín cez MQTT.
 
-Tento projekt implementuje modulárny MQTT kontrolér pre ESP32, navrhnutý primárne pre **Waveshare ESP32 Relay Module (I2C)**, ale s podporou pre klasické ESP32 (priame GPIO).
+---
 
-Systém ovláda sadu relé (svetlá, efekty) cez MQTT príkazy, obsahuje bezpečnostné prvky (Watchdog, Auto-off), statusovú LED signalizáciu a podporu pre OTA aktualizácie.
+## 1) Hlavná funkcionalita
 
-## Štruktúra súborov
-```text
-esp32_mqtt_controller/
-├── esp32_mqtt_controller.ino    # Hlavný program (Setup & Loop)
-├── config.h / .cpp              # Konfigurácia (Wifi, MQTT, definícia zariadení)
-├── hardware.h / .cpp            # Abstrakcia hardvéru (I2C expandér alebo GPIO)
-├── wifi_manager.h / .cpp        # Správa WiFi pripojenia (reconnect logika)
-├── mqtt_manager.h / .cpp        # MQTT klient, callbacky a statusy
-├── status_led.h / .cpp          # Ovládanie RGB LED (statusy, chyby, OTA)
-├── ota_manager.h / .cpp         # Správa bezdrôtovej aktualizácie (OTA)
-├── connection_monitor.h / .cpp  # Monitorovanie stavu siete
-└── debug.h / .cpp               # Pomocné debug výpisy
-```
+- ovládanie jednotlivých device výstupov podľa `DEVICES[]`,
+- podpora `room1/effects/<group>` patternu,
+- feedback publish na command feedback topic,
+- status publish pre device registry,
+- safety logika (STOP, inactivity timeout, reconnect).
 
-## Kľúčové vlastnosti a konfigurácia
+---
 
-### 1. Hardvérové režimy (config.cpp)
+## 2) MQTT topics
 
-Systém podporuje dva režimy fungovania, prepínané konštantou `USE_RELAY_MODULE`:
+Subscribe:
+- `room1/<device_name>` (odvodené z `DEVICES[]`)
+- `room1/effects/#`
+- `room1/STOP`
 
-**Režim Waveshare Relay (TRUE):**
-- Komunikácia cez I2C (piny 41/42 pre ESP32-S3)
-- Ovládanie relé pomocou I2C expandéra (adresa 0x20)
-- Využíva RGB LED na doske pre status signalizáciu
+Status:
+- `devices/Room1_Relays_Ctrl/status`
 
-**Režim Direct GPIO (FALSE):**
-- Priame ovládanie GPIO pinov
-- Status LED je deaktivovaná (aby neblokovala piny)
+Feedback:
+- `<command_topic>/feedback`
 
-### 2. Definícia zariadení
+Payloady:
+- zariadenia: `ON`/`OFF` (akceptované aj `1`/`0`)
+- effects group: `ON`/`OFF` (príp. `START`/`STOP` aliasy)
 
-Zariadenia sú definované v poli `DEVICES` v súbore `config.cpp`. Každé zariadenie má:
+---
 
-- **MQTT Topic**: (napr. `room1/effect/smoke`)
-- **Pin/Bit**: Bit na expandéri alebo číslo GPIO pinu
-- **Inverted**: Logika spínania (NC/NO)
-- **AutoOffMs**: Čas v milisekundách pre automatické vypnutie (0 = trvalo zapnuté)
+## 3) Aktuálne device names (`config.cpp`)
 
-**Aktuálna konfigurácia:**
-- Dymostroj (`effect/smoke`): Auto-off po 5 sekundách
-- Svetlá 1-6 (`light/1` - `light/6`): Trvalé spínanie (Auto-off = 0)
+- `power/smoke_ON`
+- `light/fire`
+- `light/1`
+- `effect/smoke`
+- `light/2`
+- `light/3`
+- `light/4`
+- `light/5`
 
-## Detailný popis modulov
+Príklad:
+- `room1/light/4` -> `ON`
+- `room1/effect/smoke` -> `OFF`
 
-### esp32_mqtt_controller.ino
-- Hlavný vstupný bod
-- Inicializuje Watchdog (WDT) s timeoutom 60s
-- Spúšťa hardvér, WiFi a OTA
-- V hlavnej slučke `loop()` obsluhuje OTA, LED, MQTT a časovače
+---
 
-### hardware.cpp - Správa relé
-- Zabezpečuje fyzické ovládanie výstupov
-- **I2C vs GPIO**: Podľa konfigurácie posiela dáta do expandéra alebo priamo na piny
-- **Auto-off logika**: Funkcia `handleAutoOff()` sleduje čas zapnutia každého zariadenia (ak má nastavený limit) a automaticky ho vypne
-- **Bezpečnosť**: Funkcia `turnOffAllDevices()` okamžite vypne všetko (volané pri strate spojenia alebo štarte OTA)
+## 4) Effect groups (`effects_config.h`)
 
-### status_led.cpp - Vizuálna signalizácia
-Ovláda RGB LED (iba v režime Waveshare Relay):
+Aktuálne skupiny:
+- `group1`
+- `alone`
 
-- 🔴 **Červená** (rýchle blikanie): Chyba WiFi
-- 🟠 **Oranžová** (stredné blikanie): WiFi OK, ale chyba MQTT
-- 🟢 **Zelená** (pomalé dýchanie): Všetko OK (Online)
-- 🔵 **Modrá** (svieti): Prebieha OTA aktualizácia
+Použitie:
+- `room1/effects/group1` -> `ON` / `OFF`
+- `room1/effects/alone` -> `ON` / `OFF`
 
-### ota_manager.cpp - Aktualizácie
-- Umožňuje nahrať nový firmvér cez WiFi
-- **Bezpečnosť**: Pred začatím aktualizácie automaticky vypne všetky relé a dočasne deaktivuje Watchdog
-- Signalizuje proces modrou LED
-- **Hostname**: `ESP32-RelayModule-Room1`
+Pri `ON` sa spúšťa interná random/blink logika skupiny,
+pri `OFF` sa efekt zastaví.
 
-### mqtt_manager.cpp
-Pripája sa k brokerovi a počúva príkazy.
+---
 
-**Topics:**
-- **Príkazy**: `room1/[nazov_zariadenia]` (Payload: `ON`/`OFF` alebo `1`/`0`)
-- **Stop všetkému**: `room1/STOP`
-- **Status**: `devices/esp32_relay_controller/status` (správy `online`/`offline`)
+## 5) Hardware režimy
 
-Pri každom príkaze resetuje časovač nečinnosti (`NO_COMMAND_TIMEOUT`), aby sa zabránilo bezpečnostnému vypnutiu.
+Firmware podporuje:
+- Waveshare relay modul cez I2C,
+- direct GPIO režim.
 
-## Bezpečnostné mechanizmy
+Voľba závisí od config premenných (`USE_RELAY_MODULE` a súvisiace piny/adresy).
 
-- **Watchdog Timer**: Reštartuje ESP32, ak systém zamrzne na viac ako 60 sekúnd
-- **Safety Shutdown**:
-  - Pri strate MQTT spojenia sa všetko vypne
-  - Pri dlhej nečinnosti (žiadny príkaz > 10 minút) sa všetko vypne
-  - Pri štarte OTA update sa všetko vypne
-- **Reconnect Logika**: Exponenciálne predlžovanie intervalov pri výpadku WiFi/MQTT (šetrí sieť a CPU)
+---
 
-## Rozšírenie systému
+## 6) Safety správanie
 
-Pre pridanie nového relé stačí upraviť pole `DEVICES` v `config.cpp`:
-```cpp
-// Príklad: Pridanie ventilátora na bit 7 s časovačom 10 minút
-{"fan/cooling", 7, false, 600000},
-```
+- `room1/STOP` -> vypnutie zariadení + efektov.
+- pri dlhšej nečinnosti (timeout) môže nastať safety shutdown.
+- watchdog/reconnect logika pomáha pri nestabilnej sieti.
+
+---
+
+## 7) Konfigurácia pred deployom
+
+Skontroluj:
+- WiFi credentials,
+- MQTT server + prefix,
+- `CLIENT_ID`,
+- mapovanie zariadení v `DEVICES[]`,
+- OTA hostname/password,
+- effect groups podľa požiadaviek miestnosti.

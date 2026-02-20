@@ -1,47 +1,99 @@
-# Video Playback Commands for SceneParser
+# Video v scénach – praktický návod
 
-This document outlines the video-related commands supported by the `SceneParser` and `VideoHandler` classes for controlling video playback via a JSON scene file.
+Video vykonáva modul:
+- `raspberry_pi/utils/video_handler.py`
 
-## Supported Video Commands
-
-These commands are used in the JSON `message` field when the `topic` ends with `/video` (e.g., `media/video`).
-
-- **PLAY_VIDEO:filename.mp4**
-  - Plays the specified `.mp4` video file from the `videos` directory.
-  - Example: `"message": "PLAY_VIDEO:intro.mp4"`
-
-- **STOP_VIDEO**
-  - Stops the current video and displays a black screen (`black.png`).
-  - Example: `"message": "STOP_VIDEO"`
-
-- **PAUSE**
-  - Pauses the current video (requires `pause_video` method, not implemented).
-  - Example: `"message": "PAUSE"`
-
-- **RESUME**
-  - Resumes a paused video (requires `resume_video` method, not implemented).
-  - Example: `"message": "RESUME"`
-
-- **SEEK:seconds**
-  - Seeks to a specific time in seconds (requires `seek_video` method, not implemented).
-  - Example: `"message": "SEEK:10.5"`
-
-- **Direct Filename (e.g., filename.mp4)**
-  - Plays the specified `.mp4` video file directly.
-  - Example: `"message": "scene1.mp4"`
-
-## JSON Structure
-
-The JSON scene file must be a list of actions with:
-- **timestamp**: Time in seconds (float/integer) for action execution.
-- **topic**: String ending with `/video` (e.g., `media/video`).
-- **message**: One of the commands above.
-
-### Example JSON
-
+Scéna používa akciu:
 ```json
-[
-    {"timestamp": 0.0, "topic": "media/video", "message": "PLAY_VIDEO:intro.mp4"},
-    {"timestamp": 10.0, "topic": "media/video", "message": "STOP_VIDEO"},
-    {"timestamp": 12.0, "topic": "media/video", "message": "scene1.mp4"}
-]
+{ "action": "video", "message": "..." }
+```
+
+---
+
+## 1) Podporované commandy (`handle_command`)
+
+- `PLAY_VIDEO:<filename>`
+- `STOP_VIDEO`
+- `PAUSE`
+- `RESUME`
+- `SEEK:<seconds>`
+- alebo priamo názov súboru (`scene1.mp4`)
+
+Podporované prípony:
+- `.mp4`, `.avi`, `.mkv`, `.mov`, `.webm`
+
+---
+
+## 2) Ako je implementované prehrávanie
+
+`VideoHandler`:
+- spúšťa/udržiava `mpv` proces,
+- používa UNIX IPC socket (`ipc_socket` z configu),
+- má health-check interval,
+- pri neodpovedajúcom mpv vie vykonať reštart s cooldownom/limitom.
+
+`STOP_VIDEO` nahrá idle obrázok (`iddle_image` v confige).
+
+---
+
+## 3) Príklady scén
+
+## 3.1 Prehraj video a prejdi po dohraní
+```json
+{
+  "sceneId": "video_end_demo",
+  "initialState": "intro",
+  "states": {
+    "intro": {
+      "onEnter": [
+        { "action": "video", "message": "PLAY_VIDEO:scene1.mp4" }
+      ],
+      "transitions": [
+        { "type": "videoEnd", "target": "scene1.mp4", "goto": "END" }
+      ]
+    }
+  }
+}
+```
+
+## 3.2 Timeline video commandy
+```json
+{
+  "sceneId": "video_timeline_demo",
+  "initialState": "s1",
+  "states": {
+    "s1": {
+      "timeline": [
+        { "at": 0.0, "action": "video", "message": "PLAY_VIDEO:loop.mp4" },
+        { "at": 2.5, "action": "video", "message": "SEEK:10" },
+        { "at": 6.0, "action": "video", "message": "PAUSE" },
+        { "at": 7.0, "action": "video", "message": "RESUME" }
+      ],
+      "transitions": [
+        { "type": "timeout", "delay": 12, "goto": "END" }
+      ]
+    }
+  }
+}
+```
+
+---
+
+## 4) Prepojenie s transition managerom
+
+`SceneParser.check_if_ended()` sleduje prechod z „hrá“ na „dohrané“.
+Pri dohraní:
+1. zavolá callback,
+2. transition manager zaregistruje `videoEnd` event,
+3. `videoEnd` transition môže preskočiť do ďalšieho stavu.
+
+---
+
+## 5) Typické problémy
+
+- Video súbor nie je v `[Video] directory`.
+- Zlá prípona/nepodporovaný formát.
+- `target` vo `videoEnd` nesedí s názvom prehrávaného súboru.
+- mpv IPC socket je neplatný alebo mpv sa nespustil.
+
+Pri debugovaní sleduj video logger + backend logy.

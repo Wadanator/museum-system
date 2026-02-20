@@ -1,76 +1,130 @@
-# Museum System Service Setup Guide
+# Museum setup guide (Raspberry Pi)
 
-This guide describes how to deploy the Raspberry Pi controller as a systemd service so the museum room starts automatically on boot and restarts if unexpected failures occur.
-
----
-
-## Prerequisites
-
-- Raspberry Pi OS (Bullseye or newer) with Python 3.9+
-- Project cloned to `/home/<user>/museum-system` (adjust paths if different)
-- Virtual environment or system Python with dependencies installed:
-  ```bash
-  cd /home/<user>/museum-system/raspberry_pi
-  pip install -r requirements.txt
-  ```
-- Updated configuration in `raspberry_pi/config/config.ini`
-- Working MQTT broker reachable from the Pi
+Detailnejší checklist pre nasadenie backendu v miestnosti.
 
 ---
 
-## Install the systemd Service
+## 1) Prerekvizity
 
-1. **Make the helper script executable**
-   ```bash
-   cd /home/<user>/museum-system/raspberry_pi
-   chmod +x setup_museum_service.sh
-   ```
-
-2. **Run the setup script** – installs the unit file, configures log directories, and reloads systemd.
-   ```bash
-   ./setup_museum_service.sh
-   ```
-
-3. **Enable and start the service**
-   ```bash
-   sudo systemctl enable museum-system.service
-   sudo systemctl start museum-system.service
-   ```
-
-The service uses `main.py` as the entry point and exports logs to `/var/log/museum-system/` by default.
+- Raspberry Pi OS (alebo kompatibilný Linux)
+- Python 3
+- MQTT broker dostupný z Pi
+- audio/video stack podľa požiadaviek scén (`pygame`, `mpv`)
 
 ---
 
-## Daily Operations
-
-| Command | Purpose |
-| --- | --- |
-| `sudo systemctl status museum-system` | View service status and last log lines |
-| `sudo journalctl -u museum-system -f` | Stream live logs (Ctrl+C to exit) |
-| `sudo systemctl restart museum-system` | Restart the controller after configuration updates |
-| `sudo systemctl stop museum-system` | Stop the controller (service will remain disabled until started again) |
-| `sudo systemctl disable museum-system` | Prevent auto-start on boot |
-
----
-
-## Troubleshooting
-
-- **Service fails immediately** – Confirm `python3` points to the interpreter that has all dependencies installed. Adjust the `ExecStart` path in `service/museum-system.service` if needed.
-- **Configuration errors** – Review `/var/log/museum-system/museum-errors.log` for stack traces. The service will stay running but refuse to process scenes until the configuration is valid.
-- **MQTT connection problems** – Verify broker IP/port in `config.ini` and check firewall rules. The controller retries automatically but logs warnings in `museum-warnings.log` when connections flap.
-- **Button not responsive** – Ensure the GPIO pin defined in the config matches your wiring and that the user running the service has GPIO permissions (the setup script adds the user to the `gpio` group).
-
----
-
-## Removing the Service
-
-To uninstall the auto-start service completely:
+## 2) Inštalácia projektu
 
 ```bash
-sudo systemctl stop museum-system
-sudo systemctl disable museum-system
-sudo rm /etc/systemd/system/museum-system.service
-sudo systemctl daemon-reload
+cd /workspace/museum-system/raspberry_pi
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 ```
 
-Logs under `/var/log/museum-system/` can be deleted manually if desired.
+Ak nasadzuješ bez venv, použi systémový Python podľa interných pravidiel deploymentu.
+
+---
+
+## 3) Konfigurácia (`config.ini`)
+
+Súbor:
+- `raspberry_pi/config/config.ini`
+
+Referenčný príklad:
+- `raspberry_pi/config/config.ini.example`
+
+Dôležité sekcie:
+
+## 3.1 MQTT
+- `broker_ip`
+- `port`
+- `device_timeout`
+- `feedback_timeout`
+
+## 3.2 Room
+- `room_id` (napr. `room1`)
+
+## 3.3 Scenes/Audio/Video
+- directories pre scény, audio, video
+- video `ipc_socket`
+- video `iddle_image`
+
+## 3.4 System
+- `web_dashboard_port`
+- timing intervaly (`main_loop_sleep`, `scene_processing_sleep`, ...)
+
+## 3.5 Logging
+- level, file logging, rotácia, log directory
+
+---
+
+## 4) Príprava dát
+
+- Scény: `raspberry_pi/scenes/<room_id>/...json`
+- Audio súbory: adresár podľa configu
+- Video súbory: adresár podľa configu
+
+Skontroluj, že názvy súborov v scéne presne sedia.
+
+---
+
+## 5) Lokálne spustenie
+
+```bash
+cd /workspace/museum-system/raspberry_pi
+source .venv/bin/activate
+python3 main.py
+```
+
+Po štarte skontroluj:
+- MQTT pripojenie,
+- dashboard dostupnosť,
+- že room reaguje na trigger `roomX/scene -> START`.
+
+---
+
+## 6) Systemd nasadenie
+
+Templates v repozitári:
+- `raspberry_pi/services/museum.service.template`
+- `raspberry_pi/services/museum-watchdog.service.template`
+
+Odporúčaný postup:
+1. skopírovať template do `/etc/systemd/system/` (s vlastným názvom),
+2. upraviť cesty (repo, python, user),
+3. `systemctl daemon-reload`,
+4. `systemctl enable --now <service>`.
+
+---
+
+## 7) Watchdog a diagnostika
+
+- `raspberry_pi/watchdog.py`
+- `raspberry_pi/tools/` (monitoring/diagnostics skripty)
+
+Pozor: watchdog skript môže mať environment-dependent cesty – pred produkčným nasadením ich validuj.
+
+---
+
+## 8) Go-live test checklist
+
+1. MQTT broker reachable z Pi.
+2. ESP32 status topics sa objavia (`devices/.../status`).
+3. Default scene štartuje cez:
+   - fyzické tlačidlo,
+   - dashboard,
+   - MQTT (`roomX/scene` + `START`).
+4. `STOP` vypne zariadenia (`roomX/STOP`).
+5. Audio/video transitions fungujú podľa scény.
+6. Logy sa zapisujú do očakávaného adresára.
+
+---
+
+## 9) Pri zmene room setupu
+
+Pri zmene `room_id` alebo topic prefixov aktualizuj konzistentne:
+- `config.ini` (Pi),
+- ESP32 `config.cpp` (`BASE_TOPIC_PREFIX`, `CLIENT_ID`),
+- scene JSON topicy,
+- dokumentáciu v `docs/mqtt_topics.md`.
