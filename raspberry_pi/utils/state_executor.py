@@ -112,8 +112,18 @@ class StateExecutor:
         topic = action.get("topic")
         message = action.get("message")
 
-        if not topic or not message:
-            self.logger.error(f"MQTT action missing topic or message: {action}")
+        if not isinstance(topic, str) or not topic.strip():
+            self.logger.error(f"MQTT action ignored: invalid or empty topic: {action}")
+            return
+
+        # message môže byť bool/number, preto kontrolujeme explicitne len None/empty string
+        if message is None or (isinstance(message, str) and not message.strip()):
+            self.logger.error(f"MQTT action ignored: message is None/empty string: {action}")
+            return
+
+        is_valid, validation_error = validate_publish(topic, message)
+        if not is_valid:
+            self.logger.error(f"MQTT action ignored by contract validation: {validation_error}")
             return
 
         is_valid, validation_error = validate_publish(topic, message)
