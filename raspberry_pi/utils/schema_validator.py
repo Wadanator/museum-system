@@ -4,8 +4,6 @@ Schema Validator - Validácia JSON štruktúry pre scény
 """
 from jsonschema import validate, ValidationError
 
-from utils.mqtt.mqtt_contract import validate_publish
-
 # Definícia akcie (použije sa v onEnter, onExit, timeline)
 ACTION_SCHEMA = {
     "type": "object",
@@ -83,48 +81,10 @@ SCENE_SCHEMA = {
     }
 }
 
-
-
-def _validate_mqtt_actions_semantics(data, logger=None):
-    """Semantic validation for MQTT action topic/payload pairs."""
-
-    def _walk(node):
-        if isinstance(node, dict):
-            if node.get("action") == "mqtt":
-                topic = node.get("topic")
-                message = node.get("message")
-                is_valid, error = validate_publish(topic, message)
-                if not is_valid:
-                    return False, error
-
-            for value in node.values():
-                ok, err = _walk(value)
-                if not ok:
-                    return False, err
-
-        elif isinstance(node, list):
-            for item in node:
-                ok, err = _walk(item)
-                if not ok:
-                    return False, err
-
-        return True, ""
-
-    return _walk(data)
-
 def validate_scene_json(data, logger=None):
     """Overí dáta voči schéme. Vráti True/False."""
     try:
         validate(instance=data, schema=SCENE_SCHEMA)
-
-        semantics_ok, semantics_error = _validate_mqtt_actions_semantics(data, logger)
-        if not semantics_ok:
-            if logger:
-                logger.error(f"MQTT semantic validation error: {semantics_error}")
-            else:
-                print(f"MQTT semantic validation error: {semantics_error}")
-            return False
-
         return True
     except ValidationError as e:
         error_path = " -> ".join([str(p) for p in e.path])
