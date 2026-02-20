@@ -1,45 +1,72 @@
-# MQTT Topics Structure
+# MQTT topics – aktuálne podľa backendu + ESP32
 
-## Topic Convention
+## Trigger scény (Raspberry Pi)
 
-All topics follow the pattern: `room_id/device_type`
+### 1) Default scéna
+- **Topic:** `roomX/scene`
+- **Payload:** `START`
+- Spracovanie: `mqtt_message_handler` rozpozná `.../scene` + `START` a volá callback na štart scény.
 
-## Standard Topics
+### 2) Spustenie konkrétnej scény
+- **Topic:** `roomX/start_scene`
+- **Payload:** `scene_file.json`
+- Spracovanie: callback pre named scene.
 
-### Light Control
-- Topic: `roomX/light`
-- Messages:
-  - `ON`: Turn on all lights
-  - `OFF`: Turn off all lights
-  - `BLINK`: Blink lights sequence
+## Device status
 
-### Audio Control
-- Topic: `roomX/audio`
-- Messages:
-  - `PLAY_WELCOME`: Play welcome audio file
-  - `PLAY_INFO`: Play information audio file
-  - `STOP`: Stop audio playback
+- **Topic:** `devices/<client_id>/status`
+- **Payload:** typicky `online` / `offline`
+- Retained message používaná na online/offline prehľad.
 
-### Motor Control
-- Topic: `roomX/motor`
-- Messages:
-  - `START`: Start motor movement
-  - `STOP`: Stop motor movement
-  - `SPEED:X`: Set motor speed (where X is a value)
+## Command feedback
 
-## Room-Specific Examples
+- **Topic:** `<command_topic>/feedback`
+- **Payload (motors/relay):** `OK` alebo `ERROR`
+- **Payload (effects):** `ACTIVE` alebo `INACTIVE`
 
-### Room 1
-- `room1/light`
-- `room1/audio`
+## Topics používané ESP32 firmware v repozitári
 
-### Room 2
-- `room2/light`
-- `room2/motor`
+### A) `esp32_mqtt_button`
+- Publish: `room1/scene` -> `START`
+- Publish status: `devices/Room1_ESP_Trigger/status`
 
-## Adding New Topics
+### B) `esp32_mqtt_controller_MOTORS`
+- Subscribe:
+  - `room1/motor1`
+  - `room1/motor2`
+  - `room1/STOP`
+- Publish feedback: `<topic>/feedback`
+- Publish status: `devices/Room1_ESP_Motory/status`
 
-When adding new functionality:
-1. Follow the naming convention
-2. Document the topic and messages
-3. Ensure all devices are configured for the new topics
+Podporované payloady motorov:
+- `ON:<speed>:<direction>`
+- `ON:<speed>:<direction>:<rampTime>`
+- `OFF`
+- `SPEED:<value>`
+- `DIR:<L|R|...>`
+
+### C) `esp32_mqtt_controller_RELAY`
+- Subscribe:
+  - `room1/<device_name>` (device name je z `config.cpp` po `BASE_TOPIC_PREFIX`)
+  - `room1/effects/#`
+  - `room1/STOP`
+- Publish status: `devices/Room1_Relays_Ctrl/status`
+- Publish feedback: `<topic>/feedback`
+
+Príklady device topics (podľa aktuálneho `DEVICES[]`):
+- `room1/light/1`
+- `room1/light/2`
+- `room1/light/3`
+- `room1/light/4`
+- `room1/light/5`
+- `room1/light/fire`
+- `room1/effect/smoke`
+- `room1/power/smoke_ON`
+
+Effect groups:
+- `room1/effects/group1`
+- `room1/effects/alone`
+
+## Poznámka
+
+Staré návrhy topicov (display, sensor, system/* atď.) boli odstránené z hlavnej dokumentácie, pretože nie sú implementované v aktuálnom backend/ESP32 kóde tohto repozitára.
