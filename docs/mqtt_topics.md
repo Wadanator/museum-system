@@ -1,72 +1,143 @@
-# MQTT topics – aktuálne podľa backendu + ESP32
+# MQTT Topics & payloady (kanonická verzia)
 
-## Trigger scény (Raspberry Pi)
+Toto je **hlavný referenčný dokument** pre MQTT v tomto repozitári.
+Obsah je zosúladený s:
+- `raspberry_pi/utils/mqtt/*`
+- `esp32/devices/wifi/*`
 
-### 1) Default scéna
+---
+
+## 1) Triggerovanie scén (Raspberry Pi backend)
+
+## 1.1 Default scéna
 - **Topic:** `roomX/scene`
 - **Payload:** `START`
-- Spracovanie: `mqtt_message_handler` rozpozná `.../scene` + `START` a volá callback na štart scény.
+- **Efekt:** `MQTTMessageHandler` zavolá `button_callback` (`MuseumController.on_button_press`).
 
-### 2) Spustenie konkrétnej scény
+## 1.2 Named scéna
 - **Topic:** `roomX/start_scene`
-- **Payload:** `scene_file.json`
-- Spracovanie: callback pre named scene.
+- **Payload:** `<scene_file>.json`
+- **Efekt:** backend zavolá callback `start_scene_by_name(...)`.
 
-## Device status
+---
 
-- **Topic:** `devices/<client_id>/status`
-- **Payload:** typicky `online` / `offline`
-- Retained message používaná na online/offline prehľad.
+## 2) Device status topics
 
-## Command feedback
+- **Topic pattern:** `devices/<client_id>/status`
+- **Typický payload:** `online` / `offline`
+- **Poznámka:** ESP32 používajú retained status + LWT `offline`.
 
-- **Topic:** `<command_topic>/feedback`
-- **Payload (motors/relay):** `OK` alebo `ERROR`
-- **Payload (effects):** `ACTIVE` alebo `INACTIVE`
+Príklady z aktuálneho firmvéru:
+- `devices/Room1_ESP_Trigger/status`
+- `devices/Room1_ESP_Motory/status`
+- `devices/Room1_Relays_Ctrl/status`
 
-## Topics používané ESP32 firmware v repozitári
+---
 
-### A) `esp32_mqtt_button`
-- Publish: `room1/scene` -> `START`
-- Publish status: `devices/Room1_ESP_Trigger/status`
+## 3) Feedback topics
 
-### B) `esp32_mqtt_controller_MOTORS`
-- Subscribe:
-  - `room1/motor1`
-  - `room1/motor2`
-  - `room1/STOP`
-- Publish feedback: `<topic>/feedback`
-- Publish status: `devices/Room1_ESP_Motory/status`
+- **Topic pattern:** `<command_topic>/feedback`
+- **Použitie:** backend feedback tracker páruje command publish s odpoveďou zariadenia.
 
-Podporované payloady motorov:
+Typické payloady:
+- motory/relé command: `OK` / `ERROR`
+- relay effect group: `ACTIVE` / `INACTIVE`
+
+---
+
+## 4) Topics pre ESP32 zariadenia v tomto repo
+
+## 4.1 `esp32_mqtt_button`
+
+Publish:
+- `room1/scene` -> `START`
+
+Status:
+- `devices/Room1_ESP_Trigger/status`
+
+---
+
+## 4.2 `esp32_mqtt_controller_MOTORS`
+
+Subscribe:
+- `room1/motor1`
+- `room1/motor2`
+- `room1/STOP`
+
+Feedback:
+- `room1/motor1/feedback`
+- `room1/motor2/feedback`
+- `room1/STOP/feedback`
+
+Status:
+- `devices/Room1_ESP_Motory/status`
+
+Podporované payloady (firmware parser):
 - `ON:<speed>:<direction>`
 - `ON:<speed>:<direction>:<rampTime>`
 - `OFF`
 - `SPEED:<value>`
-- `DIR:<L|R|...>`
+- `DIR:<value>`
 
-### C) `esp32_mqtt_controller_RELAY`
-- Subscribe:
-  - `room1/<device_name>` (device name je z `config.cpp` po `BASE_TOPIC_PREFIX`)
-  - `room1/effects/#`
-  - `room1/STOP`
-- Publish status: `devices/Room1_Relays_Ctrl/status`
-- Publish feedback: `<topic>/feedback`
+Príklady:
+- `room1/motor1` -> `ON:120:L`
+- `room1/motor2` -> `ON:80:R:5000`
+- `room1/motor1` -> `OFF`
 
-Príklady device topics (podľa aktuálneho `DEVICES[]`):
-- `room1/light/1`
-- `room1/light/2`
-- `room1/light/3`
-- `room1/light/4`
-- `room1/light/5`
-- `room1/light/fire`
-- `room1/effect/smoke`
-- `room1/power/smoke_ON`
+---
 
-Effect groups:
-- `room1/effects/group1`
-- `room1/effects/alone`
+## 4.3 `esp32_mqtt_controller_RELAY`
 
-## Poznámka
+Subscribe:
+- `room1/<device_name>`
+- `room1/effects/#`
+- `room1/STOP`
 
-Staré návrhy topicov (display, sensor, system/* atď.) boli odstránené z hlavnej dokumentácie, pretože nie sú implementované v aktuálnom backend/ESP32 kóde tohto repozitára.
+Status:
+- `devices/Room1_Relays_Ctrl/status`
+
+### Device names (aktuálne `DEVICES[]`)
+- `power/smoke_ON`
+- `light/fire`
+- `light/1`
+- `effect/smoke`
+- `light/2`
+- `light/3`
+- `light/4`
+- `light/5`
+
+Mapovanie na command topic teda vyzerá napr.:
+- `room1/light/1` -> `ON` / `OFF`
+- `room1/effect/smoke` -> `ON` / `OFF`
+
+### Effects groups (`effects_config.h`)
+- `group1`
+- `alone`
+
+Príklady:
+- `room1/effects/group1` -> `ON`
+- `room1/effects/group1` -> `OFF`
+
+---
+
+## 5) Room STOP semantics
+
+`roomX/STOP` je globálny kill signal pre zariadenia v miestnosti.
+
+Backend ho posiela:
+- pri `stop_scene()`,
+- po prirodzenom ukončení scény,
+- po niektorých chybových/cleanup vetvách.
+
+ESP32 firmware ho má subscribnutý a vykoná okamžité vypnutie výstupov.
+
+---
+
+## 6) Poznámky k kompatibilite
+
+- Backend `mqtt_contract.py` akceptuje aj niektoré payload varianty (`ON/OFF`, `STOP`, `RESET`, `BLINK`, motor formáty).
+- Scene action payload môže byť string/number/bool (schema + executor).
+- Ak pridáš nový topic/payload, aktualizuj:
+  1. firmware/backend logiku,
+  2. test scénu,
+  3. tento dokument.

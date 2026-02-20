@@ -1,13 +1,28 @@
-# OTA – esp32_mqtt_controller_MOTORS
+# OTA – `esp32_mqtt_controller_MOTORS`
 
-## Rýchly postup
+---
 
-1. Arduino IDE -> otvor projekt.
-2. Tools -> Port -> vyber network port s hostname motora.
-3. Upload firmware.
+## 1) Predpoklady
 
-## Default v kóde
+- firmware má zapnuté OTA (`OTA_ENABLED = true`),
+- zariadenie je online v rovnakej sieti ako vývojový stroj.
 
+---
+
+## 2) Upload
+
+1. Otvor projekt v Arduino IDE.
+2. Vyber network port zariadenia (hostname).
+3. Upload (`Ctrl+U`).
+
+Aktuálne defaulty:
 - `OTA_HOSTNAME = "ESP32-Museum-Room1"`
 - `OTA_PASSWORD = "room1"`
-- `OTA_ENABLED = true`
+
+---
+
+## 3) Po update over
+
+- zariadenie sa znovu pripojí do WiFi,
+- publikuje `online` na status topic,
+- reaguje na `room1/motor1` / `room1/motor2`.

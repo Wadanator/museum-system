@@ -1,44 +1,90 @@
 # Museum System
 
-Repo obsahuje kompletný systém pre 1+ miestností v múzeu:
-- **Raspberry Pi controller** (Python) spúšťa scény, audio/video a dashboard.
-- **ESP32 zariadenia** vykonávajú príkazy cez MQTT (button trigger, motory, relé/effects).
-- **SceneGen** je editor scén.
+Kompletný riadiaci systém pre interaktívne miestnosti v múzeu.
 
-## Aktuálne komponenty
+Systém je rozdelený na:
+- **Raspberry Pi backend** (`raspberry_pi/`) – orchestrácia scén, audio/video, dashboard API, health monitoring.
+- **ESP32 firmware** (`esp32/devices/wifi/`) – vykonávanie fyzických príkazov cez MQTT.
+- **UI/editor projekty** (`museum-dashboard/`, `SceneGen/`) – vývoj dashboardu a autoring scén.
 
-- `raspberry_pi/main.py` – hlavný orchestrátor (`MuseumController`).
-- `raspberry_pi/utils/` – state machine, audio/video handlery, MQTT vrstva, monitoring.
-- `raspberry_pi/Web/` – Flask dashboard + API routes.
-- `esp32/devices/wifi/` – 3 produkčné firmware varianty:
-  - `esp32_mqtt_button`
-  - `esp32_mqtt_controller_MOTORS`
-  - `esp32_mqtt_controller_RELAY`
-- `raspberry_pi/scenes/` – scény podľa `room_id` (`room1`, `room2`).
-- `docs/` – technická dokumentácia aktualizovaná podľa aktuálneho kódu.
+---
 
-## MQTT model (realita v kóde)
+## 1) Čo je v repozitári aktuálne produkčne použité
 
-### Trigger scény
-- `roomX/scene` + payload `START` → spustí default scénu.
-- `roomX/start_scene` + payload `nazov_suboru.json` → spustí konkrétnu scénu.
+### Raspberry Pi controller
+- Entry point: `raspberry_pi/main.py` (`MuseumController`).
+- Core runtime: `raspberry_pi/utils/`.
+- Web dashboard server: `raspberry_pi/Web/`.
 
-### Kontrola zariadení (Room 1)
+### ESP32 zariadenia (wifi)
+- `esp32_mqtt_button` – bezdrôtový trigger scény.
+- `esp32_mqtt_controller_MOTORS` – ovládanie 2 motorov.
+- `esp32_mqtt_controller_RELAY` – relé výstupy + efektové skupiny.
+
+### Dáta/scény
+- Scény: `raspberry_pi/scenes/<room_id>/*.json`
+- Room config: `raspberry_pi/config/config.ini`
+
+---
+
+## 2) Rýchly runtime flow
+
+1. `MuseumController` načíta config, spustí služby cez `ServiceContainer`.
+2. MQTT klient sa pripojí na broker a subscribne room topics.
+3. Trigger (`button`/MQTT/dashboard) spustí scénu.
+4. `SceneParser` + `StateMachine` + `StateExecutor` vykonávajú `onEnter/timeline/onExit` akcie.
+5. `TransitionManager` rozhoduje o prechodoch (`timeout`, `audioEnd`, `videoEnd`, `mqttMessage`, `always`).
+6. Po dohraní scény backend pošle `roomX/STOP`.
+
+---
+
+## 3) MQTT model (aktuálny podľa kódu)
+
+### Scény
+- `roomX/scene` + `START` → default scéna (`json_file_name` z configu).
+- `roomX/start_scene` + `scene_name.json` → spustenie konkrétneho súboru.
+
+### Device status
+- `devices/<client_id>/status` (retained, typicky `online`/`offline`).
+
+### Feedback
+- `<command_topic>/feedback` (podľa zariadenia: `OK`, `ERROR`, `ACTIVE`, `INACTIVE`).
+
+### Room1 príkazy (reálne používané ESP32 firmvérmi v repozitári)
 - Motory: `room1/motor1`, `room1/motor2`, `room1/STOP`
 - Relé/effects: `room1/<device_name>`, `room1/effects/<group>`, `room1/STOP`
-- Feedback: `<command_topic>/feedback` (`OK` / `ERROR` / `ACTIVE` / `INACTIVE`)
-- Device status: `devices/<client_id>/status` (`online` / `offline` retained)
+- Trigger button publish: `room1/scene` -> `START`
 
-## Spustenie Raspberry Pi controllera
+---
+
+## 4) Spustenie backendu (lokálne)
 
 ```bash
 cd raspberry_pi
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 python3 main.py
 ```
 
-Konfigurácia je v `raspberry_pi/config/config.ini` (alebo `.example`).
+Dashboard je na porte z `[System] web_dashboard_port`.
 
-## Poznámka
+---
 
-Tento README zámerne neobsahuje staré/plánované časti, ktoré nie sú implementované v aktuálnom backende alebo ESP32 firmware.
+## 5) Dokumentácia
+
+- `docs/architecture.md` – komponenty + runtime väzby.
+- `docs/mqtt_topics.md` – MQTT topics/payloady podľa implementácie.
+- `docs/audio_playing_tutorial.md` – audio commandy v scénach.
+- `docs/video_player_tutorial.md` – video commandy v scénach.
+- `docs/museum_setup_guide.md` – setup/deploy check-list.
+
+---
+
+## 6) Dôležitá poznámka k dokumentácii
+
+Dokumentácia je písaná **podľa aktuálneho kódu**, nie podľa starých návrhov.
+Ak pridáš nový topic alebo command, uprav:
+1. implementáciu,
+2. testovaciu scénu,
+3. príslušný markdown v `docs/`.

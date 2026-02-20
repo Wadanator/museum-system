@@ -1,18 +1,35 @@
-# OTA – esp32_mqtt_button
+# OTA – `esp32_mqtt_button`
 
-## Predpoklady
+---
 
-- Firmware s OTA je už nahraný.
-- ESP32 a PC sú v rovnakej sieti.
-- V `config.cpp` je `OTA_ENABLED = true`.
+## 1) Predpoklady
 
-## Upload
+- na zariadení už beží firmware s OTA podporou,
+- `OTA_ENABLED = true`,
+- ESP32 a vývojový PC sú v rovnakej sieti.
+
+---
+
+## 2) Upload postup
 
 1. Otvor projekt v Arduino IDE.
-2. Tools -> Port -> vyber **network port** podľa hostname (`OTA_HOSTNAME`).
-3. Upload.
+2. Tools -> Port -> vyber network port podľa hostname.
+3. Upload (`Ctrl+U`).
 
-## Aktuálne defaulty v kóde
-
+Aktuálne defaulty v kóde:
 - `OTA_HOSTNAME = "ESP32-Room1-Trigger"`
 - `OTA_PASSWORD = "room1"`
+
+---
+
+## 3) Troubleshooting
+
+- port sa nezobrazuje -> skontroluj WiFi + hostname + firewall,
+- timeout počas uploadu -> skús power cycle zariadenia,
+- zlé heslo -> skontroluj `OTA_PASSWORD`.
+
+---
+
+## 4) Bezpečnostná poznámka
+
+Pred produkciou zváž zmenu default OTA hesla.
