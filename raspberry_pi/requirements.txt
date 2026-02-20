@@ -7,3 +7,5 @@ flask-socketio
 werkzeug
 psutil
 simple-websocket
+jsonschema
+eventlet==0.33.3

@@ -1,0 +1,80 @@
+[MQTT]
+broker_ip = TechMuzeumRoom1.local
+port = 1883
+device_timeout = 180
+feedback_timeout = 1
+
+[GPIO]
+button_pin = 27
+debounce_time = 300
+
+[Room]
+room_id = room1
+
+[Scenes]
+directory = scenes
+
+[Audio]
+directory = audio
+max_init_attempts = 3
+init_retry_delay = 5
+
+[Video]
+directory = videos
+ipc_socket = /tmp/mpv_socket
+iddle_image = black.png
+health_check_interval = 60
+max_restart_attempts = 3
+restart_cooldown = 60
+
+[System]
+health_check_interval = 120
+main_loop_sleep = 0.1
+mqtt_check_interval = 60
+scene_processing_sleep = 0.02
+web_dashboard_port = 5000
+mqtt_retry_attempts = 3
+mqtt_retry_sleep = 2
+mqtt_connect_timeout = 10
+mqtt_reconnect_timeout = 5
+mqtt_reconnect_sleep = 0.5
+scene_buffer_time = 1
+device_cleanup_interval = 60
+
+[Json]
+json_file_name = test.json
+
+[Logging]
+log_level = INFO
+log_directory = logs
+max_file_size_mb = 5
+backup_count = 3
+daily_backup_days = 7
+console_colors = false
+file_logging = true
+console_logging = false
+log_format = detailed
+
+[LogLevels]
+# Core system components - use full logger names with museum. prefix
+museum.main = INFO
+museum.scene_parser = INFO 
+museum.mqtt = WARNING
+museum.audio = WARNING
+museum.video = WARNING
+museum.web = WARNING
+museum.btn_handler = WARNING
+museum.sys_monitor = WARNING
+
+# Reduce noise from these components
+museum.mqtt_handler = WARNING
+museum.mqtt_feedback = WARNING
+museum.mqtt_devices = WARNING
+museum.config = WARNING
+museum.setup = WARNING
+
+# External libraries - suppress unless critical
+werkzeug = ERROR
+flask = ERROR
+urllib3 = ERROR
+paho = ERROR

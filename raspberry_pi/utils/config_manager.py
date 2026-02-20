@@ -1,10 +1,7 @@
-# raspberry_pi/utils/config_manager.py - Updated with component log levels
-
-#!/usr/bin/env python3
-
 import os
 import configparser
 import logging
+import shutil
 from pathlib import Path
 from utils.logging_setup import get_logger
 
@@ -12,11 +9,25 @@ class ConfigManager:
     def __init__(self, config_file=None, logger=None):
         self.logger = logger or get_logger('config')
         
-        # Set config file path
+        # Získame cestu k priečinku raspberry_pi
+        script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        
+        # Nastavenie cesty ku config súboru
         if config_file is None:
-            script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             config_file = os.path.join(script_dir, "config", "config.ini")
         
+        # --- AUTO-CREATE LOGIC ---
+        # Ak config.ini neexistuje, ale existuje example, vytvoríme ho
+        example_file = os.path.join(script_dir, "config", "config.ini.example")
+        if not os.path.exists(config_file) and os.path.exists(example_file):
+            try:
+                shutil.copy2(example_file, config_file)
+                # Použijeme print, lebo logger ešte nemusí byť plne inicializovaný
+                print(f"🔧 Config file created from default template: {config_file}")
+            except Exception as e:
+                print(f"❌ Failed to create config file from template: {e}")
+        # -------------------------
+
         self.config_file = config_file
         self.config = configparser.ConfigParser()
         
@@ -26,9 +37,24 @@ class ConfigManager:
             raise FileNotFoundError(f"Configuration file missing: {config_file}")
         
         self.config.read(config_file)
-        self.logger.info(f"Config loaded from: {self.config_file}")
+        self.logger.debug(f"Config loaded from: {self.config_file}")
     
     def get_logging_config(self):
+        if 'Logging' not in self.config:
+            # Fallback ak sekcia chýba
+            return {
+                'log_level': logging.INFO,
+                'log_directory': None,
+                'max_file_size': 10 * 1024 * 1024,
+                'backup_count': 5,
+                'daily_backup_days': 30,
+                'console_colors': True,
+                'file_logging': True,
+                'console_logging': True,
+                'log_format': 'detailed',
+                'component_levels': {}
+            }
+
         section = self.config['Logging']
         log_level_str = section.get('log_level', 'INFO').upper()
         log_level_map = {
@@ -40,7 +66,7 @@ class ConfigManager:
         }
         log_level = log_level_map.get(log_level_str, logging.INFO)
         
-        # Get component-specific log levels if LogLevels section exists
+        # Get component-specific log levels
         component_levels = {}
         if self.config.has_section('LogLevels'):
             component_levels = dict(self.config['LogLevels'].items())
@@ -55,25 +81,38 @@ class ConfigManager:
             'file_logging': section.getboolean('file_logging', True),
             'console_logging': section.getboolean('console_logging', True),
             'log_format': section.get('log_format', 'detailed'),
-            'component_levels': component_levels  # NEW: component-specific levels
+            'component_levels': component_levels
         }
     
     def get_all_config(self):
             script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            
+            # Získame názvy priečinkov a ID miestnosti
+            scenes_dir_name = self.config.get('Scenes', 'directory', fallback='scenes')
+            room_id = self.config.get('Room', 'room_id', fallback='room1')
+            audio_dir_name = self.config.get('Audio', 'directory', fallback='audio')
+            video_dir_name = self.config.get('Video', 'directory', fallback='videos')
+
+            # Základná cesta k scenes
+            scenes_base_path = os.path.join(script_dir, scenes_dir_name)
+            
+            # Cesta ku konkrétnej miestnosti
+            room_path = os.path.join(scenes_base_path, room_id)
+
             result = {
                 # MQTT
-                'broker_ip': self.config.get('MQTT', 'broker_ip'),
-                'port': self.config.getint('MQTT', 'port'),
-                'device_timeout': self.config.getint('MQTT', 'device_timeout', fallback=180),  # ADD THIS LINE
-                'feedback_timeout': self.config.getfloat('MQTT', 'feedback_timeout', fallback=1.0),  # ADD THIS LINE
+                'broker_ip': self.config.get('MQTT', 'broker_ip', fallback='localhost'),
+                'port': self.config.getint('MQTT', 'port', fallback=1883),
+                'device_timeout': self.config.getint('MQTT', 'device_timeout', fallback=180),
+                'feedback_timeout': self.config.getfloat('MQTT', 'feedback_timeout', fallback=1.0),
                 
                 # GPIO
-                'button_pin': self.config.getint('GPIO', 'button_pin'),
+                'button_pin': self.config.getint('GPIO', 'button_pin', fallback=27),
                 'debounce_time': self.config.getint('GPIO', 'debounce_time', fallback=300),
                 
                 # Room/Json
-                'room_id': self.config.get('Room', 'room_id'),
-                'json_file_name': self.config.get('Json', 'json_file_name'),
+                'room_id': room_id,
+                'json_file_name': self.config.get('Json', 'json_file_name', fallback='default.json'),
                 
                 # System
                 'health_check_interval': self.config.getint('System', 'health_check_interval', fallback=60),
@@ -87,23 +126,22 @@ class ConfigManager:
                 'mqtt_connect_timeout': self.config.getint('System', 'mqtt_connect_timeout', fallback=10),
                 'mqtt_reconnect_timeout': self.config.getint('System', 'mqtt_reconnect_timeout', fallback=5),
                 'mqtt_reconnect_sleep': self.config.getfloat('System', 'mqtt_reconnect_sleep', fallback=0.5),
-                'device_cleanup_interval': self.config.getint('System', 'device_cleanup_interval', fallback=60),  # ADD THIS LINE
+                'device_cleanup_interval': self.config.getint('System', 'device_cleanup_interval', fallback=60),
                 
                 # Video
-                'ipc_socket': self.config.get('Video', 'ipc_socket'),
-                'black_image': self.config.get('Video', 'black_image'),
-                'video_health_check_interval': self.config.getint('Video', 'health_check_interval', fallback=60),  # ADD THIS LINE
-                'video_max_restart_attempts': self.config.getint('Video', 'max_restart_attempts', fallback=3),  # ADD THIS LINE
-                'video_restart_cooldown': self.config.getint('Video', 'restart_cooldown', fallback=60),  # ADD THIS LINE
+                'ipc_socket': self.config.get('Video', 'ipc_socket', fallback='/tmp/mpv_socket'),
+                'iddle_image': self.config.get('Video', 'iddle_image', fallback='black.png'),
+                'video_health_check_interval': self.config.getint('Video', 'health_check_interval', fallback=60),
+                'video_max_restart_attempts': self.config.getint('Video', 'max_restart_attempts', fallback=3),
+                'video_restart_cooldown': self.config.getint('Video', 'restart_cooldown', fallback=60),
                 
-                # Audio - ADD THESE 2 LINES
+                # Audio
                 'audio_max_init_attempts': self.config.getint('Audio', 'max_init_attempts', fallback=3),
                 'audio_init_retry_delay': self.config.getint('Audio', 'init_retry_delay', fallback=5),
                 
-                # Paths
-                'scenes_dir': os.path.join(script_dir, self.config.get('Scenes', 'directory')),
-                'audio_dir': os.path.join(script_dir, self.config.get('Audio', 'directory')),
-                'video_dir': os.path.join(script_dir, self.config.get('Video', 'directory')),
+                'scenes_dir': scenes_base_path,
+                'audio_dir': os.path.join(room_path, audio_dir_name),
+                'video_dir': os.path.join(room_path, video_dir_name),
             }
             result.update(self.get_logging_config())
             return result

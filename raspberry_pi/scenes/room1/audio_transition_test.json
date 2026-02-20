@@ -1,0 +1,76 @@
+{
+  "description": "Test AudioEnd Transition: Caka na konkretny subor, ignoruje ostatne.",
+  "globalEvents": [
+    {
+      "goto": "END",
+      "message": "STOP",
+      "topic": "room1/emergency",
+      "type": "mqttMessage"
+    }
+  ],
+  "initialState": "wait_for_specific_audio",
+  "sceneId": "audio_transition_test",
+  "states": {
+    "cleanup": {
+      "description": "Koniec testu, ticho.",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "STOP"
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 1,
+          "goto": "END",
+          "type": "timeout"
+        }
+      ]
+    },
+    "success_detected": {
+      "description": "Prechod uspesny! 'nic_ste_nevybrali' skoncilo. 'welcome' by malo stale hrat.",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_uvod_rec.mp3:1.0"
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 5,
+          "goto": "cleanup",
+          "type": "timeout"
+        }
+      ]
+    },
+    "wait_for_specific_audio": {
+      "description": "Hraju 3 zvuky naraz. Prechod nastane LEN ked skonci 'nic_ste_nevybrali.mp3'.",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "STOP"
+        },
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_welcome.mp3:0.4"
+        },
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_vybrali_ste_jednotku.mp3:1.0"
+        },
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_nic_ste_nevybrali.mp3:1.0"
+        }
+      ],
+      "transitions": [
+        {
+          "goto": "success_detected",
+          "target": "sfx_nic_ste_nevybrali.mp3",
+          "type": "audioEnd"
+        }
+      ]
+    }
+  },
+  "version": "1.0"
+}

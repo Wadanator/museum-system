@@ -1,0 +1,168 @@
+/* src/styles/views/scenes-view.css */
+
+/* --- HLAVNÝ LAYOUT A GRID --- */
+.scenes-view {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    height: 100%;
+}
+
+.scenes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 24px;
+    padding-bottom: 40px;
+}
+
+.loading-state, .empty-state {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 60px;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px dashed var(--border-color);
+}
+
+/* --- SCENE CARD (CINEMATIC DESIGN) --- */
+
+.scene-card {
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    height: 220px;
+    border: 1px solid var(--border-color);
+}
+
+.scene-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary);
+}
+
+/* Reset paddingu z globálneho Card komponentu */
+.scene-card .card-content {
+    padding: 0 !important;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* Cover (Vrch) */
+.scene-cover {
+    height: 90px;
+    background: linear-gradient(135deg, var(--bg-main) 0%, #e5e7eb 100%);
+    position: relative;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Telo (Spodok) */
+.scene-body {
+    flex: 1;
+    background: var(--bg-card);
+    padding: 40px 20px 20px 20px; 
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* Plávajúca ikona */
+.scene-icon-float {
+    position: absolute;
+    top: 60px;
+    left: 20px;
+    width: 54px;
+    height: 54px;
+    background: var(--bg-card);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-md);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    z-index: 2;
+}
+
+.scene-card.featured .scene-icon-float {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+/* Texty */
+.scene-name {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 6px 0;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.scene-meta {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Tlačidlá na karte */
+.edit-btn-absolute {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(4px);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+    z-index: 5;
+}
+
+.edit-btn-absolute:hover {
+    background: var(--bg-card);
+    color: var(--primary);
+    box-shadow: var(--shadow-sm);
+}
+
+.play-fab {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--bg-main);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease;
+    z-index: 5;
+}
+
+.play-fab:hover {
+    background: var(--success);
+    color: white;
+    border-color: var(--success);
+    transform: scale(1.1);
+    box-shadow: var(--shadow-md);
+}

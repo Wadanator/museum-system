@@ -78,7 +78,6 @@ class MuseumWatchdog:
             # Look for recent audio errors in logs
             log_files = [
                 "/home/admin/Documents/GitHub/museum-system/raspberry_pi/logs/museum.log",
-                "/var/log/museum-system.log"  # If logs are elsewhere
             ]
             
             current_time = time.time()
@@ -212,7 +211,7 @@ class MuseumWatchdog:
             
             subprocess.run(['sudo', 'systemctl', 'start', self.service_name], 
                          capture_output=True, check=True, timeout=30)
-            watchdog_log.warning("Service restarted successfully")
+            watchdog_log.info("Service restarted successfully")
             
             # Reset some counters after successful restart
             self.high_cpu_count = 0

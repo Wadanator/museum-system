@@ -1,0 +1,350 @@
+{
+  "sceneId": "relay_sequence_test",
+  "description": "Postupn\u00fd test v\u0161etk\u00fdch rel\u00e9: 1s ON, 1s OFF, \u010fal\u0161ie.",
+  "version": "1.0",
+  "initialState": "INIT",
+  "globalPrefix": "room1",
+  "globalEvents": [
+    {
+      "type": "mqttMessage",
+      "topic": "room1/emergency",
+      "message": "STOP",
+      "goto": "END"
+    }
+  ],
+  "states": {
+    "INIT": {
+      "description": "Bezpe\u010dnostn\u00fd reset: Vypne v\u0161etko pred \u0161tartom.",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/power/smoke_ON",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/fire",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/1",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/effect/smoke",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/2",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/3",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/4",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/5",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/effects/group1",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/effects/alone",
+          "message": "OFF"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 0.5,
+          "goto": "TEST_SMOKE_POWER"
+        }
+      ]
+    },
+    "TEST_SMOKE_POWER": {
+      "description": "1. Dymostroj Power",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/power/smoke_ON",
+          "message": "ON"
+        }
+      ],
+      "timeline": [
+        {
+          "at": 1,
+          "action": "mqtt",
+          "topic": "room1/power/smoke_ON",
+          "message": "OFF"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 2,
+          "goto": "TEST_FIRE_LIGHT"
+        }
+      ]
+    },
+    "TEST_FIRE_LIGHT": {
+      "description": "2. Svetlo Ohe\u0148",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/light/fire",
+          "message": "ON"
+        }
+      ],
+      "timeline": [
+        {
+          "at": 1,
+          "action": "mqtt",
+          "topic": "room1/light/fire",
+          "message": "OFF"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 2,
+          "goto": "TEST_LIGHT_1"
+        }
+      ]
+    },
+    "TEST_LIGHT_1": {
+      "description": "3. Svetlo 1",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/light/1",
+          "message": "ON"
+        }
+      ],
+      "timeline": [
+        {
+          "at": 1,
+          "action": "mqtt",
+          "topic": "room1/light/1",
+          "message": "OFF"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 2,
+          "goto": "TEST_SMOKE_EFFECT"
+        }
+      ]
+    },
+    "TEST_SMOKE_EFFECT": {
+      "description": "4. Dymostroj \u010casovan\u00fd (Effect)",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/effect/smoke",
+          "message": "ON"
+        }
+      ],
+      "timeline": [
+        {
+          "at": 1,
+          "action": "mqtt",
+          "topic": "room1/effect/smoke",
+          "message": "OFF"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 2,
+          "goto": "TEST_LIGHT_2"
+        }
+      ]
+    },
+    "TEST_LIGHT_2": {
+      "description": "5. Svetlo 2",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/light/2",
+          "message": "ON"
+        }
+      ],
+      "timeline": [
+        {
+          "at": 1,
+          "action": "mqtt",
+          "topic": "room1/light/2",
+          "message": "OFF"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 2,
+          "goto": "TEST_LIGHT_3"
+        }
+      ]
+    },
+    "TEST_LIGHT_3": {
+      "description": "6. Svetlo 3",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/light/3",
+          "message": "ON"
+        }
+      ],
+      "timeline": [
+        {
+          "at": 1,
+          "action": "mqtt",
+          "topic": "room1/light/3",
+          "message": "OFF"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 2,
+          "goto": "TEST_LIGHT_4"
+        }
+      ]
+    },
+    "TEST_LIGHT_4": {
+      "description": "7. Svetlo 4",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/light/4",
+          "message": "ON"
+        }
+      ],
+      "timeline": [
+        {
+          "at": 1,
+          "action": "mqtt",
+          "topic": "room1/light/4",
+          "message": "OFF"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 2,
+          "goto": "TEST_LIGHT_5"
+        }
+      ]
+    },
+    "TEST_LIGHT_5": {
+      "description": "8. Svetlo 5",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/light/5",
+          "message": "ON"
+        }
+      ],
+      "timeline": [
+        {
+          "at": 1,
+          "action": "mqtt",
+          "topic": "room1/light/5",
+          "message": "OFF"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 2,
+          "goto": "TEST_GROUP_1"
+        }
+      ]
+    },
+    "TEST_GROUP_1": {
+      "description": "9. Blikanie Bud\u00edky (Group 1)",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/effects/group1",
+          "message": "ON"
+        }
+      ],
+      "timeline": [
+        {
+          "at": 1,
+          "action": "mqtt",
+          "topic": "room1/effects/group1",
+          "message": "OFF"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 2,
+          "goto": "TEST_ALONE"
+        }
+      ]
+    },
+    "TEST_ALONE": {
+      "description": "10. Blikanie 1 \u017diarovka (Alone)",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/effects/alone",
+          "message": "ON"
+        }
+      ],
+      "timeline": [
+        {
+          "at": 1,
+          "action": "mqtt",
+          "topic": "room1/effects/alone",
+          "message": "OFF"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 2,
+          "goto": "END"
+        }
+      ]
+    },
+    "END": {
+      "description": "Koniec testu, v\u0161etko OFF.",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/power/smoke_ON",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/effects/alone",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/5",
+          "message": "OFF"
+        }
+      ],
+      "transitions": []
+    }
+  }
+}

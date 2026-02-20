@@ -1,0 +1,49 @@
+:root {
+    /* Hlavné farby - Fialová/Indigo */
+    --primary: #6366f1;
+    --primary-hover: #4f46e5;
+    
+    /* Sekundárne farby - Slate */
+    --secondary: #64748b;
+    --secondary-hover: #475569;
+    
+    /* Stavové farby - Pridané -hover varianty pre gradienty */
+    --success: #10b981;
+    --success-hover: #059669; /* Pridané pre gradient */
+    --success-bg: #ecfdf5;
+    
+    --danger: #f43f5e;
+    --danger-hover: #e11d48; /* Pridané pre gradient */
+    --danger-bg: #fff1f2;
+    
+    --warning: #f59e0b;
+    --warning-hover: #d97706; /* Pridané pre gradient */
+    --warning-bg: #fffbeb;
+    
+    --info: #06b6d4;
+    --info-hover: #0891b2;   /* Pridané pre konzistenciu */
+    --info-bg: #ecfeff;
+
+    /* Pozadia */
+    --bg-main: #f8fafc;
+    --bg-card: #ffffff;
+    --bg-hover: #f1f5f9;
+    --bg-dark: #0f172a;
+
+    /* Texty */
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    --text-white: #ffffff;
+
+    /* Ostatné */
+    --border-color: #e2e8f0;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    
+    /* Tiene */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}

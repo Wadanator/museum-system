@@ -1,0 +1,21 @@
+[Unit]
+Description=Museum Watchdog Service
+After=museum.service
+
+[Service]
+Type=simple
+User={{USER}}
+Group={{USER}}
+WorkingDirectory={{PATH}}
+
+ExecStart={{PATH}}/venv/bin/python3 {{PATH}}/watchdog.py
+
+StandardOutput=null
+StandardError=null
+# ---------------------------------------------
+
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

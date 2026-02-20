@@ -1,0 +1,40 @@
+{
+  "description": "\u010cist\u00fd test AudioEnd prechodu bez poistiek",
+  "initialState": "pusti_zvuk",
+  "sceneId": "test_audio_pure",
+  "states": {
+    "KONIEC_TESTU": {
+      "description": "Sem sa syst\u00e9m dostane IBA ak TransitionManager zachyt\u00ed koniec audia",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "message": "TEST_SUCCESS_AUDIO_FINISHED",
+          "topic": "room1/system"
+        }
+      ],
+      "transitions": [
+        {
+          "goto": "END",
+          "type": "always"
+        }
+      ]
+    },
+    "pusti_zvuk": {
+      "description": "Hr\u00e1 zvuk a \u010dak\u00e1 sa v\u00fdhradne na AudioEnd",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_uvod_rec.mp3:1.0"
+        }
+      ],
+      "transitions": [
+        {
+          "goto": "KONIEC_TESTU",
+          "target": "sfx_uvod_rec.mp3",
+          "type": "audioEnd"
+        }
+      ]
+    }
+  },
+  "version": "2.0"
+}

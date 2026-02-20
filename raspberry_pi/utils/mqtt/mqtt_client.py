@@ -21,8 +21,8 @@ class MQTTClient:
     """
     
     def __init__(self, broker_host, broker_port=1883, client_id=None, logger=None, 
-                 room_id=None, retry_attempts=3, retry_sleep=5, connect_timeout=10, 
-                 reconnect_timeout=30, reconnect_sleep=5, check_interval=60):
+                 room_id=None, retry_attempts=3, retry_sleep=2, connect_timeout=10, 
+                 reconnect_timeout=5, reconnect_sleep=0.5, check_interval=60):
         """Initialize MQTT client with connection and retry parameters."""
         
         # === Basic Connection Settings ===
@@ -100,6 +100,7 @@ class MQTTClient:
             self.subscribe("devices/+/status")
             self.subscribe(f"{self.room_id}/+/feedback")
             self.subscribe(f"{self.room_id}/scene")
+            self.subscribe(f"{self.room_id}/#")
             
             # Notify connection restored callback
             if not was_connected and self.connection_restored_callback:
@@ -250,7 +251,7 @@ class MQTTClient:
         try:
             result = self.client.subscribe(topic, qos)
             if result[0] == mqtt.MQTT_ERR_SUCCESS:
-                self.logger.info(f"Subscribed to topic: {topic}")
+                self.logger.debug(f"Subscribed to topic: {topic}")
                 return True
             else:
                 self.logger.error(f"Failed to subscribe to {topic}: RC {result[0]}")
@@ -272,10 +273,10 @@ class MQTTClient:
         if self.connected:
             self.client.loop_stop()
             self.client.disconnect()
-            self.logger.info("MQTT disconnected")
+            self.logger.warning("MQTT disconnected")
     
     def cleanup(self):
         """Clean up MQTT resources."""
         self.shutdown_requested = True
         self.disconnect()
-        self.logger.info("MQTT client cleaned up")
+        self.logger.debug("MQTT client cleaned up")

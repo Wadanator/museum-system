@@ -4,6 +4,7 @@
 import json
 import logging
 import time
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
@@ -61,7 +62,8 @@ class WebDashboard:
             if not auth or not self._check_auth(auth.username, auth.password):
                 return False  # Reject unauthorized connections
             try:
-                emit('log_history', self.log_buffer)
+                # FIX: Posielame len posledných 50 logov pre okamžité načítanie webu
+                emit('log_history', self.log_buffer[-50:])
                 emit('stats_update', self.stats)
                 self.log.info("New SocketIO client connected")
             except Exception as e:
@@ -116,30 +118,37 @@ class WebDashboard:
         return time.monotonic() - getattr(self.controller, 'start_time', time.monotonic())
 
     def load_existing_logs(self):
-        """Load recent log entries from the main log file."""
+        """Efektívne načíta len posledných 64KB logu namiesto celého súboru (zrýchľuje štart)."""
         try:
             if not Config.LOG_DIR.exists():
                 self.log.info(f"Log directory does not exist: {Config.LOG_DIR}")
                 return
             main_log = Config.LOG_DIR / 'museum.log'
             if main_log.exists():
-                with open(main_log, 'r', encoding='utf-8') as f:
-                    lines = f.readlines()[-100:]  # Load last 100 lines
-                    for line in lines:
-                        if line.strip() and line.startswith('['):
-                            try:
-                                timestamp, rest = line.strip().split('] ', 1)
-                                level, module, message = rest.split(' ', 2)
-                                self.log_buffer.append({
-                                    'timestamp': timestamp[1:],
-                                    'level': level.strip(),
-                                    'module': module.strip(),
-                                    'message': message,
-                                    'from_file': True
-                                })
-                            except ValueError:
-                                continue  # Skip malformed log lines
-                    self.log.info(f"Loaded {len([log for log in self.log_buffer if log.get('from_file')])} log entries from file")
+                # FIX: Čítame len koniec súboru pomocou seek
+                with open(main_log, 'rb') as f:
+                    f.seek(0, 2)  # Koniec súboru
+                    size = f.tell()
+                    offset = min(size, 64 * 1024)  # Posledných 64 KB
+                    f.seek(size - offset)
+                    content = f.read().decode('utf-8', errors='ignore')
+                
+                lines = content.splitlines()[-100:]  # Posledných 100 riadkov
+                for line in lines:
+                    if line.strip() and line.startswith('['):
+                        try:
+                            timestamp, rest = line.strip().split('] ', 1)
+                            level, module, message = rest.split(' ', 2)
+                            self.log_buffer.append({
+                                'timestamp': timestamp[1:],
+                                'level': level.strip(),
+                                'module': module.strip(),
+                                'message': message,
+                                'from_file': True
+                            })
+                        except ValueError:
+                            continue
+                self.log.info(f"Loaded {len([log for log in self.log_buffer if log.get('from_file')])} log entries efficiently")
             else:
                 self.log.info(f"Main log file does not exist: {main_log}")
         except Exception as e:
@@ -209,3 +218,7 @@ class WebDashboard:
         if level_filter in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
             filtered_logs = [log for log in filtered_logs if log['level'] == level_filter]
         return filtered_logs[-limit:] if len(filtered_logs) > limit else filtered_logs
+    
+    def broadcast_status(self):
+        """Okamžite pošle aktuálny stav (beží/nebeží) všetkým klientom."""
+        self.socketio.emit('status_update', self._get_status_data())

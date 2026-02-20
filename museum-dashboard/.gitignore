@@ -1,0 +1,45 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build Output (toto sa generuje, nechceme to na githube)
+dist
+dist-ssr
+*.local
+
+# Environment Variables (DÔLEŽITÉ!)
+# Tieto súbory obsahujú tvoje lokálne nastavenia (napr. IP adresy), ktoré nechceš vnucovať ostatným
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Operating System (Windows/Mac junk files)
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Testing coverage
+coverage/

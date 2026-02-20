@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
-"""Main routes for the Web Dashboard."""
+"""Main routes for serving the React Web Dashboard."""
 
+import os
 from flask import Blueprint, send_from_directory
-from ..auth import requires_auth
 
-main_bp = Blueprint('main', __name__)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DIST_DIR = os.path.join(BASE_DIR, 'dist')
 
-@main_bp.route('/')
-@requires_auth
-def dashboard():
-    """Serve the main dashboard HTML page."""
-    return send_from_directory('.', 'dashboard.html')
+main_bp = Blueprint('main', __name__, static_folder=DIST_DIR)
 
-@main_bp.route('/static/<path:filename>')
-@requires_auth  
-def static_files(filename):
-    """Serve static files from the static directory."""
-    return send_from_directory('static', filename)
+@main_bp.route('/', defaults={'path': ''})
+@main_bp.route('/<path:path>')
+def serve(path):
+    """
+    Obsluhuje React aplikáciu (SPA Routing) s optimalizovaným cachovaním.
+    """
+    if path != "" and os.path.exists(os.path.join(DIST_DIR, path)):
+        return send_from_directory(DIST_DIR, path, max_age=3600)
+    
+    return send_from_directory(DIST_DIR, 'index.html', max_age=0)

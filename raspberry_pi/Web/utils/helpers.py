@@ -7,10 +7,9 @@ from werkzeug.utils import secure_filename
 from ..config import Config
 
 def get_scenes_path(controller):
-    """Get the directory path for scene files, ensuring it exists."""
+    """Get the directory path for scene files (e.g., scenes/room1), ensuring it exists."""
     room_scenes_path = Path(getattr(controller, 'scenes_dir', Config.SCENES_DIR)) / getattr(controller, 'room_id', 'default')
     
-    # Create the directory if it doesn't exist
     try:
         room_scenes_path.mkdir(parents=True, exist_ok=True)
     except Exception as e:
@@ -23,15 +22,24 @@ def get_scene_path(controller, scene_name):
     """Get the file path for a specific scene."""
     return get_scenes_path(controller) / secure_filename(scene_name)
 
-def get_commands_path():
-    """Get the directory path for command files."""
-    return Config.COMMANDS_DIR
+def get_commands_path(controller):
+    """Get the directory path for command files specific to the ROOM (e.g., scenes/room1/commands)."""
+    room_path = get_scenes_path(controller)
+    commands_path = room_path / 'commands'
+    
+    try:
+        commands_path.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        import logging
+        logging.getLogger('WEB').error(f"Failed to create commands directory {commands_path}: {e}")
 
-def get_command_path(command_name):
+    return commands_path
+
+def get_command_path(controller, command_name):
     """Get the file path for a specific command, ensuring .json extension."""
     if not command_name.endswith('.json'):
         command_name += '.json'
-    return get_commands_path() / secure_filename(command_name)
+    return get_commands_path(controller) / secure_filename(command_name)
 
 def execute_system_command(command, operation, logger):
     """Execute a system command with error handling."""

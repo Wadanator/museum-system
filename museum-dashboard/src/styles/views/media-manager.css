@@ -1,0 +1,166 @@
+/* src/styles/views/media-manager.css */
+
+/* Zoznam súborov v karte */
+.files-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 600px;
+    overflow-y: auto;
+    padding-right: 5px;
+}
+
+/* Karta súboru */
+.media-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    transition: all 0.2s ease;
+}
+
+.media-card:hover {
+    border-color: var(--info);
+    box-shadow: var(--shadow-md);
+}
+
+.media-card.playing-now {
+    border-color: var(--success);
+    background-color: var(--success-bg);
+}
+
+/* Ikona typu */
+.media-icon-box {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.media-icon-box.video { 
+    background: var(--info-bg); 
+    color: var(--primary); 
+}
+
+.media-icon-box.audio { 
+    background: var(--warning-bg); 
+    color: var(--warning); 
+}
+
+/* Info */
+.media-info {
+    flex: 1;
+    overflow: hidden;
+}
+
+.media-name {
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.media-meta {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+/* Akcie (Tlačidlá) */
+.media-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.action-btn-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: transparent;
+}
+
+/* Play tlačidlo */
+.action-btn-icon.play {
+    color: var(--success);
+    background: var(--success-bg);
+}
+.action-btn-icon.play:hover {
+    background: var(--success);
+    color: var(--text-white);
+}
+
+/* Delete tlačidlo */
+.action-btn-icon.delete {
+    color: var(--danger);
+    background: var(--danger-bg);
+}
+.action-btn-icon.delete:hover {
+    background: var(--danger);
+    color: var(--text-white);
+}
+
+/* Empty State */
+.empty-state {
+    padding: 30px;
+    text-align: center;
+    color: var(--text-muted);
+    font-style: italic;
+    background: var(--bg-hover);
+    border-radius: var(--radius-md);
+    border: 1px dashed var(--border-color);
+}
+
+/* Layout pre grid kariet */
+.media-grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+    gap: 24px;
+}
+
+/* Štýly pre Modal a Loading */
+.loading-state {
+    padding: 32px;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.modal-text {
+    color: var(--text-muted);
+    margin-bottom: 16px;
+}
+
+.highlight-text {
+    color: var(--text-white);
+    background-color: var(--text-secondary);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.modal-input {
+    width: 100%;
+    padding: 8px 12px;
+    background-color: var(--bg-dark);
+    border: 1px solid var(--text-secondary);
+    border-radius: var(--radius-md);
+    color: var(--text-white);
+    font-family: monospace;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.modal-input:focus {
+    border-color: var(--danger);
+}

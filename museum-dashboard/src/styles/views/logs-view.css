@@ -1,0 +1,126 @@
+/* src/styles/views/logs-view.css */
+
+.logs-view {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: 24px;
+}
+
+/* --- FILTRE --- */
+.filters {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--bg-hover);
+    padding: 4px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
+
+.filter-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.filter-btn:hover {
+    color: var(--text-primary);
+    background: rgba(0,0,0,0.05);
+}
+
+.filter-btn.active {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-sm);
+    font-weight: 600;
+}
+
+.filter-btn.info.active { color: var(--info); }
+.filter-btn.warning.active { color: var(--warning); }
+.filter-btn.error.active { color: var(--danger); }
+
+/* Oprava hardcoded farieb -> použitie Theme Variables */
+.card-component.logs-console-card {
+    background-color: var(--bg-dark) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: var(--text-white) !important;
+    padding: 0 !important;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.logs-console {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.9rem;
+    padding: 16px;
+    overflow-y: auto;
+    flex: 1;
+    background-color: transparent;
+}
+
+/* --- RIADKY LOGOV --- */
+.log-row {
+    display: grid;
+    grid-template-columns: 90px 80px 140px 1fr;
+    gap: 12px;
+    padding: 4px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    align-items: baseline;
+    line-height: 1.5;
+}
+
+.log-row:hover {
+    background-color: rgba(255,255,255,0.05);
+}
+
+/* Farby textov v konzole - OPRAVENÉ */
+.log-time { color: var(--text-muted); font-size: 0.8rem; }
+.log-module { color: var(--primary); }
+
+.log-level {
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Použitie Theme farieb namiesto hex kódov */
+.log-row.info .log-level { color: var(--info); }
+.log-row.warning .log-level { color: var(--warning); }
+.log-row.error .log-level { color: var(--danger); }
+.log-row.debug .log-level { color: var(--success); }
+
+.log-message { color: var(--text-white); word-break: break-word; }
+
+.log-row.error {
+    /* Ak theme premenné nepodporujú alpha, použijeme jemnú RGBA podobnú --danger */
+    background-color: rgba(244, 63, 94, 0.1);
+}
+
+.empty-logs {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: var(--text-muted);
+    font-style: italic;
+    gap: 10px;
+}
+
+.login-submit-btn {
+    margin-top: 10px;
+    border-radius: 12px;
+}

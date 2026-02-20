@@ -1,52 +1,251 @@
-[
-  {
-    "message": "ON",
-    "timestamp": 0,
-    "topic": "room1/light"
+{
+  "description": "Komplexn\u00fd test: Audio -> Video (End) -> Lights -> Motors (L/R/Speed). NO SMOKE.",
+  "globalEvents": [
+    {
+      "goto": "END",
+      "message": "STOP",
+      "topic": "room1/emergency",
+      "type": "mqttMessage"
+    },
+    {
+      "delay": 300,
+      "goto": "END",
+      "type": "timeout"
+    }
+  ],
+  "initialState": "check_audio_start",
+  "sceneId": "full_system_check_v1",
+  "states": {
+    "check_audio_start": {
+      "description": "1. AUDIO TEST: Pust\u00ed welcome.mp3 a z\u00e1kladn\u00e9 svetl\u00e1.",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:welcome.mp3:1.0"
+        },
+        {
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/1"
+        },
+        {
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/2"
+        },
+        {
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/fire"
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 5,
+          "goto": "check_video_lights",
+          "type": "timeout"
+        }
+      ]
+    },
+    "check_motors_left": {
+      "description": "3. MOTOR L: Rozbeh motorov DO\u013dAVA (Ramp 3s na 100%). Bud\u00edky ON.",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "message": "ON:50:L:3000",
+          "topic": "room1/motor1"
+        },
+        {
+          "action": "mqtt",
+          "message": "ON:50:L:3000",
+          "topic": "room1/motor2"
+        },
+        {
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/effects/group1"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/fire"
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 10,
+          "goto": "check_motors_right",
+          "type": "timeout"
+        }
+      ]
+    },
+    "check_motors_right": {
+      "description": "4. MOTOR R: Zmena smeru DOPRAVA a n\u00e1sledn\u00e9 spomalenie.",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "message": "ON:40:R:2000",
+          "topic": "room1/motor1"
+        },
+        {
+          "action": "mqtt",
+          "message": "ON:50:R:2000",
+          "topic": "room1/motor2"
+        }
+      ],
+      "timeline": [
+        {
+          "actions": [
+            {
+              "action": "mqtt",
+              "message": "SPEED:30",
+              "topic": "room1/motor1"
+            },
+            {
+              "action": "mqtt",
+              "message": "SPEED:35",
+              "topic": "room1/motor2"
+            },
+            {
+              "action": "mqtt",
+              "message": "OFF",
+              "topic": "room1/light/5"
+            }
+          ],
+          "at": 5
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 10,
+          "goto": "cleanup_and_end",
+          "type": "timeout"
+        }
+      ]
+    },
+    "check_video_lights": {
+      "description": "2. VIDEO & LIGHTS: Pust\u00ed ghost2.mp4. Po\u010das videa testuje zvy\u0161n\u00e9 svetl\u00e1.",
+      "onEnter": [
+        {
+          "action": "video",
+          "message": "PLAY_VIDEO:ghost2.mp4"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/1"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/2"
+        }
+      ],
+      "timeline": [
+        {
+          "action": "mqtt",
+          "at": 1,
+          "message": "ON",
+          "topic": "room1/light/3"
+        },
+        {
+          "action": "mqtt",
+          "at": 2,
+          "message": "ON",
+          "topic": "room1/light/4"
+        },
+        {
+          "action": "mqtt",
+          "at": 3,
+          "message": "ON",
+          "topic": "room1/light/5"
+        },
+        {
+          "action": "mqtt",
+          "at": 4,
+          "message": "OFF",
+          "topic": "room1/light/3"
+        },
+        {
+          "action": "mqtt",
+          "at": 5,
+          "message": "OFF",
+          "topic": "room1/light/4"
+        }
+      ],
+      "transitions": [
+        {
+          "goto": "check_motors_left",
+          "target": "ghost2.mp4",
+          "type": "videoEnd"
+        }
+      ]
+    },
+    "cleanup_and_end": {
+      "description": "5. CLEANUP: V\u0161etko vypn\u00fa\u0165 a koniec.",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/motor1"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/motor2"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/1"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/2"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/3"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/4"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/5"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/fire"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/effects/group1"
+        },
+        {
+          "action": "video",
+          "message": "STOP_VIDEO"
+        },
+        {
+          "action": "audio",
+          "message": "STOP"
+        }
+      ],
+      "transitions": [
+        {
+          "delay": 1,
+          "goto": "END",
+          "type": "timeout"
+        }
+      ]
+    }
   },
-  {
-    "message": "PLAY:welcome.mp3:0.7",
-    "timestamp": 0,
-    "topic": "room1/audio"
-  },
-  {
-    "message": "ON:50:L",
-    "timestamp": 0,
-    "topic": "room1/motor1"
-  },
-  {
-    "message": "PLAY_VIDEO:ghost2.mp4",
-    "timestamp": 3,
-    "topic": "room1/video"
-  },
-  {
-    "message": "DIR:R",
-    "timestamp": 4,
-    "topic": "room1/motor1"
-  },
-  {
-    "message": "OFF",
-    "timestamp": 6,
-    "topic": "room1/light"
-  },
-  {
-    "message": "DIR:L",
-    "timestamp": 6,
-    "topic": "room1/motor1"
-  },
-  {
-    "message": "OFF",
-    "timestamp": 8,
-    "topic": "room1/motor1"
-  },
-  {
-    "message": "STOP",
-    "timestamp": 10,
-    "topic": "room1/audio"
-  },
-  {
-    "message": "STOP_VIDEO",
-    "timestamp": 12,
-    "topic": "room1/video"
-  }
-]
+  "version": "2.4"
+}

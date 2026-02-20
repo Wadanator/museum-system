@@ -1,0 +1,384 @@
+{
+  "sceneId": "fire_story_hw_sequence",
+  "description": "Pr\u00edbeh Ohe\u0148 (v1.4): Pridan\u00e9 HW ovl\u00e1danie (Dym, Svetl\u00e1, Motory)",
+  "version": "1.0",
+  "initialState": "INIT_ATMOSFERA",
+  "globalEvents": [
+    {
+      "type": "mqttMessage",
+      "topic": "room1/emergency",
+      "message": "STOP",
+      "goto": "END"
+    },
+    {
+      "type": "timeout",
+      "delay": 600,
+      "goto": "END"
+    }
+  ],
+  "states": {
+    "END": {
+      "description": "Koniec: Vypnutie v\u0161etk\u00e9ho (Audio, Svetl\u00e1, Motory, Dym).",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "STOP"
+        },
+        {
+          "action": "mqtt",
+          "message": "STOP",
+          "topic": "room1/motor1"
+        },
+        {
+          "action": "mqtt",
+          "message": "STOP",
+          "topic": "room1/motor2"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/fire"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/2"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/4"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/5"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/power/smoke_ON"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/effect/smoke"
+        }
+      ]
+    },
+    "HODINY_KLIKANIE": {
+      "description": "6. Hodiny: Klikanie + Rozsvietenie bud\u00edkov s oneskoren\u00edm 1s",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_klikanie.wav:1"
+        }
+      ],
+      "timeline": [
+        {
+          "at": 1.4,
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/4"
+        },
+        {
+          "at": 1.4,
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/5"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 4,
+          "goto": "HODINY_TIKANIE_1"
+        }
+      ]
+    },
+    "HODINY_ODBITIE_1": {
+      "description": "8. Odbitie: Prv\u00fd \u00fader (+6s)",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_Odbitie_Hodin.wav:1"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 2.5,
+          "goto": "HODINY_ODBITIE_2"
+        }
+      ]
+    },
+    "HODINY_ODBITIE_2": {
+      "description": "8. Odbitie: Druh\u00fd \u00fader (+2.5s)",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_Odbitie_Hodin.wav:1"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 2.5,
+          "goto": "HODINY_ODBITIE_3"
+        }
+      ]
+    },
+    "HODINY_ODBITIE_3": {
+      "description": "8. Odbitie: Tret\u00ed \u00fader + Podsvietenie Light 2 (0.5s delay) (+2.5s)",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_Odbitie_Hodin.wav:1"
+        }
+      ],
+      "timeline": [
+        {
+          "at": 0,
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/2"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 3,
+          "goto": "HODINY_TIKANIE_2"
+        }
+      ]
+    },
+    "HODINY_TIKANIE_1": {
+      "description": "7. Hodiny: Tikanie prv\u00e9 (+4s)",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_Tikanie.wav:1"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 6,
+          "goto": "HODINY_ODBITIE_1"
+        }
+      ]
+    },
+    "HODINY_TIKANIE_2": {
+      "description": "9. Fin\u00e1le: Tikanie druh\u00e9 + Hodiny dozadu (Motor 2) (+3s)",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_Tikanie2.wav:1"
+        },
+        {
+          "action": "mqtt",
+          "message": "ON:70:L:1000",
+          "topic": "room1/motor1"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 20,
+          "goto": "END"
+        }
+      ]
+    },
+    "INIT_ATMOSFERA": {
+      "description": "1. \u00davod: Atmosf\u00e9ra + Nahrievanie dymostroja.",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "STOP"
+        },
+        {
+          "action": "video",
+          "message": "STOP_VIDEO"
+        },
+        {
+          "action": "audio",
+          "message": "PLAY:atmosfera.wav:0.5"
+        },
+        {
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/power/smoke_ON"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/3",
+          "message": "ON"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 10,
+          "goto": "START_OHEN"
+        }
+      ]
+    },
+    "START_OHEN": {
+      "description": "2. Ohe\u0148: Zvuk vzplanutia + Horenie + Svetlo",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_Zapalenie_Ohna1.wav:1"
+        },
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_Praskanie_Ohna1.wav:0.8"
+        }
+      ],
+      "timeline": [
+        {
+          "at": 1,
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/fire"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 6,
+          "goto": "ZVUK_ALARM"
+        }
+      ]
+    },
+    "ZVUK_ALARM": {
+      "description": "3. Alarm: Spust\u00ed sa p\u00edpanie + 6x bliknutie (BPM 120)",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_Pipanie.wav:0.7"
+        }
+      ],
+      "timeline": [
+        {
+          "at": 0,
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/1"
+        },
+        {
+          "at": 0.25,
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/1"
+        },
+        {
+          "at": 0.5,
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/1"
+        },
+        {
+          "at": 0.75,
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/1"
+        },
+        {
+          "at": 1,
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/1"
+        },
+        {
+          "at": 1.25,
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/1"
+        },
+        {
+          "at": 1.5,
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/1"
+        },
+        {
+          "at": 1.75,
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/1"
+        },
+        {
+          "at": 2,
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/1"
+        },
+        {
+          "at": 2.25,
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/1"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 3,
+          "goto": "ZVUK_PARA"
+        }
+      ]
+    },
+    "ZVUK_PARA": {
+      "description": "4. Para: Zvuk sy\u010dania + Pustenie dymu (+1.5s)",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_para.wav:0.9"
+        },
+        {
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/effect/smoke"
+        }
+      ],
+      "timeline": [
+        {
+          "at": 3,
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/effect/smoke"
+        },
+        {
+          "at": 11,
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/effect/smoke"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 10,
+          "goto": "ZVUK_PISTALA"
+        }
+      ]
+    },
+    "ZVUK_PISTALA": {
+      "description": "5. Pi\u0161\u0165alka: Zvuk vlaku (+3.5s)",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "PLAY:sfx_Pistala_Vlak.wav:1"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 6,
+          "goto": "HODINY_KLIKANIE"
+        }
+      ]
+    }
+  }
+}

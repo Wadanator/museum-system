@@ -3,7 +3,7 @@
 MQTT Feedback Tracker - Per-command feedback tracking.
 
 Tracks each published command individually and waits for specific feedback.
-Example: room1/motor1 -> expects room1/motor1/feedback
+Example: prefix/motor1 -> expects prefix/motor1/feedback
 """
 
 import time
@@ -11,7 +11,7 @@ import threading
 from utils.logging_setup import get_logger
 
 class MQTTFeedbackTracker:
-    def __init__(self, logger=None, feedback_timeout=5.0):
+    def __init__(self, logger=None, feedback_timeout=2):
         self.logger = logger or get_logger('mqtt_feedback')
         self.feedback_enabled = False
         self.feedback_timeout = feedback_timeout
@@ -105,8 +105,12 @@ class MQTTFeedbackTracker:
         """Get expected feedback topic for a command."""
         parts = original_topic.split('/')
         
-        # Room device topics: room1/motor1 -> room1/motor1/feedback
-        if len(parts) == 2 and parts[0].startswith('room'):
+        # NOVÉ: Ignoruj STOP príkazy a iné globálne správy
+        if parts[-1].upper() in ['STOP', 'RESET', 'GLOBAL']:
+            return None
+
+        # Room device topics: prefix/motor1 -> prefix/motor1/feedback
+        if len(parts) >= 2 and parts[0].startswith('room'):
             return f"{original_topic}/feedback"
         
         # Device topics: devices/esp32_01/relay -> devices/esp32_01/relay/feedback

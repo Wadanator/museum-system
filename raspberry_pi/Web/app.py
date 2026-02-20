@@ -18,7 +18,7 @@ def create_app(controller):
     app = Flask(__name__)
     app.config['SECRET_KEY'] = Config.SECRET_KEY
     app.config['ENV'] = 'production'
-    
+    app.config['CONTROLLER'] = controller
     # Initialize SocketIO
     socketio = SocketIO(
         app,

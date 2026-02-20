@@ -1,132 +1,179 @@
 #!/usr/bin/env python3
-import json
-import time
-import os
-import logging
-import sys
 from utils.logging_setup import get_logger
+from utils.state_machine import StateMachine
+from utils.transition_manager import TransitionManager
+from utils.state_executor import StateExecutor
 
 class SceneParser:
-    def __init__(self, audio_handler=None, video_handler=None, logger=None):
-        self.scene_data = None
-        self.start_time = None
+    def __init__(self, mqtt_client=None, audio_handler=None, video_handler=None, logger=None):
+        self.logger = logger or get_logger("SceneParser")
+        
         self.audio_handler = audio_handler
         self.video_handler = video_handler
-        self.executed_actions = set()
-        self.logger = logger or get_logger("Scene_Parser")
+        
+        self.state_machine = StateMachine(logger=self.logger)
+        self.transition_manager = TransitionManager(logger=self.logger)
+        
+        if self.audio_handler:
+            self.audio_handler.set_end_callback(self._on_audio_ended)
 
-    # Scene Management
+        if self.video_handler:
+            self.video_handler.set_end_callback(self._on_video_ended)
+
+        self.state_executor = StateExecutor(
+            mqtt_client=mqtt_client, 
+            audio_handler=audio_handler, 
+            video_handler=video_handler,
+            logger=self.logger
+        )
+        
+        self.scene_data = None
+
+    def _collect_audio_files(self, data, audio_files):
+        """
+        Rekurzívne prejde JSON scény a nájde všetky audio súbory.
+        Hľadá kľúče: {"action": "audio", "message": "filename.mp3"}
+        """
+        if isinstance(data, dict):
+            # Ak je tento uzol audio akcia
+            if data.get("action") == "audio" and "message" in data:
+                message = data["message"]
+                # Extrahujeme názov súboru (odstránime PLAY: alebo :hlasitosť)
+                if message.startswith("PLAY:"):
+                    parts = message.split(":")
+                    if len(parts) >= 2:
+                        audio_files.add(parts[1]) # filename
+                elif ":" in message: # Handle 'file:vol'
+                     parts = message.split(":")
+                     audio_files.add(parts[0])
+                else:
+                    audio_files.add(message)
+            
+            # Rekurzia do hĺbky pre všetky hodnoty v dictionary
+            for key, value in data.items():
+                self._collect_audio_files(value, audio_files)
+                
+        elif isinstance(data, list):
+            # Rekurzia pre položky v zozname
+            for item in data:
+                self._collect_audio_files(item, audio_files)
+
+    def _on_audio_ended(self, filename):
+        self.logger.debug(f"Audio finished callback received: {filename}")
+        self.transition_manager.register_audio_end(filename)
+
+    def _on_video_ended(self, filename):
+        self.logger.debug(f"Video finished callback received: {filename}")
+        self.transition_manager.register_video_end(filename)
+
     def load_scene(self, scene_file):
-        try:
-            with open(scene_file, 'r') as file:
-                self.scene_data = json.load(file)
-            
-            self.executed_actions = set()
-            
-            if not isinstance(self.scene_data, list):
-                self.logger.error("Scene data must be a list of actions")
-                return False
-            
-            for i, action in enumerate(self.scene_data):
-                if not all(key in action for key in ['timestamp', 'topic', 'message']):
-                    self.logger.error(f"Action {i} missing required fields (timestamp, topic, message)")
-                    return False
-            
-            self.logger.debug(f"Scene loaded: {len(self.scene_data)} actions")
+        if self.state_machine.load_scene(scene_file):
+            self.scene_data = True
             return True
-            
-        except Exception as e:
-            self.logger.error(f"Failed to load scene: {e}")
-            self.scene_data = None
-            return False
+        return False
 
     def start_scene(self):
         if not self.scene_data:
-            self.logger.error("No scene is loaded")
+            self.logger.error("No scene data loaded")
             return False
-        
-        self.start_time = time.time()
-        self.executed_actions = set()
-        self.logger.info("Scene started")
-        return True
 
-    # Action Processing with MQTT Feedback Integration
-    def get_current_actions(self, mqtt_client):
-        if not self.scene_data or not self.start_time:
-            return []
-        
-        current_time = time.time() - self.start_time
-        actions = []
-        
-        # NEW: Enable MQTT feedback tracking when scene starts
-        if mqtt_client and hasattr(mqtt_client, 'feedback_tracker'):
-            if mqtt_client.feedback_tracker and not mqtt_client.feedback_tracker.feedback_enabled:
-                mqtt_client.feedback_tracker.enable_feedback_tracking()
-        
-        for i, action in enumerate(self.scene_data):
-            action_id = f"{i}_{action['timestamp']}"
+        # --- DYNAMIC PRELOADING START ---
+        # Tu využívame self.state_machine.scene_data, ktoré sme opravili v state_machine.py
+        if self.audio_handler and self.state_machine.scene_data:
+            self.logger.info("Scanning scene for audio files...")
+            required_audio = set()
             
-            if action["timestamp"] <= current_time and action_id not in self.executed_actions:
-                actions.append(action)
-                self.executed_actions.add(action_id)
-                
-                # Handle local audio/video (no MQTT feedback needed)
-                if action["topic"].endswith("/audio"):
-                    self._handle_audio_command(action["message"])
-                elif action["topic"].endswith("/video"):
-                    self._handle_video_command(action["message"])
-                else:
-                    # Send MQTT command (with automatic feedback tracking)
-                    if mqtt_client:
-                        success = mqtt_client.publish(action["topic"], action["message"], retain=False)
-                        if not success:
-                            self.logger.error(f"Failed to publish MQTT message: {action['topic']}")
+            # 1. Získame zoznam všetkých zvukov v scéne
+            self._collect_audio_files(self.state_machine.scene_data, required_audio)
+            
+            if required_audio:
+                self.logger.info(f"Found {len(required_audio)} audio files required for this scene.")
+                # 2. Pošleme ich do AudioHandlera na načítanie do RAM
+                # (Toto chvíľu potrvá - 'loading screen')
+                self.audio_handler.preload_files_for_scene(list(required_audio))
+            else:
+                self.logger.info("No audio files found in scene structure.")
+        # --- DYNAMIC PRELOADING END ---
+            
+        self.transition_manager.clear_events()
+        self.state_executor.reset_timeline_tracking()
         
-        return actions
+        if self.state_machine.start():
+            current_data = self.state_machine.get_current_state_data()
+            if current_data:
+                self.state_executor.execute_onEnter(current_data)
+            return True
+        return False
+
+    def process_scene(self):
+        if self.audio_handler:
+            self.audio_handler.check_if_ended()
+            
+        if self.video_handler:
+            self.video_handler.check_if_ended()
+
+        if self.state_machine.is_finished():
+            return False
+
+        current_state_data = self.state_machine.get_current_state_data()
+        if not current_state_data:
+            return False
+
+        # Global events
+        global_events = self.state_machine.get_global_events()
+        if global_events:
+            global_context = {"transitions": global_events}
+            scene_elapsed = self.state_machine.get_scene_elapsed_time()
+            
+            next_state_global = self.transition_manager.check_transitions(
+                global_context, 
+                scene_elapsed
+            )
+            
+            if next_state_global and next_state_global != self.state_machine.current_state:
+                self.logger.debug(f"GLOBAL EVENT TRIGGERED -> Jumping to {next_state_global}")
+                self._change_state(next_state_global, current_state_data)
+                return True
+
+        # Timeline logic
+        state_elapsed = self.state_machine.get_state_elapsed_time()
+        self.state_executor.check_and_execute_timeline(current_state_data, state_elapsed)
+
+        # Transition logic
+        next_state = self.transition_manager.check_transitions(current_state_data, state_elapsed)
+        if next_state:
+            self._change_state(next_state, current_state_data)
+            
+        return True
     
-    def stop_scene(self, mqtt_client=None):
-        """Stop the current scene and disable MQTT feedback tracking."""
-        if mqtt_client and hasattr(mqtt_client, 'feedback_tracker'):
-            if mqtt_client.feedback_tracker:
-                mqtt_client.feedback_tracker.disable_feedback_tracking()
+    def stop_scene(self):
+        self.logger.warning("Stopping scene via SceneParser request...")
         
-        self.logger.info("Scene stopped")
+        if self.audio_handler:
+            self.audio_handler.stop_all()
+            
+        if self.state_machine:
+            self.state_machine.reset_runtime_state()
+            self.state_machine.current_state = "END"
+        if self.transition_manager:
+            self.transition_manager.clear_events()
+        if self.state_executor:
+            self.state_executor.reset_timeline_tracking()
+        self.logger.info("SceneParser internal state reset.")
 
-    def _handle_audio_command(self, message):
-        if not self.audio_handler:
-            self.logger.warning("No audio handler available")
-            return False
-    
-        return self.audio_handler.handle_command(message)
+    def register_mqtt_event(self, topic, payload):
+        if self.transition_manager:
+            self.transition_manager.register_mqtt_event(topic, payload)
 
-    def _handle_video_command(self, message):
-        if not self.video_handler:
-            self.logger.warning("No video handler available")
-            return False
+    def _change_state(self, next_state, current_state_data):
+        self.state_executor.execute_onExit(current_state_data)
+        self.state_machine.goto_state(next_state)
+        self.transition_manager.clear_events()
+        self.state_executor.reset_timeline_tracking()
         
-        return self.video_handler.handle_command(message)
+        new_state_data = self.state_machine.get_current_state_data()
+        if new_state_data:
+            self.state_executor.execute_onEnter(new_state_data)
 
-    # Scene Status
-    def get_scene_duration(self):
-        if not self.scene_data:
-            return 0
-        return max(action["timestamp"] for action in self.scene_data)
-
-    def get_scene_progress(self):
-        if not self.scene_data or not self.start_time:
-            return 0.0
-        
-        current_time = time.time() - self.start_time
-        total_duration = self.get_scene_duration()
-        
-        if total_duration <= 0:
-            return 1.0
-        
-        return min(1.0, current_time / total_duration)
-
-    def is_scene_complete(self):
-        if not self.scene_data or not self.start_time:
-            return False
-        
-        current_time = time.time() - self.start_time
-        return current_time > self.get_scene_duration()
+    def cleanup(self):
+        pass

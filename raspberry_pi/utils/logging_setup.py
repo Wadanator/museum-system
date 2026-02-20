@@ -1,230 +1,215 @@
-# raspberry_pi/utils/logging_setup.py - Zjednodušená verzia bez nefunkčného filtra
-
 import os
 import logging
 import logging.handlers
 import sys
-import json
-from datetime import datetime
+import sqlite3
+import threading
+import queue
+import time
+from datetime import datetime, timedelta
 from pathlib import Path
 
 def get_default_log_dir():
-    """Get the default log directory relative to the project root."""
     script_dir = Path(__file__).resolve().parent
     return script_dir.parent / "logs"
 
+# --- 1. ASYNCHRÓNNY SQLITE HANDLER ---
+class AsyncSQLiteHandler(logging.Handler):
+    """
+    Loguje do SQLite v samostatnom vlákne pomocou Queue.
+    Nezaťažuje hlavné vlákno aplikácie I/O operáciami.
+    """
+    def __init__(self, db_path, retention_days=30):
+        super().__init__()
+        self.db_path = str(db_path)
+        self.retention_days = int(retention_days)
+        self.log_queue = queue.Queue()
+        self.running = True
+        
+        # Inicializácia DB (synchrónne pri štarte)
+        self._initialize_db()
+        self._cleanup_old_logs()
+        
+        # Štart writera na pozadí
+        self.writer_thread = threading.Thread(target=self._writer_loop, daemon=True, name="LogWriter")
+        self.writer_thread.start()
+
+    def _initialize_db(self):
+        try:
+            conn = sqlite3.connect(self.db_path)
+            conn.execute('PRAGMA journal_mode=WAL;') 
+            conn.execute('PRAGMA synchronous=NORMAL;')
+            cursor = conn.cursor()
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp TEXT,
+                    level TEXT,
+                    module TEXT,
+                    message TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_level ON logs (level)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_timestamp ON logs (timestamp)')
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            sys.stderr.write(f"CRITICAL: DB Init Failed: {e}\n")
+
+    def _cleanup_old_logs(self):
+        if self.retention_days <= 0: return
+        try:
+            conn = sqlite3.connect(self.db_path)
+            limit_date = datetime.now() - timedelta(days=self.retention_days)
+            conn.execute("DELETE FROM logs WHERE timestamp < ?", (limit_date.strftime('%Y-%m-%d %H:%M:%S'),))
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+
+    def emit(self, record):
+        # Iba vložíme do fronty - toto je extrémne rýchle a neblokuje
+        self.log_queue.put(record)
+
+    def _writer_loop(self):
+        """Slučka bežiaca na pozadí, ktorá vyberá logy z fronty a zapisuje ich v dávkach."""
+        while self.running:
+            try:
+                record = self.log_queue.get(timeout=2.0)
+            except queue.Empty:
+                continue
+
+            records_to_process = [record]
+            
+            try:
+                while len(records_to_process) < 100: # Max dávka
+                    records_to_process.append(self.log_queue.get_nowait())
+            except queue.Empty:
+                pass
+            
+            self._write_batch(records_to_process)
+            
+            for _ in records_to_process:
+                self.log_queue.task_done()
+
+    def _write_batch(self, records):
+        conn = None
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            data = []
+            for record in records:
+                try:
+                    module = record.name.split('.')[-1] if '.' in record.name else record.name
+                    if module.startswith('utils.'): module = module.split('.')[-1]
+                    ts = datetime.fromtimestamp(record.created).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+                    msg = record.getMessage()
+                    data.append((ts, record.levelname, module, msg))
+                except Exception:
+                    pass # Chyba pri formátovaní logu
+            
+            if data:
+                cursor.executemany('INSERT INTO logs (timestamp, level, module, message) VALUES (?, ?, ?, ?)', data)
+                conn.commit()
+                
+        except Exception as e:
+            sys.stderr.write(f"Log DB Write Error: {e}\n")
+        finally:
+            if conn: conn.close()
+            
+    def close(self):
+        self.running = False
+        if self.writer_thread.is_alive():
+            self.writer_thread.join(timeout=1.0)
+        super().close()
+
+# --- 2. CONFIG HELPER ---
+
 def setup_logging_from_config(config_dict):
-    """Setup logging using configuration dictionary with component-specific levels."""
-    # Get component-specific log levels if available
     component_levels = config_dict.get('component_levels', {})
     
-    # Setup main logging
     logger = setup_logging(
         log_level=config_dict.get('log_level', logging.INFO),
         log_dir=config_dict.get('log_directory'),
-        max_file_size=config_dict.get('max_file_size', 10*1024*1024),
-        backup_count=config_dict.get('backup_count', 5),
-        daily_backup_days=config_dict.get('daily_backup_days', 30),
+        retention_days=config_dict.get('daily_backup_days', 30),
         console_colors=config_dict.get('console_colors', True),
         file_logging=config_dict.get('file_logging', True),
-        console_logging=config_dict.get('console_logging', True),
-        log_format=config_dict.get('log_format', 'detailed')
+        console_logging=config_dict.get('console_logging', True)
     )
     
-    # Apply component-specific log levels
     _apply_component_log_levels(component_levels)
-    
     return logger
 
 def _apply_component_log_levels(component_levels):
-    """Apply specific log levels to different components."""
-    level_map = {
-        'DEBUG': logging.DEBUG,
-        'INFO': logging.INFO, 
-        'WARNING': logging.WARNING,
-        'ERROR': logging.ERROR,
-        'CRITICAL': logging.CRITICAL
-    }
+    level_map = {'DEBUG': logging.DEBUG, 'INFO': logging.INFO, 'WARNING': logging.WARNING, 'ERROR': logging.ERROR}
     
-    # Default component levels for optimal logging
     default_levels = {
-        # Core components - keep informative
         'museum.main': 'INFO',
-        'museum.scene_parser': 'INFO',
-        'museum.mqtt': 'INFO',
-        'museum.audio': 'INFO', 
-        'museum.video': 'INFO',
-        'museum.web': 'INFO',
-        'museum.btn_handler': 'INFO',
-        
-        # Reduce chattiness from these
-        'museum.sys_monitor': 'WARNING',
-        'museum.mqtt_handler': 'WARNING',
-        'museum.mqtt_feedback': 'WARNING',
-        'museum.mqtt_devices': 'WARNING',
-        'museum.config': 'WARNING',
-        
-        # External libraries - only errors
-        'werkzeug': 'ERROR',
-        'flask.app': 'ERROR',
-        'urllib3': 'ERROR',
-        'paho': 'ERROR',
-        'socketio': 'ERROR',
-        'engineio': 'ERROR',
+        'werkzeug': 'ERROR', 'flask.app': 'ERROR', 'urllib3': 'ERROR', 
+        'paho': 'ERROR', 'socketio': 'ERROR', 'engineio': 'ERROR',
     }
     
-    # Merge with user-provided levels
-    all_levels = {**default_levels, **component_levels}
+    all_levels = default_levels.copy()
+    for k, v in component_levels.items():
+        all_levels[k.lower()] = v
     
-    # Apply the levels
     for logger_name, level_str in all_levels.items():
-        level = level_map.get(level_str.upper(), logging.INFO)
-        logging.getLogger(logger_name).setLevel(level)
+        logging.getLogger(logger_name).setLevel(level_map.get(level_str.upper(), logging.INFO))
 
-def setup_logging(log_level=logging.INFO, log_dir=None, max_file_size=10*1024*1024, 
-                 backup_count=5, daily_backup_days=30, console_colors=True,
-                 file_logging=True, console_logging=False, log_format='detailed'):
-    """
-    Setup comprehensive logging with console and file handlers.
-    Creates 4 log files: main, warnings, errors, and daily rotating logs.
-    """
+def setup_logging(log_level=logging.INFO, log_dir=None, retention_days=30, console_colors=True,
+                 file_logging=True, console_logging=False, **kwargs):
     
     class CleanFormatter(logging.Formatter):
-        """Custom formatter with color support and multiple format styles."""
-        COLORS = {
-            'DEBUG': '\033[36m', 'INFO': '\033[32m', 'WARNING': '\033[33m',
-            'ERROR': '\033[31m', 'CRITICAL': '\033[35m', 'RESET': '\033[0m'
-        }
-        
-        def __init__(self, use_colors=False, format_style='detailed'):
-            super().__init__()
-            self.use_colors = use_colors
-            self.format_style = format_style
+        COLORS = {'DEBUG': '\033[36m', 'INFO': '\033[32m', 'WARNING': '\033[33m', 'ERROR': '\033[31m', 'RESET': '\033[0m'}
         
         def format(self, record):
-            # Extract and format module name - cleaner display
-            module = record.name.split('.')[-1] if '.' in record.name else record.name
-            if module.startswith('utils.'):
-                module = module.split('.')[-1]
-            # Shorten common module names for cleaner logs
-            module_aliases = {
-                'mqtt_client': 'mqtt',
-                'mqtt_handler': 'mqtt_msg', 
-                'mqtt_feedback_tracker': 'mqtt_fb',
-                'mqtt_device_registry': 'mqtt_dev',
-                'scene_parser': 'scene',
-                'audio_handler': 'audio',
-                'video_handler': 'video',
-                'button_handler': 'button',
-                'system_monitor': 'monitor',
-                'web_dashboard': 'web'
-            }
-            module = module_aliases.get(module, module)
-            module = module[:10].ljust(10)  # Consistent width
+            module = record.name.split('.')[-1]
+            if '.' in record.name: module = record.name.split('.')[-1]
+            aliases = {'mqtt_client': 'mqtt', 'scene_parser': 'scene', 'web_dashboard': 'web'}
+            module = aliases.get(module.lower(), module)[:10].ljust(10)
             
-            # Format based on style
-            if self.format_style == 'simple':
-                message = f"{record.levelname}: {record.getMessage()}"
-            elif self.format_style == 'json':
-                log_obj = {
-                    'timestamp': datetime.now().isoformat(),
-                    'level': record.levelname,
-                    'module': module.strip(),
-                    'message': record.getMessage()
-                }
-                if record.exc_info:
-                    log_obj['exception'] = self.formatException(record.exc_info)
-                return json.dumps(log_obj)
-            else:  # detailed
-                timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-                level = record.levelname.ljust(7)  # Consistent width
-                message = f"[{timestamp}] {level} {module} {record.getMessage()}"
+            ts = datetime.now().strftime('%H:%M:%S')
+            msg = f"[{ts}] {record.levelname[:1]} {module} {record.getMessage()}"
             
-            # Apply colors for console output
-            if self.use_colors and self.format_style != 'json' and record.levelname in self.COLORS:
-                color = self.COLORS[record.levelname]
-                reset = self.COLORS['RESET']
-                message = f"{color}{message}{reset}"
-            
-            # Add exception info if present
-            if record.exc_info and self.format_style != 'json':
-                message += '\n' + self.formatException(record.exc_info)
-            
-            return message
-    
-    class LevelFilter(logging.Filter):
-        """Filter to only allow specific log levels."""
-        def __init__(self, level):
-            super().__init__()
-            self.level = level
-        
-        def filter(self, record):
-            return record.levelno == self.level
-    
-    # Initialize logger
+            if console_colors and record.levelname in self.COLORS:
+                return f"{self.COLORS[record.levelname]}{msg}{self.COLORS['RESET']}"
+            return msg
+
     logger = logging.getLogger('museum')
-    if logger.handlers:  # Prevent duplicate handlers
-        return logger
+    if logger.handlers: return logger
     
     logger.setLevel(log_level)
     logger.propagate = False
     
-    # Setup console handler
     if console_logging:
-        console_handler = logging.StreamHandler(sys.stdout)
-        console_handler.setLevel(log_level)
-        console_handler.setFormatter(CleanFormatter(use_colors=console_colors, format_style=log_format))
-        logger.addHandler(console_handler)
+        ch = logging.StreamHandler(sys.stdout)
+        ch.setLevel(log_level)
+        ch.setFormatter(CleanFormatter())
+        logger.addHandler(ch)
     
-    # Setup file logging
     if file_logging:
-        # Create log directories
         log_dir = Path(log_dir) if log_dir else get_default_log_dir()
         log_dir.mkdir(parents=True, exist_ok=True)
-        daily_log_dir = log_dir / "daily"
-        daily_log_dir.mkdir(parents=True, exist_ok=True)
-        
-        # Main rotating log file (INFO and above - most important events)
-        main_handler = logging.handlers.RotatingFileHandler(
-            log_dir / 'museum.log', maxBytes=max_file_size, 
-            backupCount=backup_count, encoding='utf-8'
+
+        try:
+            db_path = log_dir / "museum_logs.db"
+            # POUŽITIE NOVÉHO ASYNC HANDLERA
+            sql_handler = AsyncSQLiteHandler(db_path, retention_days=retention_days)
+            sql_handler.setLevel(logging.INFO)
+            logger.addHandler(sql_handler)
+            print(f"✅ Async DB Logging: Active (History: {retention_days} days)")
+        except Exception as e:
+            print(f"❌ DB Logging Failed: {e}")
+
+        eh = logging.handlers.RotatingFileHandler(
+            log_dir / 'museum-errors.log', maxBytes=1024*1024, backupCount=1, encoding='utf-8'
         )
-        main_handler.setLevel(logging.INFO)  # Skip DEBUG in main log
-        main_handler.setFormatter(CleanFormatter(use_colors=False, format_style=log_format))
-        logger.addHandler(main_handler)
-        
-        # Warning-only log file (for quick issue identification)
-        warning_handler = logging.handlers.RotatingFileHandler(
-            log_dir / 'museum-warnings.log', maxBytes=max_file_size//2,
-            backupCount=backup_count, encoding='utf-8'
-        )
-        warning_handler.setLevel(logging.WARNING)
-        warning_handler.addFilter(LevelFilter(logging.WARNING))
-        warning_handler.setFormatter(CleanFormatter(use_colors=False, format_style=log_format))
-        logger.addHandler(warning_handler)
-        
-        # Error-only log file (critical issues)
-        error_handler = logging.handlers.RotatingFileHandler(
-            log_dir / 'museum-errors.log', maxBytes=max_file_size//4,
-            backupCount=backup_count, encoding='utf-8'
-        )
-        error_handler.setLevel(logging.ERROR)
-        error_handler.setFormatter(CleanFormatter(use_colors=False, format_style=log_format))
-        logger.addHandler(error_handler)
-        
-        # Daily rotating log file (all levels for historical analysis)
-        daily_handler = logging.handlers.TimedRotatingFileHandler(
-            daily_log_dir / 'museum-daily.log', when='midnight', interval=1,
-            backupCount=daily_backup_days, encoding='utf-8'
-        )
-        daily_handler.setLevel(logging.DEBUG)  # Capture everything daily
-        daily_handler.setFormatter(CleanFormatter(use_colors=False, format_style=log_format))
-        logger.addHandler(daily_handler)
-    
-    # Log startup message
-    logger.info(f"Logging initialized - Level: {logging.getLevelName(log_level)}")
-    
-    # Setup global exception handler
+        eh.setLevel(logging.ERROR)
+        eh.setFormatter(logging.Formatter('%(asctime)s %(levelname)s: %(message)s'))
+        logger.addHandler(eh)
+
     def handle_exception(exc_type, exc_value, exc_traceback):
         if issubclass(exc_type, KeyboardInterrupt):
             sys.__excepthook__(exc_type, exc_value, exc_traceback)
@@ -235,7 +220,5 @@ def setup_logging(log_level=logging.INFO, log_dir=None, max_file_size=10*1024*10
     return logger
 
 def get_logger(name=None):
-    """Get a child logger with the specified name."""
-    if name:
-        return logging.getLogger(f'museum.{name}')
+    if name: return logging.getLogger(f'museum.{name.lower()}')
     return logging.getLogger('museum')
