@@ -2,7 +2,10 @@
 
 Tento priečinok drží core runtime moduly backendu.
 
----
+1. `state_machine.py` načíta a drží aktuálny stav scény.
+2. `scene_parser.py` riadi štart/loop/stop scény.
+3. `state_executor.py` vykonáva akcie (`mqtt`, `audio`, `video`).
+4. `transition_manager.py` vyhodnocuje prechody.
 
 ## 1) Scene execution stack
 

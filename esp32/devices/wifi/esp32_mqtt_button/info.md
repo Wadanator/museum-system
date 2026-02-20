@@ -2,7 +2,7 @@
 
 Firmware pre bezdrôtové tlačidlo, ktoré spúšťa scénu cez MQTT.
 
----
+## MQTT správanie
 
 ## 1) Funkcia zariadenia
 
@@ -11,7 +11,9 @@ Firmware pre bezdrôtové tlačidlo, ktoré spúšťa scénu cez MQTT.
 - pri validnom stlačení publikuje trigger scény,
 - priebežne publikuje status do `devices/.../status`.
 
----
+- Button pin: `GPIO32`
+- Debounce: `60ms`
+- Cooldown medzi triggerom: `4000ms`
 
 ## 2) MQTT správanie
 

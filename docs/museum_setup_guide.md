@@ -57,7 +57,7 @@ Dôležité sekcie:
 ## 3.5 Logging
 - level, file logging, rotácia, log directory
 
----
+## 5) Systemd služby
 
 ## 4) Príprava dát
 
