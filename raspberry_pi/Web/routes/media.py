@@ -132,8 +132,6 @@ def delete_file(media_type, filename):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# --- NOVÉ ENDPOINTY PRE PREHRÁVANIE A STOP ---
-
 @media_bp.route('/play/audio', methods=['POST'])
 @requires_auth
 def play_audio():
