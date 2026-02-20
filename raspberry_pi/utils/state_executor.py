@@ -3,6 +3,7 @@
 State Executor - Vykonáva akcie v stavoch (Refactored for Expandability)
 """
 from utils.logging_setup import get_logger
+from utils.mqtt.mqtt_contract import validate_publish
 
 class StateExecutor:
     def __init__(self, mqtt_client=None, audio_handler=None, video_handler=None, logger=None):
@@ -113,6 +114,11 @@ class StateExecutor:
 
         if not topic or not message:
             self.logger.error(f"MQTT action missing topic or message: {action}")
+            return
+
+        is_valid, validation_error = validate_publish(topic, message)
+        if not is_valid:
+            self.logger.error(f"MQTT action validation failed: {validation_error}")
             return
 
         if self.mqtt_client and self.mqtt_client.is_connected():
