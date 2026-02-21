@@ -5,43 +5,41 @@
 ## 1) Súbory a zodpovednosti
 
 - `mqtt_client.py`
+
   - wrapper nad paho clientom
   - connect/reconnect retry logika
   - subscribe/publish API
   - callback hooky pri strate/obnove spojenia
-
 - `mqtt_message_handler.py`
+
   - central routing incoming správ
   - dispatch do:
     - device registry
     - feedback tracker
     - scene trigger callbackov
     - scene parser eventov
-
 - `mqtt_feedback_tracker.py`
+
   - páruje publishnuté commandy s `/feedback` odpoveďami
   - timeout/cleanup logika
-
 - `mqtt_device_registry.py`
+
   - správa stavu zariadení podľa `devices/<id>/status`
   - stale cleanup podľa timeoutu
-
-- `mqtt_contract.py`
-  - topic classification
-  - payload validation podľa topic typu
-  - helper pre expected feedback topic
 
 ---
 
 ## 2) Subscription model (`mqtt_client.py`)
 
 Po pripojení sa subscribuje:
+
 - `devices/+/status`
 - `<room_id>/+/feedback`
 - `<room_id>/scene`
 - `<room_id>/#`
 
 Poznámka:
+
 - `room_id` je z configu (`[Room] room_id`).
 
 ---
@@ -49,6 +47,7 @@ Poznámka:
 ## 3) Incoming message routing (`mqtt_message_handler.py`)
 
 Poradie routingu:
+
 1. `devices/<id>/status` -> `device_registry.update_device_status(...)`
 2. `.../feedback` -> `feedback_tracker.handle_feedback_message(...)`
 3. `.../scene` + `START` -> `button_callback()`
@@ -59,32 +58,11 @@ Tento posledný bod je dôležitý pre `mqttMessage` transitions v scénach.
 
 ---
 
-## 4) Publish flow a feedback tracking
+## 5) Publish flow a feedback tracking
 
 `MQTTClient.publish(...)`:
+
 - publikuje payload,
 - pri úspechu môže zavolať tracker (`track_published_message`).
 
-To znamená, že feedback tracking je naviazaný na publish cez backendový MQTTClient wrapper.
-
----
-
-## 5) Kontrakt validácie (`mqtt_contract.py`)
-
-Kontrakt rozlišuje topic typy (napr. `motor`, `light`, `effects`, `scene_start`, `named_scene`, ...)
-a vie validovať payload pre daný typ.
-
-Príklady:
-- motor: `ON`, `OFF`, `SPEED:...`, `ON:<speed>:<dir>[:ramp]`
-- scene start topic: payload `START`
-- named scene topic: payload `*.json`
-
----
-
-## 6) Odporúčanie pri rozšírení
-
-Ak pridávaš nový topic pattern:
-1. pridaj routing/handling,
-2. rozšír `mqtt_contract.py` (ak potrebuješ strict validáciu),
-3. doplň docs (`docs/mqtt_topics.md`),
-4. doplň scenárový test (scene JSON alebo integračný test).
+To znamená, že feedback tracking je naviazaný na publish cez backendový MQTTClient wrapper
