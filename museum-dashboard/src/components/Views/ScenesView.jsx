@@ -16,14 +16,17 @@ export default function ScenesView() {
     const [editingFile, setEditingFile] = useState(null);
     const [editorContent, setEditorContent] = useState(null);
 
+    const [liveSceneName, setLiveSceneName] = useState(null);
+    const [liveSceneData, setLiveSceneData] = useState(null);
+
     const handleEdit = async (filename) => {
         try {
             const content = await loadSceneContent(filename);
             setEditingFile(filename);
             setEditorContent(content);
             setEditorOpen(true);
-        } catch (e) {
-            console.error(e);
+        } catch (error) {
+            console.error(error);
         }
     };
 
@@ -35,21 +38,37 @@ export default function ScenesView() {
     };
 
     const handleCreate = () => {
-        const name = prompt("Zadajte názov novej scény (bez .json):");
-        if (name) {
-            const filename = name.endsWith('.json') ? name : `${name}.json`;
-            const template = [
-                { type: "log", message: `Začiatok scény ${name}` },
-                { type: "delay", value: 1 }
-            ];
-            saveSceneContent(filename, template);
+        const name = prompt('Zadajte názov novej scény (bez .json):');
+        if (!name) return;
+
+        const filename = name.endsWith('.json') ? name : `${name}.json`;
+        const template = [
+            { type: 'log', message: `Začiatok scény ${name}` },
+            { type: 'delay', value: 1 },
+        ];
+        saveSceneContent(filename, template);
+    };
+
+    const handlePlayFromCard = async (filename) => {
+        try {
+            const content = await loadSceneContent(filename);
+            setLiveSceneName(filename);
+            setLiveSceneData(content);
+            playScene(filename);
+        } catch (error) {
+            console.error(error);
         }
+    };
+
+    const handleLiveSceneDataLoaded = (filename, content) => {
+        setLiveSceneName(filename);
+        setLiveSceneData(content);
     };
 
     return (
         <div className="view-container scenes-view">
-            <PageHeader 
-                title="Knižnica Scén" 
+            <PageHeader
+                title="Knižnica Scén"
                 subtitle="Dostupné show súbory"
                 icon={Sparkles}
             >
@@ -64,7 +83,6 @@ export default function ScenesView() {
             {loading ? (
                 <div className="loading-state">
                     <Loader2 className="animate-spin" size={40} strokeWidth={1.5} />
-                    {/* Oprava: Odstránený inline style, parent .loading-state má gap: 16px v CSS */}
                     <span>Načítavam scenáre...</span>
                 </div>
             ) : (
@@ -76,10 +94,10 @@ export default function ScenesView() {
                         </div>
                     ) : (
                         scenes.map((scene) => (
-                            <SceneCard 
-                                key={scene.name} 
+                            <SceneCard
+                                key={scene.name}
                                 scene={scene}
-                                onPlay={playScene}
+                                onPlay={handlePlayFromCard}
                                 onEdit={handleEdit}
                             />
                         ))
@@ -87,17 +105,23 @@ export default function ScenesView() {
                 </div>
             )}
 
+            {liveSceneName && (
+                <Card
+                    title="Live Monitor"
+                    icon={Activity}
+                    className="scenes-live-card"
+                >
+                    <LiveView
+                        embedded
+                        showSceneSelector={false}
+                        selectedScene={liveSceneName}
+                        sceneData={liveSceneData}
+                        onSceneDataLoaded={handleLiveSceneDataLoaded}
+                    />
+                </Card>
+            )}
 
-
-            <Card
-                title="Live Monitor"
-                icon={Activity}
-                className="scenes-live-card"
-            >
-                <LiveView embedded />
-            </Card>
-
-            <SceneEditorModal 
+            <SceneEditorModal
                 isOpen={editorOpen}
                 onClose={() => setEditorOpen(false)}
                 filename={editingFile}

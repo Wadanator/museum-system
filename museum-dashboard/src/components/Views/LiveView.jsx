@@ -8,15 +8,24 @@ import Button from '../ui/Button';
 import { Activity, Play, Zap, Power, Cpu, RefreshCw } from 'lucide-react';
 import '../../styles/views/live-view.css';
 
-export default function LiveView({ embedded = false }) {
+export default function LiveView({
+    embedded = false,
+    selectedScene: controlledSelectedScene = null,
+    sceneData: controlledSceneData = null,
+    showSceneSelector = true,
+    onSceneDataLoaded,
+}) {
     const { socket } = useSocket();
     const { scenes, loadSceneContent, playScene, fetchScenes } = useScenes();
     const { devices } = useDevices();
 
-    const [selectedScene, setSelectedScene] = useState(null);
-    const [sceneData, setSceneData] = useState(null);
+    const [internalSelectedScene, setInternalSelectedScene] = useState(null);
+    const [internalSceneData, setInternalSceneData] = useState(null);
     const [activeState, setActiveState] = useState(null);
     const [simulatedDeviceStatus, setSimulatedDeviceStatus] = useState({});
+
+    const selectedScene = controlledSelectedScene ?? internalSelectedScene;
+    const sceneData = controlledSceneData ?? internalSceneData;
 
     const timersRef = useRef([]);
 
@@ -28,43 +37,41 @@ export default function LiveView({ embedded = false }) {
                 if (!action || !action.topic) return;
 
                 const targetDevice = devices.find((device) => device.topic === action.topic);
+                if (!targetDevice) return;
 
-                if (targetDevice) {
-                    const msg = action.message;
-                    const isMotor = targetDevice.type === 'motor';
+                const message = action.message;
+                const isMotor = targetDevice.type === 'motor';
 
-                    if (isMotor) {
-                        try {
-                            const jsonCmd = typeof msg === 'string' && msg.startsWith('{') ? JSON.parse(msg) : null;
+                if (isMotor) {
+                    try {
+                        const jsonCmd = typeof message === 'string' && message.startsWith('{') ? JSON.parse(message) : null;
 
-                            if (jsonCmd) {
-                                if (jsonCmd.speed !== undefined) {
-                                    if (Number(jsonCmd.speed) > 0) {
-                                        nextStatus[targetDevice.id] = `ON (${jsonCmd.speed}%)`;
-                                    } else {
-                                        nextStatus[targetDevice.id] = 'OFF';
-                                    }
-                                }
-                            } else {
-                                if (msg === 'ON' || msg === 'START') nextStatus[targetDevice.id] = 'ON';
-                                else if (msg === 'OFF' || msg === 'STOP') nextStatus[targetDevice.id] = 'OFF';
-                            }
-                        } catch (error) {
-                            console.warn('Error parsing motor command:', error);
+                        if (jsonCmd && jsonCmd.speed !== undefined) {
+                            nextStatus[targetDevice.id] = Number(jsonCmd.speed) > 0 ? `ON (${jsonCmd.speed}%)` : 'OFF';
+                            return;
                         }
-                    } else {
-                        const isTurningOn = msg === 'ON' || msg === '1' || msg === 'true';
-                        nextStatus[targetDevice.id] = isTurningOn ? 'ON' : 'OFF';
+
+                        if (message === 'ON' || message === 'START') nextStatus[targetDevice.id] = 'ON';
+                        else if (message === 'OFF' || message === 'STOP') nextStatus[targetDevice.id] = 'OFF';
+                    } catch (error) {
+                        console.warn('Error parsing motor command:', error);
                     }
+                    return;
                 }
+
+                const isTurningOn = message === 'ON' || message === '1' || message === 'true';
+                nextStatus[targetDevice.id] = isTurningOn ? 'ON' : 'OFF';
             });
+
             return nextStatus;
         });
     };
 
     useEffect(() => {
-        fetchScenes();
-    }, []);
+        if (showSceneSelector) {
+            fetchScenes();
+        }
+    }, [showSceneSelector, fetchScenes]);
 
     useEffect(() => {
         if (!socket) return;
@@ -112,38 +119,43 @@ export default function LiveView({ embedded = false }) {
 
     const handleSelectScene = async (e) => {
         const filename = e.target.value;
-        setSelectedScene(filename);
-        if (filename) {
-            const content = await loadSceneContent(filename);
-            setSceneData(content);
-            setActiveState(null);
-            setSimulatedDeviceStatus({});
+        setInternalSelectedScene(filename);
 
-            timersRef.current.forEach((timer) => clearTimeout(timer));
-            timersRef.current = [];
-        }
+        if (!filename) return;
+
+        const content = await loadSceneContent(filename);
+        setInternalSceneData(content);
+        onSceneDataLoaded?.(filename, content);
+        setActiveState(null);
+        setSimulatedDeviceStatus({});
     };
 
     const handlePlay = () => {
-        if (selectedScene) {
-            playScene(selectedScene);
-            setActiveState(null);
-            setSimulatedDeviceStatus({});
-        }
+        if (!selectedScene) return;
+
+        playScene(selectedScene);
+        setActiveState(null);
+        setSimulatedDeviceStatus({});
     };
+
+    const sceneLabel = selectedScene ? selectedScene.replace('.json', '') : 'Žiadna scéna';
 
     const liveControls = (
         <div className="live-header-controls">
-            <select
-                className="live-select"
-                onChange={handleSelectScene}
-                value={selectedScene || ''}
-            >
-                <option value="" disabled>-- Vyber scénu --</option>
-                {scenes.map((scene) => (
-                    <option key={scene.name} value={scene.name}>{scene.name}</option>
-                ))}
-            </select>
+            {showSceneSelector ? (
+                <select
+                    className="live-select"
+                    onChange={handleSelectScene}
+                    value={selectedScene || ''}
+                >
+                    <option value="" disabled>-- Vyber scénu --</option>
+                    {scenes.map((scene) => (
+                        <option key={scene.name} value={scene.name}>{scene.name}</option>
+                    ))}
+                </select>
+            ) : (
+                <div className="live-current-scene">Aktuálna scéna: {sceneLabel}</div>
+            )}
 
             <Button
                 variant="primary"
