@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """
-Schema Validator - Validácia JSON štruktúry pre scény
+Schema Validator - JSON structure validation for scene files.
 """
+
 from jsonschema import validate, ValidationError
 
-# Definícia akcie (použije sa v onEnter, onExit, timeline)
+# Action definition (used in onEnter, onExit, and timeline)
 ACTION_SCHEMA = {
     "type": "object",
     "required": ["action"],
@@ -16,7 +17,7 @@ ACTION_SCHEMA = {
     }
 }
 
-# Definícia prechodu (použije sa v transitions aj globalEvents)
+# Transition definition (used in transitions and globalEvents)
 TRANSITION_SCHEMA = {
     "type": "object",
     "required": ["type", "goto"],
@@ -30,7 +31,7 @@ TRANSITION_SCHEMA = {
     }
 }
 
-# Hlavná schéma scény
+# Main scene schema
 SCENE_SCHEMA = {
     "type": "object",
     "required": ["sceneId", "initialState", "states"],
@@ -39,12 +40,12 @@ SCENE_SCHEMA = {
         "version": {"type": "string"},
         "description": {"type": "string"},
         "initialState": {"type": "string"},
-        
+
         "globalEvents": {
             "type": "array",
             "items": TRANSITION_SCHEMA
         },
-        
+
         "states": {
             "type": "object",
             "minProperties": 1,
@@ -66,33 +67,54 @@ SCENE_SCHEMA = {
                                 "required": ["at"],
                                 "properties": {
                                     "at": {"type": "number"},
-                                    "action": {"type": "string", "enum": ["mqtt", "audio", "video"]},
+                                    "action": {
+                                        "type": "string",
+                                        "enum": ["mqtt", "audio", "video"]
+                                    },
                                     "topic": {"type": "string"},
-                                    "message": {"type": ["string", "number", "boolean"]},
-                                    "actions": {"type": "array", "items": ACTION_SCHEMA}
+                                    "message": {
+                                        "type": ["string", "number", "boolean"]
+                                    },
+                                    "actions": {
+                                        "type": "array",
+                                        "items": ACTION_SCHEMA
+                                    }
                                 }
                             }
                         }
                     },
-                    "additionalProperties": False 
+                    "additionalProperties": False
                 }
             }
         }
     }
 }
 
+
 def validate_scene_json(data, logger=None):
-    """Overí dáta voči schéme. Vráti True/False."""
+    """
+    Validate scene data against the scene JSON schema.
+
+    Args:
+        data: Parsed JSON data (dict) representing the scene to validate.
+        logger: Optional logger instance. If provided, validation errors
+            are logged at ERROR level; otherwise they are printed.
+
+    Returns:
+        bool: True if the data is valid, False if validation fails.
+    """
     try:
         validate(instance=data, schema=SCENE_SCHEMA)
         return True
     except ValidationError as e:
         error_path = " -> ".join([str(p) for p in e.path])
-        error_msg = f"Schema validation error at '{error_path}': {e.message}"
-        
+        error_msg = (
+            f"Schema validation error at '{error_path}': {e.message}"
+        )
+
         if logger:
             logger.error(error_msg)
         else:
             print(error_msg)
-            
+
         return False

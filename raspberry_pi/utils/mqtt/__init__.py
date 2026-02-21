@@ -3,7 +3,7 @@
 MQTT module for museum controller system.
 
 This module provides comprehensive MQTT functionality including:
-- MQTT client with robust connection management  
+- MQTT client with robust connection management
 - Message handling and routing
 - Device registry and status tracking
 - Feedback tracking for command acknowledgments
@@ -17,7 +17,7 @@ from .topic_rules import MQTTTopicRules, MQTTRoomTopics
 
 __all__ = [
     'MQTTClient',
-    'MQTTMessageHandler', 
+    'MQTTMessageHandler',
     'MQTTFeedbackTracker',
     'MQTTDeviceRegistry',
     'MQTTTopicRules',
