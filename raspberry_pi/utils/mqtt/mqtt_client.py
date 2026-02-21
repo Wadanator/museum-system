@@ -10,6 +10,7 @@ import paho.mqtt.client as mqtt
 import json
 import time
 from utils.logging_setup import get_logger
+from utils.mqtt.topic_rules import MQTTRoomTopics
 
 
 class MQTTClient:
@@ -97,10 +98,9 @@ class MQTTClient:
             self.logger.info(f"MQTT connected to {self.broker_host}:{self.broker_port}")
             
             # Subscribe to topics
-            self.subscribe("devices/+/status")
-            self.subscribe(f"{self.room_id}/+/feedback")
-            self.subscribe(f"{self.room_id}/scene")
-            self.subscribe(f"{self.room_id}/#")
+            room_topics = MQTTRoomTopics(self.room_id)
+            for topic in room_topics.subscriptions():
+                self.subscribe(topic)
             
             # Notify connection restored callback
             if not was_connected and self.connection_restored_callback:

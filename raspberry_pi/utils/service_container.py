@@ -86,7 +86,7 @@ class ServiceContainer:
         )
         
         # 3. Message Handler (Callbacks sa nastavia v Controllere)
-        self.mqtt_message_handler = MQTTMessageHandler()
+        self.mqtt_message_handler = MQTTMessageHandler(room_id=self.room_id)
         
         # 4. MQTT Client
         self.mqtt_client = MQTTClient(
