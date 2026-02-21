@@ -177,3 +177,26 @@
     background: #10b981;
     color: white;
 }
+
+.live-view-embedded {
+    height: auto;
+    overflow: visible;
+}
+
+.live-view-inline-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.live-view-inline-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.live-view-inline-subtitle {
+    margin: 0;
+    color: var(--text-secondary);
+}
