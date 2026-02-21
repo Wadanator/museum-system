@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { Plus, Loader2, RefreshCw, Sparkles } from 'lucide-react';
+import { Plus, Loader2, RefreshCw, Sparkles, Activity } from 'lucide-react';
 import { useScenes } from '../../hooks/useScenes';
 import SceneCard from '../Scenes/SceneCard';
 import SceneEditorModal from '../Scenes/SceneEditorModal';
 import Button from '../ui/Button';
 import PageHeader from '../ui/PageHeader';
+import LiveView from './LiveView';
+import Card from '../ui/Card';
 import '../../styles/views/scenes-view.css';
 
 export default function ScenesView() {
@@ -84,6 +86,16 @@ export default function ScenesView() {
                     )}
                 </div>
             )}
+
+
+
+            <Card
+                title="Live Monitor"
+                icon={Activity}
+                className="scenes-live-card"
+            >
+                <LiveView embedded />
+            </Card>
 
             <SceneEditorModal 
                 isOpen={editorOpen}
