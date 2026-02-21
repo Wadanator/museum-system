@@ -26,12 +26,15 @@
 
   - správa stavu zariadení podľa `devices/<id>/status`
   - stale cleanup podľa timeoutu
+- `topic_rules.py`
+
+  - centralizované topic patterny a helpery pre subscribe/routing/feedback
 
 ---
 
 ## 2) Subscription model (`mqtt_client.py`)
 
-Po pripojení sa subscribuje:
+Po pripojení sa subscribuje (generované cez `MQTTRoomTopics.subscriptions()`):
 
 - `devices/+/status`
 - `<room_id>/+/feedback`

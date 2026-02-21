@@ -10,6 +10,7 @@ Receives all incoming MQTT messages and routes them to the correct handlers:
 """
 
 from utils.logging_setup import get_logger
+from utils.mqtt.topic_rules import MQTTTopicRules, MQTTRoomTopics
 
 class MQTTMessageHandler:
     """
@@ -19,7 +20,7 @@ class MQTTMessageHandler:
     specialized handlers for device management, feedback tracking, and commands.
     """
     
-    def __init__(self, logger=None):
+    def __init__(self, logger=None, room_id=None):
         """
         Initialize message handler.
         
@@ -27,6 +28,7 @@ class MQTTMessageHandler:
             logger: Logger instance for message routing events
         """
         self.logger = logger or get_logger('mqtt_handler')
+        self.room_topics = MQTTRoomTopics(room_id) if room_id else None
         
         # === Handler References ===
         self.device_registry = None
@@ -115,18 +117,25 @@ class MQTTMessageHandler:
 
     def _is_command_feedback_message(self, topic):
         """Check if message is a command feedback message (prefix/motor1/feedback)."""
-        return topic.endswith('/feedback')
+        return MQTTTopicRules.is_feedback_topic(topic)
 
     def _is_device_status_message(self, topic_parts):
         """Check if message is a device status update (devices/esp32_xx/status)."""
-        return (len(topic_parts) == 3 and 
-                topic_parts[0] == 'devices' and 
-                topic_parts[2] == 'status')
+        return MQTTTopicRules.is_device_status_parts(topic_parts)
 
     def _is_button_command(self, topic, payload):
         """Check if message is a button/scene command from ESP32."""
-        return topic.endswith('/scene') and payload.upper() == 'START'
+        topic_matches = (
+            topic == self.room_topics.scene_topic()
+            if self.room_topics
+            else MQTTTopicRules.is_scene_start_topic(topic)
+        )
+        return topic_matches and payload.upper() == 'START'
     
     def _is_named_scene_command(self, topic):
         """Check if message is a command to start a specific scene (e.g. roomX/start_scene)."""
-        return topic.endswith('/start_scene')
+        return (
+            topic == self.room_topics.named_scene_topic()
+            if self.room_topics
+            else MQTTTopicRules.is_named_scene_start_topic(topic)
+        )

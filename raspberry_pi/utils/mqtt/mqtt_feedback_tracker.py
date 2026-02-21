@@ -9,6 +9,7 @@ Example: prefix/motor1 -> expects prefix/motor1/feedback
 import time
 import threading
 from utils.logging_setup import get_logger
+from utils.mqtt.topic_rules import MQTTTopicRules
 
 class MQTTFeedbackTracker:
     def __init__(self, logger=None, feedback_timeout=2):
@@ -49,7 +50,7 @@ class MQTTFeedbackTracker:
             self.logger.debug(f"Skipping feedback tracking for local topic: {original_topic}")
             return
 
-        expected_feedback_topic = self._get_expected_feedback_topic(original_topic)
+        expected_feedback_topic = MQTTTopicRules.expected_feedback_topic(original_topic)
         if expected_feedback_topic is None:
             self.logger.debug(f"No feedback expected for topic: {original_topic}")
             return
@@ -77,7 +78,7 @@ class MQTTFeedbackTracker:
     def handle_feedback_message(self, feedback_topic, feedback_payload):
         """Handle specific feedback message."""
         # Find which command this feedback belongs to
-        original_topic = self._get_original_topic_from_feedback(feedback_topic)
+        original_topic = MQTTTopicRules.original_topic_from_feedback(feedback_topic)
         
         with self.lock:
             if original_topic and original_topic in self.pending_feedbacks:
@@ -101,26 +102,3 @@ class MQTTFeedbackTracker:
                 del self.pending_feedbacks[original_topic]
                 self.logger.error(f"⏰ FEEDBACK TIMEOUT: No response from device. Topic: {original_topic}, Command: {message}, Expected: {expected_topic}")
 
-    def _get_expected_feedback_topic(self, original_topic):
-        """Get expected feedback topic for a command."""
-        parts = original_topic.split('/')
-        
-        # NOVÉ: Ignoruj STOP príkazy a iné globálne správy
-        if parts[-1].upper() in ['STOP', 'RESET', 'GLOBAL']:
-            return None
-
-        # Room device topics: prefix/motor1 -> prefix/motor1/feedback
-        if len(parts) >= 2 and parts[0].startswith('room'):
-            return f"{original_topic}/feedback"
-        
-        # Device topics: devices/esp32_01/relay -> devices/esp32_01/relay/feedback
-        if len(parts) >= 3 and parts[0] == 'devices':
-            return f"{original_topic}/feedback"
-            
-        return None
-
-    def _get_original_topic_from_feedback(self, feedback_topic):
-        """Extract original topic from feedback topic."""
-        if feedback_topic.endswith('/feedback'):
-            return feedback_topic[:-9]  # Remove '/feedback'
-        return None
