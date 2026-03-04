@@ -67,7 +67,7 @@
       ]
     },
     "HODINY_KLIKANIE": {
-      "description": "6. Hodiny: Klikanie + Rozsvietenie bud\u00edkov s oneskoren\u00edm 1s",
+      "description": "6. Hodiny: Klikanie + Rozsvietenie bud\u00edkov s oneskoren\u00edm (+1.4s)",
       "onEnter": [
         {
           "action": "audio",
@@ -138,7 +138,7 @@
       ],
       "timeline": [
         {
-          "at": 0,
+          "at": 1,
           "action": "mqtt",
           "message": "ON",
           "topic": "room1/light/2"
