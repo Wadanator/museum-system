@@ -67,7 +67,7 @@ unsigned long STATUS_PUBLISH_INTERVAL = 15000;
 unsigned long CONNECTION_CHECK_INTERVAL = 5000;
 int MAX_WIFI_ATTEMPTS = 10;
 int MAX_MQTT_ATTEMPTS = 10;
-int MQTT_KEEP_ALIVE = 10;
+int MQTT_KEEP_ALIVE = 5;
 
 // Timeout pre necinnost
 unsigned long NO_COMMAND_TIMEOUT = 180000;

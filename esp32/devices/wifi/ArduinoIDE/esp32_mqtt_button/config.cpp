@@ -30,7 +30,7 @@ const unsigned long STATUS_PUBLISH_INTERVAL = 15000;
 const unsigned long CONNECTION_CHECK_INTERVAL = 5000;
 const int MAX_WIFI_ATTEMPTS = 5;
 const int MAX_MQTT_ATTEMPTS = 5;
-const int MQTT_KEEP_ALIVE = 15;
+const int MQTT_KEEP_ALIVE = 5;
 
 // Watchdog & OTA
 const unsigned long WDT_TIMEOUT = 30; // 30s reset ak kód úplne zamrzne

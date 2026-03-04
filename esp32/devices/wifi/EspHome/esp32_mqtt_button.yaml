@@ -45,7 +45,7 @@ mqtt:
   broker: TechMuzeumRoom1.local
   port: 1883
   client_id: "${client_id}"
-  keepalive: 15s
+  keepalive: 5s
 
   birth_message:
     topic: "devices/${client_id}/status"
