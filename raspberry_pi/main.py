@@ -139,6 +139,21 @@ class MuseumController:
         if self.button_handler:
             self.button_handler.set_callback(self.on_button_press)
 
+        # 5. FIX: Device registry → okamžitý push stavu na web dashboard
+        # Callback sa vyhodnotí neskôr (self.web_dashboard ešte neexistuje pri wiring-u)
+        if self.mqtt_device_registry:
+            def _on_device_status_change(device_id, status):
+                if self.web_dashboard:
+                    try:
+                        self.web_dashboard.socketio.emit('device_status_update', {
+                            'device_id': device_id,
+                            'status': status,
+                            'timestamp': time.time()
+                        })
+                    except Exception as e:
+                        log.error(f"Failed to emit device_status_update: {e}")
+            self.mqtt_device_registry.on_status_change = _on_device_status_change
+
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals."""
         log.warning(f"Received signal {signum}, initiating shutdown...")
@@ -238,10 +253,7 @@ class MuseumController:
                         self.scene_running = False
 
                     if self.web_dashboard:
-                        self.web_dashboard.broadcast_status() 
-
-                    # 3. Aktualizácia štatistík
-                    self._update_scene_statistics()
+                        self.web_dashboard.broadcast_status()
             else:
                 log.error(f"Failed to load scene: {scene_filename}")
                 self.scene_running = False
