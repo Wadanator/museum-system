@@ -98,9 +98,5 @@ dist-ssr
 *.sln
 *.sw?
 
-<<<<<<< Updated upstream
-/.esphome/
-/secrets.yaml
-=======
 .esphome/
->>>>>>> Stashed changes
+/secrets.yaml
