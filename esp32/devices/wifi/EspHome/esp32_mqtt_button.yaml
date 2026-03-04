@@ -1,18 +1,22 @@
+# ─── SUBSTITUTIONS ───────────────────────────────────────────────────────────
+# Central place to change device identity and credentials before deploy
 substitutions:
   device_name: esp32-room1-trigger
   friendly_name: "Room1 ESP Trigger"
-  room_prefix: "room1"
+  room_prefix: "room1"          # Must match backend room_id
   client_id: "Room1_ESP_Trigger"
-  ota_password: "room1"
+  ota_password: "room1"         # Change before production
 
+# ─── ESPHOME ─────────────────────────────────────────────────────────────────
 esphome:
   name: ${device_name}
   friendly_name: ${friendly_name}
   on_boot:
-    priority: -100
+    priority: -100              # Run after all components are initialized
     then:
       - logger.log: "=== ESP32 Scene Trigger Ready ==="
 
+# ─── BOARD ───────────────────────────────────────────────────────────────────
 esp32:
   board: esp32dev
   framework:
@@ -24,37 +28,38 @@ logger:
   baud_rate: 115200
 
 # ─── OTA ─────────────────────────────────────────────────────────────────────
+# Over-the-air firmware updates via ESPHome dashboard or Arduino IDE
 ota:
   - platform: esphome
     password: "${ota_password}"
 
 # ─── WIFI ────────────────────────────────────────────────────────────────────
+# No fallback AP — prevents visitors from accessing device config
 wifi:
   ssid: "Museum-Room1"
   password: "88888888"
-  power_save_mode: none
-
-  ap:
-    ssid: "${device_name}-fallback"
-    password: "fallback1234"
-
-captive_portal:
+  power_save_mode: none         # Disabled to ensure low-latency button response
 
 # ─── MQTT ────────────────────────────────────────────────────────────────────
 mqtt:
   broker: TechMuzeumRoom1.local
   port: 1883
   client_id: "${client_id}"
-  keepalive: 5s
+  keepalive: 5s                 # Ping broker every 5s to detect dropped connections
 
+  # Published automatically when device connects
   birth_message:
     topic: "devices/${client_id}/status"
     payload: "online"
     retain: true
+
+  # Published by broker if device disconnects unexpectedly
   will_message:
     topic: "devices/${client_id}/status"
     payload: "offline"
     retain: true
+
+  # Published on clean shutdown
   shutdown_message:
     topic: "devices/${client_id}/status"
     payload: "offline"
@@ -68,6 +73,7 @@ mqtt:
           retain: true
 
 # ─── BUTTON – GPIO32 ─────────────────────────────────────────────────────────
+# External pull-up resistor on hardware — inverted: true so LOW = pressed
 binary_sensor:
   - platform: gpio
     pin:
@@ -78,13 +84,14 @@ binary_sensor:
     name: "Scene Trigger Button"
     id: scene_button
     filters:
-      - delayed_on: 100ms
+      - delayed_on: 100ms       # Debounce — ignore signals shorter than 100ms
       - delayed_off: 100ms
     on_press:
       then:
         - script.execute: button_cooldown_script
 
 # ─── COOLDOWN SCRIPT ─────────────────────────────────────────────────────────
+# mode: single ensures rapid presses are ignored during the 4s cooldown window
 script:
   - id: button_cooldown_script
     mode: single
@@ -95,9 +102,10 @@ script:
           payload: "START"
           retain: false
       - logger.log: ">>> SCENE TRIGGER SENT: ${room_prefix}/scene -> START"
-      - delay: 4000ms
+      - delay: 4000ms           # Block re-trigger for 4 seconds
 
-# ─── STATUS PUBLISH každých 15s ──────────────────────────────────────────────
+# ─── STATUS HEARTBEAT ────────────────────────────────────────────────────────
+# Periodically confirms device is alive — useful for monitoring dashboards
 interval:
   - interval: 15s
     then:
@@ -110,11 +118,11 @@ interval:
                 payload: "online"
                 retain: true
 
-# ─── DIAGNOSTIKA ─────────────────────────────────────────────────────────────
+# ─── DIAGNOSTICS ─────────────────────────────────────────────────────────────
 sensor:
   - platform: wifi_signal
     name: "WiFi Signal"
-    update_interval: 60s
+    update_interval: 120s
 
 text_sensor:
   - platform: wifi_info
