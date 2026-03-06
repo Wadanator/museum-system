@@ -1,0 +1,254 @@
+substitutions:
+  # ==========================================================
+  # HLAVNÁ KONFIGURÁCIA ZARIADENIA
+  # ==========================================================
+  room_name: "room1"                          
+  dev_name: "esp32-museum-room1" # Musi byt malymi pismenami     
+  friendly_name: "Room1_ESP_Motory"          
+
+  wifi_ssid: "Museum-Room1"
+  wifi_pass: "88888888"
+  
+  mqtt_broker: "TechMuzeumRoom1.local"
+  mqtt_port: "1883"
+  
+  # Konfiguracia Hardware - Motor 1
+  m1_left_pin: "18"
+  m1_right_pin: "19"
+  m1_enable_pin: "21"
+  
+  # Konfiguracia Hardware - Motor 2
+  m2_left_pin: "27"
+  m2_right_pin: "26"
+  m2_enable_pin: "25"
+
+esphome:
+  name: ${dev_name}
+  friendly_name: ${friendly_name}
+  project:
+    name: "museum.motors_controller"
+    version: "2.3.yaml"
+  includes:
+    - motor_globals.h # Volitelne na odlahcenie vstavanych C++ lambd (ale dame ich rovno sem)
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: arduino
+
+wifi:
+  ssid: ${wifi_ssid}
+  password: ${wifi_pass}
+  ap:
+    ssid: "${dev_name}-fallback"
+    password: "fallback_password"
+
+ota:
+  - platform: esphome
+    password: ${room_name}
+
+logger:
+  level: DEBUG
+
+# ==========================================================
+# HARDVÉR - PWM (LEDC) a ENABLE PINY
+# ==========================================================
+output:
+  # Motor 1
+  - platform: ledc
+    pin: ${m1_left_pin}
+    id: out_m1_left
+    frequency: 20000 Hz
+  - platform: ledc
+    pin: ${m1_right_pin}
+    id: out_m1_right
+    frequency: 20000 Hz
+
+  # Motor 2
+  - platform: ledc
+    pin: ${m2_left_pin}
+    id: out_m2_left
+    frequency: 20000 Hz
+  - platform: ledc
+    pin: ${m2_right_pin}
+    id: out_m2_right
+    frequency: 20000 Hz
+
+switch:
+  - platform: gpio
+    pin: ${m1_enable_pin}
+    id: out_m1_enable
+  - platform: gpio
+    pin: ${m2_enable_pin}
+    id: out_m2_enable
+
+# Globálne premenné na ukladanie aktuálneho stavu a smeru (pre SPEED/DIR príkazy)
+globals:
+  - id: m1_current_speed
+    type: int
+    initial_value: '0'
+  - id: m1_current_dir
+    type: char
+    initial_value: "'S'"
+  - id: m2_current_speed
+    type: int
+    initial_value: '0'
+  - id: m2_current_dir
+    type: char
+    initial_value: "'S'"
+
+# ==========================================================
+# SKRIPTY (Logic a custom parsery)
+# ==========================================================
+script:
+  - id: turn_off_all
+    then:
+      - output.turn_off: out_m1_left
+      - output.turn_off: out_m1_right
+      - switch.turn_off: out_m1_enable
+      - output.turn_off: out_m2_left
+      - output.turn_off: out_m2_right
+      - switch.turn_off: out_m2_enable
+      - globals.set: { id: m1_current_speed, value: '0' }
+      - globals.set: { id: m2_current_speed, value: '0' }
+
+# ==========================================================
+# MQTT MANAGMENT
+# ==========================================================
+mqtt:
+  broker: ${mqtt_broker}
+  port: ${mqtt_port}
+  client_id: ${friendly_name}
+  keepalive: 5s
+  
+  birth_message:
+    topic: devices/${friendly_name}/status
+    payload: online
+  will_message:
+    topic: devices/${friendly_name}/status
+    payload: offline
+
+  # Reconnect logika
+  on_disconnect:
+    then:
+      - script.execute: turn_off_all
+
+  on_message:
+    - topic: ${room_name}/STOP
+      then:
+        - script.execute: turn_off_all
+        - mqtt.publish: { topic: "${room_name}/STOP/feedback", payload: "OK" }
+
+    # MOTOR 1
+    - topic: ${room_name}/motor1
+      then:
+        - lambda: |-
+            std::string cmd = x;
+            if (cmd == "OFF") {
+              id(out_m1_left).set_level(0.0);
+              id(out_m1_right).set_level(0.0);
+              id(m1_current_speed) = 0;
+              id(mqtt_client).publish("${room_name}/motor1/feedback", "OK");
+              return;
+            }
+            
+            if (cmd.rfind("ON:", 0) == 0) { // startsWith("ON:")
+              id(out_m1_enable).turn_on();
+              
+              int start = 3;
+              int end = cmd.find(':', start);
+              int speed = std::stoi(cmd.substr(start, end - start));
+              float speed_float = speed / 255.0; // Pôvodný kód mapuje 0-100 na 0-255 alebo priamo prijíma PWM
+              if(speed > 100) speed_float = speed / 255.0; else speed_float = speed / 100.0;
+              
+              char dir = 'L';
+              long ramp_time = 0;
+              
+              if (end != std::string::npos) {
+                  start = end + 1;
+                  end = cmd.find(':', start);
+                  dir = cmd[start];
+                  
+                  if (end != std::string::npos) {
+                      ramp_time = std::stol(cmd.substr(end + 1));
+                  }
+              }
+
+              id(m1_current_speed) = speed;
+              id(m1_current_dir) = dir;
+
+              auto call_left = id(out_m1_left).make_call();
+              auto call_right = id(out_m1_right).make_call();
+              
+              call_left.set_transition_length(ramp_time);
+              call_right.set_transition_length(ramp_time);
+
+              if (dir == 'L') {
+                 call_left.set_level(speed_float);
+                 call_right.set_level(0.0);
+              } else if (dir == 'R') {
+                 call_left.set_level(0.0);
+                 call_right.set_level(speed_float);
+              }
+              
+              call_left.perform();
+              call_right.perform();
+              id(mqtt_client).publish("${room_name}/motor1/feedback", "OK");
+            }
+
+    # MOTOR 2
+    - topic: ${room_name}/motor2
+      then:
+        - lambda: |-
+            std::string cmd = x;
+            if (cmd == "OFF") {
+              id(out_m2_left).set_level(0.0);
+              id(out_m2_right).set_level(0.0);
+              id(m2_current_speed) = 0;
+              id(mqtt_client).publish("${room_name}/motor2/feedback", "OK");
+              return;
+            }
+            
+            if (cmd.rfind("ON:", 0) == 0) {
+              id(out_m2_enable).turn_on();
+              
+              int start = 3;
+              int end = cmd.find(':', start);
+              int speed = std::stoi(cmd.substr(start, end - start));
+              float speed_float = speed / 255.0; 
+              if(speed > 100) speed_float = speed / 255.0; else speed_float = speed / 100.0;
+              
+              char dir = 'L';
+              long ramp_time = 0;
+              
+              if (end != std::string::npos) {
+                  start = end + 1;
+                  end = cmd.find(':', start);
+                  dir = cmd[start];
+                  
+                  if (end != std::string::npos) {
+                      ramp_time = std::stol(cmd.substr(end + 1));
+                  }
+              }
+
+              id(m2_current_speed) = speed;
+              id(m2_current_dir) = dir;
+
+              auto call_left = id(out_m2_left).make_call();
+              auto call_right = id(out_m2_right).make_call();
+              
+              call_left.set_transition_length(ramp_time);
+              call_right.set_transition_length(ramp_time);
+
+              if (dir == 'L') {
+                 call_left.set_level(speed_float);
+                 call_right.set_level(0.0);
+              } else if (dir == 'R') {
+                 call_left.set_level(0.0);
+                 call_right.set_level(speed_float);
+              }
+              
+              call_left.perform();
+              call_right.perform();
+              id(mqtt_client).publish("${room_name}/motor2/feedback", "OK");
+            }
