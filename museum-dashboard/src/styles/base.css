@@ -10,7 +10,7 @@ body {
     /* Pôvodne hardcoded gradient */
     background: linear-gradient(135deg, var(--bg-main), var(--border-color));
     min-height: 100vh;
-    padding: 20px;
+    padding: 0px;
     color: var(--text-primary);
 }
 

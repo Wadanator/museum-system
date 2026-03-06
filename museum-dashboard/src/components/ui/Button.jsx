@@ -28,12 +28,8 @@ export default function Button({
     if (onClick) onClick(e);
 
     if (cooldown > 0) {
-        setTimeout(() => {
-            setInCooldown(true);
-            setTimeout(() => {
-                setInCooldown(false);
-            }, cooldown);
-        }, 0);
+    setInCooldown(true);
+    setTimeout(() => setInCooldown(false), cooldown);
     }
   }, [onClick, disabled, isLoading, inCooldown, cooldown]);
 

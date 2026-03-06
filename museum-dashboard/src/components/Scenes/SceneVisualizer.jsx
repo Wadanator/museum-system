@@ -11,7 +11,6 @@ import 'reactflow/dist/style.css';
 import CustomFlowNode from './CustomFlowNode';
 import SmartEdge from './SmartEdge';
 
-// Import CSS pre vizualizér (ak nie je importovaný globálne, ale live-view.css ho rieši)
 const nodeTypes = { custom: CustomFlowNode };
 const edgeTypes = { smart: SmartEdge };
 
@@ -35,8 +34,15 @@ export default function SceneVisualizer({ data, activeStateId }) {
     };
 
     const parseStateData = (stateData) => {
-        const sections = { onEnter: [], timeline: [], transitions: [] };
-        if (stateData.onEnter) stateData.onEnter.forEach(a => sections.onEnter.push(formatAnyAction(a)));
+        const sections = { onEnter: [], onExit: [], timeline: [], transitions: [] };
+
+        if (stateData.onEnter)
+            stateData.onEnter.forEach(a => sections.onEnter.push(formatAnyAction(a)));
+
+        // FIX: onExit bol definovaný v schéme a backendom vykonávaný, ale frontend ho nezobrazoval
+        if (stateData.onExit)
+            stateData.onExit.forEach(a => sections.onExit.push(formatAnyAction(a)));
+
         if (stateData.timeline) {
             stateData.timeline.forEach(t => {
                 const actions = t.actions || (t.action ? [t] : []);
@@ -90,8 +96,8 @@ export default function SceneVisualizer({ data, activeStateId }) {
         });
 
         // --- Nodes ---
-        const NODE_WIDTH = 420; 
-        const LEVEL_HEIGHT = 450; 
+        const NODE_WIDTH = 420;
+        const LEVEL_HEIGHT = 450;
 
         Object.entries(levels).forEach(([levelStr, stateIds]) => {
             const level = parseInt(levelStr);
@@ -100,19 +106,23 @@ export default function SceneVisualizer({ data, activeStateId }) {
             stateIds.forEach((stateId, index) => {
                 const stateData = data.states[stateId];
                 const isActive = stateId === activeStateId;
-                
+                const sections = parseStateData(stateData);
+
+                // FIX: totalActions zahŕňa aj onExit
+                const totalActions = sections.onEnter.length + sections.onExit.length + sections.timeline.length;
+
                 newNodes.push({
                     id: stateId,
                     type: 'custom',
                     position: { x: startX + (index * NODE_WIDTH), y: level * LEVEL_HEIGHT },
-                    // TU SA POUŽÍVA CSS TRIEDA
                     className: isActive ? 'node-active' : '',
                     data: {
                         label: stateId,
                         type: stateId === startState ? 'start' : 'step',
                         description: stateData?.description || '',
-                        sections: parseStateData(stateData),
-                        transitionCount: stateData?.transitions?.length || 0
+                        sections,
+                        transitionCount: stateData?.transitions?.length || 0,
+                        totalActions
                     }
                 });
             });

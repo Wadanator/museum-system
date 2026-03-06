@@ -384,6 +384,20 @@
     border-left: 3px solid var(--primary);
 }
 
+/* --- ON EXIT ŠPECIFICKÉ (FIX: nová sekcia) --- */
+.section-onexit .section-icon {
+    color: var(--danger);
+}
+
+.section-onexit .section-count {
+    background: var(--danger);
+}
+
+.onexit-item {
+    background-color: var(--danger-bg);
+    border-left: 3px solid var(--danger);
+}
+
 /* --- HANDLES (React Flow) --- */
 .react-flow__handle {
     width: 10px;

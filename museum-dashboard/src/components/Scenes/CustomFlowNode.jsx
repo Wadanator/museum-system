@@ -1,14 +1,20 @@
 import React, { memo, useState } from 'react';
 import { Handle, Position } from 'reactflow';
-import { FiChevronDown, FiChevronUp, FiZap, FiClock, FiShare2, FiActivity, FiFlag, FiPlay, FiCode } from 'react-icons/fi';
+import { FiChevronDown, FiChevronUp, FiZap, FiClock, FiShare2, FiActivity, FiFlag, FiPlay, FiCode, FiLogOut } from 'react-icons/fi';
 
 const CustomFlowNode = ({ data, selected }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const isStart = data.type === 'start';
     const isEnd = data.type === 'end';
-    const { onEnter, timeline, transitions } = data.sections || { onEnter: [], timeline: [], transitions: [] };
-    
-    const totalActions = onEnter.length + timeline.length;
+
+    // FIX: onExit pridané do deštrukcii
+    const { onEnter, onExit, timeline, transitions } = data.sections || {
+        onEnter: [], onExit: [], timeline: [], transitions: []
+    };
+
+    // FIX: totalActions teraz prichádza z node.data (vypočítané v SceneVisualizer)
+    // Fallback zachovaný pre prípad priameho použitia komponentu
+    const totalActions = data.totalActions ?? (onEnter.length + (onExit?.length || 0) + timeline.length);
 
     return (
         <div className={`custom-flow-node ${isStart ? 'start-node' : ''} ${isEnd ? 'end-node' : ''} ${selected ? 'selected' : ''}`}>
@@ -53,7 +59,7 @@ const CustomFlowNode = ({ data, selected }) => {
                         </div>
                     )}
 
-                    {/* PRIEČINOK: ON ENTER */}
+                    {/* SEKCIA: ON ENTER */}
                     {onEnter.length > 0 && (
                         <div className="node-section section-onenter">
                             <div className="section-header">
@@ -72,7 +78,7 @@ const CustomFlowNode = ({ data, selected }) => {
                         </div>
                     )}
 
-                    {/* PRIEČINOK: TIMELINE */}
+                    {/* SEKCIA: TIMELINE */}
                     {timeline.length > 0 && (
                         <div className="node-section section-timeline">
                             <div className="section-header">
@@ -94,7 +100,26 @@ const CustomFlowNode = ({ data, selected }) => {
                         </div>
                     )}
 
-                    {/* PRIEČINOK: TRANSITIONS */}
+                    {/* SEKCIA: ON EXIT */}
+                    {onExit.length > 0 && (
+                        <div className="node-section section-onexit">
+                            <div className="section-header">
+                                <FiLogOut className="section-icon" />
+                                <span className="section-title">On Exit</span>
+                                <span className="section-count">{onExit.length}</span>
+                            </div>
+                            <div className="section-body">
+                                {onExit.map((text, i) => (
+                                    <div key={i} className="action-item onexit-item">
+                                        <div className="action-index">{i + 1}</div>
+                                        <code className="action-code">{text}</code>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* SEKCIA: TRANSITIONS */}
                     {transitions.length > 0 && (
                         <div className="node-section section-transitions">
                             <div className="section-header">
@@ -118,11 +143,11 @@ const CustomFlowNode = ({ data, selected }) => {
             {!isEnd && data.transitionCount > 0 && (
                 <div className="node-handles-container">
                     {Array.from({ length: data.transitionCount }).map((_, i) => (
-                        <Handle 
-                            key={i} 
-                            type="source" 
-                            position={Position.Bottom} 
-                            id={`handle-${i}`} 
+                        <Handle
+                            key={i}
+                            type="source"
+                            position={Position.Bottom}
+                            id={`handle-${i}`}
                             className="dynamic-source"
                             aria-label={`Transition ${i + 1}`}
                         />

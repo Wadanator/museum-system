@@ -37,6 +37,7 @@ export default function Sidebar() {
           <NavLink 
             key={item.to} 
             to={item.to}
+            end={item.to === '/'}
             className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
           >
             <item.icon size={20} className="nav-icon" />
