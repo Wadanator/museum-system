@@ -1,81 +1,81 @@
 # Museum System
 
-Kompletný riadiaci systém pre interaktívne miestnosti v múzeu.
+A complete control system for interactive museum rooms.
 
-Systém je rozdelený na:
-- **Raspberry Pi backend** (`raspberry_pi/`) – orchestrácia scén, audio/video, dashboard API, health monitoring.
-- **ESP32 firmware** (`esp32/devices/wifi/`) – vykonávanie fyzických príkazov cez MQTT.
-- **UI/editor projekty** (`museum-dashboard/`, `SceneGen/`) – vývoj dashboardu a autoring scén.
-
----
-
-## 1) Čo je v repozitári aktuálne produkčne použité
-
-### Raspberry Pi controller
-
-- Entry point: `raspberry_pi/main.py` (`MuseumController`).
-- Core runtime: `raspberry_pi/utils/`.
-- Web dashboard server: `raspberry_pi/Web/`.
-
-### ESP32 zariadenia (wifi)
-
-- `esp32_mqtt_button` – bezdrôtový trigger scény.
-- `esp32_mqtt_controller_MOTORS` – ovládanie 2 motorov.
-- `esp32_mqtt_controller_RELAY` – relé výstupy + efektové skupiny.
-
-### Dáta/scény
-
-- Scény: `raspberry_pi/scenes/<room_id>/*.json`
-- Room config: `raspberry_pi/config/config.ini`
+The system is divided into:
+- **Raspberry Pi backend** (`raspberry_pi/`) – orchestrates scenes, audio/video, dashboard API, and health monitoring.
+- **ESP32 firmware** (`esp32/devices/wifi/`) – executes physical commands via MQTT.
+- **UI/editor projects** (`museum-dashboard/`, `SceneGen/`) – dashboard interface and scene authoring tools.
 
 ---
 
-## 2) Rýchly runtime flow
+## 1) Currently Used Production Components
 
-1. `MuseumController` načíta config, spustí služby cez `ServiceContainer`.
-2. MQTT klient sa pripojí na broker a subscribne room topics.
-3. Trigger (`button`/MQTT/dashboard) spustí scénu.
-4. `SceneParser` + `StateMachine` + `StateExecutor` vykonávajú `onEnter/timeline/onExit` akcie.
-5. `TransitionManager` rozhoduje o prechodoch (`timeout`, `audioEnd`, `videoEnd`, `mqttMessage`, `always`).
-6. Po dohraní scény backend pošle `roomX/STOP`.
+### Raspberry Pi Controller
 
----
+- **Entry point:** `raspberry_pi/main.py` (`MuseumController`).
+- **Core runtime:** `raspberry_pi/utils/`.
+- **Web dashboard server:** `raspberry_pi/Web/`.
 
-## 3) MQTT model (aktuálny podľa kódu)
+### ESP32 Devices (WiFi)
 
-### Scény
+- `esp32_mqtt_button` – wireless scene trigger.
+- `esp32_mqtt_controller_MOTORS` – controls 2 motors.
+- `esp32_mqtt_controller_RELAY` – relay outputs + effects groups.
 
-- `roomX/scene` + `START` → default scéna (`json_file_name` z configu).
-- `roomX/start_scene` + `scene_name.json` → spustenie konkrétneho súboru.
+### Data & Configuration
 
-### Device status
-
-- `devices/<device_id>/status` (retained, typicky `online`/`offline`).
-
-### Feedback
-
-- `<device_id>/feedback` (podľa zariadenia: `OK`, `ERROR`, `ACTIVE`, `INACTIVE`).
-
-### Room1 príkazy (reálne používané ESP32 firmvérmi v repozitári)
-
-- Motory: `room1/motor1`, `room1/motor2`, `room1/STOP`
-- Relé/effects: `room1/<relay>`, `room1/effects/<group>`, `room1/STOP`
-- Trigger button publish: `room1/scene` -> `START`
+- **Scenes:** `raspberry_pi/scenes/<room_id>/*.json`
+- **Room config:** `raspberry_pi/config/config.ini`
 
 ---
 
-## 4) Spustenie backendu
+## 2) Quick Runtime Flow
 
-**Produkčné nasadenie (Automaticky):**
+1. `MuseumController` loads the configuration and starts standalone services via the `ServiceContainer`.
+2. The MQTT client connects to the broker and subscribes to required room topics.
+3. A trigger (physical `button`, MQTT message, or the web dashboard) starts a scene.
+4. The trio of `SceneParser` + `StateMachine` + `StateExecutor` execute the `onEnter/timeline/onExit` actions defined in the scene file.
+5. `TransitionManager` decides state transitions based on triggers (`timeout`, `audioEnd`, `videoEnd`, `mqttMessage`, `always`).
+6. Once the scene naturally ends (or is forcefully stopped), the backend publishes a `roomX/STOP` signal to kill all devices.
 
-V repozitári sa nachádza inštalačný bash skript, ktorý prispôsobí OS práva (audio/video hardware), vytvorí systemd služby a pripraví VENV:
+---
+
+## 3) MQTT Data Model (Current Implementation)
+
+### Scenes
+
+- `roomX/scene` + `START` → Starts the default scene (defined by `json_file_name` in config).
+- `roomX/start_scene` + `<scene_name.json>` → Loads and starts a specific named scene file.
+
+### Device Status
+
+- `devices/<device_id>/status` (Retained payload, typically `online`/`offline`).
+
+### Command Feedback
+
+- `<device_id>/feedback` (Responses depend on the device firmware: `OK`, `ERROR`, `ACTIVE`, `INACTIVE`).
+
+### Command Topics (As used by repo's ESP32 nodes)
+
+- **Motors**: `room1/motor1`, `room1/motor2`, `room1/STOP`
+- **Relays/Effects**: `room1/<relay_name>`, `room1/effects/<group>`, `room1/STOP`
+- **Trigger Button Publish**: `room1/scene` -> `START`
+
+---
+
+## 4) Running the Backend
+
+**Production Deployment (Automated):**
+
+The repository contains an installation bash script that automatically adjusts OS permissions (required for hardware audio/video without X11), creates `systemd` services, and sets up a Python virtual environment.
 
 ```bash
 cd raspberry_pi
 ./install.sh
 ```
 
-**Lokálny vývoj / manuálne spustenie:**
+**Local Development / Manual Start:**
 
 ```bash
 cd raspberry_pi
@@ -85,25 +85,25 @@ pip install -r requirements.txt
 python3 main.py
 ```
 
-Dashboard po spustení beží na porte, ktorý je nastavený v configu v sekcii `[System]` → `web_dashboard_port`.
+After startup, the web dashboard runs locally on the port configured in `config.ini` under `[System]` → `web_dashboard_port`.
 
 ---
 
-## 5) Dokumentácia
+## 5) Documentation Reference
 
-- `docs/architecture.md` – komponenty + runtime väzby.
-- `docs/mqtt_topics.md` – MQTT topics/payloady podľa implementácie.
-- `docs/audio_playing_tutorial.md` – audio commandy v scénach.
-- `docs/video_player_tutorial.md` – video commandy v scénach.
-- `docs/museum_setup_guide.md` – setup/deploy check-list (aktualizovaný pre použitie s `install.sh`).
+- `docs/architecture.md` – Complete system topology, component breakdown, and runtime bindings.
+- `docs/mqtt_topics.md` – Reference sheet for all fully supported/implemented MQTT topics and payloads.
+- `docs/audio_playing_tutorial.md` – Guide to audio capabilities and commands within scene JSON files.
+- `docs/video_player_tutorial.md` – Guide to video capabilities and commands within scene JSON files.
+- `docs/museum_setup_guide.md` – Advanced setup checklist (including instructions for the new automatic `install.sh`).
 
 ---
 
-## 6) Dôležitá poznámka k dokumentácii
+## 6) Important Note on Docs Maintenance
 
-Dokumentácia je písaná podľa aktuálneho kódu, nie podľa starých návrhov.
+All documentation reflects the **actual current codebase implementation**, not outdated design plans.
 
-Ak pridáš nový topic alebo command, uprav:
-- implementáciu
-- testovaciu scénu
-- príslušný markdown v `docs/`
+If you add a new MQTT command, hardware topic, or scene action, please adhere to the following checklist:
+1. Update the implementation code (Raspberry Pi backend + ESP32 firmware).
+2. Adjust test scenes to reflect new functionality.
+3. Keep the corresponding guides in the `docs/` folder accurately synced.
