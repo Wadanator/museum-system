@@ -5,7 +5,7 @@ A complete control system for interactive museum rooms.
 The system is divided into:
 - **Raspberry Pi backend** (`raspberry_pi/`) – orchestrates scenes, audio/video, dashboard API, and health monitoring.
 - **ESP32 firmware** (`esp32/devices/wifi/`) – executes physical commands via MQTT.
-- **UI/editor projects** (`museum-dashboard/`, `SceneGen/`) – dashboard interface and scene authoring tools.
+- **UI/editor projects** (`museum-dashboard/`) – dashboard interface.
 
 ---
 

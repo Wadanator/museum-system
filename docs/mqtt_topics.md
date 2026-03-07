@@ -87,6 +87,7 @@ Podporované payloady (firmware parser):
 - `ON:<speed>:<direction>`
 - `ON:<speed>:<direction>:<rampTime>`
 - `OFF`
+- `STOP`
 - `SPEED:<value>`
 - `DIR:<value>`
 
@@ -95,6 +96,7 @@ Príklady:
 - `room1/motor1` -> `ON:120:L`
 - `room1/motor2` -> `ON:80:R:5000`
 - `room1/motor1` -> `OFF`
+- `room1/motor1` -> `STOP`
 
 ---
 
