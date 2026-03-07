@@ -39,6 +39,9 @@ Ak budete mať vy, alebo vaša AI pochybnosti o do-hĺbkových detailoch konkré
 
 * `docs/architecture.md` (Topológia v reálnom čase, vrstvy pi kódu a podrobné vnútornosti)
 * `docs/mqtt_topics.md` (Štruktúra vašich komunikačných kanálov medzi Python serverom a ESP32 HW nodes)
+* `docs/esp32_hardware_reference.md` (Kompletné zhrnutie PWM nastavení a mapovania hardvérových pinov pre každý ESP32 modul)
+* `docs/file_structure.md` (Kompletná adresárová štruktúra repozitára)
+* `docs/dashboard_api.md` (Zoznam všetkých REST a WebSocket endpointov pre komunikáciu medzi Pi a Reactom)
 * `docs/museum_setup_guide.md` & `/docs/audio_playing_tutorial.md` atď.
 
 ---

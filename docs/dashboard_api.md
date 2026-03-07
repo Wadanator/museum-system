@@ -48,9 +48,27 @@ Definované v `raspberry_pi/Web/routes/`.
 *   `POST /api/system/restart_service` - Reštartuje SystemD museum službu (`sudo systemctl restart museum`).
 
 ### C) API Control Routes (`/api/...`)
-*   `GET /api/status` - Vráti aktuálny globálny status systému vo formáte JSON.
-*   `GET /api/scenes` - Vráti pole dostupných JSON scén zo zložky scenes zosumarizovaných do metadát.
-*   `POST /api/scene/start`
-    *   *Payload:* `{ "scene_id": "mojascena.json" }`
-    *   *Akcia:* Nasilu preruší aktuálnu scénu a začne prehrávať zvolenú.
-*   `POST /api/scene/stop` - Nasilu zastaví aktuálne bežiacu scénu, vymaže audio/video bloky a vyšle MQTT STOP signály na zastavenie HW modulov.
+*   `GET /api/status` - Vráti aktuálny globálny status systému (stav pripojenia atď.).
+*   `GET /api/devices` - Vráti zoznam nakonfigurovaných/pripojených MQTT zariadení do UI.
+*   `GET /api/scenes` - Vráti pole dostupných JSON scén ako jednoduché metadáta.
+*   `GET /api/scene/<sceneName>` - Vráti kompletný JSON súbor požadovanej scény.
+*   `POST /api/scene/<sceneName>` - Uloží (prepíše) údaje scény formátované ako JSON do súboru.
+*   `POST /api/run_scene/<sceneName>` - Nasilu preruší aktuálnu scénu a začne prehrávať zvolenú.
+*   `POST /api/stop_scene` - Nasilu zastaví aktuálne bežiacu scénu, vymaže audio/video bloky a vyšle MQTT STOP signály na zastavenie HW modulov.
+
+### D) Commands API Routes
+*   `GET /api/commands` - Vráti zoznam uložených manuálnych JSON príkazov.
+*   `GET /api/command/<commandName>` - Vráti vybraný príkazový JSON konštrukt.
+*   `POST /api/command/<commandName>` - Uloží novú/upravenú definíciu MQTT príkazu.
+*   `POST /api/run_command/<commandName>` - Spustí definovaný abstraktný príkaz v systéme.
+*   `POST /api/mqtt/send` - Manuálny publish MQTT správy (`{ "topic": "...", "message": "..." }`).
+
+### E) Media API Routes (`/api/media/...`)
+*   `GET /api/media/<type>` - Vráti všetky súbory daného mediálneho typu (audio/video).
+*   `POST /api/media/<type>` - Nahranie (upload) média, kde `file` ide cez MultiPart Form.
+*   `DELETE /api/media/<type>/<filename>` - Vymaže daný súbor z úložiska.
+*   `POST /api/media/play/<type>` - Spustí prehrávanie zvoleného súboru (`{ "filename": "..." }`).
+*   `POST /api/media/stop` - Celosystémovo vyžiada zastavenie všetkých prehrávaných klipov.
+
+### F) System Logs (`/api/logs/...`)
+*   `POST /api/logs/clear` - Vymaže doterajšiu históriu logov pre zobrazenie v Dashboarde.
