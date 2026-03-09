@@ -91,11 +91,11 @@ After startup, the web dashboard runs locally on the port configured in `config.
 
 ## 5) Documentation Reference
 
-- `docs/architecture.md` – Complete system topology, component breakdown, and runtime bindings.
-- `docs/mqtt_topics.md` – Reference sheet for all fully supported/implemented MQTT topics and payloads.
-- `docs/audio_playing_tutorial.md` – Guide to audio capabilities and commands within scene JSON files.
-- `docs/video_player_tutorial.md` – Guide to video capabilities and commands within scene JSON files.
-- `docs/museum_setup_guide.md` – Advanced setup checklist (including instructions for the new automatic `install.sh`).
+- `docs/02_system_architecture.md` – Complete system topology, component breakdown, and runtime bindings.
+- `docs/04_mqtt_protocol.md` – Reference sheet for all fully supported/implemented MQTT topics and payloads.
+- `docs/07_audio_engine.md` – Guide to audio capabilities and commands within scene JSON files.
+- `docs/08_video_engine.md` – Guide to video capabilities and commands within scene JSON files.
+- `docs/10_museum_backend_setup.md` – Advanced setup checklist (including instructions for the new automatic `install.sh`).
 
 ---
 

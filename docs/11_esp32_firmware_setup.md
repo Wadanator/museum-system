@@ -22,13 +22,13 @@ Na kompiláciu súčasnej verzie senzorov a aktorov budete potrebovať:
 Postup je pri všetkých uzloch (`esp32_mqtt_button`, `esp32_mqtt_controller_MOTORS` atď.) identický:
 
 1. **Otvorte zložku** konkrétneho zariadenia (napríklad `esp32/devices/wifi/ArduinoIDE/esp32_mqtt_button`) a dvoj-klikom spustite `.ino` súbor v Arduino IDE.
-2. **Kľúčové Konfigurácie:** Ešte pred nahratím kódu na dosku musíte v hlavičke každého `*.ino` súboru upraviť nasledujúce konštanty (prípadne nájsť ich v prislúchajúcom hlavičkovom súbore `config.h` alebo na začiatku hlavného `.ino` súboru):
+2. **Kľúčové Konfigurácie:** Konfigurácia siete a MQTT sa už nenachádza v hlavnom `.ino` súbore, ale v dedikovanom súbore `config.cpp` pre daný modul. Pred nahratím kódu tam upravte:
     ```cpp
-    const char* ssid = "VAS_NAZOV_WIFI_SIETE";
-    const char* password = "HESLO_WIFI_SIETE";
-    const char* mqtt_server = "192.168.1.100";  // IP adresa Raspberry Pi
+    const char* WIFI_SSID = "VAS_NAZOV_WIFI_SIETE";
+    const char* WIFI_PASSWORD = "HESLO_WIFI_SIETE";
+    const char* MQTT_SERVER = "TechMuzeumRoom1.local";  // mDNS hostname alebo lokálna IP Raspberry Pi
     ```
-3. Uistite sa, že `mqtt_server` smeruje presne na lokálnu IP adresu vášho Raspberry Pi. Všetky zariadenia by mali bežať na rovnakej sieti bez dodatočnej filtrácie portu `1883`.
+3. Uistite sa, že `MQTT_SERVER` smeruje na existujúci lokálny server vášho Raspberry Pi. Všetky zariadenia by mali bežať na rovnakej sieti bez dodatočnej filtrácie portu `1883`.
 4. Pripojte vašu ESP32 dosku cez USB k počítaču.
 5. V sekcii `Tools -> Board` vyberte **ESP32 Dev Module** (alebo iný konkrétny typ ktorý používate).
 6. Vyberte správny `Port`, na ktorom sa doska objavila.

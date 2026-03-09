@@ -1,0 +1,12 @@
+Zadání diplomové práce:
+Student se bude zabývat návrhem a realizací modulárního systému pro automatizované řízení muzejních expozic. Úkolem je vytvořit řešení, které umožní spouštění časovaných scén v jedné místnosti a zajistí ovládání různých zařízení, jako je osvětlení, motory, aktuátory či speciální efekty. Systém bude založen na využití platformy Raspberry Pi jako centrálního řídicího prvku a modulů ESP32 jako distribuovaných periferních jednotek. Komunikace bude realizována prostřednictvím protokolu MQTT a strukturovaného formátu JSON, který umožní snadno definovat jednotlivé scény a jejich parametry. Výsledkem práce bude funkční prototyp pro jednu místnost, který bude demonstrovat možnosti navrženého řešení, jeho modularitu a připravenost k rozšíření.
+
+Cíle práce:
+
+1,Provedení rešerše problematiky, zejména protokolu MQTT, formátu JSON a využití platforem Raspberry Pi a ESP32 v oblasti IoT.
+
+2, Návrh architektury systému se zajištěním modularity a možnosti budoucího rozšíření.
+
+3, Návrh a implementace hardwarové a softwarové části prototypu pro jednu místnost s možností spouštění scén.
+
+4, Experimentální ověření funkčnosti systému na demonstrační úloze.

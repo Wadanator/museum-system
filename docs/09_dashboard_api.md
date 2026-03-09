@@ -44,7 +44,7 @@ Definované v `raspberry_pi/Web/routes/`.
 
 ### B) System Action Routes (`/api/system/...`)
 *   `POST /api/system/shutdown` - Fyzicky vypne Raspberry Pi (volá bash príkaz `sudo shutdown -h now`).
-*   `POST /api/system/restart` - Fyzicky reštartuje Raspberry Pi.
+*   `POST /api/system/reboot` - Fyzicky reštartuje Raspberry Pi (volá `controller.system_restart()`).
 *   `POST /api/system/restart_service` - Reštartuje SystemD museum službu (`sudo systemctl restart museum`).
 
 ### C) API Control Routes (`/api/...`)
@@ -71,4 +71,6 @@ Definované v `raspberry_pi/Web/routes/`.
 *   `POST /api/media/stop` - Celosystémovo vyžiada zastavenie všetkých prehrávaných klipov.
 
 ### F) System Logs (`/api/logs/...`)
+*   `GET /api/logs` - Vráti aktuálny zoznam logov na základe filtrov (level, limit).
 *   `POST /api/logs/clear` - Vymaže doterajšiu históriu logov pre zobrazenie v Dashboarde.
+*   `GET /api/logs/export` - Exportuje logy vo formáte JSON ako stiahnuteľný súbor.
