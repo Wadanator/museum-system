@@ -12,113 +12,113 @@
 <!-- state -->
 <g id="node1" class="node">
 <title>state</title>
-<path fill="#eaeaea" stroke="none" d="M13,-1C13,-1 386.25,-1 386.25,-1 392.25,-1 398.25,-7 398.25,-13 398.25,-13 398.25,-337.5 398.25,-337.5 398.25,-343.5 392.25,-349.5 386.25,-349.5 386.25,-349.5 13,-349.5 13,-349.5 7,-349.5 1,-343.5 1,-337.5 1,-337.5 1,-13 1,-13 1,-7 7,-1 13,-1"/>
-<polygon fill="#c4c4c4" stroke="none" points="2,-315.5 2,-348.5 397.25,-348.5 397.25,-315.5 2,-315.5"/>
-<text xml:space="preserve" text-anchor="start" x="11" y="-328.15" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="13.00" fill="#111111">STATE_EXAMPLE</text>
-<text xml:space="preserve" text-anchor="start" x="9" y="-296.2" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">description:</text>
+<path fill="#e8eef4" stroke="none" d="M13,-1C13,-1 386.25,-1 386.25,-1 392.25,-1 398.25,-7 398.25,-13 398.25,-13 398.25,-337.5 398.25,-337.5 398.25,-343.5 392.25,-349.5 386.25,-349.5 386.25,-349.5 13,-349.5 13,-349.5 7,-349.5 1,-343.5 1,-337.5 1,-337.5 1,-13 1,-13 1,-7 7,-1 13,-1"/>
+<polygon fill="#6b8fa8" stroke="none" points="2,-315.5 2,-348.5 397.25,-348.5 397.25,-315.5 2,-315.5"/>
+<text xml:space="preserve" text-anchor="start" x="11" y="-328.15" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="13.00" fill="#1a2e3d">STATE_EXAMPLE</text>
+<text xml:space="preserve" text-anchor="start" x="9" y="-296.2" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">description:</text>
 <text xml:space="preserve" text-anchor="start" x="45" y="-296.2" font-family="Helvetica,sans-Serif" font-size="14.00"> </text>
-<text xml:space="preserve" text-anchor="start" x="48.75" y="-296.2" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">&quot;Example state showcasing all available properties&quot;</text>
-<polygon fill="#aaaaaa" stroke="none" points="2,-284.75 2,-285.75 397.25,-285.75 397.25,-284.75 2,-284.75"/>
-<polygon fill="#f5f5f5" stroke="none" points="2,-106 2,-284.75 147.75,-284.75 147.75,-106 2,-106"/>
-<polygon fill="none" stroke="#aaaaaa" points="2,-106 2,-284.75 147.75,-284.75 147.75,-106 2,-106"/>
-<polygon fill="#f5f5f5" stroke="none" points="3,-107 3,-283.75 146.75,-283.75 146.75,-107 3,-107"/>
-<polygon fill="#c4c4c4" stroke="none" points="3,-257.39 3,-283.75 146.75,-283.75 146.75,-257.39 3,-257.39"/>
-<text xml:space="preserve" text-anchor="start" x="58" y="-268.27" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="9.00" fill="#111111">onEnter</text>
-<polygon fill="#bbbbbb" stroke="none" points="3,-250.54 3,-257.39 146.75,-257.39 146.75,-250.54 3,-250.54"/>
-<text xml:space="preserve" text-anchor="start" x="10" y="-235.96" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#444444">mqtt</text>
-<text xml:space="preserve" text-anchor="start" x="10" y="-223.21" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  topic: </text>
-<text xml:space="preserve" text-anchor="start" x="34" y="-223.21" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">&quot;room1/light/fire&quot;</text>
-<text xml:space="preserve" text-anchor="start" x="10" y="-211" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  message: </text>
-<text xml:space="preserve" text-anchor="start" x="47.5" y="-211" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">&quot;ON&quot;</text>
-<polygon fill="#bbbbbb" stroke="none" points="3,-193.57 3,-200.43 146.75,-200.43 146.75,-193.57 3,-193.57"/>
-<text xml:space="preserve" text-anchor="start" x="10" y="-178.51" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#444444">audio</text>
-<text xml:space="preserve" text-anchor="start" x="10" y="-164.78" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  message: </text>
-<text xml:space="preserve" text-anchor="start" x="47.5" y="-164.78" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">&quot;PLAY:intro.wav:1&quot;</text>
-<polygon fill="#bbbbbb" stroke="none" points="3,-146.86 3,-153.71 146.75,-153.71 146.75,-146.86 3,-146.86"/>
-<text xml:space="preserve" text-anchor="start" x="10" y="-131.79" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#444444">video</text>
-<text xml:space="preserve" text-anchor="start" x="10" y="-118.06" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  message: </text>
-<text xml:space="preserve" text-anchor="start" x="47.5" y="-118.06" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">&quot;PLAY_VIDEO:clip.mp4&quot;</text>
-<polygon fill="#f5f5f5" stroke="none" points="147.75,-106 147.75,-284.75 278.5,-284.75 278.5,-106 147.75,-106"/>
-<polygon fill="none" stroke="#aaaaaa" points="147.75,-106 147.75,-284.75 278.5,-284.75 278.5,-106 147.75,-106"/>
-<polygon fill="#f5f5f5" stroke="none" points="148.75,-107 148.75,-283.75 277.5,-283.75 277.5,-107 148.75,-107"/>
-<polygon fill="#c4c4c4" stroke="none" points="148.75,-263.25 148.75,-283.75 277.5,-283.75 277.5,-263.25 148.75,-263.25"/>
-<text xml:space="preserve" text-anchor="start" x="196.25" y="-271.2" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="9.00" fill="#111111">timeline</text>
-<polygon fill="#bbbbbb" stroke="none" points="148.75,-262.25 148.75,-263.25 277.5,-263.25 277.5,-262.25 148.75,-262.25"/>
-<text xml:space="preserve" text-anchor="start" x="155.75" y="-248.65" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#444444">@ 1.4 s</text>
-<text xml:space="preserve" text-anchor="start" x="155.75" y="-237.85" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  action: </text>
-<text xml:space="preserve" text-anchor="start" x="183.5" y="-237.85" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">mqtt</text>
-<text xml:space="preserve" text-anchor="start" x="155.75" y="-227.6" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  topic: </text>
-<text xml:space="preserve" text-anchor="start" x="179.75" y="-227.6" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">&quot;room1/light/2&quot;</text>
-<text xml:space="preserve" text-anchor="start" x="155.75" y="-217.35" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  message: </text>
-<text xml:space="preserve" text-anchor="start" x="193.25" y="-217.35" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">&quot;ON&quot;</text>
-<polygon fill="#bbbbbb" stroke="none" points="148.75,-206.75 148.75,-207.75 277.5,-207.75 277.5,-206.75 148.75,-206.75"/>
-<text xml:space="preserve" text-anchor="start" x="155.75" y="-193.15" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#444444">@ 5 s</text>
-<text xml:space="preserve" text-anchor="start" x="155.75" y="-182.35" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  action: </text>
-<text xml:space="preserve" text-anchor="start" x="183.5" y="-182.35" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">audio</text>
-<text xml:space="preserve" text-anchor="start" x="155.75" y="-172.1" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  message: </text>
-<text xml:space="preserve" text-anchor="start" x="193.25" y="-172.1" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">&quot;PLAY:sfx.wav:0.8&quot;</text>
-<polygon fill="#bbbbbb" stroke="none" points="148.75,-161.5 148.75,-162.5 277.5,-162.5 277.5,-161.5 148.75,-161.5"/>
-<text xml:space="preserve" text-anchor="start" x="155.75" y="-147.9" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#444444">@ 10 s</text>
-<text xml:space="preserve" text-anchor="start" x="155.75" y="-137.1" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  action: </text>
-<text xml:space="preserve" text-anchor="start" x="183.5" y="-137.1" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">actions</text>
-<text xml:space="preserve" text-anchor="start" x="155.75" y="-126.85" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  [0]: </text>
-<text xml:space="preserve" text-anchor="start" x="173" y="-126.85" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">mqtt</text>
-<text xml:space="preserve" text-anchor="start" x="155.75" y="-116.6" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  [1]: </text>
-<text xml:space="preserve" text-anchor="start" x="173" y="-116.6" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">mqtt</text>
-<polygon fill="#f5f5f5" stroke="none" points="278.5,-106 278.5,-284.75 397.25,-284.75 397.25,-106 278.5,-106"/>
-<polygon fill="none" stroke="#aaaaaa" points="278.5,-106 278.5,-284.75 397.25,-284.75 397.25,-106 278.5,-106"/>
-<polygon fill="#f5f5f5" stroke="none" points="279.5,-107 279.5,-283.75 396.25,-283.75 396.25,-107 279.5,-107"/>
-<polygon fill="#c4c4c4" stroke="none" points="279.5,-257.39 279.5,-283.75 396.25,-283.75 396.25,-257.39 279.5,-257.39"/>
-<text xml:space="preserve" text-anchor="start" x="324.38" y="-268.27" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="9.00" fill="#111111">onExit</text>
-<polygon fill="#bbbbbb" stroke="none" points="279.5,-250.54 279.5,-257.39 396.25,-257.39 396.25,-250.54 279.5,-250.54"/>
-<text xml:space="preserve" text-anchor="start" x="286.5" y="-235.47" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#444444">audio</text>
-<text xml:space="preserve" text-anchor="start" x="286.5" y="-221.74" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  message: </text>
-<text xml:space="preserve" text-anchor="start" x="324" y="-221.74" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">&quot;STOP&quot;</text>
-<polygon fill="#bbbbbb" stroke="none" points="279.5,-203.82 279.5,-210.68 396.25,-210.68 396.25,-203.82 279.5,-203.82"/>
-<text xml:space="preserve" text-anchor="start" x="286.5" y="-189.25" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#444444">mqtt</text>
-<text xml:space="preserve" text-anchor="start" x="286.5" y="-176.49" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  topic: </text>
-<text xml:space="preserve" text-anchor="start" x="310.5" y="-176.49" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">&quot;room1/motor1&quot;</text>
-<text xml:space="preserve" text-anchor="start" x="286.5" y="-164.29" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  message: </text>
-<text xml:space="preserve" text-anchor="start" x="324" y="-164.29" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">&quot;STOP&quot;</text>
-<polygon fill="#bbbbbb" stroke="none" points="279.5,-146.86 279.5,-153.71 396.25,-153.71 396.25,-146.86 279.5,-146.86"/>
-<text xml:space="preserve" text-anchor="start" x="286.5" y="-131.79" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#444444">video</text>
-<text xml:space="preserve" text-anchor="start" x="286.5" y="-118.06" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  message: </text>
-<text xml:space="preserve" text-anchor="start" x="324" y="-118.06" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">&quot;STOP_VIDEO&quot;</text>
-<polygon fill="#c4c4c4" stroke="none" points="2,-85.5 2,-106 397.25,-106 397.25,-85.5 2,-85.5"/>
-<text xml:space="preserve" text-anchor="start" x="176.75" y="-93.45" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="9.00" fill="#111111">transitions</text>
-<polygon fill="#bbbbbb" stroke="none" points="2,-84.5 2,-85.5 397.25,-85.5 397.25,-84.5 2,-84.5"/>
-<polygon fill="#f5f5f5" stroke="none" points="2,-2 2,-84.5 397.25,-84.5 397.25,-2 2,-2"/>
+<text xml:space="preserve" text-anchor="start" x="48.75" y="-296.2" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">&quot;Example state showcasing all available properties&quot;</text>
+<polygon fill="#7a9bb5" stroke="none" points="2,-284.75 2,-285.75 397.25,-285.75 397.25,-284.75 2,-284.75"/>
+<polygon fill="#f2f6fa" stroke="none" points="2,-106 2,-284.75 147.75,-284.75 147.75,-106 2,-106"/>
+<polygon fill="none" stroke="#7a9bb5" points="2,-106 2,-284.75 147.75,-284.75 147.75,-106 2,-106"/>
+<polygon fill="#f2f6fa" stroke="none" points="3,-107 3,-283.75 146.75,-283.75 146.75,-107 3,-107"/>
+<polygon fill="#6b8fa8" stroke="none" points="3,-257.39 3,-283.75 146.75,-283.75 146.75,-257.39 3,-257.39"/>
+<text xml:space="preserve" text-anchor="start" x="58" y="-268.27" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="9.00" fill="#1a2e3d">onEnter</text>
+<polygon fill="#b0c8da" stroke="none" points="3,-250.54 3,-257.39 146.75,-257.39 146.75,-250.54 3,-250.54"/>
+<text xml:space="preserve" text-anchor="start" x="10" y="-235.96" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#2e6188">mqtt</text>
+<text xml:space="preserve" text-anchor="start" x="10" y="-223.21" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  topic: </text>
+<text xml:space="preserve" text-anchor="start" x="34" y="-223.21" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">&quot;room1/light/fire&quot;</text>
+<text xml:space="preserve" text-anchor="start" x="10" y="-211" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  message: </text>
+<text xml:space="preserve" text-anchor="start" x="47.5" y="-211" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">&quot;ON&quot;</text>
+<polygon fill="#b0c8da" stroke="none" points="3,-193.57 3,-200.43 146.75,-200.43 146.75,-193.57 3,-193.57"/>
+<text xml:space="preserve" text-anchor="start" x="10" y="-178.51" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#2e6188">audio</text>
+<text xml:space="preserve" text-anchor="start" x="10" y="-164.78" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  message: </text>
+<text xml:space="preserve" text-anchor="start" x="47.5" y="-164.78" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">&quot;PLAY:intro.wav:1&quot;</text>
+<polygon fill="#b0c8da" stroke="none" points="3,-146.86 3,-153.71 146.75,-153.71 146.75,-146.86 3,-146.86"/>
+<text xml:space="preserve" text-anchor="start" x="10" y="-131.79" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#2e6188">video</text>
+<text xml:space="preserve" text-anchor="start" x="10" y="-118.06" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  message: </text>
+<text xml:space="preserve" text-anchor="start" x="47.5" y="-118.06" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">&quot;PLAY_VIDEO:clip.mp4&quot;</text>
+<polygon fill="#f2f6fa" stroke="none" points="147.75,-106 147.75,-284.75 278.5,-284.75 278.5,-106 147.75,-106"/>
+<polygon fill="none" stroke="#7a9bb5" points="147.75,-106 147.75,-284.75 278.5,-284.75 278.5,-106 147.75,-106"/>
+<polygon fill="#f2f6fa" stroke="none" points="148.75,-107 148.75,-283.75 277.5,-283.75 277.5,-107 148.75,-107"/>
+<polygon fill="#6b8fa8" stroke="none" points="148.75,-263.25 148.75,-283.75 277.5,-283.75 277.5,-263.25 148.75,-263.25"/>
+<text xml:space="preserve" text-anchor="start" x="196.25" y="-271.2" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="9.00" fill="#1a2e3d">timeline</text>
+<polygon fill="#b0c8da" stroke="none" points="148.75,-262.25 148.75,-263.25 277.5,-263.25 277.5,-262.25 148.75,-262.25"/>
+<text xml:space="preserve" text-anchor="start" x="155.75" y="-248.65" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#2e6188">@ 1.4 s</text>
+<text xml:space="preserve" text-anchor="start" x="155.75" y="-237.85" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  action: </text>
+<text xml:space="preserve" text-anchor="start" x="183.5" y="-237.85" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">mqtt</text>
+<text xml:space="preserve" text-anchor="start" x="155.75" y="-227.6" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  topic: </text>
+<text xml:space="preserve" text-anchor="start" x="179.75" y="-227.6" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">&quot;room1/light/2&quot;</text>
+<text xml:space="preserve" text-anchor="start" x="155.75" y="-217.35" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  message: </text>
+<text xml:space="preserve" text-anchor="start" x="193.25" y="-217.35" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">&quot;ON&quot;</text>
+<polygon fill="#b0c8da" stroke="none" points="148.75,-206.75 148.75,-207.75 277.5,-207.75 277.5,-206.75 148.75,-206.75"/>
+<text xml:space="preserve" text-anchor="start" x="155.75" y="-193.15" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#2e6188">@ 5 s</text>
+<text xml:space="preserve" text-anchor="start" x="155.75" y="-182.35" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  action: </text>
+<text xml:space="preserve" text-anchor="start" x="183.5" y="-182.35" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">audio</text>
+<text xml:space="preserve" text-anchor="start" x="155.75" y="-172.1" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  message: </text>
+<text xml:space="preserve" text-anchor="start" x="193.25" y="-172.1" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">&quot;PLAY:sfx.wav:0.8&quot;</text>
+<polygon fill="#b0c8da" stroke="none" points="148.75,-161.5 148.75,-162.5 277.5,-162.5 277.5,-161.5 148.75,-161.5"/>
+<text xml:space="preserve" text-anchor="start" x="155.75" y="-147.9" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#2e6188">@ 10 s</text>
+<text xml:space="preserve" text-anchor="start" x="155.75" y="-137.1" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  action: </text>
+<text xml:space="preserve" text-anchor="start" x="183.5" y="-137.1" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">actions</text>
+<text xml:space="preserve" text-anchor="start" x="155.75" y="-126.85" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  [0]: </text>
+<text xml:space="preserve" text-anchor="start" x="173" y="-126.85" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">mqtt</text>
+<text xml:space="preserve" text-anchor="start" x="155.75" y="-116.6" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  [1]: </text>
+<text xml:space="preserve" text-anchor="start" x="173" y="-116.6" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">mqtt</text>
+<polygon fill="#f2f6fa" stroke="none" points="278.5,-106 278.5,-284.75 397.25,-284.75 397.25,-106 278.5,-106"/>
+<polygon fill="none" stroke="#7a9bb5" points="278.5,-106 278.5,-284.75 397.25,-284.75 397.25,-106 278.5,-106"/>
+<polygon fill="#f2f6fa" stroke="none" points="279.5,-107 279.5,-283.75 396.25,-283.75 396.25,-107 279.5,-107"/>
+<polygon fill="#6b8fa8" stroke="none" points="279.5,-257.39 279.5,-283.75 396.25,-283.75 396.25,-257.39 279.5,-257.39"/>
+<text xml:space="preserve" text-anchor="start" x="324.38" y="-268.27" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="9.00" fill="#1a2e3d">onExit</text>
+<polygon fill="#b0c8da" stroke="none" points="279.5,-250.54 279.5,-257.39 396.25,-257.39 396.25,-250.54 279.5,-250.54"/>
+<text xml:space="preserve" text-anchor="start" x="286.5" y="-235.47" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#2e6188">audio</text>
+<text xml:space="preserve" text-anchor="start" x="286.5" y="-221.74" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  message: </text>
+<text xml:space="preserve" text-anchor="start" x="324" y="-221.74" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">&quot;STOP&quot;</text>
+<polygon fill="#b0c8da" stroke="none" points="279.5,-203.82 279.5,-210.68 396.25,-210.68 396.25,-203.82 279.5,-203.82"/>
+<text xml:space="preserve" text-anchor="start" x="286.5" y="-189.25" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#2e6188">mqtt</text>
+<text xml:space="preserve" text-anchor="start" x="286.5" y="-176.49" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  topic: </text>
+<text xml:space="preserve" text-anchor="start" x="310.5" y="-176.49" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">&quot;room1/motor1&quot;</text>
+<text xml:space="preserve" text-anchor="start" x="286.5" y="-164.29" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  message: </text>
+<text xml:space="preserve" text-anchor="start" x="324" y="-164.29" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">&quot;STOP&quot;</text>
+<polygon fill="#b0c8da" stroke="none" points="279.5,-146.86 279.5,-153.71 396.25,-153.71 396.25,-146.86 279.5,-146.86"/>
+<text xml:space="preserve" text-anchor="start" x="286.5" y="-131.79" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#2e6188">video</text>
+<text xml:space="preserve" text-anchor="start" x="286.5" y="-118.06" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  message: </text>
+<text xml:space="preserve" text-anchor="start" x="324" y="-118.06" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">&quot;STOP_VIDEO&quot;</text>
+<polygon fill="#6b8fa8" stroke="none" points="2,-85.5 2,-106 397.25,-106 397.25,-85.5 2,-85.5"/>
+<text xml:space="preserve" text-anchor="start" x="176.75" y="-93.45" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="9.00" fill="#1a2e3d">transitions</text>
+<polygon fill="#b0c8da" stroke="none" points="2,-84.5 2,-85.5 397.25,-85.5 397.25,-84.5 2,-84.5"/>
+<polygon fill="#f2f6fa" stroke="none" points="2,-2 2,-84.5 397.25,-84.5 397.25,-2 2,-2"/>
 <polygon fill="#ffffff" stroke="none" points="14,-14 14,-72.5 103.25,-72.5 103.25,-14 14,-14"/>
-<polygon fill="none" stroke="#aaaaaa" points="14,-14 14,-72.5 103.25,-72.5 103.25,-14 14,-14"/>
-<text xml:space="preserve" text-anchor="start" x="23" y="-55.19" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#444444">timeout</text>
-<text xml:space="preserve" text-anchor="start" x="23" y="-40.98" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  delay: </text>
-<text xml:space="preserve" text-anchor="start" x="48.5" y="-40.98" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">30</text>
-<text xml:space="preserve" text-anchor="start" x="23" y="-27.31" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  goto: </text>
-<text xml:space="preserve" text-anchor="start" x="45.5" y="-27.31" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">&quot;STATE_NEXT&quot;</text>
+<polygon fill="none" stroke="#7a9bb5" points="14,-14 14,-72.5 103.25,-72.5 103.25,-14 14,-14"/>
+<text xml:space="preserve" text-anchor="start" x="23" y="-55.19" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#2e6188">timeout</text>
+<text xml:space="preserve" text-anchor="start" x="23" y="-40.98" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  delay: </text>
+<text xml:space="preserve" text-anchor="start" x="48.5" y="-40.98" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">30</text>
+<text xml:space="preserve" text-anchor="start" x="23" y="-27.31" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  goto: </text>
+<text xml:space="preserve" text-anchor="start" x="45.5" y="-27.31" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">&quot;STATE_NEXT&quot;</text>
 <polygon fill="#ffffff" stroke="none" points="107.25,-14 107.25,-72.5 198.75,-72.5 198.75,-14 107.25,-14"/>
-<polygon fill="none" stroke="#aaaaaa" points="107.25,-14 107.25,-72.5 198.75,-72.5 198.75,-14 107.25,-14"/>
-<text xml:space="preserve" text-anchor="start" x="116.25" y="-56.9" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#444444">mqttMessage</text>
-<text xml:space="preserve" text-anchor="start" x="116.25" y="-46.1" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  topic: </text>
-<text xml:space="preserve" text-anchor="start" x="140.25" y="-46.1" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">&quot;room1/button1&quot;</text>
-<text xml:space="preserve" text-anchor="start" x="116.25" y="-35.85" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  message: </text>
-<text xml:space="preserve" text-anchor="start" x="153.75" y="-35.85" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">&quot;PRESS&quot;</text>
-<text xml:space="preserve" text-anchor="start" x="116.25" y="-25.6" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  goto: </text>
-<text xml:space="preserve" text-anchor="start" x="138.75" y="-25.6" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">&quot;END&quot;</text>
+<polygon fill="none" stroke="#7a9bb5" points="107.25,-14 107.25,-72.5 198.75,-72.5 198.75,-14 107.25,-14"/>
+<text xml:space="preserve" text-anchor="start" x="116.25" y="-56.9" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#2e6188">mqttMessage</text>
+<text xml:space="preserve" text-anchor="start" x="116.25" y="-46.1" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  topic: </text>
+<text xml:space="preserve" text-anchor="start" x="140.25" y="-46.1" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">&quot;room1/button1&quot;</text>
+<text xml:space="preserve" text-anchor="start" x="116.25" y="-35.85" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  message: </text>
+<text xml:space="preserve" text-anchor="start" x="153.75" y="-35.85" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">&quot;PRESS&quot;</text>
+<text xml:space="preserve" text-anchor="start" x="116.25" y="-25.6" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  goto: </text>
+<text xml:space="preserve" text-anchor="start" x="138.75" y="-25.6" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">&quot;END&quot;</text>
 <polygon fill="#ffffff" stroke="none" points="202.75,-14 202.75,-72.5 292,-72.5 292,-14 202.75,-14"/>
-<polygon fill="none" stroke="#aaaaaa" points="202.75,-14 202.75,-72.5 292,-72.5 292,-14 202.75,-14"/>
-<text xml:space="preserve" text-anchor="start" x="211.75" y="-55.19" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#444444">videoEnd</text>
-<text xml:space="preserve" text-anchor="start" x="211.75" y="-40.98" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  target: </text>
-<text xml:space="preserve" text-anchor="start" x="238.75" y="-40.98" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">&quot;clip.mp4&quot;</text>
-<text xml:space="preserve" text-anchor="start" x="211.75" y="-27.31" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  goto: </text>
-<text xml:space="preserve" text-anchor="start" x="234.25" y="-27.31" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">&quot;STATE_NEXT&quot;</text>
+<polygon fill="none" stroke="#7a9bb5" points="202.75,-14 202.75,-72.5 292,-72.5 292,-14 202.75,-14"/>
+<text xml:space="preserve" text-anchor="start" x="211.75" y="-55.19" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#2e6188">videoEnd</text>
+<text xml:space="preserve" text-anchor="start" x="211.75" y="-40.98" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  target: </text>
+<text xml:space="preserve" text-anchor="start" x="238.75" y="-40.98" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">&quot;clip.mp4&quot;</text>
+<text xml:space="preserve" text-anchor="start" x="211.75" y="-27.31" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  goto: </text>
+<text xml:space="preserve" text-anchor="start" x="234.25" y="-27.31" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">&quot;STATE_NEXT&quot;</text>
 <polygon fill="#ffffff" stroke="none" points="296,-14 296,-72.5 385.25,-72.5 385.25,-14 296,-14"/>
-<polygon fill="none" stroke="#aaaaaa" points="296,-14 296,-72.5 385.25,-72.5 385.25,-14 296,-14"/>
-<text xml:space="preserve" text-anchor="start" x="305" y="-55.19" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#444444">always</text>
-<text xml:space="preserve" text-anchor="start" x="305" y="-40.98" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  delay: </text>
-<text xml:space="preserve" text-anchor="start" x="330.5" y="-40.98" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">0</text>
-<text xml:space="preserve" text-anchor="start" x="305" y="-27.31" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#777777">  goto: </text>
-<text xml:space="preserve" text-anchor="start" x="327.5" y="-27.31" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#777777">&quot;STATE_NEXT&quot;</text>
-<path fill="none" stroke="#aaaaaa" stroke-width="2" d="M13,-1C13,-1 386.25,-1 386.25,-1 392.25,-1 398.25,-7 398.25,-13 398.25,-13 398.25,-337.5 398.25,-337.5 398.25,-343.5 392.25,-349.5 386.25,-349.5 386.25,-349.5 13,-349.5 13,-349.5 7,-349.5 1,-343.5 1,-337.5 1,-337.5 1,-13 1,-13 1,-7 7,-1 13,-1"/>
+<polygon fill="none" stroke="#7a9bb5" points="296,-14 296,-72.5 385.25,-72.5 385.25,-14 296,-14"/>
+<text xml:space="preserve" text-anchor="start" x="305" y="-55.19" font-family="Helvetica,sans-Serif" font-weight="bold" font-size="8.00" fill="#2e6188">always</text>
+<text xml:space="preserve" text-anchor="start" x="305" y="-40.98" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  delay: </text>
+<text xml:space="preserve" text-anchor="start" x="330.5" y="-40.98" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">0</text>
+<text xml:space="preserve" text-anchor="start" x="305" y="-27.31" font-family="Helvetica,sans-Serif" font-size="7.00" fill="#6b8ba4">  goto: </text>
+<text xml:space="preserve" text-anchor="start" x="327.5" y="-27.31" font-family="Helvetica,sans-Serif" font-style="italic" font-size="7.00" fill="#6b8ba4">&quot;STATE_NEXT&quot;</text>
+<path fill="none" stroke="#7a9bb5" stroke-width="2" d="M13,-1C13,-1 386.25,-1 386.25,-1 392.25,-1 398.25,-7 398.25,-13 398.25,-13 398.25,-337.5 398.25,-337.5 398.25,-343.5 392.25,-349.5 386.25,-349.5 386.25,-349.5 13,-349.5 13,-349.5 7,-349.5 1,-343.5 1,-337.5 1,-337.5 1,-13 1,-13 1,-7 7,-1 13,-1"/>
 </g>
 </g>
 </svg>

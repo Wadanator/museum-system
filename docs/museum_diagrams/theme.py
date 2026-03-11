@@ -199,16 +199,16 @@ class StateAnatomy:
     a single-node HTML-table layout documenting every field of one state.
     """
 
-    # greyscale palette
-    BG_STATE    = "#EAEAEA"
-    BG_HEADER   = "#C4C4C4"
-    BG_SECTION  = "#F5F5F5"
-    BG_ITEM     = "#FFFFFF"
-    C_BORDER    = "#AAAAAA"
-    C_DIVIDER   = "#BBBBBB"
-    C_PRIMARY   = "#111111"
-    C_SECONDARY = "#444444"
-    C_MUTED     = "#777777"
+    # muted blue-slate palette  (readable on screen, prints cleanly)
+    BG_STATE    = "#E8EEF4"   # overall background — pale steel blue
+    BG_HEADER   = "#6B8FA8"   # section headers — muted teal-blue
+    BG_SECTION  = "#F2F6FA"   # column / section background
+    BG_ITEM     = "#FFFFFF"   # individual card background
+    C_BORDER    = "#7A9BB5"   # inner cell borders
+    C_DIVIDER   = "#B0C8DA"   # thin horizontal rules
+    C_PRIMARY   = "#1A2E3D"   # main labels — dark navy
+    C_SECONDARY = "#2E6188"   # key names / type labels — medium blue
+    C_MUTED     = "#6B8BA4"   # value strings — muted blue-grey
 
     # font sizes (pt)
     FS_TITLE   = "13"
