@@ -3,9 +3,11 @@
 
 #include <Arduino.h>
 
-// Stav zariadení
+// Device states
 extern bool deviceStates[];
 extern bool allDevicesOff;
+
+extern bool effectControlled[];
 
 void initializeHardware();
 void setDevice(int deviceIndex, bool state);

@@ -9,3 +9,12 @@ void debugPrint(const String& message) {
     Serial.println(message);
   }
 }
+
+void debugPrint(const char* message) {
+  if (DEBUG) {
+    Serial.print("[DEBUG] ");
+    Serial.print(millis());
+    Serial.print("ms - ");
+    Serial.println(message);
+  }
+}

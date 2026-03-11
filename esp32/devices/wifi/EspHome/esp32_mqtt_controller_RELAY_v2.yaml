@@ -1,32 +1,35 @@
 substitutions:
   # ==========================================================
-  # HLAVNÁ KONFIGURÁCIA ZARIADENIA (Modulárna časť)
+  # HLAVNÁ KONFIGURÁCIA ZARIADENIA – tu meniš pred deployom
   # ==========================================================
-  room_name: "room1"                          # Prefix pre MQTT (napr. room1, room2)
-  dev_name: "esp32-relaymodule-room1"         # Hostname v sieti
-  friendly_name: "Room1_Relays_Ctrl"          # Zobrazene meno (pre OTA a MQTT Status)
+  room_name:     "room1"                  # MQTT prefix (room1, room2, ...)
+  dev_name:      "esp32-relaymodule-room1"  # Hostname v sieti / OTA
+  friendly_name: "Room1_Relays_Ctrl"      # MQTT Client ID + Status topic
 
   wifi_ssid: "Museum-Room1"
   wifi_pass: "88888888"
-  
-  mqtt_broker: "TechMuzeumRoom1.local"
-  mqtt_port: "1883"
-  
-  # Konfiguracia Hardware
-  i2c_sda: "42"
-  i2c_scl: "41"
-  i2c_addr: "0x20"
-  
-  # Timeout bez prikazu v sekundach (180s v originalnom kode)
-  idle_timeout_s: "180"
 
+  mqtt_broker: "TechMuzeumRoom1.local"
+  mqtt_port:   "1883"
+
+  # Hardware
+  i2c_sda:  "42"
+  i2c_scl:  "41"
+  i2c_addr: "0x20"
+  led_pin:  "GPIO38"           # Waveshare ESP32-S3 onboard NeoPixel
+
+  # Timeout bez príkazu – FIX: priamo ako ms (nie string pre atoi)
+  idle_timeout_ms: "180000"    # 180 sekúnd = 180 000 ms
+
+# ==========================================================
+# ESPHOME
+# ==========================================================
 esphome:
   name: ${dev_name}
   friendly_name: ${friendly_name}
   project:
     name: "museum.relay_controller"
-    version: "2.3.yaml"
-  # Volana pri starte (reset timeru)
+    version: "2.4.yaml"
   on_boot:
     priority: -10
     then:
@@ -39,40 +42,86 @@ esp32:
   framework:
     type: arduino
 
+# ==========================================================
+# WIFI
+# ==========================================================
 wifi:
   ssid: ${wifi_ssid}
   password: ${wifi_pass}
+  # Fallback AP ak sa WiFi nedá pripojiť
   ap:
     ssid: "${dev_name}-fallback"
-    password: "fallback_password"
+    password: "fallback_pass"
 
+# ==========================================================
+# OTA
+# ==========================================================
 ota:
   - platform: esphome
     password: ${room_name}
 
+# ==========================================================
+# LOGGER
+# ==========================================================
 logger:
   level: DEBUG
 
+# ==========================================================
+# I2C + PCF8574 Expander
+# ==========================================================
 i2c:
   sda: ${i2c_sda}
   scl: ${i2c_scl}
   scan: true
   id: i2c_bus
+  # Timeout pre prípad zaseknutia I2C zbernice (ako Wire.setTimeOut(50) v C++)
+  timeout: 50ms
 
 pcf8574:
-  - id: 'pcf8574_hub'
+  - id: pcf8574_hub
     address: ${i2c_addr}
     pcf8575: false
 
+# ==========================================================
+# GLOBÁLNE PREMENNÉ
+# ==========================================================
 globals:
   - id: last_cmd_time
     type: uint32_t
     initial_value: '0'
 
 # ==========================================================
-# SKRIPTY (Efekty a Failsafe)
+# STATUS LED – Waveshare ESP32-S3 NeoPixel (GRB, GPIO38)
+#
+#  Červená  rýchle blikanie  = žiadna WiFi
+#  Oranžová pomalé blikanie  = WiFi OK, MQTT offline
+#  Zelená   breathing        = všetko OK
+# ==========================================================
+light:
+  - platform: neopixelbus
+    type: GRB
+    variant: WS2812
+    pin: ${led_pin}
+    num_leds: 1
+    id: status_led
+    name: "Status LED"
+    restore_mode: ALWAYS_OFF
+    # Breathing efekt pre stav ALL OK
+    effects:
+      - addressable_lambda:
+          name: "Breathing Green"
+          update_interval: 32ms
+          lambda: |-
+            float val = (exp(sin(millis() / 2000.0 * M_PI)) - 0.36787944) * 108.0;
+            uint8_t b = (uint8_t)(val * 50.0 / 255.0);
+            b = b < 5 ? 5 : b;   // minimálny jas aby LED nikdy úplne nezhasla
+            it[0] = Color(0, b, 0);
+
+# ==========================================================
+# SKRIPTY
 # ==========================================================
 script:
+  # Vypnutie všetkého – volané z STOP, on_disconnect, timeout, OTA
   - id: turn_off_all
     then:
       - switch.turn_off: dev_power_smoke_on
@@ -86,6 +135,7 @@ script:
       - script.stop: effect_group1
       - script.stop: effect_alone
 
+  # Efekt: group1 – svetlá 4 a 5 náhodné blesky
   - id: effect_group1
     mode: restart
     then:
@@ -93,17 +143,16 @@ script:
           condition:
             lambda: 'return true;'
           then:
-            # ON
             - lambda: |-
                 id(dev_light_4).turn_on();
                 id(dev_light_5).turn_on();
-            - delay: !lambda "return random(75, 500);"
-            # OFF
+            - delay: !lambda 'return random(75, 500);'
             - lambda: |-
                 id(dev_light_4).turn_off();
                 id(dev_light_5).turn_off();
-            - delay: !lambda "return random(150, 1500);"
+            - delay: !lambda 'return random(150, 1500);'
 
+  # Efekt: alone – svetlo 1 krátke zriedkavé záblesky
   - id: effect_alone
     mode: restart
     then:
@@ -112,81 +161,102 @@ script:
             lambda: 'return true;'
           then:
             - switch.turn_on: dev_light_1
-            - delay: !lambda "return random(60, 100);"
+            - delay: !lambda 'return random(60, 100);'
             - switch.turn_off: dev_light_1
-            - delay: !lambda "return random(2000, 5000);"
+            - delay: !lambda 'return random(2000, 5000);'
 
 # ==========================================================
-# DEFINÍCIA ZARIADENÍ (Zhodné polohu s poľom DEVICES[])
+# ZARIADENIA – PCF8574 výstupy (1:1 s DEVICES[] z C++)
 # ==========================================================
 switch:
   - platform: pcf8574
     id: dev_power_smoke_on
+    name: "Power Smoke ON"
     pin: { pcf8574: pcf8574_hub, number: 0, inverted: false }
 
   - platform: pcf8574
     id: dev_light_fire
+    name: "Light Fire"
     pin: { pcf8574: pcf8574_hub, number: 1, inverted: false }
 
   - platform: pcf8574
     id: dev_light_1
+    name: "Light 1"
     pin: { pcf8574: pcf8574_hub, number: 2, inverted: false }
 
+  # AutoOff 12s – riešené natívne cez on_turn_on (nie cez handleAutoOff ako v C++)
   - platform: pcf8574
     id: dev_effect_smoke
+    name: "Effect Smoke"
     pin: { pcf8574: pcf8574_hub, number: 3, inverted: false }
     on_turn_on:
-      - delay: 12s  # AutoOffMs = 12000 z C++ configu
+      - delay: 12s
       - switch.turn_off: dev_effect_smoke
 
   - platform: pcf8574
     id: dev_light_2
+    name: "Light 2"
     pin: { pcf8574: pcf8574_hub, number: 4, inverted: false }
 
   - platform: pcf8574
     id: dev_light_3
+    name: "Light 3"
     pin: { pcf8574: pcf8574_hub, number: 5, inverted: false }
 
   - platform: pcf8574
     id: dev_light_4
+    name: "Light 4"
     pin: { pcf8574: pcf8574_hub, number: 6, inverted: false }
 
   - platform: pcf8574
     id: dev_light_5
+    name: "Light 5"
     pin: { pcf8574: pcf8574_hub, number: 7, inverted: false }
 
 # ==========================================================
-# MQTT MANAGMENT (1:1 VLASTNÉ TOPICY A FEEDBACK)
+# MQTT
 # ==========================================================
 mqtt:
   broker: ${mqtt_broker}
-  port: ${mqtt_port}
+  port:   ${mqtt_port}
   client_id: ${friendly_name}
   keepalive: 5s
-  
-  # Status (ako v C++ -> devices/Room1_Relays_Ctrl/status)
-  birth_message:
-    topic: devices/${friendly_name}/status
-    payload: online
-  will_message:
-    topic: devices/${friendly_name}/status
-    payload: offline
 
-  # Reconnect logika z connection_monitor.cpp
+  birth_message:
+    topic: "devices/${friendly_name}/status"
+    payload: "online"
+    retain: true
+  will_message:
+    topic: "devices/${friendly_name}/status"
+    payload: "offline"
+    retain: true
+  shutdown_message:
+    topic: "devices/${friendly_name}/status"
+    payload: "offline"
+    retain: true
+
+  # Bezpečnostné vypnutie pri strate MQTT
   on_disconnect:
     then:
       - script.execute: turn_off_all
 
-  # Prijímanie správ
   on_message:
-    - topic: ${room_name}/STOP
+
+    # ----------------------------------------------------------
+    # STOP
+    # ----------------------------------------------------------
+    - topic: "${room_name}/STOP"
       then:
         - globals.set: { id: last_cmd_time, value: 'millis()' }
         - script.execute: turn_off_all
-        - mqtt.publish: { topic: "${room_name}/STOP/feedback", payload: "OK" }
+        - mqtt.publish:
+            topic: "${room_name}/STOP/feedback"
+            payload: "OK"
 
+    # ----------------------------------------------------------
     # EFEKTY
-    - topic: ${room_name}/effects/group1
+    # ----------------------------------------------------------
+    - topic: "${room_name}/effects/group1"
       then:
         - globals.set: { id: last_cmd_time, value: 'millis()' }
         - lambda: |-
@@ -199,8 +269,8 @@ mqtt:
               id(dev_light_5).turn_off();
               id(mqtt_client).publish("${room_name}/effects/group1/feedback", "INACTIVE");
             }
-    
-    - topic: ${room_name}/effects/alone
+
+    - topic: "${room_name}/effects/alone"
       then:
         - globals.set: { id: last_cmd_time, value: 'millis()' }
         - lambda: |-
@@ -213,71 +283,182 @@ mqtt:
               id(mqtt_client).publish("${room_name}/effects/alone/feedback", "INACTIVE");
             }
 
+    # ----------------------------------------------------------
     # ZARIADENIA
-    - topic: ${room_name}/power/smoke_ON
+    # ----------------------------------------------------------
+    - topic: "${room_name}/power/smoke_ON"
       then:
         - globals.set: { id: last_cmd_time, value: 'millis()' }
         - lambda: |-
-            if (x == "ON" || x == "1") { id(dev_power_smoke_on).turn_on(); id(mqtt_client).publish("${room_name}/power/smoke_ON/feedback", "OK"); }
-            else if (x == "OFF" || x == "0") { id(dev_power_smoke_on).turn_off(); id(mqtt_client).publish("${room_name}/power/smoke_ON/feedback", "OK"); }
+            if (x == "ON" || x == "1") {
+              id(dev_power_smoke_on).turn_on();
+              id(mqtt_client).publish("${room_name}/power/smoke_ON/feedback", "OK");
+            } else if (x == "OFF" || x == "0") {
+              id(dev_power_smoke_on).turn_off();
+              id(mqtt_client).publish("${room_name}/power/smoke_ON/feedback", "OK");
+            }
 
-    - topic: ${room_name}/light/fire
+    - topic: "${room_name}/light/fire"
       then:
         - globals.set: { id: last_cmd_time, value: 'millis()' }
         - lambda: |-
-            if (x == "ON" || x == "1") { id(dev_light_fire).turn_on(); id(mqtt_client).publish("${room_name}/light/fire/feedback", "OK"); }
-            else if (x == "OFF" || x == "0") { id(dev_light_fire).turn_off(); id(mqtt_client).publish("${room_name}/light/fire/feedback", "OK"); }
+            if (x == "ON" || x == "1") {
+              id(dev_light_fire).turn_on();
+              id(mqtt_client).publish("${room_name}/light/fire/feedback", "OK");
+            } else if (x == "OFF" || x == "0") {
+              id(dev_light_fire).turn_off();
+              id(mqtt_client).publish("${room_name}/light/fire/feedback", "OK");
+            }
 
-    - topic: ${room_name}/light/1
+    - topic: "${room_name}/light/1"
       then:
         - globals.set: { id: last_cmd_time, value: 'millis()' }
         - lambda: |-
-            if (x == "ON" || x == "1") { id(dev_light_1).turn_on(); id(mqtt_client).publish("${room_name}/light/1/feedback", "OK"); }
-            else if (x == "OFF" || x == "0") { id(dev_light_1).turn_off(); id(mqtt_client).publish("${room_name}/light/1/feedback", "OK"); }
+            if (x == "ON" || x == "1") {
+              id(dev_light_1).turn_on();
+              id(mqtt_client).publish("${room_name}/light/1/feedback", "OK");
+            } else if (x == "OFF" || x == "0") {
+              id(dev_light_1).turn_off();
+              id(mqtt_client).publish("${room_name}/light/1/feedback", "OK");
+            }
 
-    - topic: ${room_name}/effect/smoke
+    - topic: "${room_name}/effect/smoke"
       then:
         - globals.set: { id: last_cmd_time, value: 'millis()' }
         - lambda: |-
-            if (x == "ON" || x == "1") { id(dev_effect_smoke).turn_on(); id(mqtt_client).publish("${room_name}/effect/smoke/feedback", "OK"); }
-            else if (x == "OFF" || x == "0") { id(dev_effect_smoke).turn_off(); id(mqtt_client).publish("${room_name}/effect/smoke/feedback", "OK"); }
+            if (x == "ON" || x == "1") {
+              id(dev_effect_smoke).turn_on();
+              id(mqtt_client).publish("${room_name}/effect/smoke/feedback", "OK");
+            } else if (x == "OFF" || x == "0") {
+              id(dev_effect_smoke).turn_off();
+              id(mqtt_client).publish("${room_name}/effect/smoke/feedback", "OK");
+            }
 
-    - topic: ${room_name}/light/2
+    - topic: "${room_name}/light/2"
       then:
         - globals.set: { id: last_cmd_time, value: 'millis()' }
         - lambda: |-
-            if (x == "ON" || x == "1") { id(dev_light_2).turn_on(); id(mqtt_client).publish("${room_name}/light/2/feedback", "OK"); }
-            else if (x == "OFF" || x == "0") { id(dev_light_2).turn_off(); id(mqtt_client).publish("${room_name}/light/2/feedback", "OK"); }
+            if (x == "ON" || x == "1") {
+              id(dev_light_2).turn_on();
+              id(mqtt_client).publish("${room_name}/light/2/feedback", "OK");
+            } else if (x == "OFF" || x == "0") {
+              id(dev_light_2).turn_off();
+              id(mqtt_client).publish("${room_name}/light/2/feedback", "OK");
+            }
 
-    - topic: ${room_name}/light/3
+    - topic: "${room_name}/light/3"
       then:
         - globals.set: { id: last_cmd_time, value: 'millis()' }
         - lambda: |-
-            if (x == "ON" || x == "1") { id(dev_light_3).turn_on(); id(mqtt_client).publish("${room_name}/light/3/feedback", "OK"); }
-            else if (x == "OFF" || x == "0") { id(dev_light_3).turn_off(); id(mqtt_client).publish("${room_name}/light/3/feedback", "OK"); }
+            if (x == "ON" || x == "1") {
+              id(dev_light_3).turn_on();
+              id(mqtt_client).publish("${room_name}/light/3/feedback", "OK");
+            } else if (x == "OFF" || x == "0") {
+              id(dev_light_3).turn_off();
+              id(mqtt_client).publish("${room_name}/light/3/feedback", "OK");
+            }
 
-    - topic: ${room_name}/light/4
+    - topic: "${room_name}/light/4"
       then:
         - globals.set: { id: last_cmd_time, value: 'millis()' }
         - lambda: |-
-            if (x == "ON" || x == "1") { id(dev_light_4).turn_on(); id(mqtt_client).publish("${room_name}/light/4/feedback", "OK"); }
-            else if (x == "OFF" || x == "0") { id(dev_light_4).turn_off(); id(mqtt_client).publish("${room_name}/light/4/feedback", "OK"); }
+            if (x == "ON" || x == "1") {
+              id(dev_light_4).turn_on();
+              id(mqtt_client).publish("${room_name}/light/4/feedback", "OK");
+            } else if (x == "OFF" || x == "0") {
+              id(dev_light_4).turn_off();
+              id(mqtt_client).publish("${room_name}/light/4/feedback", "OK");
+            }
 
-    - topic: ${room_name}/light/5
+    - topic: "${room_name}/light/5"
       then:
         - globals.set: { id: last_cmd_time, value: 'millis()' }
         - lambda: |-
-            if (x == "ON" || x == "1") { id(dev_light_5).turn_on(); id(mqtt_client).publish("${room_name}/light/5/feedback", "OK"); }
-            else if (x == "OFF" || x == "0") { id(dev_light_5).turn_off(); id(mqtt_client).publish("${room_name}/light/5/feedback", "OK"); }
+            if (x == "ON" || x == "1") {
+              id(dev_light_5).turn_on();
+              id(mqtt_client).publish("${room_name}/light/5/feedback", "OK");
+            } else if (x == "OFF" || x == "0") {
+              id(dev_light_5).turn_off();
+              id(mqtt_client).publish("${room_name}/light/5/feedback", "OK");
+            }
 
 # ==========================================================
-# TIMEOUT (Inactivity check)
+# INTERVAL – Status LED + Inactivity timeout
 # ==========================================================
 interval:
+
+  # Status LED update – každých 100ms
+  # Priorita: žiadna WiFi > žiadne MQTT > všetko OK
+  - interval: 100ms
+    then:
+      - lambda: |-
+          static uint32_t blink_timer = 0;
+          static bool blink_state = false;
+          uint32_t now = millis();
+
+          bool wifi_ok = WiFi.status() == WL_CONNECTED;
+          bool mqtt_ok = id(mqtt_client).is_connected();
+
+          // --- STAV 1: Žiadna WiFi – rýchle červené blikanie (200ms) ---
+          if (!wifi_ok) {
+            if (now - blink_timer >= 200) {
+              blink_timer = now;
+              blink_state = !blink_state;
+            }
+            auto call = id(status_led).turn_on();
+            call.set_rgb(1.0f, 0.0f, 0.0f);
+            call.set_brightness(blink_state ? 0.2f : 0.0f);
+            call.set_effect("None");
+            call.perform();
+            return;
+          }
+
+          // --- STAV 2: WiFi OK, MQTT offline – oranžové blikanie (1000ms) ---
+          if (!mqtt_ok) {
+            if (now - blink_timer >= 1000) {
+              blink_timer = now;
+              blink_state = !blink_state;
+            }
+            auto call = id(status_led).turn_on();
+            call.set_rgb(1.0f, 0.35f, 0.0f);
+            call.set_brightness(blink_state ? 0.2f : 0.0f);
+            call.set_effect("None");
+            call.perform();
+            return;
+          }
+
+          // --- STAV 3: Všetko OK – breathing zelená (len raz zapni efekt) ---
+          static bool breathing_active = false;
+          if (!breathing_active) {
+            auto call = id(status_led).turn_on();
+            call.set_effect("Breathing Green");
+            call.perform();
+            breathing_active = true;
+          }
+          // Reset ak stratíme spojenie
+          if (!wifi_ok || !mqtt_ok) breathing_active = false;
+
   - interval: 10s
     then:
       - lambda: |-
-          if (id(last_cmd_time) != 0 && (millis() - id(last_cmd_time) > (atoi("${idle_timeout_s}") * 1000))) {
+          if (id(last_cmd_time) != 0 &&
+             (millis() - id(last_cmd_time) > ${idle_timeout_ms}UL)) {
+            ESP_LOGW("timeout", "Inactivity timeout – turning off all devices");
             id(turn_off_all).execute();
-            id(last_cmd_time) = 0; // reset
+            id(last_cmd_time) = 0;
           }
+
+# ==========================================================
+# DIAGNOSTIKA
+# ==========================================================
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 60s
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+    ssid:
+      name: "Connected SSID"
