@@ -21,7 +21,7 @@ Základný priečinok obsahuje 4 rôzne úplne nezávislé sub-projekty, ktoré 
 
 ### C) Múzejný Webový Dashboard (`/museum-dashboard`)
 **Technológie**: React.js, TailwindCSS, Socket.IO Client.
-**Zodpovednosť**: Riadiaci panel (GUI) pre obsluhu múzea (Game Mastera). Panel zobrazuje na obrazovke, čo sa reálne v miestnostiach práve deje, ktoré zariadenia sú pripojené/odpojené k sieti (online status check), poskytuje možnosť manuálne preklenúť prechody stavov alebo posielať manuálne "override" príkazy (napr. force STOP scény).
+**Zodpovednosť**: Riadiaci panel (GUI) pre obsluhu múzea (Game Mastera). Panel zobrazuje na obrazovke, čo sa reálne v miestnostiach práve deje, ktoré zariadenia sú pripojené/odpojené k sieti (online status check), zobraziť logy, vypnuz resetovat zariedenie, jednotlive pripojene veci v devices.json ovladat.
 
 ---
 
