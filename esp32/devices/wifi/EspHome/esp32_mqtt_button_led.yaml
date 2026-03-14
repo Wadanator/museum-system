@@ -1,0 +1,228 @@
+# ─── SUBSTITUTIONS ───────────────────────────────────────────────────────────
+substitutions:
+  device_name: esp32-room1-trigger
+  friendly_name: "Room1 ESP Trigger"
+  room_prefix: "room1"
+  client_id: "Room1_ESP_Trigger"
+  ota_password: "room1"
+
+# ─── ESPHOME ─────────────────────────────────────────────────────────────────
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  on_boot:
+    priority: -100
+    then:
+      - logger.log: "=== ESP32 Scene Trigger Ready ==="
+
+# ─── BOARD ───────────────────────────────────────────────────────────────────
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+# ─── LOGGING ─────────────────────────────────────────────────────────────────
+logger:
+  level: DEBUG
+  baud_rate: 115200
+
+# ─── OTA ─────────────────────────────────────────────────────────────────────
+ota:
+  - platform: esphome
+    password: "${ota_password}"
+
+# ─── WIFI ────────────────────────────────────────────────────────────────────
+wifi:
+  ssid: "Museum-Room1"
+  password: "88888888"
+  power_save_mode: none
+
+# ─── MQTT ────────────────────────────────────────────────────────────────────
+mqtt:
+  broker: TechMuzeumRoom1.local
+  port: 1883
+  client_id: "${client_id}"
+  keepalive: 5s
+
+  birth_message:
+    topic: "devices/${client_id}/status"
+    payload: "online"
+    retain: true
+
+  will_message:
+    topic: "devices/${client_id}/status"
+    payload: "offline"
+    retain: true
+
+  shutdown_message:
+    topic: "devices/${client_id}/status"
+    payload: "offline"
+    retain: true
+
+  on_connect:
+    then:
+      - logger.log: "MQTT connected"
+      - script.execute: led_update
+
+  on_disconnect:
+    then:
+      - logger.log: "MQTT disconnected"
+      - script.execute: led_update
+
+# ─── LED OUTPUT ──────────────────────────────────────────────────────────────
+output:
+  - platform: ledc
+    pin: GPIO25
+    id: led_output
+    frequency: 5000Hz
+    min_power: 0.0
+    max_power: 1.0
+
+# ─── GLOBALS ─────────────────────────────────────────────────────────────────
+globals:
+  - id: led_mode
+    type: int
+    initial_value: '0'
+    # 0 = wifi fail (pulse)
+    # 1 = mqtt fail (double blink)
+    # 2 = all ok (steady on)
+    # 3 = button confirm (triple blink, temporary)
+
+# ─── SCRIPTS ─────────────────────────────────────────────────────────────────
+script:
+
+  - id: led_update
+    mode: restart
+    then:
+      - if:
+          condition:
+            wifi.connected:
+          then:
+            - if:
+                condition:
+                  mqtt.connected:
+                then:
+                  - globals.set:
+                      id: led_mode
+                      value: '2'
+                  - logger.log: "LED: steady ON (all OK)"
+                else:
+                  - globals.set:
+                      id: led_mode
+                      value: '1'
+                  - logger.log: "LED: double blink (MQTT fail)"
+          else:
+            - globals.set:
+                id: led_mode
+                value: '0'
+            - logger.log: "LED: pulse (WiFi fail)"
+
+  - id: led_confirm
+    mode: single
+    then:
+      - globals.set:
+          id: led_mode
+          value: '3'
+      - repeat:
+          count: 3
+          then:
+            - output.set_level:
+                id: led_output
+                level: 1.0
+            - delay: 80ms
+            - output.set_level:
+                id: led_output
+                level: 0.0
+            - delay: 80ms
+      - script.execute: led_update
+
+  - id: button_cooldown_script
+    mode: single
+    then:
+      - logger.log: "Button: PRESSED (Valid) – sending MQTT trigger"
+      - mqtt.publish:
+          topic: "${room_prefix}/scene"
+          payload: "START"
+          retain: false
+      - logger.log: ">>> SCENE TRIGGER SENT: ${room_prefix}/scene -> START"
+      - script.execute: led_confirm
+      - delay: 4000ms
+
+# ─── LED LOOP ────────────────────────────────────────────────────────────────
+interval:
+
+  - interval: 20ms
+    then:
+      - lambda: |-
+          int mode = id(led_mode);
+          if (mode == 2) {
+            id(led_output).set_level(1.0);
+          } else if (mode == 0) {
+            float s = (sin(millis() / 1591.0 * PI) + 1.0) / 2.0;
+            s = s * s * s;
+            id(led_output).set_level(s);
+          }
+
+  - interval: 3500ms
+    then:
+      - if:
+          condition:
+            lambda: 'return id(led_mode) == 1;'
+          then:
+            - output.set_level:
+                id: led_output
+                level: 1.0
+            - delay: 80ms
+            - output.set_level:
+                id: led_output
+                level: 0.0
+            - delay: 80ms
+            - output.set_level:
+                id: led_output
+                level: 1.0
+            - delay: 80ms
+            - output.set_level:
+                id: led_output
+                level: 0.0
+
+  - interval: 15s
+    then:
+      - if:
+          condition:
+            mqtt.connected:
+          then:
+            - mqtt.publish:
+                topic: "devices/${client_id}/status"
+                payload: "online"
+                retain: true
+      - script.execute: led_update
+
+# ─── BUTTON – GPIO32 ─────────────────────────────────────────────────────────
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO32
+      mode:
+        input: true
+      inverted: true
+    name: "Scene Trigger Button"
+    id: scene_button
+    filters:
+      - delayed_on: 100ms
+      - delayed_off: 100ms
+    on_press:
+      then:
+        - script.execute: button_cooldown_script
+
+# ─── DIAGNOSTICS ─────────────────────────────────────────────────────────────
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal"
+    update_interval: 120s
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+    ssid:
+      name: "Connected SSID"
