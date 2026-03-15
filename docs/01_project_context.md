@@ -1,8 +1,5 @@
-# Konštitúcia projektu pre AI (Bakalárska práca)
+# Konštitúcia projektu (Bakalárska práca)
 
-Tento dokument je ideálny ako "vstupný kontext" do akéhokoľvek AI asistenta pri písaní alebo programovaní vašej bakalárskej práce. Vďaka tomuto prehľadu bude AI rozumieť presnej softvérovej a hardvérovej topológii vášho projektu bez nutnosti čítať stovky tisíc riadkov kódu.
-
----
 
 ## 1. Zmysel projektu (High-Level Overview)
 Tento projekt predstavuje integrovaný riadiaci systém (`museum-system`) určený pre interaktívne múzeá ako, expozície či iné zážitkové inštalácie. 
@@ -21,7 +18,7 @@ Základný priečinok obsahuje 4 rôzne úplne nezávislé sub-projekty, ktoré 
 
 ### C) Múzejný Webový Dashboard (`/museum-dashboard`)
 **Technológie**: React.js, TailwindCSS, Socket.IO Client.
-**Zodpovednosť**: Riadiaci panel (GUI) pre obsluhu múzea (Game Mastera). Panel zobrazuje na obrazovke, čo sa reálne v miestnostiach práve deje, ktoré zariadenia sú pripojené/odpojené k sieti (online status check), zobraziť logy, vypnuz resetovat zariedenie, jednotlive pripojene veci v devices.json ovladat.
+**Zodpovednosť**: Riadiaci panel (GUI) pre obsluhu múzea (Game Mastera). Panel zobrazuje na obrazovke, čo sa reálne v miestnostiach práve deje, ktoré zariadenia sú pripojené/odpojené k sieti (online status check), poskytuje možnosť manuálne preklenúť prechody stavov alebo posielať manuálne "override" príkazy (napr. force STOP scény).
 
 ---
 
@@ -45,5 +42,3 @@ Ak budete mať vy, alebo vaša AI pochybnosti o do-hĺbkových detailoch konkré
 * `docs/museum_setup_guide.md` & `/docs/audio_playing_tutorial.md` atď.
 
 ---
-**Pokiaľ používate tento súbor na vstup (prompt) AI asistentovi:**
-Nahrajte alebo skopírujte asistenta týmto súborom a pripojte súbory zdrojových kódov (napríklad spomínaný `utils/state_machine.py`), na ktorých idete pracovať. Týmto spôsobom asistent instantne pochopí, kam váš špecifický programový kód spadá do skladačky obrovského múzejného systému a nestratí sa z kontextu bakalárskej práce.

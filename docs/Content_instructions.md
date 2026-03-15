@@ -20,6 +20,7 @@ Tieto súbory plne popisujú referenčnú produkčnú verziu kódu:
 - `Instructions_READ_FIRST/09_dashboard_api.md` (WebSockets, Flask pole API endpointov)
 - `Instructions_READ_FIRST/10_museum_backend_setup.md` (Inštalácia na Raspberry Pi, systémové práva)
 - `Instructions_READ_FIRST/11_esp32_firmware_setup.md` (Návod na kompiláciu HW a požiadavky na knižnice)
+- `Instructions_READ_FIRST/12_physical_installation.md` (Fyzická zostava expozície - exponáty, kotol, MQTT mapovanie zariadení)
 
 ---
 

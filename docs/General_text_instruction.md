@@ -17,7 +17,7 @@ Dôraz vedeckej práce je na predmete skúmania, nie na bádateľovi.
 * Používaj infinitívne konštrukcie: „je nutné analyzovať", „bolo zistené"
 
 **Autorský plurál/singulár**
-Autorský plurál („preskúmali sme") je akceptovateľný aj pre jedného autora. Autorský singulár („navrhoval by som") používaj veľmi obmedzene — výhradne tam, kde je nutné vyzdvihnúť vlastný prínos (napr. v závere).
+Autorský plurál („preskúmali sme") je akceptovateľný aj pre jedného autora. Autorský singulár („navrhoval by som") používaj veľmi obmedzene - výhradne tam, kde je nutné vyzdvihnúť vlastný prínos (napr. v závere).
 
 **Vetná štruktúra**
 Používaj zložitejšie súvetia primerané akademickému štýlu. Používaj formálne spojky:  *hoci, keďže, zatiaľ čo, avšak* .
@@ -33,16 +33,16 @@ Zátvorka s odkazom na literatúru patrí **do** vety,  **pred bodku** .
 
 ## 2. ŠTRUKTÚRA ODSEKU (Staťový odsek)
 
-Každý odsek musí byť **ucelenou významovou jednotkou** — jedna myšlienka = jeden odsek. Zamedzi roztrieštenosti textu.
+Každý odsek musí byť **ucelenou významovou jednotkou** - jedna myšlienka = jeden odsek. Zamedzi roztrieštenosti textu.
 
 1. **Topic sentence (Úvodná veta):** Prvá veta odseku musí jasne definovať, o čom odsek bude.
-2. **Telo odseku:** Podrobný popis, vysvetlenie, syntéza poznatkov — použi spojovacie výrazy:  *najprv, následne, okrem toho* .
+2. **Telo odseku:** Podrobný popis, vysvetlenie, syntéza poznatkov - použi spojovacie výrazy:  *najprv, následne, okrem toho* .
 3. **Záverečná veta:** Zhrnutie, zhodnotenie alebo logický prechod k ďalšiemu odseku.
 
 **Pravidlo pre porovnávanie:** Ak porovnávaš viacero riešení, použi:
 
-* prístup **„bod po bode"** — jeden odsek = jeden parameter pre všetky riešenia, alebo
-* **blokovú štruktúru** — jeden odsek = jedno komplexné riešenie.
+* prístup **„bod po bode"** - jeden odsek = jeden parameter pre všetky riešenia, alebo
+* **blokovú štruktúru** - jeden odsek = jedno komplexné riešenie.
 
 ---
 
@@ -69,7 +69,7 @@ Práca musí postupovať od **všeobecného** (Úvod) ku **špecifickému** (Met
 Zasadzuje prácu do kontextu už uskutočneného výskumu.
 
 * **Syntéza, nie zoznam:** Neopisuj jeden článok za druhým. Hľadaj spoločné trendy, porovnávaj metódy a poukazuj na rozdiely v literatúre.
-* **Kritický postoj:** Pri každom zdroji musí byť jasné, ako sa vzťahuje k tvojej práci — či na ňom staviaš, alebo ho vyvraciaš.
+* **Kritický postoj:** Pri každom zdroji musí byť jasné, ako sa vzťahuje k tvojej práci - či na ňom staviaš, alebo ho vyvraciaš.
 * **Časy:**
   * Pre všeobecne platné fakty z literatúry → **prítomný čas**
   * Pre historický vývoj a konkrétne uskutočnené štúdie → **minulý čas**
@@ -89,7 +89,7 @@ Podáva odpovede na:
 * Ako sú distribuované uzly prepojené s centrálnou logikou?
 * Aké pravidlá riadia správanie expozície?
 
-> **Časy:** Na popis vlastných vykonaných postupov a konštrukcie používaj výhradne **minulý čas a trpný rod** — „Súčiastka bola pripojená", „Kód bol implementovaný".
+> **Časy:** Na popis vlastných vykonaných postupov a konštrukcie používaj výhradne **minulý čas a trpný rod** - „Súčiastka bola pripojená", „Kód bol implementovaný".
 
 ---
 
@@ -111,14 +111,14 @@ Podáva odpovede na:
 
 ### 3.5 ZÁVER (Conclusion)
 
-Záver nie je len zhrnutie — je to  **prínos autora k téme** .
+Záver nie je len zhrnutie - je to  **prínos autora k téme** .
 
-1. **Pripomenutie tézy:** Začni priamo vecným konštatovaním cieľa — nepoužívaj vatu.
+1. **Pripomenutie tézy:** Začni priamo vecným konštatovaním cieľa - nepoužívaj vatu.
 2. **Zhrnutie hlavných bodov:** Aké sú najdôležitejšie výsledky hardvérového a softvérového riešenia?
 3. **Zhodnotenie (Syntéza):** Pozitíva aj negatíva navrhnutého riešenia.
 4. **Výhľad do budúcna:** Aplikácia v praxi, návrhy na konštrukčné vylepšenia alebo ďalší výskum.
 
-> ⚠️ **Upozornenie:** Do záveru nepatria žiadne nové fakty, motivácia ani detailné opisy pozadia — to patrí do úvodu.
+> ⚠️ **Upozornenie:** Do záveru nepatria žiadne nové fakty, motivácia ani detailné opisy pozadia - to patrí do úvodu.
 
 ---
 
@@ -141,10 +141,10 @@ Obsahuje striktne **5 častí** (informatívny abstrakt):
 ## 4. TYPOGRAFICKÉ A VIZUÁLNE PRAVIDLÁ
 
 * **Čísla a jednotky** oddeľuj pevnou medzerou: `10 V`, `25 °C`, `15 %`
-  * Výnimka: geometrické uhly sa píšu bez medzery — `90°`
-* **Odrážky a výpočty** musia mať jednotnú štruktúru — ak jedna odrážka začína podstatným menom, musia tak začínať všetky.
+  * Výnimka: geometrické uhly sa píšu bez medzery - `90°`
+* **Odrážky a výpočty** musia mať jednotnú štruktúru - ak jedna odrážka začína podstatným menom, musia tak začínať všetky.
 * **Rovnice** integruj do textu plynulo. Pri prvom výskyte každej rovnice vysvetli každú premennú.
 
 ---
 
-*Zdroj: Mgr. Martina Vránová, Ph.D., FSI VUT — oficiálne prezentácie k záverečným prácam*
+*Zdroj: Mgr. Martina Vránová, Ph.D., FSI VUT - oficiálne prezentácie k záverečným prácam*
