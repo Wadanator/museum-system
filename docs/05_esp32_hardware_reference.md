@@ -51,14 +51,21 @@ Podporuje priame GPIO alebo I2C Expander (napr. PCF8574).
 ---
 
 ## 3. ESP32 Button (`esp32_mqtt_button`)
-Slúži ako trigger modul pre fyzické tlačidlá umiestnené v miestnosti.
+Slúži ako trigger modul pre fyzické tlačidlá umiestnené v miestnosti. Existuje vo verzii pre Arduino IDE aj ESPHome.
 
 - **Mapovanie Pinov:**
-  - `BUTTON_PIN = 32` (Input)
+  - `BUTTON_PIN = 32` (Input pre tlačidlo s externým pull-up rezistorom, LOW = stlačené)
+  - `STATUS_LED_PIN = 25` (Voliteľný výstup vyhradený pre verziu `esp32_mqtt_button_led.yaml` v ESPHome)
 
 - **Debounce & Cooldown:**
-  - `DEBOUNCE_DELAY = 60` (ms)
+  - `DEBOUNCE_DELAY` = 60 ms (Arduino) alebo 100 ms (ESPHome)
   - `BUTTON_COOLDOWN = 4000` (ms) (Zabraňuje viacnásobnému poslaniu `START` signálu za sebou počas 4 sekúnd)
+
+- **Vizuálna odozva (ESPHome verzia s LED):**
+  - **Trvalé svietenie:** Všetko OK (WiFi aj MQTT pripojené).
+  - **Pulzovanie:** Čakanie/Výpadok WiFi spojenia.
+  - **Dvojité blikanie:** WiFi pripojené, ale výpadok MQTT.
+  - **Rýchle trojité bliknutie:** Úspešné odobratie a odoslanie stlačenia.
 
 ---
 *Tip pre AI bota: Ak programujete novú funkciu pre konkrétny ESP32 modul, vždy overte existujúce piny primárne podľa tohto dokumentu alebo podľa súborov `config.cpp` v samotnom firmvéri.*

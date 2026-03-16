@@ -28,6 +28,7 @@ Postup je pri všetkých uzloch (`esp32_mqtt_button`, `esp32_mqtt_controller_MOT
     const char* WIFI_PASSWORD = "HESLO_WIFI_SIETE";
     const char* MQTT_SERVER = "TechMuzeumRoom1.local";  // mDNS hostname alebo lokálna IP Raspberry Pi
     ```
+    *Poznámka: Projekt tlačidla ponúka aj **ESPHome** alternatívy (`esp32_mqtt_button.yaml` a `esp32_mqtt_button_led.yaml`). V ich prípade nemusíte používať Arduino IDE; kompilujete a inicializujete priamo cez ESPHome.*
 3. Uistite sa, že `MQTT_SERVER` smeruje na existujúci lokálny server vášho Raspberry Pi. Všetky zariadenia by mali bežať na rovnakej sieti bez dodatočnej filtrácie portu `1883`.
 4. Pripojte vašu ESP32 dosku cez USB k počítaču.
 5. V sekcii `Tools -> Board` vyberte **ESP32 Dev Module** (alebo iný konkrétny typ ktorý používate).
