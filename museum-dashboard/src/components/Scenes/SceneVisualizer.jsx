@@ -1,76 +1,85 @@
-import { useEffect, useCallback } from 'react';
-import ReactFlow, { 
-    Background, 
-    Controls, 
-    useNodesState, 
+import { useEffect, useCallback, useRef, useState } from 'react';
+import ReactFlow, {
+    Background,
+    Controls,
+    MiniMap,
+    useNodesState,
     useEdgesState,
     MarkerType,
-    Panel
+    Panel,
+    useReactFlow,
+    ReactFlowProvider,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import CustomFlowNode from './CustomFlowNode';
 import SmartEdge from './SmartEdge';
+import { Maximize2, Minimize2, ScanSearch } from 'lucide-react';
 
 const nodeTypes = { custom: CustomFlowNode };
-const edgeTypes = { smart: SmartEdge };
+const edgeTypes  = { smart: SmartEdge };
 
-const STYLES = {
-    default: { stroke: 'var(--secondary)', bg: 'var(--bg-hover)', color: 'var(--text-secondary)' },
-    mqtt:    { stroke: 'var(--primary)',   bg: 'var(--bg-main)',  color: 'var(--primary)' },
-    timeout: { stroke: 'var(--warning)',   bg: 'var(--warning-bg)', color: 'var(--warning-hover)' },
-    audio:   { stroke: 'var(--info)',      bg: 'var(--info-bg)',    color: 'var(--info-hover)' },
-    video:   { stroke: '#ec4899',          bg: '#fce7f3',           color: '#be185d' },
+// Edge stroke colors are read from CSS variables at layout time so we
+// never hardcode hex values here.
+const EDGE_CSS_VAR = {
+    default:     '--secondary',
+    mqttMessage: '--primary',
+    timeout:     '--warning',
+    audioEnd:    '--info',
+    videoEnd:    '--color-video',  // defined in scene-flow.css :root
 };
 
-export default function SceneVisualizer({ data, activeStateId }) {
+function getCSSVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
+// ─── Inner component (needs useReactFlow which requires a Provider above) ──
+function SceneVisualizerInner({ data, activeStateId }) {
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    const { fitView } = useReactFlow();
+    const wrapperRef = useRef(null);
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
 
     const formatAnyAction = (a) => {
         if (!a) return 'Neznámy príkaz';
         if (a.action === 'mqtt') return `${a.topic} ➔ ${a.message}`;
-        if (a.action === 'audio' || a.action === 'video') return `${a.action.toUpperCase()}: ${a.message}`;
-        return `${a.action || 'cmd'}: ${a.message || (a.topic ? a.topic : JSON.stringify(a))}`;
+        if (a.action === 'audio' || a.action === 'video')
+            return `${a.action.toUpperCase()}: ${a.message}`;
+        return `${a.action || 'cmd'}: ${a.message || a.topic || JSON.stringify(a)}`;
     };
 
     const parseStateData = (stateData) => {
-        const sections = { onEnter: [], onExit: [], timeline: [], transitions: [] };
-
-        if (stateData.onEnter)
-            stateData.onEnter.forEach(a => sections.onEnter.push(formatAnyAction(a)));
-
-        // FIX: onExit bol definovaný v schéme a backendom vykonávaný, ale frontend ho nezobrazoval
-        if (stateData.onExit)
-            stateData.onExit.forEach(a => sections.onExit.push(formatAnyAction(a)));
-
-        if (stateData.timeline) {
-            stateData.timeline.forEach(t => {
-                const actions = t.actions || (t.action ? [t] : []);
-                actions.forEach(a => sections.timeline.push({ time: t.at, text: formatAnyAction(a) }));
-            });
-        }
-        if (stateData.transitions) {
-            stateData.transitions.forEach(tr => {
-                let desc = tr.type === 'timeout' ? `⏱️ Po ${tr.delay}s` : `📩 ${tr.type}`;
-                sections.transitions.push(`${desc} ➔ GOTO: ${tr.goto}`);
-            });
-        }
-        return sections;
+        const s = { onEnter: [], onExit: [], timeline: [], transitions: [] };
+        stateData.onEnter?.forEach(a => s.onEnter.push(formatAnyAction(a)));
+        stateData.onExit?.forEach(a  => s.onExit.push(formatAnyAction(a)));
+        stateData.timeline?.forEach(t => {
+            const actions = t.actions || (t.action ? [t] : []);
+            actions.forEach(a => s.timeline.push({ time: t.at, text: formatAnyAction(a) }));
+        });
+        stateData.transitions?.forEach(tr => {
+            const desc = tr.type === 'timeout' ? `⏱️ Po ${tr.delay}s` : `📩 ${tr.type}`;
+            s.transitions.push(`${desc} ➔ GOTO: ${tr.goto}`);
+        });
+        return s;
     };
 
-    const calculateLayout = useCallback(() => {
-        if (!data || !data.states) return;
+    // ── Layout (BFS) ─────────────────────────────────────────────────────────
 
-        const newNodes = [];
-        const newEdges = [];
-        const stateKeys = Object.keys(data.states);
+    const calculateLayout = useCallback(() => {
+        if (!data?.states) return;
+
+        const newNodes   = [];
+        const newEdges   = [];
+        const stateKeys  = Object.keys(data.states);
         const startState = data.initialState || stateKeys[0];
 
-        // --- BFS Layout ---
-        const levels = {};
+        // BFS to assign depth levels
+        const levels  = {};
         const visited = new Set();
-        const queue = [{ id: startState, level: 0 }];
-        let maxDepth = 0;
+        const queue   = [{ id: startState, level: 0 }];
+        let maxDepth  = 0;
 
         while (queue.length > 0) {
             const { id, level } = queue.shift();
@@ -79,76 +88,68 @@ export default function SceneVisualizer({ data, activeStateId }) {
             if (!levels[level]) levels[level] = [];
             levels[level].push(id);
             if (level > maxDepth) maxDepth = level;
-
             data.states[id]?.transitions?.forEach(t => {
-                if (t.goto !== 'END' && data.states[t.goto] && !visited.has(t.goto)) {
+                if (t.goto !== 'END' && data.states[t.goto] && !visited.has(t.goto))
                     queue.push({ id: t.goto, level: level + 1 });
-                }
             });
         }
 
+        // Orphan nodes (unreachable from start) go on their own row
         stateKeys.forEach(key => {
             if (!visited.has(key)) {
-                const orphanLevel = maxDepth + 1;
-                if (!levels[orphanLevel]) levels[orphanLevel] = [];
-                levels[orphanLevel].push(key);
+                const lvl = maxDepth + 1;
+                if (!levels[lvl]) levels[lvl] = [];
+                levels[lvl].push(key);
             }
         });
 
-        // --- Nodes ---
-        const NODE_WIDTH = 420;
-        const LEVEL_HEIGHT = 450;
+        const NODE_WIDTH   = 360;
+        const LEVEL_HEIGHT = 430;
+        const H_GAP        = 40;
 
         Object.entries(levels).forEach(([levelStr, stateIds]) => {
-            const level = parseInt(levelStr);
-            const startX = -(stateIds.length * NODE_WIDTH / 2) + (NODE_WIDTH / 2);
+            const level      = parseInt(levelStr);
+            const totalWidth = stateIds.length * NODE_WIDTH + (stateIds.length - 1) * H_GAP;
+            const startX     = -(totalWidth / 2) + NODE_WIDTH / 2;
 
             stateIds.forEach((stateId, index) => {
-                const stateData = data.states[stateId];
-                const isActive = stateId === activeStateId;
-                const sections = parseStateData(stateData);
-
-                // FIX: totalActions zahŕňa aj onExit
+                const stateData    = data.states[stateId];
+                const sections     = parseStateData(stateData);
                 const totalActions = sections.onEnter.length + sections.onExit.length + sections.timeline.length;
 
                 newNodes.push({
                     id: stateId,
                     type: 'custom',
-                    position: { x: startX + (index * NODE_WIDTH), y: level * LEVEL_HEIGHT },
-                    className: isActive ? 'node-active' : '',
+                    position: { x: startX + index * (NODE_WIDTH + H_GAP), y: level * LEVEL_HEIGHT },
+                    className: stateId === activeStateId ? 'node-active' : '',
                     data: {
                         label: stateId,
                         type: stateId === startState ? 'start' : 'step',
                         description: stateData?.description || '',
                         sections,
                         transitionCount: stateData?.transitions?.length || 0,
-                        totalActions
-                    }
+                        totalActions,
+                    },
                 });
             });
         });
 
-        // End Node
+        // END sentinel node
         if (stateKeys.some(k => data.states[k]?.transitions?.some(t => t.goto === 'END'))) {
-            const isEndActive = activeStateId === 'END';
             newNodes.push({
                 id: 'END',
                 type: 'custom',
-                position: { x: 0, y: (maxDepth + 1) * LEVEL_HEIGHT + 100 },
-                className: isEndActive ? 'node-active' : '',
-                data: { label: 'KONIEC', type: 'end', transitionCount: 0 }
+                position: { x: 0, y: (maxDepth + 1) * LEVEL_HEIGHT + 80 },
+                className: activeStateId === 'END' ? 'node-active' : '',
+                data: { label: 'KONIEC', type: 'end', transitionCount: 0 },
             });
         }
 
-        // --- Edges ---
+        // Edges
         stateKeys.forEach(stateName => {
             data.states[stateName].transitions?.forEach((trans, idx) => {
-                let styleConfig = STYLES.default;
-                if (trans.type === 'mqttMessage') styleConfig = STYLES.mqtt;
-                else if (trans.type === 'timeout') styleConfig = STYLES.timeout;
-                else if (trans.type === 'audioEnd') styleConfig = STYLES.audio;
-                else if (trans.type === 'videoEnd') styleConfig = STYLES.video;
-
+                const varName     = EDGE_CSS_VAR[trans.type] ?? EDGE_CSS_VAR.default;
+                const strokeColor = getCSSVar(varName) || '#64748b';
                 newEdges.push({
                     id: `e-${stateName}-${trans.goto}-${idx}`,
                     source: stateName,
@@ -156,26 +157,111 @@ export default function SceneVisualizer({ data, activeStateId }) {
                     sourceHandle: `handle-${idx}`,
                     type: 'smart',
                     label: trans.type === 'timeout' ? `⏱️ ${trans.delay}s` : '',
-                    style: { stroke: styleConfig.stroke, strokeWidth: 2 },
-                    markerEnd: { type: MarkerType.ArrowClosed, color: styleConfig.stroke },
-                    animated: activeStateId === stateName
+                    style: { stroke: strokeColor, strokeWidth: 2 },
+                    markerEnd: { type: MarkerType.ArrowClosed, color: strokeColor },
+                    animated: activeStateId === stateName,
                 });
             });
         });
 
         setNodes(newNodes);
         setEdges(newEdges);
-    }, [data, setNodes, setEdges, activeStateId]);
+    }, [data, activeStateId, setNodes, setEdges]);
 
     useEffect(() => { calculateLayout(); }, [calculateLayout]);
 
+    // ── fitView — fires only when scene changes (node count changes) ─────────
+    //
+    // KEY FIX: dependency is [nodes] but we guard with prevNodeCountRef.
+    // - expand/collapse  → same node count → skipped ✓
+    // - drag             → same node count → skipped ✓
+    // - activeStateId    → same node count → skipped ✓
+    // - new scene loaded → count changes   → fitView fires ✓
+    const prevNodeCountRef = useRef(0);
+    useEffect(() => {
+        const count = nodes.length;
+        if (count === 0 || count === prevNodeCountRef.current) return;
+        prevNodeCountRef.current = count;
+        const t = setTimeout(() => fitView({ padding: 0.15, duration: 400 }), 50);
+        return () => clearTimeout(t);
+    }, [nodes, fitView]);
+
+    // ── Fullscreen ───────────────────────────────────────────────────────────
+    const fullscreenTimerRef = useRef(null);
+
+    const toggleFullscreen = useCallback(() => {
+        clearTimeout(fullscreenTimerRef.current);
+        setIsFullscreen(prev => !prev);
+        fullscreenTimerRef.current = setTimeout(
+            () => fitView({ padding: 0.15, duration: 300 }), 350
+        );
+    }, [fitView]);
+
+    useEffect(() => () => clearTimeout(fullscreenTimerRef.current), []);
+
+    useEffect(() => {
+        const onKey = (e) => { if (e.key === 'Escape' && isFullscreen) setIsFullscreen(false); };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [isFullscreen]);
+
+    // ── Render ───────────────────────────────────────────────────────────────
     return (
-        <div className="flow-wrapper">
-            <ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onEdgesChange={onEdgesChange} nodeTypes={nodeTypes} edgeTypes={edgeTypes} fitView>
-                <Background color="var(--border-color)" gap={30} size={1} />
+        <div
+            ref={wrapperRef}
+            className={`flow-wrapper${isFullscreen ? ' flow-fullscreen' : ''}`}
+            onWheel={(e) => e.stopPropagation()}
+        >
+            <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
+                minZoom={0.05}
+                maxZoom={2}
+                attributionPosition="bottom-left"
+                preventScrolling
+                panOnDrag
+                nodeDragThreshold={5}
+                zoomOnScroll
+                zoomOnPinch
+                panOnScroll={false}
+            >
+                <Background color="var(--border-color)" gap={24} size={1.5} variant="dots" />
                 <Controls showInteractive={false} />
-                <Panel position="top-right" className="flow-legend-panel">
-                    <div className="legend-title">Legenda prechodov</div>
+
+                <MiniMap
+                    className="flow-minimap"
+                    maskColor="var(--minimap-mask)"
+                    nodeColor={(n) => {
+                        if (n.data?.type === 'start')             return getCSSVar('--success')  || '#10b981';
+                        if (n.data?.type === 'end')               return getCSSVar('--danger')   || '#f43f5e';
+                        if (n.className?.includes('node-active')) return getCSSVar('--primary')  || '#6366f1';
+                        return getCSSVar('--secondary') || '#64748b';
+                    }}
+                />
+
+                <Panel position="top-right" className="flow-top-panel">
+                    <button
+                        className="flow-icon-btn"
+                        onClick={() => fitView({ padding: 0.15, duration: 400 })}
+                        title="Prispôsobiť zobrazenie"
+                    >
+                        <ScanSearch size={16} />
+                    </button>
+                    <button
+                        className="flow-icon-btn"
+                        onClick={toggleFullscreen}
+                        title={isFullscreen ? 'Zatvoriť (Esc)' : 'Celá obrazovka'}
+                    >
+                        {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                    </button>
+                </Panel>
+
+                <Panel position="bottom-left" className="flow-legend-panel">
+                    <div className="legend-title">Prechody</div>
                     <div className="legend-item"><div className="legend-dot dot-mqtt"></div><span>MQTT</span></div>
                     <div className="legend-item"><div className="legend-dot dot-timeout"></div><span>Časovač</span></div>
                     <div className="legend-item"><div className="legend-dot dot-audio"></div><span>Audio koniec</span></div>
@@ -183,5 +269,14 @@ export default function SceneVisualizer({ data, activeStateId }) {
                 </Panel>
             </ReactFlow>
         </div>
+    );
+}
+
+// ─── Public export ──────────────────────────────────────────────────────────
+export default function SceneVisualizer({ data, activeStateId }) {
+    return (
+        <ReactFlowProvider>
+            <SceneVisualizerInner data={data} activeStateId={activeStateId} />
+        </ReactFlowProvider>
     );
 }

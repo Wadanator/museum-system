@@ -1,15 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Save, X, AlertTriangle, Code, Workflow } from 'lucide-react';
 import Button from '../ui/Button';
-import JsonEditor from '../Shared/JsonEditor'; 
+import JsonEditor from '../Shared/JsonEditor';
 import SceneVisualizer from './SceneVisualizer';
 
-/* DÔLEŽITÉ: Uistite sa, že cesta k CSS je správna */
 import '../../styles/views/scene-editor.css';
-import '../../styles/views/scene-flow.css'; 
+import '../../styles/views/scene-flow.css';
 
 export default function SceneEditorModal({ isOpen, onClose, filename, initialContent, onSave }) {
-    // ... (state premenné ostávajú rovnaké: jsonString, jsonObj, isValid, activeTab) ...
     const [jsonString, setJsonString] = useState('');
     const [jsonObj, setJsonObj] = useState([]);
     const [isValid, setIsValid] = useState(true);
@@ -30,7 +28,7 @@ export default function SceneEditorModal({ isOpen, onClose, filename, initialCon
             const parsed = JSON.parse(value);
             setJsonObj(parsed);
             setIsValid(true);
-        } catch (e) {
+        } catch {
             setIsValid(false);
         }
     };
@@ -49,25 +47,31 @@ export default function SceneEditorModal({ isOpen, onClose, filename, initialCon
 
     return (
         <div className="modal-overlay">
+            {/* KEY FIX: large-editor uses display:flex + flex-direction:column.
+                Every child in the chain needs min-height:0 so ReactFlow
+                can correctly fill the remaining space. */}
             <div className="modal-content large-editor">
-                {/* Header */}
+
+                {/* ── Header ─────────────────────────────────────────── */}
                 <div className="modal-header">
                     <div className="modal-title-group">
                         <h3>Úprava scény</h3>
                         <span className="file-badge">{filename}</span>
                     </div>
-                    <button className="close-btn" onClick={onClose}><X size={20} /></button>
+                    <button className="close-btn" onClick={onClose}>
+                        <X size={20} />
+                    </button>
                 </div>
 
-                {/* Tabs */}
+                {/* ── Tabs ───────────────────────────────────────────── */}
                 <div className="editor-tabs">
-                    <button 
+                    <button
                         className={`editor-tab-btn ${activeTab === 'code' ? 'active' : ''}`}
                         onClick={() => setActiveTab('code')}
                     >
                         <Code size={16} /> JSON Editor
                     </button>
-                    <button 
+                    <button
                         className={`editor-tab-btn ${activeTab === 'visual' ? 'active' : ''}`}
                         onClick={() => setActiveTab('visual')}
                         disabled={!isValid}
@@ -76,25 +80,18 @@ export default function SceneEditorModal({ isOpen, onClose, filename, initialCon
                     </button>
                 </div>
 
-                {/* Body - TU BOLA CHYBA VÝŠKY */}
-                {/* Pridali sme style={{ flex: 1, overflow: 'hidden' }} aby sa to roztiahlo */}
-                <div className="modal-body-editor" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    
+                {/* ── Body — this is the flex-grow area ─────────────── */}
+                {/* min-height: 0 is the critical fix for flex children   */}
+                <div className="modal-body-editor">
                     {activeTab === 'code' ? (
-                        <JsonEditor 
-                            value={jsonString} 
-                            onChange={handleCodeChange} 
-                        />
+                        <JsonEditor value={jsonString} onChange={handleCodeChange} />
                     ) : (
-                        /* Obalíme Visualizer do wrapperu s height: 100% */
-                        <div className="flow-wrapper">
-                             <SceneVisualizer data={jsonObj} />
-                        </div>
+                        // SceneVisualizer already renders .flow-wrapper with height:100%
+                        <SceneVisualizer data={jsonObj} />
                     )}
-
                 </div>
 
-                {/* Footer */}
+                {/* ── Footer ─────────────────────────────────────────── */}
                 <div className="modal-footer">
                     <div className="validation-status">
                         {!isValid && (
@@ -105,11 +102,17 @@ export default function SceneEditorModal({ isOpen, onClose, filename, initialCon
                     </div>
                     <div className="footer-buttons">
                         <Button variant="secondary" onClick={onClose}>Zrušiť</Button>
-                        <Button variant="primary" onClick={handleSave} disabled={!isValid} icon={Save}>
+                        <Button
+                            variant="primary"
+                            onClick={handleSave}
+                            disabled={!isValid}
+                            icon={Save}
+                        >
                             Uložiť zmeny
                         </Button>
                     </div>
                 </div>
+
             </div>
         </div>
     );
