@@ -1,32 +1,39 @@
 import { useState, useEffect } from 'react';
 import { socket } from '../services/socket';
+import { api } from '../services/api';
 
 export function useLogs() {
     const [logs, setLogs] = useState([]);
     const [isConnected, setIsConnected] = useState(socket.connected);
 
     useEffect(() => {
-        // 1. Načítanie histórie po pripojení (backend posiela chronologicky, my otáčame)
         const handleLogHistory = (history) => {
             if (Array.isArray(history)) {
                 setLogs([...history].reverse());
             }
         };
 
-        // 2. Nový log pridáme na začiatok
         const handleNewLog = (logEntry) => {
-            setLogs(prev => [logEntry, ...prev].slice(0, 200)); // Držíme max 200 riadkov
+            setLogs(prev => [logEntry, ...prev].slice(0, 200));
         };
 
-        const handleConnect = () => setIsConnected(true);
+        // Backend emituje 'logs_cleared' po úspešnom vymazaní
+        const handleLogsCleared = () => {
+            setLogs([]);
+        };
+
+        const handleConnect = () => {
+            setIsConnected(true);
+            socket.emit('request_logs');
+        };
         const handleDisconnect = () => setIsConnected(false);
 
         socket.on('log_history', handleLogHistory);
         socket.on('new_log', handleNewLog);
+        socket.on('logs_cleared', handleLogsCleared);
         socket.on('connect', handleConnect);
         socket.on('disconnect', handleDisconnect);
-        
-        // Vyžiadanie histórie ak sme už pripojení
+
         if (socket.connected) {
             socket.emit('request_logs');
         }
@@ -34,12 +41,20 @@ export function useLogs() {
         return () => {
             socket.off('log_history', handleLogHistory);
             socket.off('new_log', handleNewLog);
+            socket.off('logs_cleared', handleLogsCleared);
             socket.off('connect', handleConnect);
             socket.off('disconnect', handleDisconnect);
         };
     }, []);
 
-    const clearLogs = () => setLogs([]);
+    const clearLogs = async () => {
+        setLogs([]);
+        try {
+            await api.clearLogs();
+        } catch (e) {
+            console.error('Failed to clear logs on backend:', e);
+        }
+    };
 
     return { logs, isConnected, clearLogs };
 }

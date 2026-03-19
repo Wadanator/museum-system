@@ -14,7 +14,8 @@ import socket
 import time
 import psutil
 import signal
-from threading import Lock
+from threading import RLock  # RLock prevents deadlock when _check_process_health
+from typing import Callable, Optional       # calls _restart_mpv → _start_mpv on same thread
 from utils.logging_setup import get_logger
 
 
@@ -26,9 +27,13 @@ class VideoHandler:
     dispatch. Displays a black idle image when no video is playing.
     """
 
-    def __init__(self, video_dir=None, ipc_socket=None, iddle_image=None,
-                 logger=None, health_check_interval=60, max_restart_attempts=3,
-                 restart_cooldown=60):
+    def __init__(self, video_dir: Optional[str] = None,
+                 ipc_socket: Optional[str] = None,
+                 iddle_image: Optional[str] = None,
+                 logger: Optional[logging.Logger] = None,
+                 health_check_interval: int = 60,
+                 max_restart_attempts: int = 3,
+                 restart_cooldown: int = 60) -> None:
         """
         Initialize the video handler and start the mpv process.
 
@@ -49,8 +54,11 @@ class VideoHandler:
         )
         self.logger = logger or get_logger('video')
         self.process = None
-        self.currently_playing = None
-        self.process_lock = Lock()
+        self.currently_playing: Optional[str] = None
+
+        # RLock instead of Lock — prevents deadlock when the same thread calls:
+        # _check_process_health (holds lock) → _restart_mpv → _start_mpv (needs lock)
+        self.process_lock = RLock()
 
         self.health_check_interval = health_check_interval
         self.max_restart_attempts = max_restart_attempts
@@ -61,34 +69,78 @@ class VideoHandler:
         self.last_restart_time = 0
 
         # Video end callback
-        self.end_callback = None
+        self.end_callback: Optional[Callable[[str], None]] = None
         self.was_playing = False
+
+        # Detect hardware decoding backend once at startup
+        self._hwdec: str = self._detect_hwdec()
 
         os.makedirs(self.video_dir, exist_ok=True)
         self._ensure_iddle_image()
         self._start_mpv()
         self.logger.info("Video handler initialized")
 
-    def _ensure_iddle_image(self):
+    # ==========================================================================
+    # HARDWARE DETECTION
+    # ==========================================================================
+
+    def _detect_hwdec(self) -> str:
+        """
+        Detect the correct hardware decoding backend for this OS.
+
+        Uses /etc/debian_version to determine the OS generation:
+        - Bullseye = Debian 11 → rpi4-mmal (MMAL available)
+        - Bookworm = Debian 12+ → v4l2 (MMAL removed in 64-bit kernel)
+
+        This is more reliable than testing mpv directly because mpv returns
+        a non-zero exit code for invalid input regardless of hwdec support.
+
+        Returns:
+            str: The --hwdec value to pass to mpv.
+        """
+        try:
+            result = subprocess.run(
+                ['cat', '/etc/debian_version'],
+                capture_output=True, text=True, timeout=3
+            )
+            version_str = result.stdout.strip()
+            major = int(version_str.split('.')[0])
+            if major >= 12:
+                self.logger.info("Hardware decoding: v4l2 (Bookworm / Debian 12+)")
+                return 'v4l2'
+        except Exception:
+            pass
+
+        # Bullseye (Debian 11) or unknown — default to MMAL
+        self.logger.info("Hardware decoding: rpi4-mmal (Bullseye / Debian 11)")
+        return 'rpi4-mmal'
+
+    # ==========================================================================
+    # SETUP
+    # ==========================================================================
+
+    def _ensure_iddle_image(self) -> None:
         """
         Create a black idle image using pygame if it does not already exist.
 
-        Used as the default display when no video is playing. Logs an error
-        if image creation fails.
+        Avoids calling pygame.quit() to prevent interference with the
+        AudioHandler's pygame.mixer which may already be running.
         """
         if not os.path.exists(self.iddle_image):
             try:
                 import pygame
-                pygame.init()
+                # Only init display, not the full pygame stack — avoids
+                # killing pygame.mixer if AudioHandler already started it
+                if not pygame.get_init():
+                    pygame.init()
                 surface = pygame.Surface((640, 480))
                 surface.fill((0, 0, 0))
                 pygame.image.save(surface, self.iddle_image)
-                pygame.quit()
                 self.logger.debug(f"Created black image at {self.iddle_image}")
             except Exception as e:
                 self.logger.error(f"Failed to create black image: {e}")
 
-    def _cleanup_socket(self):
+    def _cleanup_socket(self) -> None:
         """Remove the IPC socket file if it exists."""
         if os.path.exists(self.ipc_socket):
             try:
@@ -100,20 +152,23 @@ class VideoHandler:
             except Exception as e:
                 self.logger.error(f"Socket cleanup failed: {e}")
 
-    def _kill_existing_mpv_processes(self):
+    def _kill_existing_mpv_processes(self) -> None:
         """
         Kill any existing mpv processes that are using the same IPC socket.
 
         Prevents socket conflicts when restarting mpv.
         """
-        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
-            if proc.info['name'] == 'mpv' and any(
-                self.ipc_socket in arg
-                for arg in (proc.info['cmdline'] or [])
-            ):
-                proc.kill()
+        try:
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+                if proc.info['name'] == 'mpv' and any(
+                    self.ipc_socket in arg
+                    for arg in (proc.info['cmdline'] or [])
+                ):
+                    proc.kill()
+        except Exception as e:
+            self.logger.debug(f"Error killing existing mpv processes: {e}")
 
-    def _check_tmp_permissions(self):
+    def _check_tmp_permissions(self) -> bool:
         """
         Verify that /tmp is writable for IPC socket creation.
 
@@ -125,7 +180,11 @@ class VideoHandler:
             return False
         return True
 
-    def _start_mpv(self):
+    # ==========================================================================
+    # MPV LIFECYCLE
+    # ==========================================================================
+
+    def _start_mpv(self) -> bool:
         """
         Start the mpv process with IPC socket and hardware decoding options.
 
@@ -153,11 +212,10 @@ class VideoHandler:
 
             cmd = [
                 'mpv', '--fs', '--no-osc', '--no-osd-bar', '--vo=gpu',
-                ##'--hwdec=rpi4-mmal',
-                '--hwdec=rpi4-mmal',
-                '--cache=no',
-                '--demuxer-max-bytes=3M',
-                '--profile=low-latency',
+                f'--hwdec={self._hwdec}',
+                '--image-display-duration=inf',
+                '--cache=yes',
+                '--demuxer-max-bytes=50M',
                 '--loop-file=inf',
                 '--idle=yes',
                 '--no-input-default-bindings', '--input-conf=/dev/null', '--quiet',
@@ -170,7 +228,6 @@ class VideoHandler:
                 self.logger.debug(
                     f"Starting mpv with command: {' '.join(cmd)}"
                 )
-                # Use setsid to create a new process group for clean teardown
                 self.process = subprocess.Popen(
                     cmd,
                     stdout=subprocess.DEVNULL,
@@ -189,15 +246,17 @@ class VideoHandler:
                             "MPV process started and IPC socket created"
                         )
                         return True
+
                 self.logger.error("IPC socket not created after retries")
                 self._stop_current_process()
                 return False
+
             except Exception as e:
                 self.logger.error(f"MPV start error: {e}")
                 self.process = None
                 return False
 
-    def _stop_current_process(self):
+    def _stop_current_process(self) -> None:
         """
         Terminate the current mpv process and clean up the IPC socket.
 
@@ -208,46 +267,21 @@ class VideoHandler:
             try:
                 self.process.terminate()
                 self.process.wait(timeout=3)
-            except:
-                # Force kill the entire process group if graceful termination fails
-                os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
+            except Exception:
+                try:
+                    os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
+                except Exception as e:
+                    self.logger.debug(f"Force kill failed: {e}")
         self.process = None
         self.currently_playing = None
         self._cleanup_socket()
 
-    def _check_process_health(self):
-        """
-        Check mpv process health at the configured interval.
-
-        Skips the check if the interval has not elapsed. Verifies the
-        process is alive, the socket exists, and responds to an IPC ping.
-        Triggers a restart if any check fails.
-
-        Returns:
-            bool: True if the process is healthy or the check was skipped,
-                False if restart failed.
-        """
-        if time.time() - self.last_health_check < self.health_check_interval:
-            return True
-        self.last_health_check = time.time()
-
-        with self.process_lock:
-            if (not self.process or self.process.poll() is not None
-                    or not os.path.exists(self.ipc_socket)):
-                return self._restart_mpv()
-            try:
-                # Send a lightweight IPC ping to verify responsiveness
-                with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
-                    sock.settimeout(2)
-                    sock.connect(self.ipc_socket)
-                    sock.send(b'{"command": ["get_property", "pause"]}\n')
-                return True
-            except:
-                return self._restart_mpv()
-
-    def _restart_mpv(self):
+    def _restart_mpv(self) -> bool:
         """
         Attempt to restart the mpv process within retry and cooldown limits.
+
+        NOTE: Must NOT be called while holding process_lock with a plain Lock.
+        Uses RLock so the same thread can safely re-enter _start_mpv.
 
         Returns:
             bool: True if restart succeeded, False if limits are exceeded.
@@ -259,13 +293,60 @@ class VideoHandler:
                 f"attempts or in cooldown"
             )
             return False
+
         self.restart_count += 1
         self.last_restart_time = time.time()
         self._stop_current_process()
         time.sleep(2)
         return self._start_mpv()
 
-    def _send_ipc_command(self, command, get_response=False):
+    # ==========================================================================
+    # HEALTH CHECK
+    # ==========================================================================
+
+    def _check_process_health(self) -> bool:
+        """
+        Check mpv process health at the configured interval.
+
+        Skips the check if the interval has not elapsed. Verifies the
+        process is alive, the socket exists, and responds to an IPC ping.
+        Triggers a restart if any check fails.
+
+        Safe to call from within process_lock because RLock allows
+        re-entrant acquisition by the same thread.
+
+        Returns:
+            bool: True if the process is healthy or the check was skipped,
+                False if restart failed.
+        """
+        if time.time() - self.last_health_check < self.health_check_interval:
+            return True
+        self.last_health_check = time.time()
+
+        with self.process_lock:
+            # Check 1: process alive and socket exists
+            if (not self.process or self.process.poll() is not None
+                    or not os.path.exists(self.ipc_socket)):
+                self.logger.warning("MPV health check failed: process or socket missing")
+                return self._restart_mpv()
+
+            # Check 2: IPC socket responds
+            try:
+                with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+                    sock.settimeout(2)
+                    sock.connect(self.ipc_socket)
+                    sock.send(b'{"command": ["get_property", "pause"]}\n')
+                return True
+            except Exception:
+                self.logger.warning("MPV health check failed: IPC not responding")
+                return self._restart_mpv()
+
+    # ==========================================================================
+    # IPC COMMUNICATION
+    # ==========================================================================
+
+    def _send_ipc_command(self, command: list,
+                          get_response: bool = False) -> object:
         """
         Send a JSON command to mpv via the Unix IPC socket.
 
@@ -306,29 +387,27 @@ class VideoHandler:
                     return False if not get_response else None
 
                 if get_response:
-                    response = json.loads(response_line)
-                    return response
-                else:
-                    return True
+                    return json.loads(response_line)
+                return True
 
         except socket.timeout:
             self.logger.error(f"IPC command timed out: {command}")
             # Timeout likely means mpv has frozen — restart to recover
             self._restart_mpv()
             return False if not get_response else None
+
         except Exception as e:
             self.logger.error(
-                f"IPC command failed with exception: {e} for command: {command}"
+                f"IPC command failed: {e} for command: {command}"
             )
             self._restart_mpv()
             return False if not get_response else None
 
-        except Exception as e:
-            self.logger.error(f"IPC command failed: {e}")
-            self._restart_mpv()
-            return False if not get_response else None
+    # ==========================================================================
+    # PUBLIC PLAYBACK API
+    # ==========================================================================
 
-    def handle_command(self, message):
+    def handle_command(self, message: str) -> bool:
         """
         Parse and execute a video command string.
 
@@ -367,12 +446,14 @@ class VideoHandler:
             )
             return False
 
-    def play_video(self, video_file):
+    def play_video(self, video_file: str) -> bool:
         """
         Load and play a video file in mpv.
 
         Disables looping before loading so end-of-file detection works.
-        Validates the file path and extension before sending the IPC command.
+        Appends the idle image to the playlist so mpv transitions to it
+        instantly when the video ends — eliminates the console flicker
+        that occurs during the Python polling gap.
 
         Args:
             video_file: Filename of the video to play (relative to video_dir).
@@ -393,13 +474,20 @@ class VideoHandler:
         # Disable looping so the end-of-file event fires naturally
         self._send_ipc_command(["set_property", "loop-file", "no"])
 
-        if self._send_ipc_command(["loadfile", full_path]):
-            self.currently_playing = video_file
-            self.logger.info(f"Playing: {video_file}")
-            return True
-        return False
+        # Load video as current item
+        if not self._send_ipc_command(["loadfile", full_path, "replace"]):
+            return False
 
-    def stop_video(self):
+        # Append black.png as the next playlist item — mpv transitions to it
+        # immediately when the video ends, before Python polling detects the change.
+        # This prevents the ~20ms console flicker between video end and stop_video().
+        self._send_ipc_command(["loadfile", self.iddle_image, "append"])
+
+        self.currently_playing = video_file
+        self.logger.info(f"Playing: {video_file}")
+        return True
+
+    def stop_video(self) -> bool:
         """
         Stop video playback and return to the idle image.
 
@@ -408,7 +496,6 @@ class VideoHandler:
         Returns:
             bool: True if the idle image was loaded successfully, False otherwise.
         """
-        # Re-enable looping for the idle image
         self._send_ipc_command(["set_property", "loop-file", "inf"])
 
         if self._send_ipc_command(
@@ -417,7 +504,7 @@ class VideoHandler:
             return True
         return False
 
-    def pause_video(self):
+    def pause_video(self) -> bool:
         """
         Pause the currently playing video.
 
@@ -426,7 +513,7 @@ class VideoHandler:
         """
         return self._send_ipc_command(["set_property", "pause", True])
 
-    def resume_video(self):
+    def resume_video(self) -> bool:
         """
         Resume a paused video.
 
@@ -435,7 +522,7 @@ class VideoHandler:
         """
         return self._send_ipc_command(["set_property", "pause", False])
 
-    def seek_video(self, seconds):
+    def seek_video(self, seconds: float) -> bool:
         """
         Seek to an absolute position in the current video.
 
@@ -447,29 +534,11 @@ class VideoHandler:
         """
         return self._send_ipc_command(["seek", seconds, "absolute"])
 
-    def is_playing(self):
-        """
-        Check whether a video (not the idle image) is currently playing.
+    # ==========================================================================
+    # END-OF-VIDEO DETECTION
+    # ==========================================================================
 
-        Queries the mpv idle-active property via IPC to determine playback state.
-
-        Returns:
-            bool: True if a video is actively playing, False otherwise.
-        """
-        if self.currently_playing == os.path.basename(self.iddle_image):
-            return False
-
-        response = self._send_ipc_command(
-            ["get_property", "idle-active"], get_response=True
-        )
-
-        if response and response.get("error") == "success":
-            is_idle = response.get("data", True)
-            return not is_idle
-
-        return False
-
-    def set_end_callback(self, callback):
+    def set_end_callback(self, callback: Callable[[str], None]) -> None:
         """
         Register a callback to be invoked when a video finishes playing.
 
@@ -479,7 +548,7 @@ class VideoHandler:
         """
         self.end_callback = callback
 
-    def check_if_ended(self):
+    def check_if_ended(self) -> None:
         """
         Detect natural video end and invoke the end callback.
 
@@ -497,12 +566,44 @@ class VideoHandler:
 
             self.stop_video()
 
-            if self.end_callback:
+            if self.end_callback and finished_file:
                 self.end_callback(finished_file)
 
         self.was_playing = is_playing_now
 
-    def cleanup(self):
+    # ==========================================================================
+    # STATUS
+    # ==========================================================================
+
+    def is_playing(self) -> bool:
+        """
+        Return True if a video (not the idle image) is currently playing.
+
+        Checks the current mpv 'path' property instead of 'idle-active'
+        because --image-display-duration=inf keeps mpv in non-idle state
+        even when showing the black idle image.
+        """
+        if self.currently_playing == os.path.basename(self.iddle_image):
+            return False
+
+        response = self._send_ipc_command(
+            ["get_property", "path"], get_response=True
+        )
+
+        if response and response.get("error") == "success":
+            current_path = response.get("data") or ""
+            # If mpv switched to the idle image, the video has ended
+            if os.path.basename(current_path) == os.path.basename(self.iddle_image):
+                return False
+            return bool(current_path)
+
+        return False
+
+    # ==========================================================================
+    # CLEANUP
+    # ==========================================================================
+
+    def cleanup(self) -> None:
         """Stop the mpv process and kill any remaining mpv instances."""
         self._stop_current_process()
         self._kill_existing_mpv_processes()

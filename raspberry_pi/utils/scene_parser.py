@@ -143,7 +143,7 @@ class SceneParser:
         # --- Dynamic Preloading Start ---
         # Scan scene data from state_machine and preload all SFX files into RAM
         if self.audio_handler and self.state_machine.scene_data:
-            self.logger.info("Scanning scene for audio files...")
+            self.logger.debug("Scanning scene for audio files...")
             required_audio = set()
 
             # 1. Collect all audio filenames referenced in the scene
@@ -156,7 +156,7 @@ class SceneParser:
                 # 2. Send list to AudioHandler for RAM preloading (acts as a loading screen)
                 self.audio_handler.preload_files_for_scene(list(required_audio))
             else:
-                self.logger.info("No audio files found in scene structure.")
+                self.logger.debug("No audio files found in scene structure.")
         # --- Dynamic Preloading End ---
 
         self.transition_manager.clear_events()

@@ -112,7 +112,7 @@ class StateMachine:
         self.reset_runtime_state()
         self.total_states = len(self.states)
 
-        self.logger.info(
+        self.logger.debug(
             f"State machine loaded: {self.scene_id} ({self.total_states} states)"
         )
         return True

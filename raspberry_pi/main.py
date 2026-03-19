@@ -7,6 +7,7 @@ import time
 import threading
 import subprocess
 import logging
+from pathlib import Path
 
 # Configure Python path for module imports
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -23,6 +24,9 @@ ServiceContainer = None
 SceneParser = None
 start_web_dashboard = None
 
+# State file read by watchdog.py before deciding to restart the service.
+# Written 'running' when a scene starts, 'idle' when it ends.
+_SCENE_STATE_FILE = Path('/tmp/museum_scene_state')
 
 
 def _initialize_runtime():
@@ -194,6 +198,13 @@ class MuseumController:
             
             self.scene_running = True
             log.info(log_message)
+
+            # Notify watchdog that a scene is active — prevents restart mid-presentation
+            try:
+                _SCENE_STATE_FILE.write_text('running')
+            except OSError:
+                pass
+
             if self.web_dashboard:
                 self.web_dashboard.broadcast_status()
 
@@ -251,6 +262,12 @@ class MuseumController:
                     if self.scene_running:
                         self.broadcast_stop()
                         self.scene_running = False
+
+                    # Notify watchdog that the scene finished — restart is now safe
+                    try:
+                        _SCENE_STATE_FILE.write_text('idle')
+                    except OSError:
+                        pass
 
                     if self.web_dashboard:
                         self.web_dashboard.broadcast_status()
