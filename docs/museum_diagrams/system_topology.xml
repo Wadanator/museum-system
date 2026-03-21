@@ -1,0 +1,56 @@
+<mxGraphModel dx="983" dy="512" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+    <mxCell id="cluster_rpi" parent="1" style="swimlane;startSize=30;fillColor=#C8F5E8;strokeColor=#3AAF80;strokeWidth=2;fontFamily=Helvetica;fontSize=11;fontColor=#0E3325;fontStyle=1;rounded=1;" value="Raspberry Pi" vertex="1">
+      <mxGeometry height="220" width="310" x="160" y="60" as="geometry" />
+    </mxCell>
+    <mxCell id="rpi" parent="cluster_rpi" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8F5E8;strokeColor=#3AAF80;strokeWidth=2;fontFamily=Helvetica;fontSize=10;fontStyle=1;" value="Centrálny Riadiaci Kód" vertex="1">
+      <mxGeometry height="50" width="130" x="20" y="50" as="geometry" />
+    </mxCell>
+    <mxCell id="broker" parent="cluster_rpi" style="ellipse;whiteSpace=wrap;html=1;fillColor=#FFE8D8;strokeColor=#E07A50;strokeWidth=2;fontFamily=Helvetica;fontSize=10;" value="MQTT Broker" vertex="1">
+      <mxGeometry height="50" width="110" x="180" y="90" as="geometry" />
+    </mxCell>
+    <mxCell id="dashboard" parent="cluster_rpi" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAE4FF;strokeColor=#8B6FCC;strokeWidth=1.8;fontFamily=Helvetica;fontSize=10;" value="Webový dashboard" vertex="1">
+      <mxGeometry height="50" width="130" x="20" y="130" as="geometry" />
+    </mxCell>
+    <mxCell id="e1" edge="1" parent="cluster_rpi" source="rpi" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#1A1A2E;strokeWidth=2;endArrow=none;" target="broker" value="">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e2" edge="1" parent="cluster_rpi" source="rpi" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#1A1A2E;strokeWidth=2;endArrow=none;" target="dashboard" value="">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="browser" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8F8FC;strokeColor=#C8C8DC;strokeWidth=1.2;fontFamily=Helvetica;fontSize=10;dashed=1;" value="Obsluha múzea" vertex="1">
+      <mxGeometry height="50" width="130" x="180" y="330" as="geometry" />
+    </mxCell>
+    <mxCell id="esp_relay" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D0EEFF;strokeColor=#7BBCE8;strokeWidth=1.8;fontFamily=Helvetica;fontSize=10;" value="ESP32&#xa;Reléový uzol" vertex="1">
+      <mxGeometry height="50" width="130" x="510" y="230" as="geometry" />
+    </mxCell>
+    <mxCell id="esp_motor" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D0EEFF;strokeColor=#7BBCE8;strokeWidth=1.8;fontFamily=Helvetica;fontSize=10;" value="ESP32&#xa;Motorický uzol" vertex="1">
+      <mxGeometry height="50" width="130" x="640" y="150" as="geometry" />
+    </mxCell>
+    <mxCell id="esp_input" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#D0EEFF;strokeColor=#7BBCE8;strokeWidth=1.8;fontFamily=Helvetica;fontSize=10;" value="ESP32&#xa;Tlačidlový uzol" vertex="1">
+      <mxGeometry height="50" width="130" x="510" y="60" as="geometry" />
+    </mxCell>
+    <mxCell id="e3" edge="1" parent="1" source="dashboard" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#8B6FCC;dashed=1;fontFamily=Helvetica;fontSize=8;fontColor=#5A5A7A;endArrow=block;startArrow=block;startFill=0;endFill=0;" target="browser" value="Socket.IO / HTTP">
+      <mxGeometry relative="1" x="0.5556" y="45" as="geometry">
+        <mxPoint as="offset" />
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="e4" edge="1" parent="1" source="broker" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#4A9FD4;fontFamily=Helvetica;fontSize=8;fontColor=#5A5A7A;endArrow=block;startArrow=block;startFill=0;endFill=0;" target="esp_relay" value="Wi-Fi / MQTT">
+      <mxGeometry relative="1" x="-0.3333" y="15" as="geometry">
+        <mxPoint as="offset" />
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="e5" edge="1" parent="1" source="broker" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#4A9FD4;fontFamily=Helvetica;fontSize=8;fontColor=#5A5A7A;endArrow=block;startArrow=block;startFill=0;endFill=0;" target="esp_motor" value="Wi-Fi / MQTT">
+      <mxGeometry relative="1" x="0.6842" y="-35" as="geometry">
+        <mxPoint as="offset" />
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="e6" edge="1" parent="1" source="broker" style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#4A9FD4;fontFamily=Helvetica;fontSize=8;fontColor=#5A5A7A;endArrow=block;startArrow=block;startFill=0;endFill=0;" target="esp_input" value="Wi-Fi / MQTT">
+      <mxGeometry relative="1" x="0.6842" y="-35" as="geometry">
+        <mxPoint as="offset" />
+      </mxGeometry>
+    </mxCell>
+  </root>
+</mxGraphModel>
