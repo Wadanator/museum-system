@@ -34,7 +34,11 @@ class ButtonHandler:
         self.last_state = current_state
     
     def cleanup(self):
-        GPIO.cleanup()
+        try:
+            import RPi.GPIO as GPIO
+            GPIO.cleanup()
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     import logging

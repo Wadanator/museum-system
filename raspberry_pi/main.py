@@ -166,7 +166,7 @@ class MuseumController:
             self.mqtt_client.shutdown_requested = True
 
     def _on_mqtt_connection_lost(self):
-        log.warning("MQTT connection lost - system will continue with limited functionality")
+        log.error("MQTT connection lost - system will continue with limited functionality")
 
     def _on_mqtt_connection_restored(self):
         if self.system_monitor:
@@ -283,7 +283,10 @@ class MuseumController:
         """Zastaví prebiehajúcu scénu a vypne všetky externé zariadenia cez MQTT."""
         log.info(f"Initiating GLOBAL STOP for {self.room_id}")
         
-        self.scene_running = False
+        with self.scene_lock:
+            if not self.scene_running:
+                return True
+            self.scene_running = False
         
         if self.scene_parser:
             try:

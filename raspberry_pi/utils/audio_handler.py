@@ -9,6 +9,7 @@ and command-driven playback control for museum room audio.
 import pygame
 import os
 import time
+import threading
 from utils.logging_setup import get_logger
 
 
@@ -60,6 +61,7 @@ class AudioHandler:
         # Active effects tracking: {"filename": [channel_obj, channel_obj, ...]}
         # Used for dashboard status and STOP:<filename> commands
         self.active_effects = {}
+        self.active_effects_lock = threading.Lock()
 
         self.end_callback = None
 
@@ -209,9 +211,10 @@ class AudioHandler:
 
                     if channel:
                         # Store the channel for dashboard tracking and STOP commands
-                        if resolved_name not in self.active_effects:
-                            self.active_effects[resolved_name] = []
-                        self.active_effects[resolved_name].append(channel)
+                        with self.active_effects_lock:
+                            if resolved_name not in self.active_effects:
+                                self.active_effects[resolved_name] = []
+                            self.active_effects[resolved_name].append(channel)
 
                         self.logger.info(
                             f"Playing SFX (RAM): {resolved_name} (Vol: {volume})"
@@ -351,8 +354,9 @@ class AudioHandler:
             # Stop all SFX mixer channels (RAM playback)
             pygame.mixer.stop()
 
-            # Clear the active effects tracker
-            self.active_effects.clear()
+            # Clear the active effects tracker safely
+            with self.active_effects_lock:
+                self.active_effects.clear()
 
             self.logger.info("Stopped ALL audio")
             return True
@@ -384,11 +388,12 @@ class AudioHandler:
             self.logger.info(f"Stopped specific MUSIC: {resolved_name}")
 
         # 2. Check if it is an active SFX effect
-        if resolved_name in self.active_effects:
-            for ch in self.active_effects[resolved_name]:
-                ch.stop()
-            del self.active_effects[resolved_name]
-            self.logger.info(f"Stopped specific SFX: {resolved_name}")
+        with self.active_effects_lock:
+            if resolved_name in self.active_effects:
+                for ch in self.active_effects[resolved_name]:
+                    ch.stop()
+                del self.active_effects[resolved_name]
+                self.logger.info(f"Stopped specific SFX: {resolved_name}")
 
         return True
 
@@ -546,20 +551,22 @@ class AudioHandler:
                 self.current_music_file = None
         self.music_was_playing = is_music_playing
 
-        # 2. Check active SFX channels (RAM)
-        # Retain only channels that are still busy, remove completed ones
+        # 2. Check active SFX channels (RAM) safely
         ended_effects = []
-        for filename, channels in self.active_effects.items():
-            active_channels = [ch for ch in channels if ch.get_busy()]
-            self.active_effects[filename] = active_channels
+        with self.active_effects_lock:
+            for filename, channels in list(self.active_effects.items()):
+                active_channels = [ch for ch in channels if ch.get_busy()]
+                if active_channels:
+                    self.active_effects[filename] = active_channels
+                else:
+                    ended_effects.append(filename)
 
-            # If no channels remain, the sound has fully completed
-            if not active_channels:
-                ended_effects.append(filename)
+            for filename in ended_effects:
+                if filename in self.active_effects:
+                    del self.active_effects[filename]
 
+        # Call the callback outside of the lock to prevent deadlocks
         for filename in ended_effects:
-            # self.logger.info(f"SFX finished: {filename}")  # Optional logging
-            del self.active_effects[filename]
             if self.end_callback:
                 self.end_callback(filename)
 
@@ -586,7 +593,11 @@ class AudioHandler:
                 music_busy = pygame.mixer.music.get_busy()
             except:
                 pass
-        return music_busy or bool(self.active_effects)
+                
+        with self.active_effects_lock:
+            sfx_busy = bool(self.active_effects)
+            
+        return music_busy or sfx_busy
 
     def get_audio_status(self):
         """
@@ -596,10 +607,13 @@ class AudioHandler:
             dict: Status dictionary containing availability, playback state,
                 current music filename, active SFX count, and cached file list.
         """
+        with self.active_effects_lock:
+            active_sfx_count = len(self.active_effects)
+            
         return {
             'available': self.audio_available,
             'playing': self.is_playing(),
             'current_music': self.current_music_file,
-            'active_sfx_count': len(self.active_effects),
+            'active_sfx_count': active_sfx_count,
             'ram_cached_files': list(self.sound_cache.keys())  # Debug info
         }

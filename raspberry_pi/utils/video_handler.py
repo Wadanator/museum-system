@@ -270,8 +270,11 @@ class VideoHandler:
             except Exception:
                 try:
                     os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
+                except (ProcessLookupError, OSError):
+                    # Process already dead or permissions issue
+                    pass
                 except Exception as e:
-                    self.logger.debug(f"Force kill failed: {e}")
+                    self.logger.debug(f"Force kill failed with unexpected error: {e}")
         self.process = None
         self.currently_playing = None
         self._cleanup_socket()

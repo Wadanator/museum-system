@@ -52,7 +52,7 @@ class AsyncSQLiteHandler(logging.Handler):
         super().__init__()
         self.db_path = str(db_path)
         self.retention_days = int(retention_days)
-        self.log_queue = queue.Queue()
+        self.log_queue = queue.Queue(maxsize=1000)
         self.running = True
 
         # Initialize the database synchronously at startup
@@ -125,7 +125,10 @@ class AsyncSQLiteHandler(logging.Handler):
         Args:
             record: The logging.LogRecord instance to persist.
         """
-        self.log_queue.put(record)
+        try:
+            self.log_queue.put(record, block=False)
+        except queue.Full:
+            pass
 
     def _writer_loop(self):
         """

@@ -166,6 +166,8 @@ class StateMachine:
             return False
 
         if self.current_state and self.current_state != state_name:
+            if len(self.state_history) >= 200:
+                self.state_history.pop(0)
             self.state_history.append(self.current_state)
 
         self.current_state = state_name
@@ -178,7 +180,7 @@ class StateMachine:
             self.on_state_change(state_name)
 
         return True
-
+    
     def get_global_events(self):
         """
         Return the list of global events defined in the scene.
