@@ -1,6 +1,5 @@
-import { createContext, useContext, useState, useRef } from 'react';
-
-const ConfirmContext = createContext();
+import { useRef, useState } from 'react';
+import { ConfirmContext } from './ConfirmContextValue';
 
 export function ConfirmProvider({ children }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -68,5 +67,3 @@ export function ConfirmProvider({ children }) {
     </ConfirmContext.Provider>
   );
 }
-
-export const useConfirm = () => useContext(ConfirmContext);

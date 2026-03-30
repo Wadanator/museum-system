@@ -1,4 +1,4 @@
-const API_URL = '/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const getHeaders = () => {
   const headers = {};
@@ -28,11 +28,24 @@ export const authFetch = async (url, options = {}) => {
 export const api = {
   login: async (username, password) => {
     const token = 'Basic ' + btoa(username + ':' + password);
-    const res = await fetch(`${API_URL}/status`, {
-        headers: { 'Authorization': token }
-    });
-    if (res.ok) return token;
-    else throw new Error('Nesprávne meno alebo heslo');
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    try {
+      const res = await fetch(`${API_URL}/status`, {
+        headers: { 'Authorization': token },
+        signal: controller.signal,
+      });
+      if (res.ok) return token;
+      throw new Error('Nesprávne meno alebo heslo');
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        throw new Error('Backend neodpovedá');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeoutId);
+    }
   },
 
   getStatus: async () => {

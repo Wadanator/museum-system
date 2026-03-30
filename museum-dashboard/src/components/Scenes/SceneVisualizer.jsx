@@ -50,25 +50,25 @@ function SceneVisualizerInner({ data, activeStateId }) {
         return `${a.action || 'cmd'}: ${a.message || a.topic || JSON.stringify(a)}`;
     };
 
-    const parseStateData = (stateData) => {
-        const s = { onEnter: [], onExit: [], timeline: [], transitions: [] };
-        stateData.onEnter?.forEach(a => s.onEnter.push(formatAnyAction(a)));
-        stateData.onExit?.forEach(a  => s.onExit.push(formatAnyAction(a)));
-        stateData.timeline?.forEach(t => {
-            const actions = t.actions || (t.action ? [t] : []);
-            actions.forEach(a => s.timeline.push({ time: t.at, text: formatAnyAction(a) }));
-        });
-        stateData.transitions?.forEach(tr => {
-            const desc = tr.type === 'timeout' ? `⏱️ Po ${tr.delay}s` : `📩 ${tr.type}`;
-            s.transitions.push(`${desc} ➔ GOTO: ${tr.goto}`);
-        });
-        return s;
-    };
-
     // ── Layout (BFS) ─────────────────────────────────────────────────────────
 
     const calculateLayout = useCallback(() => {
         if (!data?.states) return;
+
+        const parseStateData = (stateData) => {
+            const s = { onEnter: [], onExit: [], timeline: [], transitions: [] };
+            stateData.onEnter?.forEach(a => s.onEnter.push(formatAnyAction(a)));
+            stateData.onExit?.forEach(a  => s.onExit.push(formatAnyAction(a)));
+            stateData.timeline?.forEach(t => {
+                const actions = t.actions || (t.action ? [t] : []);
+                actions.forEach(a => s.timeline.push({ time: t.at, text: formatAnyAction(a) }));
+            });
+            stateData.transitions?.forEach(tr => {
+                const desc = tr.type === 'timeout' ? `⏱️ Po ${tr.delay}s` : `📩 ${tr.type}`;
+                s.transitions.push(`${desc} ➔ GOTO: ${tr.goto}`);
+            });
+            return s;
+        };
 
         const newNodes   = [];
         const newEdges   = [];

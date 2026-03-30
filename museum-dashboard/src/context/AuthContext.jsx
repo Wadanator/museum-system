@@ -1,26 +1,20 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
-
-const AuthContext = createContext();
+import { AuthContext } from './AuthContextValue';
 
 export function AuthProvider({ children }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const isDevMode = import.meta.env.DEV;
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    () => isDevMode || Boolean(localStorage.getItem('auth_header')),
+  );
+  const [isLoading] = useState(false);
 
   useEffect(() => {
-      if (import.meta.env.DEV) {
-          setIsAuthenticated(true);
-          setIsLoading(false);
+      if (isDevMode) {
           localStorage.setItem('auth_header', 'Basic DEV_MODE');
-          return;
       }
-      const storedAuth = localStorage.getItem('auth_header');
-      if (storedAuth) {
-          setIsAuthenticated(true);
-      }
-      setIsLoading(false);
-  }, []);
+  }, [isDevMode]);
 
   const login = async (username, password) => {
     try {
@@ -28,10 +22,10 @@ export function AuthProvider({ children }) {
       localStorage.setItem('auth_header', token);
       setIsAuthenticated(true);
       toast.success("Vitajte v systéme");
-      setTimeout(() => window.location.reload(), 500);
       return true;
-    } catch (e) {
-      toast.error("Nesprávne prihlasovacie údaje");
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.message || "Zlé heslo alebo meno");
       return false;
     }
   };
@@ -49,5 +43,3 @@ export function AuthProvider({ children }) {
     </AuthContext.Provider>
   );
 }
-
-export const useAuth = () => useContext(AuthContext);

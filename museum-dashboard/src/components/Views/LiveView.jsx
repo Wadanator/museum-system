@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { useSocket } from '../../context/SocketContext';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSocket } from '../../context/useSocket';
 import { useScenes } from '../../hooks/useScenes';
 import { useDevices } from '../../hooks/useDevices';
 import SceneVisualizer from '../Scenes/SceneVisualizer';
@@ -29,7 +29,7 @@ export default function LiveView({
 
     const timersRef = useRef([]);
 
-    const applyActions = (actions) => {
+    const applyActions = useCallback((actions) => {
         setSimulatedDeviceStatus((prevStatus) => {
             const nextStatus = { ...prevStatus };
 
@@ -65,7 +65,7 @@ export default function LiveView({
 
             return nextStatus;
         });
-    };
+    }, [devices]);
 
     useEffect(() => {
         if (showSceneSelector) {
@@ -94,7 +94,10 @@ export default function LiveView({
             const stateNode = sceneData.states[activeState];
 
             if (stateNode.onEnter) {
-                applyActions(stateNode.onEnter);
+                const onEnterTimerId = setTimeout(() => {
+                    applyActions(stateNode.onEnter);
+                }, 0);
+                timersRef.current.push(onEnterTimerId);
             }
 
             if (stateNode.timeline) {
@@ -115,7 +118,7 @@ export default function LiveView({
             timersRef.current.forEach((timer) => clearTimeout(timer));
             timersRef.current = [];
         };
-    }, [activeState, sceneData]);
+    }, [activeState, sceneData, applyActions]);
 
     const handleSelectScene = async (e) => {
         const filename = e.target.value;

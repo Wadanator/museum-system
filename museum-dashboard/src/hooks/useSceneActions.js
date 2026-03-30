@@ -2,7 +2,7 @@
 import { useState, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { api } from '../services/api';
-import { useConfirm } from '../context/ConfirmContext';
+import { useConfirm } from '../context/useConfirm';
 
 export function useSceneActions() {
     const { confirm } = useConfirm();
@@ -67,18 +67,14 @@ export function useSceneActions() {
 
         if (shouldStop) {
             await withSafetyLock(async () => {
-                try {
-                    await toast.promise(
-                        api.stopScene(),
-                        {
-                            loading: 'Zastavujem...',
-                            success: 'Scéna zastavená',
-                            error: (err) => `Chyba: ${err.message}`
-                        }
-                    );
-                } catch (e) {
-                    throw e;
-                }
+                await toast.promise(
+                    api.stopScene(),
+                    {
+                        loading: 'Zastavujem...',
+                        success: 'Scéna zastavená',
+                        error: (err) => `Chyba: ${err.message}`
+                    }
+                );
             });
         }
     };

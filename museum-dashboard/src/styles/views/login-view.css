@@ -83,3 +83,13 @@
     font-size: 0.8rem;
     color: var(--text-muted);
 }
+
+.login-error {
+    color: #dc2626;
+    background: #fee2e2;
+    border: 1px solid #fecaca;
+    border-radius: var(--radius-lg);
+    padding: 10px 12px;
+    font-size: 0.9rem;
+    text-align: center;
+}

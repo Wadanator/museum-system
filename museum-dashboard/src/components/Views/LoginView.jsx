@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/useAuth';
 import { Landmark, Lock, User } from 'lucide-react';
 import Button from '../ui/Button'; 
 import '../../styles/views/login-view.css';
@@ -8,12 +9,20 @@ export default function LoginView() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loginError, setLoginError] = useState('');
   const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoginError('');
     setIsSubmitting(true);
-    await login(username, password);
+    const ok = await login(username, password);
+    if (ok) {
+      navigate('/');
+    } else {
+      setLoginError('Zlé heslo alebo meno, alebo backend neodpovedá');
+    }
     setIsSubmitting(false);
   };
 
@@ -58,6 +67,12 @@ export default function LoginView() {
             >
                 Prihlásiť sa
             </Button>
+
+            {loginError && (
+              <div className="login-error" role="alert" aria-live="polite">
+                {loginError}
+              </div>
+            )}
         </form>
         
         <div className="login-footer">v1.0.0 &bull; Museum System</div>

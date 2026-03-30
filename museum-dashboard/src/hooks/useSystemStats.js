@@ -31,7 +31,7 @@ export function useSystemStats() {
 
     const sortedDevices = useMemo(() => 
         Object.entries(stats.connected_devices || {})
-            .sort(([, a], [, b]) => (a.status === 'online' ? -1 : 1)), 
+            .sort(([, a]) => (a.status === 'online' ? -1 : 1)), 
     [stats.connected_devices]);
 
     return { 

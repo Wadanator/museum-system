@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Save, X, AlertTriangle, Code, Workflow } from 'lucide-react';
 import Button from '../ui/Button';
 import JsonEditor from '../Shared/JsonEditor';
@@ -8,19 +8,12 @@ import '../../styles/views/scene-editor.css';
 import '../../styles/views/scene-flow.css';
 
 export default function SceneEditorModal({ isOpen, onClose, filename, initialContent, onSave }) {
-    const [jsonString, setJsonString] = useState('');
-    const [jsonObj, setJsonObj] = useState([]);
+    const [jsonString, setJsonString] = useState(() => (
+        initialContent ? JSON.stringify(initialContent, null, 2) : ''
+    ));
+    const [jsonObj, setJsonObj] = useState(() => (initialContent ?? []));
     const [isValid, setIsValid] = useState(true);
     const [activeTab, setActiveTab] = useState('code');
-
-    useEffect(() => {
-        if (isOpen && initialContent) {
-            setJsonString(JSON.stringify(initialContent, null, 2));
-            setJsonObj(initialContent);
-            setIsValid(true);
-            setActiveTab('code');
-        }
-    }, [isOpen, initialContent]);
 
     const handleCodeChange = (value) => {
         setJsonString(value);

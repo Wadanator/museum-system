@@ -3,8 +3,8 @@ import Editor from '@monaco-editor/react';
 export default function JsonEditor({ value, onChange, isLoading = false }) {
   
   // Funkcia, ktorá sa zavolá pri zmene kódu
-  const handleEditorChange = (value, event) => {
-    onChange(value);
+  const handleEditorChange = (nextValue) => {
+    onChange(nextValue);
   };
 
   // Konfigurácia editora (vypnutie zbytočností pre čistejší vzhľad)

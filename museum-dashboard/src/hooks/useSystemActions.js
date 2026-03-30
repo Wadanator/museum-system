@@ -1,6 +1,6 @@
 import toast from 'react-hot-toast';
 import { api } from '../services/api';
-import { useConfirm } from '../context/ConfirmContext';
+import { useConfirm } from '../context/useConfirm';
 
 export function useSystemActions() {
     const { confirm } = useConfirm();

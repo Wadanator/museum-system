@@ -1,237 +1,120 @@
-# GitHub Copilot Custom Instructions — Museum System
+# Museum System Workspace Instructions
 
-## 1. System Persona & Core Philosophy
+## Project Context
 
-You are an expert Principal Software Engineer. You write code that is clean, modular, highly scalable, and strictly typed.
+This repository contains three runtime layers connected through MQTT:
 
-- **Museum System Context:** React frontend (Vite), Python backend (Raspberry Pi), C++ (ESP32). MQTT is the primary communication bus.
-- **Fail-Fast Philosophy:** Handle edge cases immediately. Use guard clauses. If something goes wrong, log it and fallback gracefully.
-- **No Magic:** Absolutely no magic strings/numbers. Use constants, enums, or config files.
-- **Comments explain WHY.** Code explains WHAT. Leave comments for business logic context and non-obvious edge cases.
+- Raspberry Pi backend in `raspberry_pi/` (scene orchestration, media playback, watchdog, web API)
+- ESP32 firmware in `esp32/` (hardware control and feedback publishing)
+- React tooling UIs in `museum-dashboard/` and `SceneGen/`
 
----
+Use strict typing, fail-fast guard clauses, and deterministic behavior for all state transitions.
 
-## 2. Development Workflow
+## Build and Test Commands
 
-**MANDATORY order before writing any code:**
+Run commands from the relevant project folder.
 
-0. **Research & Reuse first**
-   - Search for existing implementations before writing anything new
-   - Check package registries (PyPI, npm) before writing utility code
-   - Prefer proven libraries over hand-rolled solutions
+- `museum-dashboard/`: `npm install`, `npm run dev`, `npm run build`, `npm run lint`, `npm run preview`
+- `SceneGen/`: `npm install`, `npm run dev`, `npm run build`, `npm run preview`
+- `raspberry_pi/` production setup: `./install.sh`
+- `raspberry_pi/` local run: `python3 -m venv venv`, `source venv/bin/activate`, `pip install -r requirements.txt`, `python3 main.py`
+- `raspberry_pi/` tests (current baseline): `pytest tests/test_schema_validator.py`
 
-1. **Plan First**
-   - Create implementation plan before coding
-   - Identify dependencies and risks
-   - Break down into phases
+ESP32 firmware is built and uploaded from Arduino IDE project folders under `esp32/devices/wifi/ArduinoIDE/`.
 
-2. **TDD Approach**
-   - Write test first (RED)
-   - Write minimal implementation (GREEN)
-   - Refactor (IMPROVE)
-   - Verify 80%+ coverage
+## Architecture Boundaries
 
-3. **Code Review**
-   - Address CRITICAL and HIGH issues immediately
-   - Fix MEDIUM issues when possible
+- Keep transport/routing logic separate from business logic. MQTT and HTTP handlers call services only.
+- Scene runtime boundary:
+  - scene loading/validation in `raspberry_pi/utils/state_machine.py`
+  - execution in `raspberry_pi/utils/state_executor.py`
+  - transitions in `raspberry_pi/utils/transition_manager.py`
+- Web/API boundary in `raspberry_pi/Web/`; hardware behavior boundary in `esp32/devices/wifi/`
+- Do not bypass the transition manager lock model or access transition queues directly.
 
-4. **Commit**
-   - Follow conventional commits format
+## Project Conventions
 
----
+### Cross-project
 
-## 3. Python Backend (Raspberry Pi) — STRICT Rules
+- No magic values. Use constants, enums, or config.
+- Prefer immutable updates instead of in-place mutation.
+- Comments explain why, not what.
 
-- **Typing:** 100% type hints are mandatory (`-> None`, `Dict[str, Any]`, `Optional[str]`, etc.). Every public method must have full annotations.
-- **Architecture:** Separate routing (MQTT/HTTP handlers) completely from business logic. Flask routes call services — no logic inside route handlers.
-- **Data Models:** Use `pydantic` or `dataclasses` for all incoming/outgoing MQTT payloads. Validate everything. Never trust raw payload strings.
-- **Error Handling:** Never use bare `except:`. Always catch specific exceptions. Log stack traces: `logger.error(f"...: {e}", exc_info=True)`. The main scene loop must never crash.
-- **State Machine:** Transitions must be deterministic. `TransitionManager` is thread-safe — never access event queues outside its `Lock`. Always serialize MQTT payload: `json.dumps(message) if isinstance(message, (dict, list)) else str(message)`.
-- **Logging:** Always use `get_logger('name')` from `utils.logging_setup`. Never call `logging.getLogger()` directly. All loggers must be in the `museum.*` namespace.
-- **Paths:** Use `Path` from `pathlib` for all filesystem operations. Never hardcode absolute paths. Resolve relative to `__file__` or config values.
-- **File size:** Max ~300 lines per file.
+### Python (Raspberry Pi)
 
----
+- Public methods must use complete type hints.
+- Never use bare `except:`; catch specific exceptions and log with `exc_info=True`.
+- Use `get_logger(...)` from `raspberry_pi/utils/logging_setup.py`; keep logger names in `museum.*` namespace.
+- Use `pathlib.Path` and project-relative/config-derived paths, not hardcoded absolute paths.
+- Keep files cohesive and generally around 300 lines when possible.
 
-## 4. Coding Style
+### React (museum-dashboard and SceneGen)
 
-### Immutability (CRITICAL)
+- One component per file; component filenames in PascalCase.
+- Extract complex state and side effects into custom hooks.
+- Include all dependencies in `useEffect` arrays.
+- Use functional state updates and avoid direct mutation.
+- Prefer early returns over deeply nested ternaries.
 
-ALWAYS create new objects, NEVER mutate existing ones:
+### C++ (ESP32)
 
-```
-WRONG:  modify(original, field, value) → changes original in-place
-CORRECT: update(original, field, value) → returns new copy with change
-```
+- Never use `delay()` in `loop()`; use non-blocking `millis()`-driven state logic.
+- Avoid Arduino `String`; prefer fixed-width types and safer string/buffer patterns.
+- Ensure WiFi/MQTT reconnection is non-blocking.
+- Every MQTT command must publish feedback (`OK` or error) to feedback topics.
 
-### File Organization
+## Security and Reliability
 
-MANY SMALL FILES > FEW LARGE FILES:
-- High cohesion, low coupling
-- 200-400 lines typical, 800 max
-- Organize by feature/domain, not by type
+- Never commit secrets, credentials, tokens, or live `config.ini`.
+- Validate all external inputs (HTTP, MQTT, file paths, payloads).
+- Enforce MQTT topic allowlist for send endpoints (`room<n>/` and `devices/` prefixes only).
+- Keep the main scene loop resilient; errors must be logged and handled without controller crash.
 
-### Error Handling
+Known production risks to prioritize fixing:
 
-ALWAYS handle errors comprehensively:
-- Handle errors explicitly at every level
-- Provide user-friendly error messages in UI-facing code
-- Log detailed error context on the server side
-- Never silently swallow errors
+- Hardcoded auth values in `raspberry_pi/Web/config.py`
+- Hardcoded absolute paths in `raspberry_pi/watchdog.py`
+- Basic auth over plain HTTP if exposed beyond localhost
 
-### Input Validation
+## Testing Expectations
 
-ALWAYS validate at system boundaries:
-- Validate all user input before processing
-- Fail fast with clear error messages
-- Never trust external data (API responses, user input, MQTT payloads)
+- Use TDD where practical: failing test, minimal implementation, refactor.
+- Target strong coverage for critical runtime modules:
+  - `raspberry_pi/utils/scene_parser.py`
+  - `raspberry_pi/utils/state_machine.py`
+  - `raspberry_pi/utils/transition_manager.py`
+  - `raspberry_pi/utils/state_executor.py`
+- Mock hardware and system integrations in tests (`RPi.GPIO`, `pygame`, `subprocess`, MQTT client, IPC sockets).
+- Include transition-path tests for `timeout`, `audioEnd`, `videoEnd`, `mqttMessage`, and `always`.
 
-### Code Quality Checklist
+## Critical Files
 
-Before marking work complete:
-- [ ] Code is readable and well-named
-- [ ] Functions are small (<50 lines)
-- [ ] Files are focused (<800 lines)
-- [ ] No deep nesting (>4 levels)
-- [ ] Proper error handling
-- [ ] No hardcoded values (use constants or config)
-- [ ] No mutation (immutable patterns used)
+Treat these files as high-risk and review carefully before edits:
 
----
+- `raspberry_pi/utils/transition_manager.py`
+- `raspberry_pi/utils/state_machine.py`
+- `raspberry_pi/utils/logging_setup.py`
+- `raspberry_pi/Web/auth.py`
+- `raspberry_pi/config/config.ini`
 
-## 5. React Frontend (Dashboard) — STRICT Rules
+## Documentation Links (Link, Do Not Duplicate)
 
-- **Component Design:** Maximum one component per file. Name files in PascalCase.
-- **Hooks:** Do not put complex logic directly in components. Extract MQTT logic, fetching, and heavy state into Custom Hooks (e.g., `useMqttConnection`, `useSceneEditor`).
-- **Dependencies:** Include ALL dependencies in `useEffect` dependency arrays. No suppression comments.
-- **Immutability:** Never mutate state directly. Always use functional updates: `setItems(prev => [...prev, newItem])`.
-- **Conditional Rendering:** Prefer early returns over deep nesting of ternary operators `? :`.
-
----
-
-## 6. C++ (ESP32 Firmware) — STRICT Rules
-
-- **Zero Blocking:** The `loop()` function must execute in microseconds. **NEVER use `delay()`**. Use state machines driven by `millis()`.
-- **Memory Safety:** Avoid `String` class. Use `std::string`, `char[]`, or `std::array`. Avoid `malloc`/`new` after `setup()`.
-- **Resilience:** If MQTT or WiFi drops, reconnect asynchronously without blocking local hardware logic.
-- **Types:** Use exact bit-width types (`uint8_t`, `int32_t`) — never generic `int` or `long`.
-- **Feedback:** Every MQTT command received must publish a `/feedback` response (`OK` or error string) so `MQTTFeedbackTracker` can confirm delivery.
-
----
-
-## 7. Security
-
-### Mandatory Checks Before ANY Commit
-
-- [ ] No hardcoded secrets (API keys, passwords, tokens)
-- [ ] All user inputs validated
-- [ ] MQTT topic whitelist enforced — only `room<n>/` and `devices/` prefixes allowed in `/api/mqtt/send`
-- [ ] File upload paths always use `secure_filename()`
-- [ ] Error messages don't leak internal paths or stack traces
-- [ ] Authentication/authorization verified on all routes
-
-### Secret Management
-
-- **NEVER** hardcode secrets in source code
-- **ALWAYS** use `config.ini` (gitignored) or environment variables
-- Validate required secrets are present at startup — fail loudly if missing
-- Rotate any secrets that may have been exposed
-
-### Known Issues to Fix Before Production
-
-- `Web/config.py`: `USERNAME = 'admin'`, `PASSWORD = 'admin'`, `SECRET_KEY = 'museum_controller_secret'` — move to environment variables
-- `watchdog.py`: hardcoded absolute path `/home/admin/Documents/...` — resolve from `__file__`
-- Basic Auth runs over plain HTTP — use nginx + TLS on any non-loopback interface
-
-### Security Response Protocol
-
-If a security issue is found:
-1. **STOP immediately**
-2. Fix CRITICAL issues before continuing any other work
-3. Rotate any exposed secrets
-4. Review entire codebase for similar patterns
-
----
-
-## 8. Testing
-
-- **Write tests first (TDD)** — failing test → implementation → refactor
-
-- **Minimum Test Coverage: 80%** on: `scene_parser.py`, `state_machine.py`, `transition_manager.py`, `state_executor.py`
-
-- **Test Types (ALL required):**
-  1. Unit Tests — individual functions, utilities
-  2. Integration Tests — API endpoints, MQTT routing
-  3. E2E Tests — critical user flows via `flask.testing.FlaskClient`
-
-- **Mock all hardware:** `RPi.GPIO`, `pygame.mixer`, `subprocess` (mpv), `paho.mqtt.client`, `socket` (IPC)
-
-- **Test all transition types:** `timeout`, `audioEnd`, `videoEnd`, `mqttMessage`, `always`
-
-- **Troubleshooting test failures:**
-  1. Check test isolation
-  2. Verify mocks are correct
-  3. Fix implementation, not tests (unless tests are wrong)
-
----
-
-## 9. Git Workflow
-
-### Commit Format
-
-```
-<type>: <description>
-
-<optional body>
-```
-
-Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`, `perf`
-
-### Pull Request Workflow
-
-1. Analyze full changes (`git diff [base-branch]...HEAD`)
-2. Draft comprehensive PR summary
-3. Include test plan
-4. Include RPi-specific considerations (GPIO, audio, video, systemd)
-
-### Never Commit
-
-- `config/config.ini` — contains live broker IP and credentials
-- `logs/`, `venv/`, `Web/dist/`
-- Any file containing passwords, tokens, or API keys
-
----
-
-## 10. Critical Files — Handle With Care
-
-Never modify these without careful review:
-
-| File | Why |
-|---|---|
-| `utils/transition_manager.py` | Thread-safe event queues — all scene transitions depend on this |
-| `utils/state_machine.py` | Schema + logical validation at load time — regression breaks all scenes |
-| `utils/logging_setup.py` | `AsyncSQLiteHandler` runs in daemon thread — shutdown must be clean |
-| `Web/auth.py` | `@requires_auth` on all API routes — must not be removed or weakened |
-| `config/config.ini` | Never commit — contains live broker IP and room config |
-
----
-
-## 11. Performance
-
-### Model Selection (for AI-assisted tasks)
-
-- **Default:** Use the most capable available model for complex coding tasks
-- **Upgrade** for: architectural decisions, security-critical changes, multi-file refactors
-
-### Raspberry Pi Specific
-
-- `AsyncSQLiteHandler` writes in a background thread — never block on DB writes in the main loop
-- Audio SFX preloading is synchronous at scene start — keep `sfx_*` files small (< 2MB each)
-- `scene_processing_sleep = 0.02s` — keep `process_scene()` fast
-- mpv IPC socket timeout is 2s — IPC commands that exceed this trigger a restart
-- Always use `--break-system-packages` when installing pip packages outside venv
-
-### ESP32 Specific
-
-- `loop()` must execute in microseconds — profile if you add logic here
-- Reconnection logic must be non-blocking — local hardware must keep working during WiFi/MQTT outage
+- Architecture: `docs/02_system_architecture.md`
+- File map: `docs/03_file_structure.md`
+- MQTT protocol: `docs/04_mqtt_protocol.md`
+- Scene/state model: `docs/06_scene_state_machine.md`
+- Audio/video behavior: `docs/07_audio_engine.md`, `docs/08_video_engine.md`
+- Dashboard API: `docs/09_dashboard_api.md`
+- Backend setup: `docs/10_museum_backend_setup.md`
+- ESP32 setup and hardware reference: `docs/11_esp32_firmware_setup.md`, `docs/05_esp32_hardware_reference.md`
+- Physical deployment: `docs/12_physical_installation.md`
+
+## Related Instruction Files
+
+Follow specialized instruction files instead of duplicating their content here:
+
+- Generic review rules: `.github/instructions/code-review-generic.instructions.md`
+- Debian administration guidance: `.github/instructions/debian-linux.instructions.md`
+- C++ symbol tooling workflow: `.github/instructions/cpp-language-service-tools.instructions.md`
+- Power Apps code apps guidance: `.github/instructions/power-apps-code-apps.instructions.md`
+- Power BI custom visuals guidance: `.github/instructions/power-bi-custom-visuals-development.instructions.md`

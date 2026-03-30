@@ -19,7 +19,6 @@ function getCubicBezierPoint(t, sx, sy, c1x, c1y, c2x, c2y, tx, ty) {
 }
 
 export default function SmartEdge({
-  id,
   sourceX,
   sourceY,
   targetX,
@@ -33,7 +32,7 @@ export default function SmartEdge({
   labelBgStyle,
 }) {
   // 1. Získame parametre cesty, ktoré React Flow generuje
-  const [edgePath, labelCenterX, labelCenterY] = getBezierPath({
+  const [edgePath] = getBezierPath({
     sourceX,
     sourceY,
     sourcePosition,

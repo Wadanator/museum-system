@@ -1,8 +1,7 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { socket } from '../services/socket';
 import toast from 'react-hot-toast';
-
-const SocketContext = createContext();
+import { SocketContext } from './SocketContextValue';
 
 export function SocketProvider({ children }) {
   const [isConnected, setIsConnected] = useState(socket.connected);
@@ -21,9 +20,6 @@ export function SocketProvider({ children }) {
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
 
-    // Inicialny stav
-    setIsConnected(socket.connected);
-
     return () => {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
@@ -36,6 +32,3 @@ export function SocketProvider({ children }) {
     </SocketContext.Provider>
   );
 }
-
-// Vlastný hook pre jednoduché použitie
-export const useSocket = () => useContext(SocketContext);

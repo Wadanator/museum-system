@@ -15,25 +15,26 @@ export default function Button({
     ...props
 }) {
   const [inCooldown, setInCooldown] = useState(false);
+  const useCooldown = cooldown > 0 && type !== 'submit' && typeof onClick === 'function';
 
   useEffect(() => {
     return () => setInCooldown(false);
   }, []);
 
   const handleClick = useCallback((e) => {
-    if (disabled || isLoading || inCooldown) {
+    if (disabled || isLoading || (useCooldown && inCooldown)) {
         e.preventDefault();
         return;
     }
     if (onClick) onClick(e);
 
-    if (cooldown > 0) {
+    if (useCooldown) {
     setInCooldown(true);
     setTimeout(() => setInCooldown(false), cooldown);
     }
-  }, [onClick, disabled, isLoading, inCooldown, cooldown]);
+  }, [onClick, disabled, isLoading, inCooldown, cooldown, useCooldown]);
 
-  const isDisabled = disabled || isLoading || inCooldown;
+  const isDisabled = disabled || isLoading || (useCooldown && inCooldown);
 
   // FIX: Pridané stavové triedy
   const finalClassName = [

@@ -122,6 +122,7 @@ export default function ScenesView() {
             )}
 
             <SceneEditorModal
+                key={`${editingFile ?? 'new'}-${editorOpen ? 'open' : 'closed'}`}
                 isOpen={editorOpen}
                 onClose={() => setEditorOpen(false)}
                 filename={editingFile}

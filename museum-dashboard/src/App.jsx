@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { useSocket } from './context/SocketContext';
-import { useAuth } from './context/AuthContext';
+import { useSocket } from './context/useSocket';
+import { useAuth } from './context/useAuth';
 import { AlertTriangle } from 'lucide-react';
 
 // Import nového Layoutu

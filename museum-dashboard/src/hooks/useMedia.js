@@ -79,6 +79,7 @@ export const useMedia = () => {
             
             setTimeout(() => setPlayingFile(null), 3000);
         } catch (error) {
+            console.error(error);
             toast.error("Chyba pri spustení prehrávania");
             setPlayingFile(null);
         }
@@ -91,6 +92,7 @@ export const useMedia = () => {
             toast.success("Prehrávanie zastavené");
             setPlayingFile(null);
         } catch (error) {
+            console.error(error);
             toast.error("Chyba pri zastavovaní");
         }
     };

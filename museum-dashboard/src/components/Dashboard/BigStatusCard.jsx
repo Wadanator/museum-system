@@ -3,7 +3,6 @@ import { Drama, CheckCircle2, AlertTriangle } from 'lucide-react';
 export default function BigStatusCard({ status }) {
     const isRunning = status.scene_running;
     const isConnected = status.mqtt_connected;
-    const isError = !isConnected && !isRunning;
 
     let icon, title, desc, className;
 

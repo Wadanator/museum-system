@@ -1,0 +1,30 @@
+﻿=== CELKOVÝ SÚHRN ===
+Metrika,Hodnota (ms)
+Počet meraní,128
+Priemer,88.7
+Medián,90.0
+Min,17.0
+Max,167.0
+P95,156.0
+P99,166.0
+
+=== PER ZARIADENIE ===
+Zariadenie,Počet,Avg (ms),Min,Max,Median,P95
+motor1,64,79.7,19.0,143.0,81.0,136.0
+motor2,64,97.6,17.0,167.0,102.0,164.0
+
+=== DISTRIBÚCIA ===
+Rozsah,Počet,Podiel %
+0–100 ms,76,59.4
+100–200 ms,52,40.6
+200–300 ms,0,0.0
+300–500 ms,0,0.0
+500–800 ms,0,0.0
+800–1000 ms,0,0.0
+1000+ ms,0,0.0
+
+=== INFO ===
+Vygenerované,2026-02-14 00:05:27
+DB súbor,/home/admin/Documents/GitHub/museum-system/raspberry_pi/logs/museum_logs.db
+Prvé meranie,2026-02-14 00:04:35.125
+Posledné,2026-02-14 00:05:15.291
