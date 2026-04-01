@@ -301,6 +301,8 @@ class MuseumController:
 
         transitioned = self._set_scene_running(False, "external_stop", expect_current=True)
         if not transitioned:
+            if self.web_dashboard:
+                self.web_dashboard.broadcast_status()
             return True
         
         if self.scene_parser:
@@ -322,6 +324,8 @@ class MuseumController:
                 log.error(f"Error stopping video: {e}")
 
         self.broadcast_stop()
+        if self.web_dashboard:
+            self.web_dashboard.broadcast_status()
         return True
 
     def broadcast_stop(self):
