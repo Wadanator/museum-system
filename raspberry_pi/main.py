@@ -165,6 +165,26 @@ class MuseumController:
         if self.mqtt_client:
             self.mqtt_client.shutdown_requested = True
 
+    def _set_scene_running(self, is_running, reason, expect_current=None):
+        """Centralized scene lifecycle transition with synchronized file/state updates."""
+        state_value = 'running' if is_running else 'idle'
+
+        with self.scene_lock:
+            if expect_current is not None and self.scene_running != expect_current:
+                return False
+
+            if self.scene_running == is_running:
+                return False
+
+            self.scene_running = is_running
+            try:
+                _SCENE_STATE_FILE.write_text(state_value)
+            except OSError as exc:
+                log.error(f"Failed to persist scene state '{state_value}': {exc}")
+
+        log.info(f"Scene lifecycle transition -> {state_value} ({reason})")
+        return True
+
     def _on_mqtt_connection_lost(self):
         log.error("MQTT connection lost - system will continue with limited functionality")
 
@@ -183,30 +203,24 @@ class MuseumController:
 
     def start_scene_by_name(self, scene_file_name):
         """Public method to start a specific scene by file name."""
-        self._initiate_scene_start(scene_file_name, f"Starting named scene: {scene_file_name}")
-        return True
+        return self._initiate_scene_start(
+            scene_file_name,
+            f"Starting named scene: {scene_file_name}",
+        )
 
     def _initiate_scene_start(self, scene_filename, log_message):
         """Common entry point for starting a scene."""
-        with self.scene_lock:
-            if self.scene_running:
-                log.info(f"Scene already running, ignoring request to start: {scene_filename}")
-                return False
-            
-            if not self.mqtt_client or not self.mqtt_client.is_connected():
-                log.warning("Starting scene without MQTT connection - external devices may not respond")
-            
-            self.scene_running = True
-            log.info(log_message)
+        if not self.mqtt_client or not self.mqtt_client.is_connected():
+            log.warning("Starting scene without MQTT connection - external devices may not respond")
 
-            # Notify watchdog that a scene is active — prevents restart mid-presentation
-            try:
-                _SCENE_STATE_FILE.write_text('running')
-            except OSError:
-                pass
+        if not self._set_scene_running(True, f"start:{scene_filename}", expect_current=False):
+            log.info(f"Scene already running, ignoring request to start: {scene_filename}")
+            return False
 
-            if self.web_dashboard:
-                self.web_dashboard.broadcast_status()
+        log.info(log_message)
+
+        if self.web_dashboard:
+            self.web_dashboard.broadcast_status()
 
         threading.Thread(
             target=self._run_scene_logic, 
@@ -225,12 +239,16 @@ class MuseumController:
             
             if not os.path.exists(scene_path):
                 log.critical(f"Scene file not found: {scene_path}")
-                self.scene_running = False
+                self._set_scene_running(False, f"missing_scene_file:{scene_filename}")
+                if self.web_dashboard:
+                    self.web_dashboard.broadcast_status()
                 return
 
             if not self.scene_parser:
                 log.error("Scene parser not available")
-                self.scene_running = False
+                self._set_scene_running(False, "scene_parser_unavailable")
+                if self.web_dashboard:
+                    self.web_dashboard.broadcast_status()
                 return
 
             log.debug(f"Loading scene: {scene_path}")
@@ -259,34 +277,31 @@ class MuseumController:
                         self.video_handler.stop_video()
 
                     # 2. Reset príznaku behu a broadcast STOP
-                    if self.scene_running:
+                    transitioned = self._set_scene_running(False, f"scene_thread_finally:{scene_filename}")
+                    if transitioned:
                         self.broadcast_stop()
-                        self.scene_running = False
-
-                    # Notify watchdog that the scene finished — restart is now safe
-                    try:
-                        _SCENE_STATE_FILE.write_text('idle')
-                    except OSError:
-                        pass
 
                     if self.web_dashboard:
                         self.web_dashboard.broadcast_status()
             else:
                 log.error(f"Failed to load scene: {scene_filename}")
-                self.scene_running = False
+                self._set_scene_running(False, f"scene_load_failed:{scene_filename}")
+                if self.web_dashboard:
+                    self.web_dashboard.broadcast_status()
 
         except Exception as e:
             log.error(f"Critical error in scene thread: {e}")
-            self.scene_running = False
+            self._set_scene_running(False, f"scene_thread_exception:{scene_filename}")
+            if self.web_dashboard:
+                self.web_dashboard.broadcast_status()
 
     def stop_scene(self):
         """Zastaví prebiehajúcu scénu a vypne všetky externé zariadenia cez MQTT."""
         log.info(f"Initiating GLOBAL STOP for {self.room_id}")
-        
-        with self.scene_lock:
-            if not self.scene_running:
-                return True
-            self.scene_running = False
+
+        transitioned = self._set_scene_running(False, "external_stop", expect_current=True)
+        if not transitioned:
+            return True
         
         if self.scene_parser:
             try:
@@ -323,7 +338,7 @@ class MuseumController:
         """Execute the loaded state machine scene."""
         if not self.scene_parser.scene_data:
             log.error("No scene data available")
-            self.scene_running = False 
+            self._set_scene_running(False, "missing_scene_data")
             return
 
         log.debug("Starting state machine scene execution")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-latency_export.py — Vytiahne latency dáta z museum_logs.db a uloží do CSV.
-Nulové závislosti — len štandardná knižnica Pythonu.
+latency_export.py - Extract latency data from museum_logs.db and save to CSV.
+Zero dependencies - Python standard library only.
 """
 
 import sqlite3
@@ -21,7 +21,7 @@ PATTERN = re.compile(r"Feedback OK: (.+?) \((\d+\.\d+)s\)")
 
 def read_data(db_path):
     if not db_path.exists():
-        print(f"[ERR] DB nenájdená: {db_path}")
+        print(f"[ERR] Database not found: {db_path}")
         sys.exit(1)
     conn = sqlite3.connect(db_path)
     cur  = conn.cursor()
@@ -69,7 +69,7 @@ def write_raw(records, path):
         for r in records:
             w.writerow([r["timestamp"], r["module"], r["topic"],
                         r["device"], r["latency_ms"]])
-    print(f"  Raw dáta   → {path}")
+    print(f"  Raw data   -> {path}")
 
 
 def write_stats(records, path):
@@ -82,62 +82,62 @@ def write_stats(records, path):
     with open(path, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.writer(f)
 
-        w.writerow(["=== CELKOVÝ SÚHRN ==="])
-        w.writerow(["Metrika", "Hodnota (ms)"])
-        for k, label in [("count","Počet meraní"),("avg","Priemer"),
-                          ("median","Medián"),("min","Min"),("max","Max"),
+        w.writerow(["=== OVERALL SUMMARY ==="])
+        w.writerow(["Metric", "Value (ms)"])
+        for k, label in [("count", "Measurement count"), ("avg", "Average"),
+                          ("median", "Median"), ("min", "Min"), ("max", "Max"),
                           ("p95","P95"),("p99","P99")]:
             w.writerow([label, s.get(k)])
         w.writerow([])
 
-        w.writerow(["=== PER ZARIADENIE ==="])
-        w.writerow(["Zariadenie","Počet","Avg (ms)","Min","Max","Median","P95"])
+        w.writerow(["=== PER DEVICE ==="])
+        w.writerow(["Device", "Count", "Avg (ms)", "Min", "Max", "Median", "P95"])
         for dev, vals in sorted(devices.items()):
             ds = stats_for(vals)
             w.writerow([dev, ds["count"], ds["avg"], ds["min"],
                         ds["max"], ds["median"], ds["p95"]])
         w.writerow([])
 
-        w.writerow(["=== DISTRIBÚCIA ==="])
-        w.writerow(["Rozsah","Počet","Podiel %"])
+        w.writerow(["=== DISTRIBUTION ==="])
+        w.writerow(["Range", "Count", "Share %"])
         total = len(all_lat)
-        for label, lo, hi in [("0–100 ms",0,100),("100–200 ms",100,200),
-                               ("200–300 ms",200,300),("300–500 ms",300,500),
-                               ("500–800 ms",500,800),("800–1000 ms",800,1000),
-                               ("1000+ ms",1000,9e9)]:
+        for label, lo, hi in [("0-100 ms", 0, 100), ("100-200 ms", 100, 200),
+                               ("200-300 ms", 200, 300), ("300-500 ms", 300, 500),
+                               ("500-800 ms", 500, 800), ("800-1000 ms", 800, 1000),
+                               ("1000+ ms", 1000, 9e9)]:
             cnt = sum(1 for v in all_lat if lo <= v < hi)
-            w.writerow([label, cnt, round(cnt/total*100,1) if total else 0])
+            w.writerow([label, cnt, round(cnt / total * 100, 1) if total else 0])
         w.writerow([])
 
         w.writerow(["=== INFO ==="])
-        w.writerow(["Vygenerované", datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
-        w.writerow(["DB súbor", str(DB_PATH)])
-        w.writerow(["Prvé meranie",  records[0]["timestamp"] if records else "—"])
-        w.writerow(["Posledné",      records[-1]["timestamp"] if records else "—"])
+        w.writerow(["Generated", datetime.now().strftime("%Y-%m-%d %H:%M:%S")])
+        w.writerow(["Database file", str(DB_PATH)])
+        w.writerow(["First measurement", records[0]["timestamp"] if records else "-"])
+        w.writerow(["Last measurement", records[-1]["timestamp"] if records else "-"])
 
-    print(f"  Štatistiky → {path}")
+    print(f"  Statistics -> {path}")
 
 
 def main():
-    print(f"Čítam DB: {DB_PATH}")
+    print(f"Reading database: {DB_PATH}")
     records = read_data(DB_PATH)
     if not records:
-        print("Žiadne 'Feedback OK' záznamy v DB.")
+        print("No 'Feedback OK' entries found in database.")
         sys.exit(0)
 
     all_lat = [r["latency_ms"] for r in records]
     s = stats_for(all_lat)
-    print(f"Nájdených {len(records)} meraní.")
-    print(f"{'─'*38}")
-    print(f"  Priemer : {s['avg']} ms  |  Medián: {s['median']} ms")
+    print(f"Found {len(records)} measurements.")
+    print(f"{'-' * 38}")
+    print(f"  Average : {s['avg']} ms  |  Median: {s['median']} ms")
     print(f"  Min     : {s['min']} ms  |  Max   : {s['max']} ms")
     print(f"  P95     : {s['p95']} ms  |  P99   : {s['p99']} ms")
-    print(f"{'─'*38}\n")
+    print(f"{'-' * 38}\n")
 
     write_raw(records, OUT_RAW)
     write_stats(records, OUT_STATS)
 
-    print(f"\nStiahni na PC:")
+    print("\nDownload to PC:")
     print(f"  scp admin@<ip>:{OUT_RAW} .")
     print(f"  scp admin@<ip>:{OUT_STATS} .")
 

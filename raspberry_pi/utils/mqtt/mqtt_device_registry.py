@@ -31,7 +31,7 @@ class MQTTDeviceRegistry:
         self.connected_devices = {}
         # Seconds after which a device is considered offline
         self.device_timeout = device_timeout
-        # FIX: callback volaný okamžite pri každej zmene stavu zariadenia
+        # Optional callback triggered immediately on each status change.
         self.on_status_change = None
 
     # ==========================================================================
@@ -87,7 +87,7 @@ class MQTTDeviceRegistry:
 
         self.logger.debug(f"Device {device_id} status: {status}")
 
-        # FIX: okamžitý push na web dashboard pri každej zmene stavu
+        # Notify subscribers only when the status actually changed.
         if self.on_status_change and previous_status != status:
             self.on_status_change(device_id, status)
 
@@ -121,7 +121,7 @@ class MQTTDeviceRegistry:
             self.connected_devices[device_id]['status'] = 'offline'
             self.connected_devices[device_id]['last_updated'] = current_time
 
-            # FIX: push aj pre timeout-based offline
+                # Notify subscribers for timeout-based offline transitions as well.
             if self.on_status_change:
                 self.on_status_change(device_id, 'offline')
 

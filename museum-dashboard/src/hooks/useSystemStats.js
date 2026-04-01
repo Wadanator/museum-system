@@ -10,15 +10,25 @@ export function useSystemStats() {
     });
 
     useEffect(() => {
+        const handleStats = (data) => setStats(data);
+        
+        const handleConnect = () => {
+            // Re-request stats when socket reconnects
+            socket.emit('request_stats');
+        };
+
+        socket.on('stats_update', handleStats);
+        socket.on('connect', handleConnect);
+
         // Initial fetch
         if (socket.connected) {
             socket.emit('request_stats');
         }
 
-        const handleStats = (data) => setStats(data);
-        
-        socket.on('stats_update', handleStats);
-        return () => socket.off('stats_update', handleStats);
+        return () => {
+            socket.off('stats_update', handleStats);
+            socket.off('connect', handleConnect);
+        };
     }, []);
 
     const formatTime = (s) => `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;

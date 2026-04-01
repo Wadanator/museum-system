@@ -19,17 +19,34 @@ export function useDashboardData() {
       }
     };
 
+    const handleConnect = () => {
+      socket.emit('request_status');
+      socket.emit('request_stats');
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        socket.emit('request_status');
+        socket.emit('request_stats');
+      }
+    };
+
     socket.on('status_update', handleStatus);
     socket.on('stats_update', handleStats);
+    socket.on('connect', handleConnect);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
+    // Initial request on mount
     socket.emit('request_status');
     socket.emit('request_stats');
 
     return () => {
       socket.off('status_update', handleStatus);
       socket.off('stats_update', handleStats);
+      socket.off('connect', handleConnect);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 
   return { status, deviceCount };
-}
+};

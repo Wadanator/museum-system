@@ -8,6 +8,15 @@ Tento dokument sumarizuje komunikačné rozhranie medzi Raspberry Pi backendom (
 WebSockets sa používajú na nepretržitý a okamžitý prenos stavu zariadení a logov.
 Server beží pod hlavičkou aplikácie v `raspberry_pi/Web/dashboard.py`.
 
+### Web Runtime Resilience (P0-3)
+
+Web runtime štart/recovery logika je v `raspberry_pi/Web/app.py`:
+
+- Fast retry režim: bounded exponential retries (`WEB_FAST_RETRY_LIMIT`, `WEB_FAST_RETRY_BASE_SECONDS`, `WEB_FAST_RETRY_MAX_SECONDS`).
+- Degraded režim: po vyčerpaní fast retries sa prejde do low-frequency retry (`WEB_DEGRADED_RETRY_SECONDS`).
+- Core runtime pokračuje aj pri nedostupnom webe.
+- Startup fail vetva zachytáva aj `SystemExit`, aby web thread po bind chybe potichu neumrel.
+
 ### A) Eventy vysielané zo SERVERA do KLIENTA (Emitters)
 
 *   **`log_history`** 
@@ -54,6 +63,7 @@ Definované v `raspberry_pi/Web/routes/`.
 *   `GET /api/scene/<sceneName>` - Vráti kompletný JSON súbor požadovanej scény.
 *   `POST /api/scene/<sceneName>` - Uloží (prepíše) údaje scény formátované ako JSON do súboru.
 *   `POST /api/run_scene/<sceneName>` - Nasilu preruší aktuálnu scénu a začne prehrávať zvolenú.
+    *   Aktuálne správanie: ak už scéna beží, route vracia `400` (`Scene already running`).
 *   `POST /api/stop_scene` - Nasilu zastaví aktuálne bežiacu scénu, vymaže audio/video bloky a vyšle MQTT STOP signály na zastavenie HW modulov.
 
 ### D) Commands API Routes

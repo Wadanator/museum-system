@@ -17,15 +17,13 @@ export function useLogs() {
             setLogs(prev => [logEntry, ...prev].slice(0, 200));
         };
 
-        // Backend emituje 'logs_cleared' po úspešnom vymazaní
-        const handleLogsCleared = () => {
-            setLogs([]);
-        };
+        const handleLogsCleared = () => setLogs([]);
 
         const handleConnect = () => {
             setIsConnected(true);
             socket.emit('request_logs');
         };
+
         const handleDisconnect = () => setIsConnected(false);
 
         socket.on('log_history', handleLogHistory);
@@ -34,9 +32,8 @@ export function useLogs() {
         socket.on('connect', handleConnect);
         socket.on('disconnect', handleDisconnect);
 
-        if (socket.connected) {
-            socket.emit('request_logs');
-        }
+        // Request logs on mount even if socket is already connected.
+        socket.emit('request_logs');
 
         return () => {
             socket.off('log_history', handleLogHistory);

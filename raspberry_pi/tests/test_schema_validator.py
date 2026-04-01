@@ -1,37 +1,37 @@
 import pytest
-# Importujeme funkciu, ktorú chceme testovať
+# Import function under test.
 from utils.schema_validator import validate_scene_json
 
 def test_validate_scene_json_valid():
-    """Testuje, či validátor správne prijme korektný JSON scény."""
+    """Validate that the schema validator accepts a valid scene JSON."""
     
-    # Toto je minimálna platná štruktúra podľa SCENE_SCHEMA
+    # Minimal valid structure according to SCENE_SCHEMA.
     valid_data = {
         "sceneId": "room1_intro",
         "initialState": "START",
         "states": {
             "START": {
-                "description": "Počiatočný stav"
+                "description": "Initial state"
             }
         }
     }
     
-    # Očakávame, že funkcia vráti True
+    # Function should return True for valid data.
     assert validate_scene_json(valid_data) is True
 
 def test_validate_scene_json_missing_required_fields():
-    """Testuje, či validátor správne odmietne JSON, ktorému chýbajú povinné polia."""
+    """Validate that missing required fields are rejected."""
     
-    # V tomto JSONe chýba povinné pole "states" a "initialState"
+    # Missing required fields: "states" and "initialState".
     invalid_data = {
         "sceneId": "room1_intro"
     }
     
-    # Očakávame, že funkcia vráti False, pretože schéma nebola dodržaná
+    # Function should return False because schema requirements are not met.
     assert validate_scene_json(invalid_data) is False
 
 def test_validate_scene_json_invalid_action_type():
-    """Testuje, či validátor odhalí zlý typ akcie."""
+    """Validate that invalid action type is rejected."""
     
     invalid_data = {
         "sceneId": "room1_intro",
@@ -40,7 +40,7 @@ def test_validate_scene_json_invalid_action_type():
             "START": {
                 "onEnter": [
                     {
-                        "action": "laser", # Podľa ACTION_SCHEMA sú povolené len "mqtt", "audio", "video"
+                        "action": "laser",  # ACTION_SCHEMA allows only: mqtt, audio, video.
                         "topic": "test/topic"
                     }
                 ]
@@ -48,5 +48,5 @@ def test_validate_scene_json_invalid_action_type():
         }
     }
     
-    # Očakávame, že vráti False kvôli neplatnému typu akcie
+    # Function should return False due to invalid action type.
     assert validate_scene_json(invalid_data) is False

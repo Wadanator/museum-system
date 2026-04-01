@@ -120,11 +120,33 @@ sudo systemctl status museum-system
 - `raspberry_pi/watchdog.py`
 - `raspberry_pi/tools/` (monitoring/diagnostics skripty)
 
+Hardware watchdog setup (OS level):
+- Pozri `docs/13_rpi_hardware_watchdog_setup.md`.
+
 > Pozor: watchdog skript môže mať environment-dependent cesty – pred produkčným nasadením ich validuj.
 
 ---
 
-## 8) Go-live test checklist
+## 8) Stabilization test scripts (P0-2 / P0-3)
+
+Tieto skripty sú určené na runtime validáciu bez internetu na RPi:
+
+- `raspberry_pi/tests/test_main_scene_state.py`
+	- Offline P0-2 kontrola (bez pytest): centralizované transitions + idempotentný STOP.
+- `raspberry_pi/tests/manual_scene_service_stress.py`
+	- API stress pre štart/stop scény.
+- `raspberry_pi/tests/run_scene_stress_scenev01.sh`
+	- Preset launcher pre `SceneV01.json`.
+- `raspberry_pi/tests/manual_web_retry_p03_test.sh`
+	- P0-3 runtime test: vynútený bind conflict na porte 5000 + overenie recovery.
+
+Overené (2026-04-01):
+- P0-2 CLOSED + validated.
+- P0-3 CLOSED + validated.
+
+---
+
+## 9) Go-live test checklist
 
 - MQTT broker reachable z Pi.
 - ESP32 status topics sa objavia (`devices/.../status`).
@@ -135,7 +157,7 @@ sudo systemctl status museum-system
 
 ---
 
-## 9) Pri zmene room setupu
+## 10) Pri zmene room setupu
 
 Pri zmene `room_id` alebo topic prefixov aktualizuj konzistentne:
 - `config.ini` (Pi)

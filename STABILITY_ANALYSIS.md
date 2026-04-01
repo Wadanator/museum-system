@@ -16,6 +16,16 @@ This document is now strictly prioritized for go-live.
 
 Only substantial, code-backed items are included.
 
+Update 2026-04-01:
+- P0-2 is implemented and validated on target RPi runtime.
+- Validation evidence:
+	- Offline unit checks in `raspberry_pi/tests/test_main_scene_state.py` passed (2/2).
+	- Runtime API stress test in `raspberry_pi/tests/manual_scene_service_stress.py` passed (50 cycles, no unexpected API errors, final `scene_running=False`).
+- P0-3 is implemented and validated on target RPi runtime.
+- Validation evidence:
+	- Web retry/degraded policy implemented in `raspberry_pi/Web/app.py` and config in `raspberry_pi/Web/config.py`.
+	- Runtime conflict/recovery test in `raspberry_pi/tests/manual_web_retry_p03_test.sh` passed (forced port conflict => web unavailable, then automatic API recovery after port release).
+
 ---
 
 ## P0 - Must Fix Before Launch
@@ -46,6 +56,8 @@ Acceptance gate:
 
 ### P0-2 Scene state transitions are not fully centralized
 
+Status: CLOSED (Implemented + Validated 2026-04-01)
+
 Evidence:
 - `scene_running` is written in multiple paths; not all updates use one transition API.
 
@@ -64,9 +76,21 @@ Side-effect check:
 Acceptance gate:
 - 100 rapid start/stop cycles complete without stuck `running` state.
 
+Validation result:
+- Central transition API implemented in `raspberry_pi/main.py` as `_set_scene_running(...)`.
+- Direct scattered scene state writes were replaced by centralized transitions.
+- Runtime stress validation passed with final stable idle state after STOP.
+- A/B offline verification confirms regression protection:
+	- New `main.py`: `raspberry_pi/tests/test_main_scene_state.py` passed 4/4.
+	- Old `main.py`: same test script failed 2/4 on:
+		- `start_scene_by_name_returns_real_start_result`
+		- `missing_scene_broadcasts_status_update`
+
 ---
 
 ### P0-3 Web dashboard crash loop is unbounded
+
+Status: CLOSED (Implemented + Validated 2026-04-01)
 
 Evidence:
 - Web thread retries forever with fixed 10s delay.
@@ -85,6 +109,11 @@ Side-effect check:
 
 Acceptance gate:
 - On forced web bind error, logs remain bounded and scene runtime remains healthy.
+
+Validation result:
+- Replaced unbounded fixed-delay retry with bounded fast retries + degraded low-frequency retries.
+- Added handling for `SystemExit` to prevent silent web-thread death on bind failures.
+- Runtime validation passed using `raspberry_pi/tests/manual_web_retry_p03_test.sh`.
 
 ---
 

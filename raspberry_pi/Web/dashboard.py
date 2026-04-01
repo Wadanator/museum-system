@@ -5,6 +5,7 @@ import json
 import logging
 import time
 import os
+import base64
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
@@ -56,16 +57,49 @@ class WebDashboard:
     def _setup_socketio_handlers(self):
         """Setup SocketIO event handlers."""
         @self.socketio.on('connect')
-        def handle_connect():
+        def handle_connect(auth=None):
             """Handle new SocketIO client connections with authentication."""
-            auth = flask_request.authorization
-            if not auth or not self._check_auth(auth.username, auth.password):
-                return False  # Reject unauthorized connections
+            credentials = flask_request.authorization
+            if credentials is not None:
+                if not self._check_auth(credentials.username, credentials.password):
+                    return False
+            else:
+                username = None
+                password = None
+
+                # Browser Socket.IO clients commonly provide credentials via auth payload.
+                token = None
+                if isinstance(auth, dict):
+                    token = auth.get("token")
+
+                if token and isinstance(token, str) and token.startswith("Basic "):
+                    try:
+                        decoded = base64.b64decode(token[6:]).decode("utf-8")
+                        username, password = decoded.split(":", 1)
+                    except Exception:
+                        return False
+                else:
+                    auth_header = flask_request.headers.get("Authorization", "")
+                    if auth_header.startswith("Basic "):
+                        try:
+                            decoded = base64.b64decode(auth_header[6:]).decode("utf-8")
+                            username, password = decoded.split(":", 1)
+                        except Exception:
+                            return False
+
+                if username is None or password is None:
+                    return False
+
+                if not self._check_auth(username, password):
+                    return False
+
             try:
-                # FIX: Posielame len posledných 50 logov pre okamžité načítanie webu
+                # Send initial state on both initial connect and reconnect
                 emit('log_history', self.log_buffer[-50:])
+                self.update_stats()
                 emit('stats_update', self.stats)
-                self.log.info("New SocketIO client connected")
+                emit('status_update', self._get_status_data())
+                self.log.info("SocketIO client connected")
             except Exception as e:
                 self.log.error(f"Error on connect: {e}")
 
