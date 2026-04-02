@@ -9,3 +9,4 @@ psutil
 simple-websocket
 jsonschema
 eventlet==0.33.3
+websocket-client

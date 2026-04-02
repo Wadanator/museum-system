@@ -393,12 +393,16 @@ class MuseumController:
         try:
             if self.current_scene_name:
                 self.web_dashboard.update_scene_stats(self.current_scene_name)
-                self.web_dashboard.socketio.emit('stats_update', self.web_dashboard.stats)
             else:
                 log.warning("Cannot update scene stats: Unknown scene name")
                 self.web_dashboard.stats['total_scenes_played'] += 1
                 self.web_dashboard.save_stats()
-                self.web_dashboard.socketio.emit('stats_update', self.web_dashboard.stats)
+            # FIX: pridať namespace='/'
+            self.web_dashboard.socketio.emit(
+                'stats_update',
+                self.web_dashboard.stats,
+                namespace='/'
+            )
         except Exception as e:
             log.error(f"Error updating stats: {e}")
 

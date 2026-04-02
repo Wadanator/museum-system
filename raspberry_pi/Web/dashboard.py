@@ -243,8 +243,8 @@ class WebDashboard:
         """Add a log entry to the buffer and notify connected clients."""
         self.log_buffer.append(log_entry)
         if len(self.log_buffer) > Config.MAX_LOG_ENTRIES:
-            self.log_buffer = self.log_buffer[-Config.MAX_LOG_ENTRIES:]  # Trim to max size
-        self.socketio.emit('new_log', log_entry)
+            self.log_buffer = self.log_buffer[-Config.MAX_LOG_ENTRIES:]
+        self.socketio.emit('new_log', log_entry, namespace='/')
 
     def filter_logs(self, level_filter: str, limit: int) -> List[Dict]:
         """Filter logs by level and limit the number returned."""
@@ -255,4 +255,4 @@ class WebDashboard:
     
     def broadcast_status(self):
         """Okamžite pošle aktuálny stav (beží/nebeží) všetkým klientom."""
-        self.socketio.emit('status_update', self._get_status_data())
+        self.socketio.emit('status_update', self._get_status_data(), namespace='/')

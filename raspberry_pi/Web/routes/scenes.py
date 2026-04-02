@@ -78,18 +78,13 @@ def setup_scenes_routes(dashboard):
     @scenes_bp.route('/run_scene/<scene_name>', methods=['POST'])
     @requires_auth
     def run_scene(scene_name):
-        """Start a scene utilizing the main controller logic."""
-        if not scene_name.endswith('.json'):
-            scene_name += '.json'
-
-        if controller.scene_running:
-             return jsonify({'error': 'Scene already running'}), 400
-
-        # Spustenie scény cez centrálnu logiku v main.py
-        success = controller.start_scene_by_name(scene_name)
-
+        ...
         if success:
-            dashboard.socketio.emit('status_update', _get_current_status_data(controller))
+            dashboard.socketio.emit(
+                'status_update',
+                _get_current_status_data(controller),
+                namespace='/'
+            )
             return jsonify({'success': True, 'message': f'Scene {scene_name} started'})
         else:
             return jsonify({'error': 'Failed to start scene'}), 500
@@ -101,17 +96,18 @@ def setup_scenes_routes(dashboard):
         try:
             dashboard.log.info("Web dashboard requested GLOBAL STOP")
             controller.stop_scene()
-
         except Exception as e:
             dashboard.log.error(f"Critical error during stop_scene route: {e}")
             return jsonify({'error': str(e)}), 500
-            
         finally:
-            
-            dashboard.socketio.emit('status_update', _get_current_status_data(controller))
+            dashboard.socketio.emit(
+                'status_update',
+                _get_current_status_data(controller),
+                namespace='/'    # ← PRIDAŤ
+            )
             dashboard.log.info("Scene stop sequence finished.")
-            
-            return jsonify({'success': True, 'message': 'Stop signal broadcasted to all devices'})
+        return jsonify({'success': True, 'message': 'Stop signal broadcasted to all devices'})
+
 
     @scenes_bp.route('/config/main_scene')
     @requires_auth
