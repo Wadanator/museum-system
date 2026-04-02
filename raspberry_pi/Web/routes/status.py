@@ -72,7 +72,7 @@ def setup_status_routes(dashboard):
     def clear_logs():
         """Clear the in-memory log buffer and notify connected clients."""
         dashboard.log_buffer.clear()
-        dashboard.socketio.emit('logs_cleared')
+        dashboard._broadcast_event('logs_cleared', None)
         return jsonify({'success': True, 'message': 'Logs cleared'})
 
     @status_bp.route('/logs/export')

@@ -42,6 +42,7 @@ def _build_controller(scene_running=False):
     controller.scene_parser = None
     controller.audio_handler = None
     controller.video_handler = None
+    controller.web_dashboard = None
     return controller
 
 

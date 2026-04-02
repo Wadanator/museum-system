@@ -27,7 +27,8 @@ def create_app(controller):
         logger=False,
         engineio_logger=False,
         ping_timeout=60,
-        ping_interval=25
+        ping_interval=25,
+        transports=['websocket']
     )
     
     # Create dashboard instance

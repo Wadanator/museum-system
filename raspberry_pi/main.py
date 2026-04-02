@@ -259,7 +259,7 @@ class MuseumController:
                 if self.web_dashboard:
                     def notify_web(state_name):
                         try:
-                            self.web_dashboard.socketio.emit('scene_progress', {'activeState': state_name})
+                            self.web_dashboard._broadcast_event('scene_progress', {'activeState': state_name})
                         except Exception as e:
                             log.error(f"Failed to emit socket event: {e}")
                     

@@ -3,6 +3,7 @@ import { useState, useRef, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { api } from '../services/api';
 import { useConfirm } from '../context/useConfirm';
+import { socket } from '../services/socket';
 
 export function useSceneActions() {
     const { confirm } = useConfirm();
@@ -50,6 +51,8 @@ export function useSceneActions() {
                         error: (err) => `Chyba: ${err.message}`
                     }
                 );
+                socket.emit('request_status');
+                socket.emit('request_stats');
             } catch (e) {
                 toast.error('Chyba konfigurácie: ' + e.message);
                 throw e;
@@ -75,6 +78,8 @@ export function useSceneActions() {
                         error: (err) => `Chyba: ${err.message}`
                     }
                 );
+                socket.emit('request_status');
+                socket.emit('request_stats');
             });
         }
     };

@@ -6,12 +6,12 @@ import logging
 import time
 import os
 import base64
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List
 
 from flask import request as flask_request
-from flask_socketio import emit
 
 from .config import Config
 from .handlers.log_handler import WebLogHandler
@@ -19,12 +19,17 @@ from .utils.helpers import format_uptime
 
 class WebDashboard:
     """Web interface for controlling and monitoring the museum system."""
+
+    INITIAL_LOG_HISTORY_LIMIT = 50
+    REQUEST_LOG_HISTORY_LIMIT = 250
     
     def __init__(self, controller, app, socketio):
         self.controller = controller
         self.app = app
         self.socketio = socketio
         self.log = self._setup_logger()
+        self._connected_sids = set()
+        self._sids_lock = threading.Lock()
         
         self.log_buffer: List[Dict] = []  # In-memory log storage
         self.stats = {
@@ -94,11 +99,18 @@ class WebDashboard:
                     return False
 
             try:
+                with self._sids_lock:
+                    self._connected_sids.add(flask_request.sid)
+
                 # Send initial state on both initial connect and reconnect
-                emit('log_history', self.log_buffer[-50:])
+                self._emit_to_sid(
+                    'log_history',
+                    self.log_buffer[-self.INITIAL_LOG_HISTORY_LIMIT:],
+                    flask_request.sid,
+                )
                 self.update_stats()
-                emit('stats_update', self.stats)
-                emit('status_update', self._get_status_data())
+                self._emit_to_sid('stats_update', self.stats, flask_request.sid)
+                self._emit_to_sid('status_update', self._get_status_data(), flask_request.sid)
                 self.log.info("SocketIO client connected")
             except Exception as e:
                 self.log.error(f"Error on connect: {e}")
@@ -106,13 +118,20 @@ class WebDashboard:
         @self.socketio.on('disconnect')
         def handle_disconnect():
             """Handle SocketIO client disconnections."""
+            with self._sids_lock:
+                self._connected_sids.discard(flask_request.sid)
             self.log.info("SocketIO client disconnected")
 
         @self.socketio.on('request_logs')
         def handle_log_request():
             """Send log history to requesting SocketIO client."""
             try:
-                emit('log_history', self.log_buffer)
+                # Avoid oversized websocket packets that can trigger disconnects.
+                self._emit_to_sid(
+                    'log_history',
+                    self.log_buffer[-self.REQUEST_LOG_HISTORY_LIMIT:],
+                    flask_request.sid,
+                )
             except Exception as e:
                 self.log.error(f"Error handling log request: {e}")
 
@@ -120,7 +139,7 @@ class WebDashboard:
         def handle_status_request():
             """Send current system status to requesting SocketIO client."""
             try:
-                emit('status_update', self._get_status_data())
+                self._emit_to_sid('status_update', self._get_status_data(), flask_request.sid)
             except Exception as e:
                 self.log.error(f"Error handling status request: {e}")
 
@@ -129,9 +148,21 @@ class WebDashboard:
             """Send updated statistics to requesting SocketIO client."""
             try:
                 self.update_stats()
-                emit('stats_update', self.stats)
+                self._emit_to_sid('stats_update', self.stats, flask_request.sid)
             except Exception as e:
                 self.log.error(f"Error handling stats request: {e}")
+
+    def _emit_to_sid(self, event: str, payload, sid: str):
+        """Emit an event to one connected client sid with a stable namespace."""
+        self.socketio.emit(event, payload, to=sid, namespace='/')
+
+    def _broadcast_event(self, event: str, payload):
+        """Broadcast an event to all connected clients via explicit SID fanout."""
+        with self._sids_lock:
+            target_sids = list(self._connected_sids)
+
+        for sid in target_sids:
+            self._emit_to_sid(event, payload, sid)
 
     def _check_auth(self, username, password):
         """Check authentication credentials."""
@@ -244,7 +275,7 @@ class WebDashboard:
         self.log_buffer.append(log_entry)
         if len(self.log_buffer) > Config.MAX_LOG_ENTRIES:
             self.log_buffer = self.log_buffer[-Config.MAX_LOG_ENTRIES:]
-        self.socketio.emit('new_log', log_entry, namespace='/')
+        self._broadcast_event('new_log', log_entry)
 
     def filter_logs(self, level_filter: str, limit: int) -> List[Dict]:
         """Filter logs by level and limit the number returned."""
@@ -255,4 +286,4 @@ class WebDashboard:
     
     def broadcast_status(self):
         """Okamžite pošle aktuálny stav (beží/nebeží) všetkým klientom."""
-        self.socketio.emit('status_update', self._get_status_data(), namespace='/')
+        self._broadcast_event('status_update', self._get_status_data())

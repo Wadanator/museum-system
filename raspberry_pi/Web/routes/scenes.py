@@ -78,16 +78,27 @@ def setup_scenes_routes(dashboard):
     @scenes_bp.route('/run_scene/<scene_name>', methods=['POST'])
     @requires_auth
     def run_scene(scene_name):
-        ...
-        if success:
-            dashboard.socketio.emit(
-                'status_update',
-                _get_current_status_data(controller),
-                namespace='/'
-            )
-            return jsonify({'success': True, 'message': f'Scene {scene_name} started'})
-        else:
-            return jsonify({'error': 'Failed to start scene'}), 500
+        """Start a scene and broadcast the resulting status."""
+        try:
+            requested_scene = secure_filename(scene_name)
+            if not requested_scene.endswith('.json'):
+                requested_scene = f"{requested_scene}.json"
+
+            scene_path = get_scene_path(controller, requested_scene)
+            if not scene_path.exists():
+                return jsonify({'error': f'Scene not found: {requested_scene}'}), 404
+
+            success = controller.start_scene_by_name(requested_scene)
+            if success:
+                return jsonify({'success': True, 'message': f'Scene {requested_scene} started'})
+
+            # Scene start was rejected (typically scene already running).
+            return jsonify({'error': 'Scene already running or start rejected'}), 400
+        except Exception as e:
+            dashboard.log.error(f"Critical error during run_scene route: {e}")
+            return jsonify({'error': str(e)}), 500
+        finally:
+            dashboard._broadcast_event('status_update', _get_current_status_data(controller))
 
     @scenes_bp.route('/stop_scene', methods=['POST'])
     @requires_auth
@@ -100,11 +111,7 @@ def setup_scenes_routes(dashboard):
             dashboard.log.error(f"Critical error during stop_scene route: {e}")
             return jsonify({'error': str(e)}), 500
         finally:
-            dashboard.socketio.emit(
-                'status_update',
-                _get_current_status_data(controller),
-                namespace='/'    # ← PRIDAŤ
-            )
+            dashboard._broadcast_event('status_update', _get_current_status_data(controller))
             dashboard.log.info("Scene stop sequence finished.")
         return jsonify({'success': True, 'message': 'Stop signal broadcasted to all devices'})
 

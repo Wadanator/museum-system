@@ -39,7 +39,6 @@ export function SocketProvider({ children }) {
       if (socket.connected) {
         socket.disconnect();
       }
-      setIsConnected(false);
       return;
     }
 
