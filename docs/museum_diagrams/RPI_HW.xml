@@ -1,0 +1,43 @@
+<mxGraphModel dx="566" dy="297" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+    <mxCell id="rpi_box" parent="1" style="swimlane;startSize=30;fillColor=#C8F5E8;strokeColor=#3AAF80;strokeWidth=2;fontFamily=Helvetica;fontSize=11;fontColor=#0E3325;fontStyle=1;rounded=1;" value="Raspberry Pi 4" vertex="1">
+      <mxGeometry height="100" width="170" x="290" y="260" as="geometry" />
+    </mxCell>
+    <mxCell id="speakers" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;strokeWidth=1.8;fontFamily=Helvetica;fontSize=10;arcSize=15;" value="Reproduktory&#xa;(3,5 mm jack)" vertex="1">
+      <mxGeometry height="50" width="120" x="100" y="340" as="geometry" />
+    </mxCell>
+    <mxCell id="lan_switch" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#888888;strokeWidth=1.8;fontFamily=Helvetica;fontSize=10;dashed=0;" value="LAN sieť&#xa;(Ethernet)" vertex="1">
+      <mxGeometry height="50" width="120" x="530" y="230" as="geometry" />
+    </mxCell>
+    <mxCell id="psu" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;strokeWidth=1.8;fontFamily=Helvetica;fontSize=10;arcSize=15;" value="USB-C adaptér&#xa;5,0 V / 3,0 A" vertex="1">
+      <mxGeometry height="50" width="120" x="530" y="340" as="geometry" />
+    </mxCell>
+    <mxCell id="e_hdmi" edge="1" parent="1" source="rpi_box" style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;strokeColor=#6c8ebf;strokeWidth=2;fontFamily=Helvetica;fontSize=9;fontColor=#3D5A8A;endArrow=block;endFill=1;startArrow=none;" target="QhLN9dmeWpUSM93ZvTDT-3" value="HDMI" vertex="1">
+      <mxGeometry relative="1" x="-0.7333" y="10" as="geometry">
+        <mxPoint as="offset" />
+        <mxPoint x="195" y="255" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="e_audio" edge="1" parent="1" source="rpi_box" style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0;exitY=0.8;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#d6b656;strokeWidth=2;fontFamily=Helvetica;fontSize=9;fontColor=#7A5C00;endArrow=block;endFill=1;startArrow=none;" target="speakers" value="3,5 mm" vertex="1">
+      <mxGeometry relative="1" x="0.3682" y="15" as="geometry">
+        <mxPoint as="offset" />
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="e_lan" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeColor=#555555;strokeWidth=2;fontFamily=Helvetica;fontSize=9;fontColor=#333333;endArrow=block;endFill=1;startArrow=block;allowArrows=1;comic=0;pointerEvents=1;treeMoving=0;treeFolding=0;deletable=1;fixDash=0;" target="lan_switch" value="Ethernet (LAN)" vertex="1">
+      <mxGeometry relative="1" x="-0.3548" y="-21" as="geometry">
+        <mxPoint x="-6" y="15" as="offset" />
+        <mxPoint x="460" y="295" as="sourcePoint" />
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="e_psu" edge="1" parent="1" source="psu" style="edgeStyle=orthogonalEdgeStyle;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.8;entryDx=0;entryDy=0;strokeColor=#b85450;strokeWidth=2;fontFamily=Helvetica;fontSize=9;fontColor=#7A1A1A;endArrow=block;endFill=1;startArrow=none;" target="rpi_box" value="USB-C (5 V)" vertex="1">
+      <mxGeometry relative="1" x="-0.2635" y="16" as="geometry">
+        <mxPoint x="11" y="15" as="offset" />
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="QhLN9dmeWpUSM93ZvTDT-3" parent="1" style="html=1;verticalLabelPosition=middle;align=center;labelBackgroundColor=none;verticalAlign=middle;strokeWidth=2;strokeColor=#0080F0;shadow=0;dashed=0;shape=mxgraph.ios7.icons.monitor;labelPosition=center;fontSize=10;whiteSpace=wrap;" value="LCD TV" vertex="1">
+      <mxGeometry height="60" width="90" x="115" y="230" as="geometry" />
+    </mxCell>
+  </root>
+</mxGraphModel>
