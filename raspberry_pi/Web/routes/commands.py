@@ -5,30 +5,69 @@ import json
 from flask import Blueprint, jsonify, request
 from werkzeug.utils import secure_filename
 from ..auth import requires_auth
-from ..utils.helpers import get_commands_path, get_command_path, get_scenes_path
+from ..utils.helpers import (
+    get_commands_path,
+    get_command_path,
+    get_scenes_path,
+    get_devices_config_path,
+)
 
 commands_bp = Blueprint('commands', __name__)
 
 def setup_commands_routes(dashboard):
     controller = dashboard.controller
 
-    # --- 1. DEVICES CONFIG (scenes/room1/devices.json) ---
+    # --- 1. DEVICES CONFIG (config/rooms/<room_id>/devices.json) ---
     @commands_bp.route('/devices')
     @requires_auth
     def get_devices():
-        """Vráti zoznam zariadení zo súboru devices.json v zložke aktuálnej miestnosti."""
+        """Return room devices config. Uses room config path with legacy fallback."""
         try:
-            room_path = get_scenes_path(controller)
-            devices_config_path = room_path / 'devices.json'
+            devices_config_path = get_devices_config_path(controller)
 
+            # Legacy fallback for older deployments (scenes/<room>/devices.json)
             if not devices_config_path.exists():
+                legacy_path = get_scenes_path(controller) / 'devices.json'
+                if legacy_path.exists():
+                    with open(legacy_path, 'r', encoding='utf-8') as f:
+                        legacy_data = json.load(f)
+                    # Auto-migrate legacy file to new room-config location
+                    with open(devices_config_path, 'w', encoding='utf-8') as f:
+                        json.dump(legacy_data, f, indent=2)
+                    dashboard.log.info(
+                        f"Migrated devices config from {legacy_path} to {devices_config_path}"
+                    )
+                    return jsonify(legacy_data)
                 return jsonify({'relays': [], 'motors': []})
-            
-            with open(devices_config_path, 'r') as f:
+
+            with open(devices_config_path, 'r', encoding='utf-8') as f:
                 return jsonify(json.load(f))
         except Exception as e:
             dashboard.log.error(f"Error loading devices config: {e}")
             return jsonify({'error': f"Config error: {e}"}), 500
+
+    @commands_bp.route('/devices', methods=['POST'])
+    @requires_auth
+    def save_devices():
+        """Save room devices config JSON to room-specific config path."""
+        try:
+            devices_data = request.json
+            if not isinstance(devices_data, dict):
+                return jsonify({'error': 'Devices config must be an object'}), 400
+
+            # Keep compatibility with current UI expectations
+            if 'motors' not in devices_data and 'relays' not in devices_data and 'lights' not in devices_data:
+                return jsonify({'error': 'Devices config must include motors/relays/lights keys'}), 400
+
+            devices_config_path = get_devices_config_path(controller)
+            with open(devices_config_path, 'w', encoding='utf-8') as f:
+                json.dump(devices_data, f, indent=2)
+
+            dashboard.log.info(f"Devices config saved: {devices_config_path}")
+            return jsonify({'success': True, 'path': str(devices_config_path)})
+        except Exception as e:
+            dashboard.log.error(f"Error saving devices config: {e}")
+            return jsonify({'error': str(e)}), 500
 
     # --- 2. PRIAME MQTT (MANUÁLNE OVLÁDANIE) ---
     @commands_bp.route('/mqtt/send', methods=['POST'])

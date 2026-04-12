@@ -87,6 +87,9 @@ class MuseumController:
         
         self.services = ServiceContainer(self.config, self.room_id, log)
         self.services.init_all_services()
+
+        from utils.mqtt.mqtt_actuator_state_store import MQTTActuatorStateStore
+        self.actuator_state_store = MQTTActuatorStateStore()
         
         # Vytiahneme si referencie pre ľahší prístup v kóde
         self.audio_handler = self.services.audio_handler
@@ -121,6 +124,39 @@ class MuseumController:
                 button_callback=self.on_button_press,
                 named_scene_callback=self.start_scene_by_name
             )
+
+        # Actuator state store - wire feedback tracker and WebSocket broadcast
+        if self.mqtt_feedback_tracker and self.actuator_state_store:
+            self.mqtt_feedback_tracker.set_state_store(self.actuator_state_store)
+
+        def _on_actuator_state_change(snapshot: dict) -> None:
+            if self.web_dashboard:
+                self.web_dashboard.broadcast_device_runtime_state(snapshot)
+
+        self.actuator_state_store.set_update_callback(_on_actuator_state_change)
+
+        # Phase-3 hook: mark endpoints offline when their node disconnects.
+        # Requires node_id->topic mapping to be populated by track_published_message.
+        original_device_status_change = getattr(
+            self.mqtt_device_registry, 'on_status_change', None
+        )
+
+        def _on_device_status_change(device_id: str, status: str) -> None:
+            if original_device_status_change:
+                original_device_status_change(device_id, status)
+            if status == 'offline' and self.actuator_state_store:
+                self.actuator_state_store.mark_node_offline(device_id)
+            if self.web_dashboard:
+                try:
+                    self.web_dashboard.socketio.emit(
+                        'device_status_update',
+                        {'device_id': device_id, 'status': status, 'timestamp': time.time()},
+                    )
+                except Exception as exc:
+                    log.error(f"Failed to emit device_status_update: {exc}")
+
+        if self.mqtt_device_registry:
+            self.mqtt_device_registry.on_status_change = _on_device_status_change
         
         # 2. MQTT Connection callbacks
         if self.mqtt_client:
@@ -142,21 +178,6 @@ class MuseumController:
         # 4. Button Handler Callback
         if self.button_handler:
             self.button_handler.set_callback(self.on_button_press)
-
-        # 5. FIX: Device registry → okamžitý push stavu na web dashboard
-        # Callback sa vyhodnotí neskôr (self.web_dashboard ešte neexistuje pri wiring-u)
-        if self.mqtt_device_registry:
-            def _on_device_status_change(device_id, status):
-                if self.web_dashboard:
-                    try:
-                        self.web_dashboard.socketio.emit('device_status_update', {
-                            'device_id': device_id,
-                            'status': status,
-                            'timestamp': time.time()
-                        })
-                    except Exception as e:
-                        log.error(f"Failed to emit device_status_update: {e}")
-            self.mqtt_device_registry.on_status_change = _on_device_status_change
 
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals."""
@@ -254,8 +275,6 @@ class MuseumController:
             log.debug(f"Loading scene: {scene_path}")
             if self.scene_parser.load_scene(scene_path):
                 
-                # --- NOVÉ: Prepojenie na Web Dashboard cez SocketIO ---
-                # Toto zabezpečí, že web dostane info o každom prechode
                 if self.web_dashboard:
                     def notify_web(state_name):
                         try:

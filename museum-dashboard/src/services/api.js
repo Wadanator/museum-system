@@ -111,6 +111,19 @@ export const api = {
     return res.json();
   },
 
+  saveDevices: async (devicesConfig) => {
+    const res = await authFetch(`${API_URL}/devices`, {
+      method: 'POST',
+      body: JSON.stringify(devicesConfig)
+    });
+    return res.json();
+  },
+
+  getDeviceStates: async () => {
+    const res = await authFetch(`${API_URL}/device_states`);
+    return res.json();
+  },
+
   sendMqtt: async (topic, message) => {
     const res = await authFetch(`${API_URL}/mqtt/send`, {
       method: 'POST',

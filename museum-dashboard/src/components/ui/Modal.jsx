@@ -1,11 +1,11 @@
 import { X } from 'lucide-react';
 
-export default function Modal({ isOpen, title, onClose, children, footer, type = 'default' }) {
+export default function Modal({ isOpen, title, onClose, children, footer, type = 'default', className = '' }) {
   if (!isOpen) return null;
 
   return (
     <div className="modal-overlay">
-      <div className="modal-content">
+      <div className={`modal-content ${className}`.trim()}>
         <div className="modal-header">
             <h3 className={`modal-title ${type === 'danger' ? 'danger' : ''}`}>
                 {title}

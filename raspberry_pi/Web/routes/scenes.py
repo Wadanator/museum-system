@@ -13,6 +13,7 @@ scenes_bp = Blueprint('scenes', __name__)
 
 def setup_scenes_routes(dashboard):
     controller = dashboard.controller
+    hidden_scene_files = {'devices.json'}
 
     @scenes_bp.route('/scenes')
     @requires_auth
@@ -26,7 +27,7 @@ def setup_scenes_routes(dashboard):
                     'name': file.name,
                     'path': str(file),
                     'modified': file.stat().st_mtime
-                } for file in scenes_path.glob('*.json')]
+                } for file in scenes_path.glob('*.json') if file.name not in hidden_scene_files]
                 scenes.sort(key=lambda x: x['modified'], reverse=True)
             return jsonify(scenes)
         except Exception as e:

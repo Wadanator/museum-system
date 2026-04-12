@@ -114,8 +114,10 @@ class ServiceContainer:
         )
 
         # 2. Feedback Tracker
+        # Use per-command ack timeout (ms -> s)
+        ack_timeout_s = self.config.get('command_ack_timeout_ms', 200) / 1000.0
         self.mqtt_feedback_tracker = MQTTFeedbackTracker(
-            feedback_timeout=float(self.config.get('feedback_timeout', 2))
+            feedback_timeout=ack_timeout_s
         )
 
         # 3. Message Handler (scene callbacks are set in the controller)

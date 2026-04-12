@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useSocket } from '../../context/useSocket';
 import { useScenes } from '../../hooks/useScenes';
 import { useDevices } from '../../hooks/useDevices';
+import { useDeviceRuntimeState } from '../../hooks/useDeviceRuntimeState';
 import SceneVisualizer from '../Scenes/SceneVisualizer';
 import PageHeader from '../ui/PageHeader';
 import Button from '../ui/Button';
@@ -18,54 +19,14 @@ export default function LiveView({
     const { socket } = useSocket();
     const { scenes, loadSceneContent, playScene, fetchScenes } = useScenes();
     const { devices } = useDevices();
+    const { getStateForDevice } = useDeviceRuntimeState();
 
     const [internalSelectedScene, setInternalSelectedScene] = useState(null);
     const [internalSceneData, setInternalSceneData] = useState(null);
     const [activeState, setActiveState] = useState(null);
-    const [simulatedDeviceStatus, setSimulatedDeviceStatus] = useState({});
 
     const selectedScene = controlledSelectedScene ?? internalSelectedScene;
     const sceneData = controlledSceneData ?? internalSceneData;
-
-    const timersRef = useRef([]);
-
-    const applyActions = useCallback((actions) => {
-        setSimulatedDeviceStatus((prevStatus) => {
-            const nextStatus = { ...prevStatus };
-
-            actions.forEach((action) => {
-                if (!action || !action.topic) return;
-
-                const targetDevice = devices.find((device) => device.topic === action.topic);
-                if (!targetDevice) return;
-
-                const message = action.message;
-                const isMotor = targetDevice.type === 'motor';
-
-                if (isMotor) {
-                    try {
-                        const jsonCmd = typeof message === 'string' && message.startsWith('{') ? JSON.parse(message) : null;
-
-                        if (jsonCmd && jsonCmd.speed !== undefined) {
-                            nextStatus[targetDevice.id] = Number(jsonCmd.speed) > 0 ? `ON (${jsonCmd.speed}%)` : 'OFF';
-                            return;
-                        }
-
-                        if (message === 'ON' || message === 'START') nextStatus[targetDevice.id] = 'ON';
-                        else if (message === 'OFF' || message === 'STOP') nextStatus[targetDevice.id] = 'OFF';
-                    } catch (error) {
-                        console.warn('Error parsing motor command:', error);
-                    }
-                    return;
-                }
-
-                const isTurningOn = message === 'ON' || message === '1' || message === 'true';
-                nextStatus[targetDevice.id] = isTurningOn ? 'ON' : 'OFF';
-            });
-
-            return nextStatus;
-        });
-    }, [devices]);
 
     useEffect(() => {
         if (showSceneSelector) {
@@ -77,7 +38,7 @@ export default function LiveView({
         if (!socket) return;
 
         const handleProgress = (data) => {
-            if (data && data.activeState) {
+            if (data?.activeState) {
                 setActiveState(data.activeState);
             }
         };
@@ -86,62 +47,26 @@ export default function LiveView({
         return () => socket.off('scene_progress', handleProgress);
     }, [socket]);
 
-    useEffect(() => {
-        timersRef.current.forEach((timer) => clearTimeout(timer));
-        timersRef.current = [];
-
-        if (activeState && sceneData && sceneData.states && sceneData.states[activeState]) {
-            const stateNode = sceneData.states[activeState];
-
-            if (stateNode.onEnter) {
-                const onEnterTimerId = setTimeout(() => {
-                    applyActions(stateNode.onEnter);
-                }, 0);
-                timersRef.current.push(onEnterTimerId);
-            }
-
-            if (stateNode.timeline) {
-                stateNode.timeline.forEach((item) => {
-                    const delayMs = (item.at || 0) * 1000;
-
-                    const timerId = setTimeout(() => {
-                        const actionsToRun = item.actions ? item.actions : [item];
-                        applyActions(actionsToRun);
-                    }, delayMs);
-
-                    timersRef.current.push(timerId);
-                });
-            }
-        }
-
-        return () => {
-            timersRef.current.forEach((timer) => clearTimeout(timer));
-            timersRef.current = [];
-        };
-    }, [activeState, sceneData, applyActions]);
-
     const handleSelectScene = async (e) => {
         const filename = e.target.value;
         setInternalSelectedScene(filename);
-
         if (!filename) return;
 
         const content = await loadSceneContent(filename);
         setInternalSceneData(content);
         onSceneDataLoaded?.(filename, content);
         setActiveState(null);
-        setSimulatedDeviceStatus({});
     };
 
     const handlePlay = () => {
         if (!selectedScene) return;
-
         playScene(selectedScene);
         setActiveState(null);
-        setSimulatedDeviceStatus({});
     };
 
-    const sceneLabel = selectedScene ? selectedScene.replace('.json', '') : 'Žiadna scéna';
+    const sceneLabel = selectedScene
+        ? selectedScene.replace('.json', '')
+        : 'Žiadna scéna';
 
     const liveControls = (
         <div className="live-header-controls">
@@ -153,11 +78,15 @@ export default function LiveView({
                 >
                     <option value="" disabled>-- Vyber scénu --</option>
                     {scenes.map((scene) => (
-                        <option key={scene.name} value={scene.name}>{scene.name}</option>
+                        <option key={scene.name} value={scene.name}>
+                            {scene.name}
+                        </option>
                     ))}
                 </select>
             ) : (
-                <div className="live-current-scene">Aktuálna scéna: {sceneLabel}</div>
+                <div className="live-current-scene">
+                    Aktuálna scéna: {sceneLabel}
+                </div>
             )}
 
             <Button
@@ -168,12 +97,6 @@ export default function LiveView({
             >
                 Spustiť na RPi
             </Button>
-            <Button
-                variant="secondary"
-                icon={RefreshCw}
-                onClick={() => setSimulatedDeviceStatus({})}
-                title="Resetovať zobrazenie zariadení"
-            />
         </div>
     );
 
@@ -182,7 +105,9 @@ export default function LiveView({
             {embedded ? (
                 <div className="live-view-inline-header">
                     <h2 className="live-view-inline-title">Live Testovanie</h2>
-                    <p className="live-view-inline-subtitle">Sledovanie priebehu scény a stavu zariadení</p>
+                    <p className="live-view-inline-subtitle">
+                        Sledovanie priebehu scény a stavu zariadení
+                    </p>
                     {liveControls}
                 </div>
             ) : (
@@ -202,7 +127,10 @@ export default function LiveView({
                             <div className="visualizer-overlay">
                                 STAV: {activeState || 'READY'}
                             </div>
-                            <SceneVisualizer data={sceneData} activeStateId={activeState} />
+                            <SceneVisualizer
+                                data={sceneData}
+                                activeStateId={activeState}
+                            />
                         </>
                     ) : (
                         <div className="empty-state">
@@ -215,7 +143,7 @@ export default function LiveView({
                 <div className="devices-panel">
                     <div className="devices-header">
                         <Zap size={18} className="text-primary" />
-                        Live Status (Simulácia)
+                        Live Status
                     </div>
 
                     <div className="devices-list">
@@ -225,25 +153,33 @@ export default function LiveView({
                             </div>
                         ) : (
                             devices.map((device) => {
-                                const statusRaw = simulatedDeviceStatus[device.id];
-                                const isOn = statusRaw === 'ON' || (typeof statusRaw === 'string' && statusRaw.includes('ON'));
+                                const stateLabel = getStateForDevice(device);
+                                const isOn = stateLabel === 'ON';
                                 const isRelay = device.type === 'relay';
-                                const statusText = statusRaw || 'OFF';
 
                                 return (
-                                    <div key={device.id} className={`device-item ${isOn ? 'active' : ''}`}>
+                                    <div
+                                        key={device.id}
+                                        className={`device-item ${isOn ? 'active' : ''}`}
+                                    >
                                         <div className="device-info">
                                             <div className="device-icon">
-                                                {isRelay ? <Power size={18} /> : <Cpu size={18} />}
+                                                {isRelay
+                                                    ? <Power size={18} />
+                                                    : <Cpu size={18} />}
                                             </div>
                                             <div>
-                                                <div className="device-name">{device.name}</div>
-                                                <div className="device-id">{device.id}</div>
+                                                <div className="device-name">
+                                                    {device.name}
+                                                </div>
+                                                <div className="device-id">
+                                                    {device.id}
+                                                </div>
                                             </div>
                                         </div>
 
                                         <div className="device-status">
-                                            {statusText}
+                                            {stateLabel}
                                         </div>
                                     </div>
                                 );
@@ -256,7 +192,11 @@ export default function LiveView({
     );
 
     if (embedded) {
-        return <div className="live-view-container live-view-embedded">{liveContent}</div>;
+        return (
+            <div className="live-view-container live-view-embedded">
+                {liveContent}
+            </div>
+        );
     }
 
     return (

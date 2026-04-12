@@ -165,6 +165,11 @@ class ConfigManager:
             'port': self.config.getint('MQTT', 'port', fallback=1883),
             'device_timeout': self.config.getint('MQTT', 'device_timeout', fallback=180),
             'feedback_timeout': self.config.getfloat('MQTT', 'feedback_timeout', fallback=1.0),
+            # MQTT timeouts (split from legacy feedback_timeout)
+            'command_ack_timeout_ms': self.config.getint(
+                'MQTT', 'command_ack_timeout_ms', fallback=200),
+            'node_offline_timeout_s': self.config.getint(
+                'MQTT', 'node_offline_timeout_s', fallback=5),
 
             # GPIO
             'button_pin': self.config.getint('GPIO', 'button_pin', fallback=27),

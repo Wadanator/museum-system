@@ -3,6 +3,8 @@ broker_ip = TechMuzeumRoom1.local
 port = 1883
 device_timeout = 25
 feedback_timeout = 1
+command_ack_timeout_ms = 200
+node_offline_timeout_s = 5
 
 [GPIO]
 button_pin = 27
@@ -70,6 +72,7 @@ museum.sys_monitor = WARNING
 museum.mqtt_handler = WARNING
 museum.mqtt_feedback = WARNING
 museum.mqtt_devices = WARNING
+museum.actuator_store = WARNING
 museum.config = WARNING
 museum.setup = WARNING
 

@@ -41,6 +41,25 @@ def get_command_path(controller, command_name):
         command_name += '.json'
     return get_commands_path(controller) / secure_filename(command_name)
 
+
+def get_room_config_path(controller):
+    """Get the room-specific config directory outside scenes and ensure it exists."""
+    room_id = getattr(controller, 'room_id', 'default')
+    room_config_path = Config._BASE_DIR / 'config' / 'rooms' / room_id
+    try:
+        room_config_path.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        import logging
+        logging.getLogger('WEB').error(
+            f"Failed to create room config directory {room_config_path}: {e}"
+        )
+    return room_config_path
+
+
+def get_devices_config_path(controller):
+    """Get the room-specific devices config path outside scenes."""
+    return get_room_config_path(controller) / 'devices.json'
+
 def execute_system_command(command, operation, logger):
     """Execute a system command with error handling."""
     try:

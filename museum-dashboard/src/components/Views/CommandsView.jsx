@@ -1,15 +1,19 @@
-import { Loader2, Zap, Settings2, RefreshCw, OctagonX } from 'lucide-react';
+import { useState } from 'react';
+import { Loader2, Zap, Settings2, RefreshCw, OctagonX, FileCode2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useDevices } from '../../hooks/useDevices';
 import { api } from '../../services/api';
 import MotorCard from '../Devices/MotorCard';
 import RelayCard from '../Devices/RelayCard';
+import DevicesConfigModal from '../Devices/DevicesConfigModal';
 import Button from '../ui/Button';
 import PageHeader from '../ui/PageHeader';
 import '../../styles/views/commands-view.css';
 
 export default function CommandsView() {
     const { motors, relays, loading, error } = useDevices();
+    const [isDevicesEditorOpen, setIsDevicesEditorOpen] = useState(false);
+    const [devicesConfig, setDevicesConfig] = useState({ relays: [], motors: [] });
 
     const handleRefresh = () => window.location.reload();
 
@@ -33,6 +37,30 @@ export default function CommandsView() {
         } catch (e) {
             console.error("Stop All Error:", e);
             toast.error("Chyba pri hromadnom vypínaní.", { id: toastId });
+        }
+    };
+
+    const handleOpenDevicesEditor = async () => {
+        try {
+            const config = await api.getDevices();
+            setDevicesConfig(config || { relays: [], motors: [] });
+            setIsDevicesEditorOpen(true);
+        } catch (e) {
+            console.error('Load devices config error:', e);
+            toast.error('Nepodarilo sa načítať devices konfiguráciu.');
+        }
+    };
+
+    const handleSaveDevicesConfig = async (updatedConfig) => {
+        try {
+            const result = await api.saveDevices(updatedConfig);
+            if (result?.success) {
+                return { success: true };
+            }
+            return { success: false, error: result?.error || 'Save failed' };
+        } catch (e) {
+            console.error('Save devices config error:', e);
+            return { success: false, error: e.message || 'Save failed' };
         }
     };
 
@@ -69,6 +97,10 @@ export default function CommandsView() {
 
                     <Button variant="secondary" icon={RefreshCw} onClick={handleRefresh} size="small">
                         Obnoviť
+                    </Button>
+
+                    <Button variant="secondary" icon={FileCode2} onClick={handleOpenDevicesEditor} size="small">
+                        Upraviť devices.json
                     </Button>
                 </div>
             </PageHeader>
@@ -112,6 +144,13 @@ export default function CommandsView() {
                     </div>
                 )}
             </div>
+
+            <DevicesConfigModal
+                isOpen={isDevicesEditorOpen}
+                onClose={() => setIsDevicesEditorOpen(false)}
+                initialContent={devicesConfig}
+                onSave={handleSaveDevicesConfig}
+            />
         </div>
     );
 }

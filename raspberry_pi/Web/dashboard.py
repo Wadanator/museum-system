@@ -287,3 +287,7 @@ class WebDashboard:
     def broadcast_status(self):
         """Okamžite pošle aktuálny stav (beží/nebeží) všetkým klientom."""
         self._broadcast_event('status_update', self._get_status_data())
+
+    def broadcast_device_runtime_state(self, state_snapshot: dict) -> None:
+        """Push an incremental actuator state update to all connected clients."""
+        self._broadcast_event('device_runtime_state_update', state_snapshot)
