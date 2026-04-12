@@ -33,10 +33,8 @@ Update 2026-04-01 (latest execution status):
 - Verification evidence:
    - `raspberry_pi/tests/test_main_scene_state.py` offline checks passed on RPi (2/2).
    - `raspberry_pi/tests/manual_scene_service_stress.py` runtime stress passed (50 cycles, no unexpected API errors, final `scene_running=False`).
-- P0-3 has been implemented and validated.
-- Verification evidence:
-   - `raspberry_pi/Web/app.py` now uses bounded fast retries, degraded retries, and catches `SystemExit` during web startup failures.
-   - `raspberry_pi/tests/manual_web_retry_p03_test.sh` runtime test passed (forced bind conflict produced web unavailability, then API recovered after port release).
+- Revalidation 2026-04-12:
+   - P0-3 is reopened. Current `raspberry_pi/Web/app.py` still uses unbounded `while True` restart loop with fixed 10s delay.
 
 ---
 
@@ -259,7 +257,7 @@ Enhanced:
 
 ### P0-3: Web Dashboard Crash Loop Unbounded ⚠️ NEEDS VERIFICATION
 
-Current status: CLOSED (Implemented + Validated 2026-04-01)
+Current status: OPEN (Revalidated 2026-04-12)
 
 **Status:** Unclear - requires code inspection  
 **Evidence Quality:** Weak (no code reference provided)  

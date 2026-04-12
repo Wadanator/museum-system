@@ -19,7 +19,7 @@ export default function LiveView({
     const { socket } = useSocket();
     const { scenes, loadSceneContent, playScene, fetchScenes } = useScenes();
     const { devices } = useDevices();
-    const { getStateForDevice } = useDeviceRuntimeState();
+    const { getStateForDevice, getDisplayStateForDevice } = useDeviceRuntimeState();
 
     const [internalSelectedScene, setInternalSelectedScene] = useState(null);
     const [internalSceneData, setInternalSceneData] = useState(null);
@@ -153,8 +153,9 @@ export default function LiveView({
                             </div>
                         ) : (
                             devices.map((device) => {
-                                const stateLabel = getStateForDevice(device);
-                                const isOn = stateLabel === 'ON';
+                                const confirmedState = getStateForDevice(device);
+                                const stateLabel = getDisplayStateForDevice(device);
+                                const isOn = confirmedState === 'ON';
                                 const isRelay = device.type === 'relay';
 
                                 return (

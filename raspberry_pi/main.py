@@ -298,6 +298,8 @@ class MuseumController:
                     # 2. Reset príznaku behu a broadcast STOP
                     transitioned = self._set_scene_running(False, f"scene_thread_finally:{scene_filename}")
                     if transitioned:
+                        if self.actuator_state_store:
+                            self.actuator_state_store.force_all_off(source='scene_end')
                         self.broadcast_stop()
 
                     if self.web_dashboard:
@@ -341,6 +343,9 @@ class MuseumController:
                 self.video_handler.stop_video()
             except Exception as e:
                 log.error(f"Error stopping video: {e}")
+
+        if self.actuator_state_store:
+            self.actuator_state_store.force_all_off(source='external_stop')
 
         self.broadcast_stop()
         if self.web_dashboard:

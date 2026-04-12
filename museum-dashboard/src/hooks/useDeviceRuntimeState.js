@@ -71,5 +71,33 @@ export function useDeviceRuntimeState() {
         [deviceStates],
     );
 
-    return { deviceStates, getStateForDevice, isLoading };
+    /**
+     * Format human-readable runtime state per device kind.
+     * Motors show direction + speed when available, relays stay ON/OFF.
+     */
+    const getDisplayStateForDevice = useCallback(
+        (device) => {
+            if (!device?.topic) return 'UNKNOWN';
+            const entry = deviceStates[device.topic];
+            if (!entry || entry.stale) return 'UNKNOWN';
+
+            const confirmed = entry.confirmed_state ?? 'UNKNOWN';
+            if (device.type !== 'motor') {
+                return confirmed;
+            }
+
+            if (confirmed !== 'ON') {
+                return confirmed;
+            }
+
+            const direction = entry.motor_direction ?? '?';
+            const speed = Number.isFinite(entry.motor_speed)
+                ? `${entry.motor_speed}%`
+                : '?%';
+            return `${direction} ${speed}`;
+        },
+        [deviceStates],
+    );
+
+    return { deviceStates, getStateForDevice, getDisplayStateForDevice, isLoading };
 }

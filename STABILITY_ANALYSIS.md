@@ -21,10 +21,8 @@ Update 2026-04-01:
 - Validation evidence:
 	- Offline unit checks in `raspberry_pi/tests/test_main_scene_state.py` passed (2/2).
 	- Runtime API stress test in `raspberry_pi/tests/manual_scene_service_stress.py` passed (50 cycles, no unexpected API errors, final `scene_running=False`).
-- P0-3 is implemented and validated on target RPi runtime.
-- Validation evidence:
-	- Web retry/degraded policy implemented in `raspberry_pi/Web/app.py` and config in `raspberry_pi/Web/config.py`.
-	- Runtime conflict/recovery test in `raspberry_pi/tests/manual_web_retry_p03_test.sh` passed (forced port conflict => web unavailable, then automatic API recovery after port release).
+- Revalidation 2026-04-12:
+	- P0-3 reopened. Current `raspberry_pi/Web/app.py` still runs unbounded `while True` web restart loop with fixed 10s delay.
 
 ---
 
@@ -90,7 +88,7 @@ Validation result:
 
 ### P0-3 Web dashboard crash loop is unbounded
 
-Status: CLOSED (Implemented + Validated 2026-04-01)
+Status: OPEN (Revalidated 2026-04-12)
 
 Evidence:
 - Web thread retries forever with fixed 10s delay.
@@ -110,10 +108,9 @@ Side-effect check:
 Acceptance gate:
 - On forced web bind error, logs remain bounded and scene runtime remains healthy.
 
-Validation result:
-- Replaced unbounded fixed-delay retry with bounded fast retries + degraded low-frequency retries.
-- Added handling for `SystemExit` to prevent silent web-thread death on bind failures.
-- Runtime validation passed using `raspberry_pi/tests/manual_web_retry_p03_test.sh`.
+Current validation result (2026-04-12):
+- `raspberry_pi/Web/app.py` contains an unbounded `while True` retry loop in `run_dashboard()`.
+- Retry policy is fixed-delay (10s) and does not expose degraded-web state.
 
 ---
 

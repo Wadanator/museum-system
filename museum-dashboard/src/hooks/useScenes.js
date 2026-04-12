@@ -10,7 +10,10 @@ export function useScenes() {
         try {
             setLoading(true);
             const data = await api.getScenes();
-            setScenes(data || []);
+            const safeScenes = (data || []).filter(
+                (scene) => scene?.name !== 'devices.json'
+            );
+            setScenes(safeScenes);
         } catch (e) {
             toast.error("Nepodarilo sa načítať scény");
             console.error(e);

@@ -43,12 +43,70 @@ def _infer_state_from_command(command: str) -> Optional[str]:
     return None
 
 
+def _normalize_direction(direction: str) -> Optional[str]:
+    """Normalize motor direction aliases to stable values (LEFT/RIGHT)."""
+    if not direction:
+        return None
+    raw = str(direction).strip().upper()
+    if raw in {'L', 'LEFT', 'CCW', 'REV', 'REVERSE', 'BWD', 'BACKWARD'}:
+        return 'LEFT'
+    if raw in {'R', 'RIGHT', 'CW', 'FWD', 'FORWARD'}:
+        return 'RIGHT'
+    return None
+
+
+def _extract_motor_fields(command: str) -> dict:
+    """
+    Parse motor-specific metadata from command payload.
+
+    Expected patterns include:
+    - ON:<speed>:<direction>
+    - ON:<speed>:<direction>:<duration_ms>
+    - OFF
+    """
+    if not command:
+        return {'motor_direction': None, 'motor_speed': None}
+
+    parts = str(command).strip().split(':')
+    prefix = parts[0].upper() if parts else ''
+
+    if prefix in _OFF_PREFIXES:
+        return {'motor_direction': None, 'motor_speed': 0}
+
+    if prefix == 'SPEED':
+        speed = None
+        if len(parts) > 1:
+            try:
+                speed = int(parts[1])
+            except (ValueError, TypeError):
+                speed = None
+        return {'motor_direction': None, 'motor_speed': speed}
+
+    if prefix in {'DIR', 'DIRECTION'}:
+        direction = _normalize_direction(parts[1]) if len(parts) > 1 else None
+        return {'motor_direction': direction, 'motor_speed': None}
+
+    if prefix not in _ON_PREFIXES:
+        return {'motor_direction': None, 'motor_speed': None}
+
+    speed = None
+    if len(parts) > 1:
+        try:
+            speed = int(parts[1])
+        except (ValueError, TypeError):
+            speed = None
+
+    direction = _normalize_direction(parts[2]) if len(parts) > 2 else None
+    return {'motor_direction': direction, 'motor_speed': speed}
+
+
 class ActuatorState:
     """Immutable-by-convention record for a single endpoint's runtime state."""
 
     __slots__ = (
         'topic', 'desired_state', 'confirmed_state',
         'state_source', 'last_update_ts', 'node_id', 'stale',
+        'motor_direction', 'motor_speed',
     )
 
     def __init__(self, topic: str) -> None:
@@ -59,6 +117,8 @@ class ActuatorState:
         self.last_update_ts: float = time.time()
         self.node_id: Optional[str] = None
         self.stale: bool = False
+        self.motor_direction: Optional[str] = None
+        self.motor_speed: Optional[int] = None
 
     def to_dict(self) -> dict:
         return {
@@ -69,6 +129,8 @@ class ActuatorState:
             'last_update_ts': self.last_update_ts,
             'node_id': self.node_id,
             'stale': self.stale,
+            'motor_direction': self.motor_direction,
+            'motor_speed': self.motor_speed,
         }
 
 
@@ -131,12 +193,22 @@ class MQTTActuatorStateStore:
             node_id: Identifier of the node that owns this endpoint (optional).
         """
         inferred = _infer_state_from_command(command)
-        if inferred is None:
+        motor_fields = _extract_motor_fields(command)
+        has_motor_delta = (
+            motor_fields['motor_direction'] is not None
+            or motor_fields['motor_speed'] is not None
+        )
+        if inferred is None and not has_motor_delta:
             return
 
         with self._lock:
             entry = self._get_or_create(topic)
-            entry.desired_state = inferred
+            if inferred is not None:
+                entry.desired_state = inferred
+            if motor_fields['motor_direction'] is not None:
+                entry.motor_direction = motor_fields['motor_direction']
+            if motor_fields['motor_speed'] is not None:
+                entry.motor_speed = motor_fields['motor_speed']
             entry.last_update_ts = time.time()
             entry.stale = False
             if node_id:
@@ -164,11 +236,16 @@ class MQTTActuatorStateStore:
             source: Origin of the confirmation ('feedback', 'state', 'manual').
         """
         inferred = _infer_state_from_command(command)
+        motor_fields = _extract_motor_fields(command)
 
         with self._lock:
             entry = self._get_or_create(topic)
             if inferred is not None:
                 entry.confirmed_state = inferred
+            if motor_fields['motor_direction'] is not None:
+                entry.motor_direction = motor_fields['motor_direction']
+            if motor_fields['motor_speed'] is not None:
+                entry.motor_speed = motor_fields['motor_speed']
             entry.state_source = source
             entry.last_update_ts = time.time()
             entry.stale = False
@@ -209,6 +286,42 @@ class MQTTActuatorStateStore:
                 f"Node '{node_id}' offline -> {snapshot['topic']} = {policy}"
             )
             self._notify(snapshot)
+
+    def force_all_off(self, source: str = 'forced_stop') -> int:
+        """
+        Force all tracked endpoints into a deterministic OFF state.
+
+        Useful for scene STOP operations where UI should immediately reflect
+        safe OFF values even if feedback for last commands arrives late.
+
+        Args:
+            source: Marker stored in state_source for observability.
+
+        Returns:
+            Number of updated endpoint snapshots.
+        """
+        snapshots = []
+        with self._lock:
+            for entry in self._states.values():
+                entry.desired_state = 'OFF'
+                entry.confirmed_state = 'OFF'
+                entry.state_source = source
+                entry.last_update_ts = time.time()
+                entry.stale = False
+                entry.motor_direction = None
+                entry.motor_speed = 0
+                snapshots.append(entry.to_dict())
+
+        for snapshot in snapshots:
+            self._notify(snapshot)
+
+        if snapshots:
+            self.logger.info(
+                "Forced OFF applied to %d tracked endpoints (%s)",
+                len(snapshots),
+                source,
+            )
+        return len(snapshots)
 
     # ==========================================================================
     # QUERIES

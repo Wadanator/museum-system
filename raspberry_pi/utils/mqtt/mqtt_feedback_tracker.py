@@ -83,16 +83,22 @@ class MQTTFeedbackTracker:
         """
         Disable feedback tracking and cancel all pending feedback timers.
 
-        Logs a warning for each command that was still awaiting feedback
-        at the time tracking was disabled. Has no effect if already disabled.
+        Cancels any pending feedback timers and clears internal tracking state.
+        This is expected during normal scene shutdown, so pending entries are
+        reported as a single info summary instead of per-topic warnings.
+
+        Has no effect if already disabled.
         """
         with self.lock:
             if self.feedback_enabled:
                 self.feedback_enabled = False
-                for original_topic, data in self.pending_feedbacks.items():
+                pending_count = len(self.pending_feedbacks)
+                for data in self.pending_feedbacks.values():
                     data['timer'].cancel()
-                    self.logger.warning(
-                        f"Scene ended with pending feedback: {original_topic}"
+                if pending_count:
+                    self.logger.info(
+                        "Scene finished; cleared %d pending feedback entries",
+                        pending_count,
                     )
                 self.pending_feedbacks.clear()
                 self.logger.info("MQTT feedback tracking disabled")
