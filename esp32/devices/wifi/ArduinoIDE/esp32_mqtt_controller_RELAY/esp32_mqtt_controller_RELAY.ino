@@ -120,5 +120,5 @@ void loop() {
      lastCommandTime = currentTime;
   }
 
-  delay(10);
+  delay(1);
 }

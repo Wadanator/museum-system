@@ -40,7 +40,7 @@ const int DEVICE_COUNT = sizeof(DEVICES) / sizeof(Device);
 // =============================================================================
 
 // Debug
-bool DEBUG = true;
+bool DEBUG = false;
 
 // WiFi Nastavenia
 

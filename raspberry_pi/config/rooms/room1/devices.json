@@ -1,0 +1,78 @@
+{
+  "motors": [
+    {
+      "id": "Kolesa",
+      "name": "Kolesa",
+      "speed": 75,
+      "topic": "room1/motor1"
+    },
+    {
+      "id": "Hodiny",
+      "name": "Hodiny",
+      "speed": 50,
+      "topic": "room1/motor2"
+    }
+  ],
+  "relays": [
+    {
+      "icon": "\ud83d\udca8",
+      "id": "smoke_on",
+      "name": "Dymostroj ON",
+      "topic": "room1/power/smoke_ON"
+    },
+    {
+      "icon": "\ud83d\udd25",
+      "id": "light_fire",
+      "name": "Svetlo Ohe\u0148",
+      "topic": "room1/light/fire"
+    },
+    {
+      "icon": "\ud83d\udca1",
+      "id": "light_1",
+      "name": "Svetlo 1",
+      "topic": "room1/light/1"
+    },
+    {
+      "icon": "\ud83d\udca8",
+      "id": "smoke_timed",
+      "name": "Dymostroj \u010casovan\u00fd",
+      "topic": "room1/effect/smoke"
+    },
+    {
+      "icon": "\ud83d\udca1",
+      "id": "light_2",
+      "name": "Svetlo 2",
+      "topic": "room1/light/2"
+    },
+    {
+      "icon": "\ud83d\udca1",
+      "id": "light_3",
+      "name": "Svetlo 3",
+      "topic": "room1/light/3"
+    },
+    {
+      "icon": "\ud83d\udca1",
+      "id": "light_4",
+      "name": "Svetlo 4",
+      "topic": "room1/light/4"
+    },
+    {
+      "icon": "\ud83d\udca1",
+      "id": "light_5",
+      "name": "Svetlo 5",
+      "topic": "room1/light/5"
+    },
+    {
+      "icon": "\ud83d\udca1 \ud83d\udca1",
+      "id": "Blikanie Budiky",
+      "name": "Blikanie Budiky",
+      "topic": "room1/effects/group1"
+    },
+    {
+      "icon": "\ud83d\udca1",
+      "id": "Blikanie 1 Ziarovka",
+      "name": "Blikanie 1 Ziarovka",
+      "topic": "room1/effects/alone"
+    }
+  ]
+}

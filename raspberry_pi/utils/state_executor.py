@@ -4,8 +4,15 @@ State Executor - Executes actions within scene states.
 
 Designed for expandability: new action types can be added by registering
 an additional handler in the action_handlers dictionary.
+
+Timeline actions are scheduled via threading.Timer on state entry rather
+than evaluated on each processing tick. A monotonic state generation
+counter ensures that timers belonging to a previous state never fire
+after a state transition has occurred, even if the timer callback has
+already been invoked by the OS when cancel() is called.
 """
 
+import threading
 from utils.logging_setup import get_logger
 
 
@@ -16,6 +23,14 @@ class StateExecutor:
     Dispatches each action to a registered handler function based on the
     action's 'action' type field. Supports dynamic extension by adding
     entries to the action_handlers dictionary.
+
+    Timeline actions are pre-scheduled with threading.Timer on state entry.
+    A state generation counter is used as a cancellation token: each state
+    increments the counter, and timers that fire after a transition silently
+    discard themselves because their captured generation no longer matches.
+
+    This avoids the race condition where threading.Timer.cancel() arrives
+    too late to stop a callback that has already started executing.
     """
 
     def __init__(self, mqtt_client=None, audio_handler=None,
@@ -34,11 +49,9 @@ class StateExecutor:
         self.video_handler = video_handler
         self.logger = logger or get_logger("StateExecutor")
 
-        # Tracks timeline actions already executed in the current state
-        self.executed_timeline_actions = set()
+        self._active_timers: list[threading.Timer] = []
+        self._state_generation: int = 0
 
-        # Action type dispatch table.
-        # To add a new action type (e.g. "lights"), register it here.
         self.action_handlers = {
             "mqtt": self._execute_mqtt,
             "audio": self._execute_audio,
@@ -49,16 +62,16 @@ class StateExecutor:
         """
         Execute all onEnter actions for a state immediately upon entry.
 
+        Schedules any timeline actions defined in the state immediately
+        after the onEnter actions have been dispatched.
+
         Args:
             state_data: State definition dict containing an 'onEnter' list.
         """
-        actions = state_data.get("onEnter", [])
-        if not actions:
-            return
-
-        self.logger.debug(f"Executing onEnter: {len(actions)} actions")
-        for action in actions:
+        for action in state_data.get("onEnter", []):
             self._execute_action(action)
+
+        self._schedule_timeline(state_data)
 
     def execute_onExit(self, state_data):
         """
@@ -75,59 +88,102 @@ class StateExecutor:
         for action in actions:
             self._execute_action(action)
 
-    def check_and_execute_timeline(self, state_data, state_elapsed_time):
+    def _schedule_timeline(self, state_data):
         """
-        Execute any timeline actions whose trigger time has been reached.
+        Schedule all timeline actions as threading.Timer instances.
 
-        Each timeline item is identified by a unique action_id to ensure
-        it fires exactly once per state entry. Supports both single-action
-        items ('action' key) and multi-action items ('actions' key).
+        Captures the current state generation at scheduling time. Timers
+        that fire after a state transition will detect the generation
+        mismatch and discard themselves without executing any actions.
 
         Args:
             state_data: State definition dict containing a 'timeline' list.
-            state_elapsed_time: Seconds elapsed since the current state was entered.
         """
         timeline = state_data.get("timeline", [])
         if not timeline:
             return
 
-        for i, timeline_item in enumerate(timeline):
-            if not isinstance(timeline_item, dict):
+        current_generation = self._state_generation
+
+        for i, item in enumerate(timeline):
+            if not isinstance(item, dict):
+                self.logger.error(f"Invalid timeline item at index {i}: {item}")
+                continue
+
+            trigger_time = item.get("at", 0)
+
+            timer = threading.Timer(
+                trigger_time,
+                self._fire_timeline_item,
+                args=[item, current_generation]
+            )
+            timer.daemon = True
+            timer.start()
+            self._active_timers.append(timer)
+
+        self.logger.debug(
+            f"Scheduled {len(timeline)} timeline actions "
+            f"(generation {current_generation})"
+        )
+
+    def _fire_timeline_item(self, item, generation):
+        """
+        Execute a single timeline action invoked by its threading.Timer.
+
+        Discards the action silently if the state generation has advanced,
+        meaning a state transition occurred after this timer was scheduled.
+        This is the primary guard against stale timers executing in a
+        state they were never meant for.
+
+        Args:
+            item: Timeline item dict to execute.
+            generation: State generation captured at scheduling time.
+        """
+        if generation != self._state_generation:
+            return
+
+        if "action" in item:
+            self._execute_action(item)
+        elif "actions" in item:
+            actions = item["actions"]
+            if not isinstance(actions, list):
                 self.logger.error(
-                    f"Invalid timeline item at index {i}: {timeline_item}"
+                    f"Invalid actions list in timeline item: {actions}"
                 )
-                continue
+                return
+            for action in actions:
+                self._execute_action(action)
 
-            trigger_time = timeline_item.get("at", 0)
-            # Unique ID per timeline item to prevent re-execution within a state
-            action_id = f"{id(state_data)}_{i}_{trigger_time}"
+    def check_and_execute_timeline(self, state_data, state_elapsed_time):
+        """
+        No-op retained for compatibility with the scene_parser processing loop.
 
-            # Skip already-executed actions
-            if action_id in self.executed_timeline_actions:
-                continue
+        Timeline execution is handled entirely by threading.Timer instances
+        scheduled in _schedule_timeline. This method is called on every
+        processing tick by scene_parser but performs no work.
 
-            # Fire the action if its trigger time has been reached
-            if state_elapsed_time >= trigger_time:
-                self.logger.debug(f"Timeline trigger at {trigger_time}s")
-
-                # Single action or grouped actions list
-                if "action" in timeline_item:
-                    self._execute_action(timeline_item)
-                elif "actions" in timeline_item:
-                    actions = timeline_item["actions"]
-                    if not isinstance(actions, list):
-                        self.logger.error(
-                            f"Invalid actions list at index {i}: {actions}"
-                        )
-                        continue
-                    for action in actions:
-                        self._execute_action(action)
-
-                self.executed_timeline_actions.add(action_id)
+        Args:
+            state_data: Unused.
+            state_elapsed_time: Unused.
+        """
 
     def reset_timeline_tracking(self):
-        """Clear the set of executed timeline actions on state change."""
-        self.executed_timeline_actions.clear()
+        """
+        Invalidate all pending timeline timers and advance the state generation.
+
+        Incrementing the generation counter immediately neutralises any timer
+        that has already entered its callback but not yet checked the guard,
+        as well as any timer that fires after this call returns. Calling
+        cancel() is a best-effort optimisation to avoid unnecessary thread
+        wakeups, not a correctness requirement.
+
+        Called on every state transition by scene_parser.
+        """
+        self._state_generation += 1
+
+        for timer in self._active_timers:
+            timer.cancel()
+        self._active_timers.clear()
 
     def _execute_action(self, action):
         """
@@ -145,7 +201,6 @@ class StateExecutor:
             self.logger.error(f"Action missing 'action' type: {action}")
             return
 
-        # Dynamic dispatch via registered handler table
         handler = self.action_handlers.get(action_type)
 
         if handler:
@@ -157,8 +212,6 @@ class StateExecutor:
                 )
         else:
             self.logger.warning(f"Unknown action type: {action_type}")
-
-    # --- Concrete action implementations ---
 
     def _execute_mqtt(self, action):
         """
@@ -185,9 +238,9 @@ class StateExecutor:
                     self.logger.debug(f"MQTT: {topic} = {message}")
                 else:
                     self.logger.error(f"MQTT publish failed: {topic}")
-            except Exception as exc:
+            except Exception as e:
                 self.logger.error(
-                    f"MQTT publish raised exception for {topic}: {exc}"
+                    f"MQTT publish raised exception for {topic}: {e}"
                 )
         else:
             self.logger.warning(
@@ -212,9 +265,9 @@ class StateExecutor:
         if self.audio_handler:
             try:
                 success = self.audio_handler.handle_command(message)
-            except Exception as exc:
+            except Exception as e:
                 self.logger.error(
-                    f"Audio handler raised exception for '{message}': {exc}"
+                    f"Audio handler raised exception for '{message}': {e}"
                 )
                 success = False
 
@@ -243,9 +296,9 @@ class StateExecutor:
         if self.video_handler:
             try:
                 success = self.video_handler.handle_command(message)
-            except Exception as exc:
+            except Exception as e:
                 self.logger.error(
-                    f"Video handler raised exception for '{message}': {exc}"
+                    f"Video handler raised exception for '{message}': {e}"
                 )
                 success = False
 
