@@ -67,7 +67,15 @@ Dôležité sekcie:
 - timing intervaly (`main_loop_sleep`, `scene_processing_sleep`, ...)
 
 **3.5 Logging**
-- `level`, file logging, rotácia, log directory
+- `log_level`
+- `log_directory`
+- `max_file_size_mb`
+- `backup_count`
+- `daily_backup_days`
+- `console_colors`
+- `file_logging`
+- `console_logging`
+- `log_format`
 
 ---
 
@@ -163,4 +171,4 @@ Pri zmene `room_id` alebo topic prefixov aktualizuj konzistentne:
 - `config.ini` (Pi)
 - ESP32 `config.cpp` (`BASE_TOPIC_PREFIX`, `CLIENT_ID`)
 - scene JSON topicy
-- dokumentáciu v `docs/mqtt_topics.md`
+- dokumentáciu v [docs/04_mqtt_protocol.md](docs/04_mqtt_protocol.md)

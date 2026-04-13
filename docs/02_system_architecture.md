@@ -176,6 +176,6 @@ Pri pridávaní nového zariadenia:
 
 1. implementácia topic/payload v ESP32 (alebo inom subscriberi),
 2. scene action + transition podľa potreby,
-3. aktualizácia `docs/mqtt_topics.md` a zariadeniovej `info.md`.
+3. aktualizácia `docs/04_mqtt_protocol.md` a príslušnej zariadeniovej dokumentácie `info.md`.
 
 Takto ostane dokumentácia aj runtime konzistentná.

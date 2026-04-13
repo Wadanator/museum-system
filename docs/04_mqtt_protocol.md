@@ -10,6 +10,13 @@ Obsah je zosúladený s:
 
 ## 1) Triggerovanie scén (Raspberry Pi backend)
 
+Backend sa pri štarte pripája na tieto topicy:
+
+- `devices/+/status`
+- `roomX/+/feedback`
+- `roomX/scene`
+- `roomX/#`
+
 ## 1.1 Default scéna
 
 - **Topic:** `roomX/scene`
@@ -19,7 +26,7 @@ Obsah je zosúladený s:
 ## 1.2 Named scéna
 
 - **Topic:** `roomX/start_scene`
-- **Payload:** `<scene_file>.json`
+- **Payload:** `<scene_file_name>`
 - **Efekt:** backend zavolá callback `start_scene_by_name(...)`.
 
 ---
@@ -28,7 +35,7 @@ Obsah je zosúladený s:
 
 - **Topic pattern:** `devices/<client_id>/status`
 - **Typický payload:** `online` / `offline`
-- **Poznámka k detekcii dostupnosti:** Pri pripojení ESP32 aktívne zverejní stav `online` ako *retained* (zostatkovú) správu. Súčasne je počas komunikácie s brokerom nastavená správa **Last Will and Testament (LWT)**. V prípade neočakávaného výpadku spojenia alebo straty napájania broker automaticky zverejní samotný payload `offline` na rovnaký topik, čím backend a operátor ihneď zistia výpadok.
+- **Poznámka k detekcii dostupnosti:** ESP32 publikuje `online` ako *retained* správu a pri strate spojenia broker publikuje `offline` na ten istý topic cez LWT.
 
 Príklady z aktuálneho firmvéru:
 
@@ -45,8 +52,9 @@ Príklady z aktuálneho firmvéru:
 
 Typické payloady:
 
-- motory/relé command: `OK` / `ERROR`
-- relay effect group: `ACTIVE` / `INACTIVE`
+- motory command: `OK` / `ERROR`
+- relé command: `OK` / `ERROR`
+- relay effect group: `ACTIVE` / `INACTIVE` (firmvér ho publikuje, ale backend ho neberie ako potvrdenie `OK`)
 
 ---
 
@@ -76,7 +84,6 @@ Feedback:
 
 - `room1/motor1/feedback`
 - `room1/motor2/feedback`
-- `room1/STOP/feedback`
 
 Status:
 
@@ -87,7 +94,6 @@ Podporované payloady (firmware parser):
 - `ON:<speed>:<direction>`
 - `ON:<speed>:<direction>:<rampTime>`
 - `OFF`
-- `STOP`
 - `SPEED:<value>`
 - `DIR:<value>`
 
@@ -96,7 +102,10 @@ Príklady:
 - `room1/motor1` -> `ON:120:L`
 - `room1/motor2` -> `ON:80:R:5000`
 - `room1/motor1` -> `OFF`
-- `room1/motor1` -> `STOP`
+
+`room1/STOP` je samostatný topic a na motoroch vyvolá okamžité vypnutie.
+
+Poznámka: motor firmware môže pre `room1/STOP` publikovať aj `room1/STOP/feedback`, ale backend ho nevyužíva ako potvrdenie, pretože `STOP` je control command.
 
 ---
 
@@ -133,6 +142,10 @@ Mapovanie na command topic teda vyzerá napr.:
 - `group1`
 - `alone`
 
+Payloady:
+- zariadenia: `ON`/`OFF` (akceptované aj `1`/`0`)
+- effects group: `ON`/`OFF` (akceptované aj `1`/`0`, `START`/`STOP`)
+
 Príklady:
 
 - `room1/effects/group1` -> `ON`
@@ -142,13 +155,9 @@ Príklady:
 
 ## 5) Room STOP semantics
 
-`roomX/STOP` je globálny kill signal pre zariadenia v miestnosti.
+`roomX/STOP` je kill signal pre zariadenia v miestnosti.
 
-Backend ho posiela:
-
-- pri `stop_scene()`,
-- po prirodzenom ukončení scény,
-- po niektorých chybových/cleanup vetvách.
+Backend ho posiela pri `stop_scene()`.
 
 ESP32 firmware ho má subscribnutý a vykoná okamžité vypnutie výstupov.
 
@@ -156,7 +165,6 @@ ESP32 firmware ho má subscribnutý a vykoná okamžité vypnutie výstupov.
 
 ## 6) Poznámky k kompatibilite
 
-- Scene action payload môže byť string/number/bool (schema + executor).
 - Ak pridáš nový topic/payload, aktualizuj:
   1. firmware/backend logiku,
   2. test scénu,

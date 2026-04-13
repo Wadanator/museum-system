@@ -14,12 +14,18 @@ Scene engine volá audio cez akciu:
 
 - `PLAY:<filename>`
 - `PLAY:<filename>:<volume_0_1>`
-- `STOP`
+- `STOP` (case-insensitive)
 - `STOP:<filename>`
 - `PAUSE`
 - `RESUME`
 - `VOLUME:<0-1>`
 - alebo priamo názov súboru, napr. `intro.mp3`
+
+`handle_command()` pri `PLAY:` rozdelí payload na názov súboru a voliteľnú hlasitosť. Ak je súbor bez prípony, handler skúsi nájsť `.mp3`, `.wav` alebo `.ogg` v audio adresári.
+
+`STOP` zastaví všetko audio, `STOP:<filename>` zastaví iba konkrétny stream alebo SFX, `PAUSE` a `RESUME` ovplyvnia music aj všetky SFX kanály.
+
+`VOLUME:<value>` mení iba globálnu hlasitosť music streamu. SFX hlasitosť sa nastavuje pri prehratí konkrétneho súboru cez `PLAY:`.
 
 ---
 
@@ -34,6 +40,10 @@ Audio handler používa dva režimy:
 2. **Music stream z disku**
    - jeden aktívny `pygame.mixer.music` stream
    - pri štarte nového streamu sa predchádzajúci stopne
+
+`play_audio_file()` najprv skontroluje RAM cache. Ak je súbor v cache, prehráva sa ako SFX na mixér kanáli. Ak v cache nie je, prehráva sa ako music stream z disku.
+
+`preload_files_for_scene()` načítava do RAM iba súbory s prefixom `sfx_`. Pred preloadom zastaví všetko aktuálne audio a vymaže starú cache.
 
 ---
 
@@ -96,13 +106,19 @@ Odporúčanie:
    - skontroluj `[Audio] directory` v `config.ini`.
 
 2. **Nesprávny target pre `audioEnd`**
-   - `target` musí sedieť s názvom, ktorý handler reálne prehráva.
+  - `target` musí sedieť s názvom súboru, ktorý handler po resolvovaní reálne eviduje interne.
 
 3. **Zlá hlasitosť**
    - `VOLUME` a `PLAY:...:<volume>` používajú rozsah `0.0–1.0`.
 
 4. **Zabudnuté pole `action`**
    - schema vyžaduje explicitné `"action": "audio"`.
+
+5. **Zlý formát `audioEnd` cieľa**
+   - `target` musí sedieť s názvom súboru, ktorý handler eviduje ako prehrávaný.
+
+6. **Očakávanie globálnej hlasitosti pre SFX**
+   - `set_volume()` mení len music stream, nie už prehrávané SFX kanály.
 
 ---
 
