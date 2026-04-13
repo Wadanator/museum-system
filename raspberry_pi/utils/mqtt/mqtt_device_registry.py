@@ -129,7 +129,7 @@ class MQTTDeviceRegistry:
     # DEVICE QUERY METHODS
     # ==========================================================================
 
-    def get_connected_devices(self):
+    def get_connected_devices(self, cleanup=True):
         """
         Return the list of currently connected devices.
 
@@ -138,8 +138,9 @@ class MQTTDeviceRegistry:
         Returns:
             dict: Dictionary of connected devices with their info.
         """
-        # Clean up stale devices first
-        self.cleanup_stale_devices()
+        # Clean up stale devices first unless the caller already handled it.
+        if cleanup:
+            self.cleanup_stale_devices()
 
         return {
             device_id: info

@@ -250,7 +250,7 @@ class WebDashboard:
         except Exception as e:
             self.log.error(f"Error saving stats: {e}")
 
-    def update_stats(self):
+    def update_stats(self, cleanup=True):
         """Update runtime statistics including uptime and connected devices."""
         self.stats['total_uptime'] += time.monotonic() - self.stats['last_start_time']
         self.stats['last_start_time'] = time.monotonic()
@@ -260,7 +260,9 @@ class WebDashboard:
             self.controller.mqtt_client and 
             hasattr(self.controller, 'mqtt_device_registry') and
             self.controller.mqtt_device_registry):
-            self.stats['connected_devices'] = self.controller.mqtt_device_registry.get_connected_devices()
+            self.stats['connected_devices'] = self.controller.mqtt_device_registry.get_connected_devices(
+                cleanup=cleanup
+            )
         else:
             self.stats['connected_devices'] = {}
 
@@ -287,6 +289,11 @@ class WebDashboard:
     def broadcast_status(self):
         """Okamžite pošle aktuálny stav (beží/nebeží) všetkým klientom."""
         self._broadcast_event('status_update', self._get_status_data())
+
+    def broadcast_stats(self):
+        """Broadcast the current stats snapshot to all connected clients."""
+        self.update_stats(cleanup=False)
+        self._broadcast_event('stats_update', self.stats)
 
     def broadcast_device_runtime_state(self, state_snapshot: dict) -> None:
         """Push an incremental actuator state update to all connected clients."""

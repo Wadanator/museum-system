@@ -54,7 +54,7 @@ const char* WIFI_PASSWORD = "88888888";
 
 
 // MQTT
-const char* MQTT_SERVER = "TechMuzeumRoom1.local";
+const char* MQTT_SERVER = "192.168.0.127";
 int MQTT_PORT = 1883;
 const char* BASE_TOPIC_PREFIX = "room1/";
 const char* CLIENT_ID = "Room1_Relays_Ctrl";

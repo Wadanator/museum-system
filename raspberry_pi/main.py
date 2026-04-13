@@ -135,28 +135,8 @@ class MuseumController:
 
         self.actuator_state_store.set_update_callback(_on_actuator_state_change)
 
-        # Phase-3 hook: mark endpoints offline when their node disconnects.
-        # Requires node_id->topic mapping to be populated by track_published_message.
-        original_device_status_change = getattr(
-            self.mqtt_device_registry, 'on_status_change', None
-        )
-
-        def _on_device_status_change(device_id: str, status: str) -> None:
-            if original_device_status_change:
-                original_device_status_change(device_id, status)
-            if status == 'offline' and self.actuator_state_store:
-                self.actuator_state_store.mark_node_offline(device_id)
-            if self.web_dashboard:
-                try:
-                    self.web_dashboard.socketio.emit(
-                        'device_status_update',
-                        {'device_id': device_id, 'status': status, 'timestamp': time.time()},
-                    )
-                except Exception as exc:
-                    log.error(f"Failed to emit device_status_update: {exc}")
-
         if self.mqtt_device_registry:
-            self.mqtt_device_registry.on_status_change = _on_device_status_change
+            self.mqtt_device_registry.on_status_change = self._on_device_status_change
         
         # 2. MQTT Connection callbacks
         if self.mqtt_client:
@@ -185,6 +165,17 @@ class MuseumController:
         self.shutdown_requested = True
         if self.mqtt_client:
             self.mqtt_client.shutdown_requested = True
+
+    def _on_device_status_change(self, device_id: str, status: str) -> None:
+        """Handle MQTT device online/offline transitions."""
+        if status == 'offline' and self.actuator_state_store:
+            self.actuator_state_store.mark_node_offline(device_id)
+
+        if self.web_dashboard:
+            try:
+                self.web_dashboard.broadcast_stats()
+            except Exception as exc:
+                log.error(f"Failed to broadcast stats after device status change: {exc}")
 
     def _set_scene_running(self, is_running, reason, expect_current=None):
         """Centralized scene lifecycle transition with synchronized file/state updates."""
