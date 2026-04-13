@@ -6,57 +6,6 @@ Tento dokument slúži pre AI a vývojárov, aby mali dokonalý prehľad o umies
 museum-system/
 ├── .gitignore
 ├── README.md
-├── SceneGen
-│   ├── eslint.config.js
-│   ├── index.html
-│   ├── package.json
-│   ├── postcss.config.js
-│   ├── public
-│   │   └── vite.svg
-│   ├── readme.md
-│   ├── src
-│   │   ├── App.css
-│   │   ├── App.jsx
-│   │   ├── assets
-│   │   │   └── react.svg
-│   │   ├── components
-│   │   │   ├── features
-│   │   │   │   ├── editor
-│   │   │   │   │   ├── ActionEditor.jsx
-│   │   │   │   │   ├── ActionListEditor.jsx
-│   │   │   │   │   ├── StateEditor.jsx
-│   │   │   │   │   ├── TimelineEditor.jsx
-│   │   │   │   │   └── TransitionEditor.jsx
-│   │   │   │   ├── graph
-│   │   │   │   │   ├── GraphicPreview.jsx
-│   │   │   │   │   └── SceneNode.jsx
-│   │   │   │   ├── mqtt
-│   │   │   │   │   ├── AudioControls.jsx
-│   │   │   │   │   ├── CustomTopicEditor.jsx
-│   │   │   │   │   ├── MotorControls.jsx
-│   │   │   │   │   ├── MqttCommandEditor.jsx
-│   │   │   │   │   ├── MqttPreview.jsx
-│   │   │   │   │   ├── PresetDeviceEditor.jsx
-│   │   │   │   │   ├── SimpleDeviceControls.jsx
-│   │   │   │   │   └── VideoControls.jsx
-│   │   │   │   └── settings
-│   │   │   │       ├── GlobalEventsEditor.jsx
-│   │   │   │       └── SettingsPanel.jsx
-│   │   │   └── layout
-│   │   │       ├── Header.jsx
-│   │   │       ├── Sidebar.jsx
-│   │   │       └── Toolbar.jsx
-│   │   ├── hooks
-│   │   │   └── useSceneManager.js
-│   │   ├── index.css
-│   │   ├── main.jsx
-│   │   └── utils
-│   │       ├── constants.js
-│   │       ├── generators.js
-│   │       └── jsonExport.js
-│   ├── tailwind.config.js
-│   ├── vite.config.js
-│   └── yarn.lock
 ├── docs
 │   ├── Content_instructions.md
 │   ├── General_text_instruction.md

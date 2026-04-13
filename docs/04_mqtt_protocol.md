@@ -28,7 +28,7 @@ Obsah je zosúladený s:
 
 - **Topic pattern:** `devices/<client_id>/status`
 - **Typický payload:** `online` / `offline`
-- **Poznámka:** ESP32 používajú retained status + LWT `offline`.
+- **Poznámka k detekcii dostupnosti:** Pri pripojení ESP32 aktívne zverejní stav `online` ako *retained* (zostatkovú) správu. Súčasne je počas komunikácie s brokerom nastavená správa **Last Will and Testament (LWT)**. V prípade neočakávaného výpadku spojenia alebo straty napájania broker automaticky zverejní samotný payload `offline` na rovnaký topik, čím backend a operátor ihneď zistia výpadok.
 
 Príklady z aktuálneho firmvéru:
 

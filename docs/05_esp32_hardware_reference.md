@@ -14,12 +14,12 @@ Modul používa hardvérové PWM so smooth nábehom (postupné zvyšovanie/zniž
   - `SMOOTH_STEP = 2`
   - `SMOOTH_DELAY = 100` (ms)
 
-- **Mapovanie Pinov (L298N alebo podobný motor driver):**
-  - **MOTOR1:**
+- **Mapovanie pinov (výkonový H-mostík BTS7960B):**
+  - **MOTOR1 (BTS7960B):**
     - `MOTOR1_LEFT_PIN = 18`
     - `MOTOR1_RIGHT_PIN = 19`
     - `MOTOR1_ENABLE_PIN = 21`
-  - **MOTOR2:**
+  - **MOTOR2 (BTS7960B):**
     - `MOTOR2_LEFT_PIN = 27`
     - `MOTOR2_RIGHT_PIN = 26`
     - `MOTOR2_ENABLE_PIN = 25`
@@ -54,7 +54,7 @@ Podporuje priame GPIO alebo I2C Expander (napr. PCF8574).
 Slúži ako trigger modul pre fyzické tlačidlá umiestnené v miestnosti. Existuje vo verzii pre Arduino IDE aj ESPHome.
 
 - **Mapovanie Pinov:**
-  - `BUTTON_PIN = 32` (Input pre tlačidlo s externým pull-up rezistorom, LOW = stlačené)
+  - `BUTTON_PIN = 32` (Zabezpečuje zachytávanie hardvérového tlačidla. Oproti slabým interným odporom využíva **externý pull-up rezistor** pre vyššiu spoľahlivosť a odolnosť voči rušeniu, LOW = stlačené)
   - `STATUS_LED_PIN = 25` (Voliteľný výstup vyhradený pre verziu `esp32_mqtt_button_led.yaml` v ESPHome)
 
 - **Debounce & Cooldown:**

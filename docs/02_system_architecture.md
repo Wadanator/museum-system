@@ -19,7 +19,7 @@ Dashboard / Button / MQTT trigger
           v
       MQTT broker
       /        \
- ESP32 relay  ESP32 motors (+button publish trigger)
+ ESP32 relay  ESP32 motors (+button publish trigger) a dalšie možné zariadenia
 ```
 
 ---

@@ -46,13 +46,35 @@ Každý odsek musí byť **ucelenou významovou jednotkou** - jedna myšlienka =
 
 ---
 
-## 3. LIEVIKOVÝ PRÍSTUP K ŠTRUKTÚRE PRÁCE
+## 3. POVINNÁ ŠTRUKTÚRA HLAVNÝCH KAPITOL (MECHLAB norma)
+
+Nasledujúca štruktúra kapitol je **povinná** a názvy kapitol sú záväzné:
+
+```
+0. (oficiálne vytlačené zadanie práce)
+1. Úvod
+2. Rešerše
+3. Postup a výsledky riešenia
+4. Záver
+5. Literatura
+6. Prílohy
+```
+
+**Zásadné rozlíšenie:**
+- Kapitola **Rešerše** obsahuje **cudzie výsledky** – to, čo autor naštudoval z existujúcich zdrojov.
+- Kapitola **Postup a výsledky riešenia** obsahuje **vlastné výsledky** – to, čo autor sám vytvoril.
+
+Toto členenie je kľúčové z hľadiska vedúceho, oponenta aj čitateľa práce.
+
+---
+
+## 4. LIEVIKOVÝ PRÍSTUP K ŠTRUKTÚRE PRÁCE
 
 Práca musí postupovať od **všeobecného** (Úvod) ku **špecifickému** (Metódy, Výsledky) a späť k **všeobecnému zhodnoteniu** (Záver).
 
 ---
 
-### 3.1 ÚVOD (Introduction)
+### 4.1 ÚVOD (Introduction)
 
 Úvod postupuje striktne v tomto poradí:
 
@@ -62,40 +84,58 @@ Práca musí postupovať od **všeobecného** (Úvod) ku **špecifickému** (Met
 4. **Literárny kontext a medzera (Gap):** Krátke zhrnutie toho, čo sa už vie, a identifikácia problému, ktorý doteraz nebol vyriešený.
 5. **Téza a ciele práce:** Presná formulácia toho, čo práca rieši, ciele a poradie, v akom sa im text bude venovať.
 
+**⚠️ Do Úvodu NEpatrí:**
+- Popis výsledkov práce.
+- Opisovanie textu/bodov z oficiálneho vytlačeného zadania.
+
+Po prečítaní Úvodu musí mať čitateľ (oponent) jasno v tom, o čom práca celkovo bude.
+
 ---
 
-### 3.2 KRITICKÁ REŠERŠ (Review of Literature / Súčasný stav)
+### 4.2 KRITICKÁ REŠERŠ (Rešerše / Review of Literature)
 
-Zasadzuje prácu do kontextu už uskutočneného výskumu.
+Zasadzuje prácu do kontextu už uskutočneného výskumu. Obsahuje **výhradne cudzie výsledky** – to, čo autor v rámci práce naštudoval z existujúcich zdrojov.
 
 * **Syntéza, nie zoznam:** Neopisuj jeden článok za druhým. Hľadaj spoločné trendy, porovnávaj metódy a poukazuj na rozdiely v literatúre.
-* **Kritický postoj:** Pri každom zdroji musí byť jasné, ako sa vzťahuje k tvojej práci - či na ňom staviaš, alebo ho vyvraciaš.
+* **Kritický postoj a vlastné hodnotenie zdrojov:** Pri každom zdroji musí byť jasné, ako sa vzťahuje k práci – či na ňom staviaš, alebo ho vyvraciaš. Napr. pri využití knižnice alebo SW nástroja patrí sem jeho kritické zhodnotenie (čo funguje a čo nefunguje).
+* Pri použití matematickej teórie je vhodné uviesť kľúčové rovnice – predovšetkým kvôli zjednoteniu označovania veličín a symbolov.
 * **Časy:**
   * Pre všeobecne platné fakty z literatúry → **prítomný čas**
   * Pre historický vývoj a konkrétne uskutočnené štúdie → **minulý čas**
 
+**⚠️ Do Rešerše NEpatrí:**
+- Detailné opisovanie kníh, textov ani matematických teórií.
+- Triviálne popisy všeobecne známych pojmov (napr. „čo je to MQTT", „čo je to enkodér").
+- Vlastné výsledky. Výnimkou je vlastná demonštrácia nájdeného algoritmu – tá je súčasťou kritického hodnotenia zdroja.
+
 ---
 
-### 3.3 METÓDY A NÁVRH (Kapitoly 3, 4 a 5: Architektúra, HW a SW návrh)
+### 4.3 METÓDY A NÁVRH (Postup a výsledky riešenia)
 
-Popisuje materiály a postupy tak, aby bol vývoj a implementácia celého systému **replikovateľná**. 
-V tvojej práci je táto časť logicky rozdelená do troch špecifických kapitol:
-* **Kapitola 3 (Architektúra)** - Logické usporiadanie, komunikácia a výber topológie.
-* **Kapitola 4 (Implementácia HW)** - Zapojenie prúdových rovín, relé modulov, senzoriky a motorických budičov.
-* **Kapitola 5 (Implementácia SW)** - Princíp stavových automatov, JSON scén a validačného enginu.
+Popisuje materiály a postupy tak, aby bol vývoj a implementácia celého systému **replikovateľná**. Obsahuje **výhradne vlastné výsledky** – to, čo autor sám vytvoril.
+
+V tvojej práci je táto časť logicky rozdelená do troch špecifických oblastí:
+* **Architektúra** - Logické usporiadanie, komunikácia a výber topológie.
+* **Implementácia HW** - Zapojenie prúdových rovín, relé modulov, senzoriky a motorických budičov.
+* **Implementácia SW** - Princíp stavových automatov, JSON scén a validačného enginu.
 
 Podáva odpovede na:
 * Aký hardvér a softvér bol použitý?
 * Ako sú distribuované uzly prepojené s centrálnou logikou?
 * Aké pravidlá riadia správanie expozície?
 
+Ak sa v práci nadväzuje na časť z Rešerše (čo by malo platiť vždy), rieši sa nadväznosť odkazom na danú podkapitolu/sekciu.
+
+**⚠️ Do tejto kapitoly NEpatrí:**
+- Materiál, ktorý má byť v Rešerši (t. j. výsledky cudzej práce).
+
 > **Časy:** Na popis vlastných vykonaných postupov a konštrukcie používaj výhradne **minulý čas a trpný rod** - „Súčiastka bola pripojená", „Kód bol implementovaný".
 
 ---
 
-### 3.4 VÝSLEDKY A DISKUSIA (Kapitola 6: Experimenty a overenie)
+### 4.4 VÝSLEDKY A DISKUSIA (Experimenty a overenie)
 
-**Odkazovanie na obrázky/grafy:** Nikdy nevenuj celé vety popisu toho, čo je na grafickom výstupe (napríklad pri meraní latencie MQTT správ). Choď rovno k interpretácii a na obrázok len odkáž v zátvorke.
+**Odkazovanie na obrázky/grafy:** Nikdy nevenuj celé vety popisu toho, čo je na grafickom výstupe. Choď rovno k interpretácii a na obrázok len odkáž v zátvorke.
 
 | ❌ Nesprávne                                                                | ✅ Správne                                                   |
 | ---------------------------------------------------------------------------- | ------------------------------------------------------------- |
@@ -109,20 +149,24 @@ Podáva odpovede na:
 
 ---
 
-### 3.5 ZÁVER (Conclusion)
+### 4.5 ZÁVER (Conclusion)
 
-Záver nie je len zhrnutie - je to  **prínos autora k téme** .
+Záver nie je len zhrnutie - je to  **prínos autora k téme** . Čitateľ typicky nahliadne najprv do Úvodu (aby zistil, o čom práca je) a potom do Záveru (aby zistil, čo sa podarilo). Záver musí byť zmysluplný aj bez čítania zvyšku práce.
 
 1. **Pripomenutie tézy:** Začni priamo vecným konštatovaním cieľa - nepoužívaj vatu.
 2. **Zhrnutie hlavných bodov:** Aké sú najdôležitejšie výsledky hardvérového a softvérového riešenia?
 3. **Zhodnotenie (Syntéza):** Pozitíva aj negatíva navrhnutého riešenia.
-4. **Výhľad do budúcna:** Aplikácia v praxi, návrhy na konštrukčné vylepšenia alebo ďalší výskum.
+4. **Výhľad do budúcna:** Aplikácia v praxi, návrhy na konštrukčné vylepšenia alebo ďalší výskum (môže byť aj ako samostatná podkapitola).
 
-> ⚠️ **Upozornenie:** Do záveru nepatria žiadne nové fakty, motivácia ani detailné opisy pozadia - to patrí do úvodu.
+**Rozsah záver: 1–2 strany.**
+
+**⚠️ Do Záveru NEpatrí:**
+- Opakovanie motivácie a cieľov z Úvodu. Ciele môžu byť zmienené, ale **výhradne v kontexte toho, čo a ako sa podarilo alebo nepodarilo**.
+- Žiadne nové fakty, detailné opisy pozadia ani nová argumentácia.
 
 ---
 
-### 3.6 ABSTRAKT (Abstract)
+### 4.6 ABSTRAKT (Abstract)
 
 Píše sa **ako posledný** a musí fungovať ako **100 % samostatný celok** s dĺžkou  **120–200 slov** . Nezačína frázou „Práca sa zaoberá...".
 
@@ -138,7 +182,45 @@ Obsahuje striktne **5 častí** (informatívny abstrakt):
 
 ---
 
-## 4. TYPOGRAFICKÉ A VIZUÁLNE PRAVIDLÁ
+## 5. PROCES PÍSANIA (MECHLAB odporúčaný postup)
+
+### 5.1 Pred začatím písania
+
+**Najprv dokonči výsledky, potom začni písať.**
+Pri realizácii BP/DP dochádza takmer vždy k tlaku začať písať skôr, než sú hotové kľúčové výsledky. Tomuto tlaku je rozumné odolať. Zameraj sa na dokončenie aspoň tých podstatných a zásadných výsledkov. Nie je nutné, aby bolo všetko ideálne – je potrebné hľadať rovnováhu medzi dokonalosťou a časovým obmedzením.
+
+### 5.2 Krok 1: OSNOVA
+
+Vypracuj štruktúru podkapitol pre kapitoly 2 a 3 (Úvod a Záver majú zvyčajne len členenie na odstavce).
+
+- Kapitoly a podkapitoly píš priamo do šablóny práce.
+- Na začiatok dokumentu vygeneruj automatický OBSAH – výrazne to pomôže v rýchlej orientácii.
+- Jednotlivé myšlienky v podkapitolách zapisuj ako **odrážky** (nie odstavce).
+- Pracuj maximálne stručne, ale tak výstižne, aby bolo aj tretej osobe (mimo teba a vedúceho) jasné, čo je odrážkou myslené.
+- Kriticky skúmaj: Patrí daná odrážka do danej kapitoly? Nadväzujú odrážky logicky na seba? Je daný bod nevyhnutný?
+- K jednotlivým podkapitolám odhadni počet strán.
+- **Maximálny rozsah OSNOVY: 2 strany A4, font 12.**
+- Pred odoslaním vedúcemu nechaj osnovu odležať pár dní a daj ju prečítať kolegovi.
+
+### 5.3 Krok 2: OSNOVA PLUS
+
+Po schválení OSNOVY vedúcim práce:
+
+- Doplň do osnovy kľúčové obrázky, grafy, tabuľky (nemusia byť v tlačovej kvalite – postačia čitateľné náčrty).
+- Obrázky opatri automatickým číslovaním a popiskom.
+- Doplň kľúčové rovnice (opäť s automatickým číslovaním; pri komplikovaných rovniciach postačí sken rukou napísanej rovnice).
+- Rozširuj počet odrážok (myšlienok) – **nepíš celé vety**, zostaň pri stručných, jasných bodoch.
+- **Výsledkom má byť v podstate hotová práca** – pokiaľ ide o obrázky, grafy, rovnice, tabuľky a myšlienky.
+- OSNOVA PLUS má byť nezávislému čitateľovi zrozumiteľná.
+- Opäť nechaj odležať a daj prečítať kolegovi pred odoslaním vedúcemu.
+
+### 5.4 Krok 3: PSANÍ
+
+Po schválení OSNOVY PLUS vedúcim nastáva samotné písanie – reformulácia odrážok na vety a odstavce. Ak je OSNOVA a OSNOVA PLUS dobre navrhnutá, vyhnete sa s vysokou pravdepodobnosťou vytváraniu zbytočného textu, ktorý by sa následne zahadzoval a presúval.
+
+---
+
+## 6. TYPOGRAFICKÉ A VIZUÁLNE PRAVIDLÁ
 
 * **Čísla a jednotky** oddeľuj pevnou medzerou: `10 V`, `25 °C`, `15 %`
   * Výnimka: geometrické uhly sa píšu bez medzery - `90°`
@@ -147,4 +229,4 @@ Obsahuje striktne **5 častí** (informatívny abstrakt):
 
 ---
 
-*Zdroj: Mgr. Martina Vránová, Ph.D., FSI VUT - oficiálne prezentácie k záverečným prácam*
+*Zdroj: Mgr. Martina Vránová, Ph.D., FSI VUT - oficiálne prezentácie k záverečným prácam; MECHLAB norma BP/DP (RG, 2020-04-18)*
