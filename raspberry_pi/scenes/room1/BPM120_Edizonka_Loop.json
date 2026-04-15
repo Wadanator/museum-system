@@ -1,0 +1,74 @@
+{
+  "sceneId": "bpm120_edison_loop_test",
+  "description": "BPM 120 periodic blink test for one bulb until global stop event",
+  "version": "1.0",
+  "initialState": "BULB_ON",
+  "globalEvents": [
+    {
+      "type": "mqttMessage",
+      "topic": "room1/emergency",
+      "message": "STOP",
+      "goto": "END"
+    },
+    {
+      "type": "mqttMessage",
+      "topic": "room1/scene",
+      "message": "STOP",
+      "goto": "END"
+    }
+  ],
+  "states": {
+    "BULB_ON": {
+      "description": "Beat ON phase (0.25s)",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/light/1",
+          "message": "ON"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 0.25,
+          "goto": "BULB_OFF"
+        }
+      ]
+    },
+    "BULB_OFF": {
+      "description": "Beat OFF phase (0.25s)",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/light/1",
+          "message": "OFF"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 0.25,
+          "goto": "BULB_ON"
+        }
+      ]
+    },
+    "END": {
+      "description": "Safe stop state",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/light/1",
+          "message": "OFF"
+        },
+        {
+          "action": "audio",
+          "message": "STOP"
+        },
+        {
+          "action": "video",
+          "message": "STOP_VIDEO"
+        }
+      ]
+    }
+  }
+}

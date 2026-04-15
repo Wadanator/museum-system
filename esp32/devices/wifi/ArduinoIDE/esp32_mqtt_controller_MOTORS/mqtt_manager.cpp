@@ -10,6 +10,7 @@ PubSubClient client(wifiClient);
 bool mqttConnected = false;
 unsigned long lastMqttAttempt = 0;
 unsigned long lastStatusPublish = 0;
+unsigned long lastCommandTime = 0;
 String STATUS_TOPIC = String("devices/") + CLIENT_ID + "/status";
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
@@ -149,6 +150,9 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
   // --- Publish feedback (stack string, no heap) ---
   const char* feedback = commandSuccessful ? "OK" : "ERROR";
+  if (commandSuccessful) {
+    lastCommandTime = millis();
+  }
   if (client.publish(feedbackTopic, feedback, false)) {
     debugPrint("Feedback: " + String(feedback) + " -> " + String(feedbackTopic));
   } else {
@@ -188,6 +192,7 @@ void connectToMqtt() {
       debugPrint("Subscribed to motor topics");
 
       publishStatusImmediate();
+      lastCommandTime = currentTime;
 
     } else {
       mqttAttempts++;

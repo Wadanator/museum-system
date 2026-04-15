@@ -93,5 +93,13 @@ void loop() {
     turnOffHardware();
   }
 
+  // Deadman timeout: if no valid command arrives for too long, force motors off.
+  if (!hardwareOff && lastCommandTime > 0 &&
+      (currentTime - lastCommandTime > NO_COMMAND_TIMEOUT)) {
+    debugPrint("Command inactivity timeout -> turning motors OFF");
+    turnOffHardware();
+    lastCommandTime = currentTime;
+  }
+
   delay(10);
 }

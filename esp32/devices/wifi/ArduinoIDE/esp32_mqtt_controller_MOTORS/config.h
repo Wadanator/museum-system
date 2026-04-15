@@ -44,6 +44,7 @@ extern const unsigned long CONNECTION_CHECK_INTERVAL;
 extern const int MAX_WIFI_ATTEMPTS;
 extern const int MAX_MQTT_ATTEMPTS;
 extern const int MQTT_KEEP_ALIVE;
+extern const unsigned long NO_COMMAND_TIMEOUT;
 
 // Watchdog Timer Configuration
 extern const unsigned long WDT_TIMEOUT;

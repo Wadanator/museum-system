@@ -44,6 +44,7 @@ const unsigned long CONNECTION_CHECK_INTERVAL = 5000;
 const int MAX_WIFI_ATTEMPTS = 3;
 const int MAX_MQTT_ATTEMPTS = 3;
 const int MQTT_KEEP_ALIVE = 5;
+const unsigned long NO_COMMAND_TIMEOUT = 180000;
 
 // Watchdog Timer Configuration 
 const unsigned long WDT_TIMEOUT = 60;

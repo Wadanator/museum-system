@@ -97,7 +97,11 @@ class TransitionManager:
         delay = transition.get("delay", 0)
 
         if state_elapsed_time >= delay:
-            return self._get_goto(transition, f"Timeout triggered ({delay}s)")
+            return self._get_goto(
+                transition,
+                f"Timeout triggered ({delay}s)",
+                level="debug"
+            )
         return None
 
     def _check_audio_end(self, transition, _):
@@ -190,7 +194,7 @@ class TransitionManager:
         """
         return self._get_goto(transition, "Always transition")
 
-    def _get_goto(self, transition, log_msg):
+    def _get_goto(self, transition, log_msg, level="info"):
         """
         Extract the 'goto' target from a transition and log the trigger message.
 
@@ -205,7 +209,14 @@ class TransitionManager:
         if goto is None:
             self.logger.error(f"Transition missing 'goto': {transition}")
             return None
-        self.logger.info(f"{log_msg} -> {goto}")
+        if level == "debug":
+            self.logger.debug(f"{log_msg} -> {goto}")
+        elif level == "warning":
+            self.logger.warning(f"{log_msg} -> {goto}")
+        elif level == "error":
+            self.logger.error(f"{log_msg} -> {goto}")
+        else:
+            self.logger.info(f"{log_msg} -> {goto}")
         return goto
 
     # --- Event Registration Methods (Thread-Safe) ---

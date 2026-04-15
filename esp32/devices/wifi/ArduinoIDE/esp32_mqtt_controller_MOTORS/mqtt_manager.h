@@ -19,6 +19,7 @@ extern PubSubClient client;
 extern bool mqttConnected;
 extern unsigned long lastMqttAttempt;
 extern unsigned long lastStatusPublish;
+extern unsigned long lastCommandTime;
 extern String STATUS_TOPIC;
 
 #endif
