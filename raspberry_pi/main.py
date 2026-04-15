@@ -15,6 +15,7 @@ if script_dir not in sys.path:
     sys.path.insert(0, script_dir)
 
 from utils.bootstrap import setup_bootstrap_logging, log_bootstrap_exception
+from utils.device_outage_tracker import DeviceOutageTracker
 
 log = logging.getLogger('museum.bootstrap')
 config_manager = None
@@ -90,6 +91,9 @@ class MuseumController:
 
         from utils.mqtt.mqtt_actuator_state_store import MQTTActuatorStateStore
         self.actuator_state_store = MQTTActuatorStateStore()
+        
+        # Device outage tracker for ESP device statistics
+        self.outage_tracker = DeviceOutageTracker()
         
         # Vytiahneme si referencie pre ľahší prístup v kóde
         self.audio_handler = self.services.audio_handler
@@ -168,6 +172,10 @@ class MuseumController:
 
     def _on_device_status_change(self, device_id: str, status: str) -> None:
         """Handle MQTT device online/offline transitions."""
+        # Track outages (short disconnections) to JSON
+        if self.outage_tracker:
+            self.outage_tracker.on_device_status_change(device_id, status)
+        
         if status == 'offline' and self.actuator_state_store:
             self.actuator_state_store.mark_node_offline(device_id)
 
