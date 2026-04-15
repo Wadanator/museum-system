@@ -45,7 +45,7 @@ mqtt:
   broker: TechMuzeumRoom1.local
   port: 1883
   client_id: "${client_id}"
-  keepalive: 5s                 # Ping broker every 5s to detect dropped connections
+  keepalive: 5s
 
   # Published automatically when device connects
   birth_message:
@@ -107,7 +107,7 @@ script:
 # ─── STATUS HEARTBEAT ────────────────────────────────────────────────────────
 # Periodically confirms device is alive — useful for monitoring dashboards
 interval:
-  - interval: 15s
+  - interval: 5s
     then:
       - if:
           condition:

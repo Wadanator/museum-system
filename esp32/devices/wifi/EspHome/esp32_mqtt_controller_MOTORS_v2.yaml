@@ -119,14 +119,20 @@ mqtt:
   broker: ${mqtt_broker}
   port: ${mqtt_port}
   client_id: ${friendly_name}
-  keepalive: 5s
+  keepalive: 15s
   
   birth_message:
     topic: devices/${friendly_name}/status
     payload: online
+    retain: true
   will_message:
     topic: devices/${friendly_name}/status
     payload: offline
+    retain: true
+  shutdown_message:
+    topic: devices/${friendly_name}/status
+    payload: offline
+    retain: true
 
   # Reconnect logika
   on_disconnect:
@@ -194,7 +200,10 @@ mqtt:
               call_left.perform();
               call_right.perform();
               id(mqtt_client).publish("${room_name}/motor1/feedback", "OK");
+              return;
             }
+
+            id(mqtt_client).publish("${room_name}/motor1/feedback", "ERROR");
 
     # MOTOR 2
     - topic: ${room_name}/motor2
@@ -251,4 +260,19 @@ mqtt:
               call_left.perform();
               call_right.perform();
               id(mqtt_client).publish("${room_name}/motor2/feedback", "OK");
+              return;
             }
+
+            id(mqtt_client).publish("${room_name}/motor2/feedback", "ERROR");
+
+interval:
+  - interval: 5s
+    then:
+      - if:
+          condition:
+            mqtt.connected:
+          then:
+            - mqtt.publish:
+                topic: "devices/${friendly_name}/status"
+                payload: "online"
+                retain: true

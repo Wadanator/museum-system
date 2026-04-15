@@ -220,7 +220,7 @@ mqtt:
   broker: ${mqtt_broker}
   port:   ${mqtt_port}
   client_id: ${friendly_name}
-  keepalive: 5s
+  keepalive: 15s
 
   birth_message:
     topic: "devices/${friendly_name}/status"
@@ -447,6 +447,17 @@ interval:
             id(turn_off_all).execute();
             id(last_cmd_time) = 0;
           }
+
+  - interval: 5s
+    then:
+      - if:
+          condition:
+            mqtt.connected:
+          then:
+            - mqtt.publish:
+                topic: "devices/${friendly_name}/status"
+                payload: "online"
+                retain: true
 
 # ==========================================================
 # DIAGNOSTIKA

@@ -4,9 +4,10 @@ substitutions:
   friendly_name: "Room1 ESP Trigger"
   room_prefix: "room1"
   client_id: "Room1_ESP_Trigger"
+  mqtt_broker: "TechMuzeumRoom1.local"
   ota_password: "room1"
 
-# ─── ESPHOME ─────────────────────────────────────────────────────────────────
+# ─── ESPHOME CORE ────────────────────────────────────────────────────────────
 esphome:
   name: ${device_name}
   friendly_name: ${friendly_name}
@@ -15,7 +16,7 @@ esphome:
     then:
       - logger.log: "=== ESP32 Scene Trigger Ready ==="
 
-# ─── BOARD ───────────────────────────────────────────────────────────────────
+# ─── BOARD DEFINITION ────────────────────────────────────────────────────────
 esp32:
   board: esp32dev
   framework:
@@ -26,20 +27,20 @@ logger:
   level: DEBUG
   baud_rate: 115200
 
-# ─── OTA ─────────────────────────────────────────────────────────────────────
+# ─── OTA (OVER-THE-AIR UPDATES) ──────────────────────────────────────────────
 ota:
   - platform: esphome
     password: "${ota_password}"
 
-# ─── WIFI ────────────────────────────────────────────────────────────────────
+# ─── WIFI CONFIGURATION ──────────────────────────────────────────────────────
 wifi:
   ssid: "Museum-Room1"
   password: "88888888"
   power_save_mode: none
 
-# ─── MQTT ────────────────────────────────────────────────────────────────────
+# ─── MQTT CONFIGURATION ──────────────────────────────────────────────────────
 mqtt:
-  broker: 192.168.0.127
+  broker: ${mqtt_broker}
   port: 1883
   client_id: "${client_id}"
   keepalive: 5s
@@ -62,6 +63,10 @@ mqtt:
   on_connect:
     then:
       - logger.log: "MQTT connected"
+      - mqtt.publish:
+          topic: "devices/${client_id}/status"
+          payload: "online"
+          retain: true
       - script.execute: led_update
 
   on_disconnect:
@@ -69,7 +74,7 @@ mqtt:
       - logger.log: "MQTT disconnected"
       - script.execute: led_update
 
-# ─── LED OUTPUT ──────────────────────────────────────────────────────────────
+# ─── LED OUTPUT PIN ──────────────────────────────────────────────────────────
 output:
   - platform: ledc
     pin: GPIO25
@@ -78,15 +83,16 @@ output:
     min_power: 0.0
     max_power: 1.0
 
-# ─── GLOBALS ─────────────────────────────────────────────────────────────────
+# ─── GLOBAL VARIABLES ────────────────────────────────────────────────────────
 globals:
   - id: led_mode
     type: int
     initial_value: '0'
-    # 0 = wifi fail (pulse)
-    # 1 = mqtt fail (double blink)
-    # 2 = all ok (steady on)
-    # 3 = button confirm (triple blink, temporary)
+    # State mapping:
+    # 0 = WiFi disconnected (smooth pulse)
+    # 1 = MQTT disconnected (double blink)
+    # 2 = All OK connected (steady ON)
+    # 3 = Button confirmation (triple blink, temporary override)
 
 # ─── SCRIPTS ─────────────────────────────────────────────────────────────────
 script:
@@ -94,28 +100,38 @@ script:
   - id: led_update
     mode: restart
     then:
+      # Prevent state override if the confirmation blink (mode 3) is active.
+      # The led_confirm script will re-trigger led_update upon completion.
       - if:
           condition:
-            wifi.connected:
+            lambda: 'return id(led_mode) != 3;'
           then:
             - if:
                 condition:
-                  mqtt.connected:
+                  wifi.connected:
                 then:
-                  - globals.set:
-                      id: led_mode
-                      value: '2'
-                  - logger.log: "LED: steady ON (all OK)"
+                  - if:
+                      condition:
+                        mqtt.connected:
+                      then:
+                        - globals.set:
+                            id: led_mode
+                            value: '2'
+                        - logger.log: "LED: steady ON (All OK)"
+                      else:
+                        - globals.set:
+                            id: led_mode
+                            value: '1'
+                        # Explicitly turn off the LED to clear the steady ON state
+                        - output.set_level:
+                            id: led_output
+                            level: 0.0
+                        - logger.log: "LED: double blink (MQTT fail)"
                 else:
                   - globals.set:
                       id: led_mode
-                      value: '1'
-                  - logger.log: "LED: double blink (MQTT fail)"
-          else:
-            - globals.set:
-                id: led_mode
-                value: '0'
-            - logger.log: "LED: pulse (WiFi fail)"
+                      value: '0'
+                  - logger.log: "LED: pulse (WiFi fail)"
 
   - id: led_confirm
     mode: single
@@ -134,23 +150,29 @@ script:
                 id: led_output
                 level: 0.0
             - delay: 80ms
+      # Restore regular LED state after confirmation finishes
+      - globals.set:
+          id: led_mode
+          value: '-1'
       - script.execute: led_update
 
   - id: button_cooldown_script
     mode: single
     then:
-      - logger.log: "Button: PRESSED (Valid) – sending MQTT trigger"
+      - logger.log: "Button: PRESSED (Valid) - sending MQTT trigger"
       - mqtt.publish:
           topic: "${room_prefix}/scene"
           payload: "START"
           retain: false
       - logger.log: ">>> SCENE TRIGGER SENT: ${room_prefix}/scene -> START"
       - script.execute: led_confirm
+      # Cooldown period to prevent spamming
       - delay: 4000ms
 
-# ─── LED LOOP ────────────────────────────────────────────────────────────────
+# ─── CONTINUOUS LED LOGIC (INTERVALS) ────────────────────────────────────────
 interval:
 
+  # Handles steady state (mode 2) and sine wave pulse (mode 0)
   - interval: 20ms
     then:
       - lambda: |-
@@ -163,6 +185,7 @@ interval:
             id(led_output).set_level(s);
           }
 
+  # Handles the double blink error state (mode 1)
   - interval: 3500ms
     then:
       - if:
@@ -185,7 +208,8 @@ interval:
                 id: led_output
                 level: 0.0
 
-  - interval: 15s
+  # Periodic state check and MQTT heartbeat
+  - interval: 5s
     then:
       - if:
           condition:
@@ -197,7 +221,7 @@ interval:
                 retain: true
       - script.execute: led_update
 
-# ─── BUTTON – GPIO32 ─────────────────────────────────────────────────────────
+# ─── BUTTON INPUT (GPIO32) ───────────────────────────────────────────────────
 binary_sensor:
   - platform: gpio
     pin:
@@ -208,13 +232,14 @@ binary_sensor:
     name: "Scene Trigger Button"
     id: scene_button
     filters:
+      # Hardware debounce
       - delayed_on: 100ms
       - delayed_off: 100ms
     on_press:
       then:
         - script.execute: button_cooldown_script
 
-# ─── DIAGNOSTICS ─────────────────────────────────────────────────────────────
+# ─── DIAGNOSTIC SENSORS ──────────────────────────────────────────────────────
 sensor:
   - platform: wifi_signal
     name: "WiFi Signal"

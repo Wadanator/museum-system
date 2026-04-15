@@ -1,9 +1,9 @@
 [MQTT]
 broker_ip = TechMuzeumRoom1.local
 port = 1883
-device_timeout = 25
+device_timeout = 15
 feedback_timeout = 1
-command_ack_timeout_ms = 200
+command_ack_timeout_ms = 700
 node_offline_timeout_s = 5
 
 [GPIO]
@@ -41,7 +41,7 @@ mqtt_connect_timeout = 10
 mqtt_reconnect_timeout = 5
 mqtt_reconnect_sleep = 0.5
 scene_buffer_time = 1
-device_cleanup_interval = 60
+device_cleanup_interval = 2
 
 [Json]
 json_file_name = test.json
