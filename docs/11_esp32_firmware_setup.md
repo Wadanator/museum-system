@@ -37,7 +37,27 @@ Postup je pri všetkých uzloch (`esp32_mqtt_button`, `esp32_mqtt_controller_MOT
 
 ---
 
-## 3. Riešenie problémov (Hardware)
+## 3. MQTT Heartbeat a Status Publishing
+
+Všetky Arduino firmvéry ESP32 zariadení (RELAY, MOTORS, BUTTON) pravidelne publikujú status heartbeat na tému `devices/{CLIENT_ID}/status` s payloadom `"online"`.
+
+**Súčasné nastavenia:**
+- **RELAY** (`esp32_mqtt_controller_RELAY`): `STATUS_PUBLISH_INTERVAL = 5000 ms` (5 sekúnd)
+- **MOTORS** (`esp32_mqtt_controller_MOTORS`): `STATUS_PUBLISH_INTERVAL = 15000 ms` (15 sekúnd)
+- **BUTTON** (`esp32_mqtt_button`): `STATUS_PUBLISH_INTERVAL = 5000 ms` (5 sekúnd)
+
+**Dôležitá oprava (od apríla 2026):**
+Pri opätovnom pripojení k MQTT brokeru sa heartbeat timer resetuje na `0`, aby sa status publikoval **ihneď** bez čakania na interval. To zamedzuje falošným "timeoutom" na Raspberry Pi, keď sa zariadenie krátko odpojí a znova pripojí.
+
+- **RELAY**: `lastStatusPublish = 0` sa nastavuje po MQTT reconnecte v `connectToMqtt()`
+- **MOTORS**: `lastStatusPublish = 0` sa nastavuje po `publishStatusImmediate()`
+- **BUTTON**: `lastStatusPublish = 0` sa nastavuje po MQTT reconnecte v `connectToMqtt()`
+
+**ESPHome varianty** (BUTTON YAML) to spravujú automaticky cez `on_connect` callback a `keepalive: 5s`.
+
+---
+
+## 4. Riešenie problémov (Hardware)
 
 Po úspešnom nahratí môžete otvoriť **Serial Monitor** v Arduino IDE (Baud rate zväčša nastavený na `115200`).
 Mali by ste ihneď vidieť:
@@ -45,4 +65,10 @@ Mali by ste ihneď vidieť:
 2. Pokus o spojenie s MQTT Brokerom na zvolenej IP.
 3. Správu `MQTT Connected!` a zoznam topics (kanálov), na ktoré sa zariadenie odoberá (napr. `room1/motor1` pre príjem príkazov).
 
-Ak zariadenie indikuje `MQTT failed, rc=-2`, znamená to nedostupnosť broker servera (Raspberry Pi nie je zapnuté, nie je na sieti, alebo je nesprávne špecifikovaná jeho IP adresa vo vašom C++ kóde).
+**Problémy s MQTT:**
+
+| Problém | Príčina | Riešenie |
+|---------|--------|---------|
+| `MQTT failed, rc=-2` | Server nedostupný | Uistite sa, že Raspberry Pi je zapnutá a na sieti. Skontrolujte IP v `config.cpp` |
+| Zariadenie sa odpojí a prihlási `timeout` v logoch | Heartbeat sa neposielal po reconnecte (stará verzia firmware) | Aktualizujte firmware - resetujte `lastStatusPublish = 0` pri reconnecte |
+| Zariadenie sa nezobrazuje ako `online` | Zariadenie sa nepripojilo k MQTT | Skontrolujte WiFi pripojenie a MQTT konfigáciu |

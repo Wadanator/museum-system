@@ -55,6 +55,9 @@ void connectToMqtt() {
       
       // Oznámime, že sme online
       client.publish(STATUS_TOPIC.c_str(), "online", true);
+      
+      // Reset lastStatusPublish to 0 so heartbeat publishes immediately
+      lastStatusPublish = 0;
 
     } else {
       debugPrint("MQTT Failed rc=" + String(client.state()));

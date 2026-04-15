@@ -192,6 +192,7 @@ void connectToMqtt() {
       debugPrint("Subscribed to motor topics");
 
       publishStatusImmediate();
+      lastStatusPublish = 0; // Reset so next heartbeat interval starts fresh
       lastCommandTime = currentTime;
 
     } else {

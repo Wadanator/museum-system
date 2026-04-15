@@ -23,6 +23,12 @@ extern const int BUTTON_PIN;
 extern const unsigned long DEBOUNCE_DELAY;
 extern const unsigned long BUTTON_COOLDOWN; // NOVÉ: Čas medzi stlačeniami
 
+// Hardware - LED Feedback
+extern const int LED_PIN;               // PWM LED pin
+extern const int PWM_CHANNEL;
+extern const int PWM_FREQUENCY;
+extern const int PWM_RESOLUTION;
+
 // Connection Management
 extern const unsigned long WIFI_RETRY_INTERVAL;
 extern const unsigned long MQTT_RETRY_INTERVAL;

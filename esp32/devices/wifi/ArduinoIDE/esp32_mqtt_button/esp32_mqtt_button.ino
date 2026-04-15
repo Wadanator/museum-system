@@ -6,6 +6,7 @@
 #include "connection_monitor.h"
 #include "ota_manager.h"
 #include "wdt_manager.h"
+#include "led_manager.h"
 
 void setup() {
   Serial.begin(115200);
@@ -16,6 +17,7 @@ void setup() {
 
   initializeWatchdog(); // Spustí WDT
   initializeHardware(); // Inicializuje pin 32 s externým rezistorom
+  initializeLED();      // Inicializuje PWM LED na GPIO25
 
   if (!initializeWiFi()) {
     debugPrint("Initial WiFi failed");
@@ -43,6 +45,7 @@ void loop() {
 
   // 3. LOGIKA TLAČIDLA (Tu sa uplatňuje cooldown z hardware.cpp)
   if (wasButtonPressed()) {
+    ledButtonConfirm(); // LED feedback: 4x rapid blink
     publishSceneTrigger(); // Odoslanie MQTT správy
   }
 
@@ -64,7 +67,10 @@ void loop() {
     }
   }
 
-  // 6. Monitoring (Status logy do konzoly)
+  // 6. LED Status Update (každých 10ms)
+  updateLED(isWiFiConnected(), isMqttConnected(), (millis() - cooldown_start_time) < 4000);
+
+  // 7. Monitoring (Status logy do konzoly)
   monitorConnections();
 
   delay(10); 

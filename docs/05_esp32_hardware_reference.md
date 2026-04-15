@@ -118,3 +118,41 @@ MQTT správanie:
   - po úspešnom stlačení sa pošle `room1/scene` = `START` a LED sa vráti do stavu podľa WiFi/MQTT
 
 ---
+
+## 4. MQTT Heartbeat a Status Publishing
+
+Všetky tri Arduino-ide firmvéry (MOTORS, RELAY, BUTTON) publikujú pravidelný status heartbeat na svoj status topic s payloadom `"online"`.
+
+| Zariadenie | STATUS_PUBLISH_INTERVAL | Poznámka |
+|-----------|-------------------------|----------|
+| **MOTORS** | 15000 ms (15 s) | Publikuje status každých 15 sekúnd |
+| **RELAY** | 15000 ms (15 s) | Publikuje status každých 15 sekúnd |
+| **BUTTON** | 15000 ms (15 s) | Publikuje status každých 15 sekúnd |
+
+**MQTT Reconnect Behavior (od apríla 2026):**
+
+Pri stratení a obnove MQTT spojenia sa timer pre `STATUS_PUBLISH_INTERVAL` resetuje na `0`, aby zariadenie publikovalo status **ihneď** bez čakania na normálny interval. To umožňuje Raspberry Pi:
+
+1. Rýchlo detegovať, že zariadenie sa znova pripojilo
+2. Vyhnúť sa falošným "timeout" logom pri krátkom odpojení/pripojení
+3. Udržiavať presné informácie o stave zariadenia
+
+**ESPHome varianty** (BUTTON YAML) to spravujú cez:
+- `on_connect` callback → ihneď publikuje "online"
+- `keepalive: 5s` → MQTT klient automaticky posiela heartbeat
+
+---
+
+## 5. Known Issues & Troubleshooting
+
+### MQTT Timeout False Positives (FIXED - apríl 2026)
+**Popis:** Keď sa zariadenie odpojilo a znova pripojilo, Raspberry Pi logovalo "timeout" aj keď sa zariadenie vrátilo do normálneho stavu.
+
+**Príčina:** Pri reconnecte sa `lastStatusPublish` neresetovalo, takže zariadenie čakalo na normálny interval (5-15 sekúnd) pred ďalším statusom. Raspberry Pi po ~180 sekundách bez statusu zariadenie markuje ako offline.
+
+**Riešenie:** Resetovať `lastStatusPublish = 0` ihneď po úspešnom MQTT reconnecte.
+
+**Súbory s opravou:**
+- `esp32/devices/wifi/ArduinoIDE/esp32_mqtt_controller_RELAY/mqtt_manager.cpp` (riadok ~187)
+- `esp32/devices/wifi/ArduinoIDE/esp32_mqtt_controller_MOTORS/mqtt_manager.cpp` (riadok ~195)
+- `esp32/devices/wifi/ArduinoIDE/esp32_mqtt_button/mqtt_manager.cpp` (riadok ~57)

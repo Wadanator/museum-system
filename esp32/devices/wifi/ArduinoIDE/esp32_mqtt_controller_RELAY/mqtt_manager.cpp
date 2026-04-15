@@ -184,7 +184,8 @@ void connectToMqtt() {
         debugPrint("Status: online");
       }
 
-      lastStatusPublish = currentTime;
+      // Reset lastStatusPublish to 0 so heartbeat publishes immediately in next mqttLoop()
+      lastStatusPublish = 0;
       lastCommandTime   = currentTime;
 
     } else {

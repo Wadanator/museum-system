@@ -22,6 +22,12 @@ const int BUTTON_PIN = 32;
 const unsigned long DEBOUNCE_DELAY = 60;    
 const unsigned long BUTTON_COOLDOWN = 4000; // 4 sekundy pauza medzi odoslaním
 
+// Hardware - LED Feedback PWM
+const int LED_PIN = 25;                 // GPIO25 PWM output
+const int PWM_CHANNEL = 0;              // LEDC channel 0
+const int PWM_FREQUENCY = 5000;         // 5 kHz
+const int PWM_RESOLUTION = 8;           // 8-bit (0-255)
+
 // Connection Management Settings
 const unsigned long WIFI_RETRY_INTERVAL = 3000;
 const unsigned long MQTT_RETRY_INTERVAL = 2000;
