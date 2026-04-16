@@ -3,7 +3,7 @@
     {
       "id": "Kolesa",
       "name": "Kolesa",
-      "speed": 75,
+      "speed": 50,
       "topic": "room1/motor1"
     },
     {
