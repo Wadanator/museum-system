@@ -38,7 +38,6 @@ export default function HeroCard({ status, onRun, onStop, isLoading }) {
             className="main-scene-button"
             onClick={onRun}
             disabled={disabled}
-            style={{ opacity: disabled ? 0.7 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}
           >
             <div className="button-icon">
               {isLoading
@@ -53,7 +52,6 @@ export default function HeroCard({ status, onRun, onStop, isLoading }) {
             className="stop-scene-button"
             onClick={onStop}
             disabled={isLoading}
-            style={{ opacity: isLoading ? 0.7 : 1, cursor: isLoading ? 'not-allowed' : 'pointer' }}
           >
             <div className="button-icon">
               {isLoading

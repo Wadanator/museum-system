@@ -85,24 +85,22 @@ export default function CommandsView() {
                 subtitle="Manuálna kontrola motorov a efektov"
                 icon={Zap}
             >
-                <div className="page-header-actions">
-                    <Button 
-                        variant="danger" 
-                        icon={OctagonX} 
-                        onClick={handleStopAll} 
-                        disabled={motors.length === 0 && relays.length === 0}
-                    >
-                        VYPNÚŤ VŠETKO
-                    </Button>
+                <Button 
+                    variant="danger" 
+                    icon={OctagonX} 
+                    onClick={handleStopAll} 
+                    disabled={motors.length === 0 && relays.length === 0}
+                >
+                    VYPNÚŤ VŠETKO
+                </Button>
 
-                    <Button variant="secondary" icon={RefreshCw} onClick={handleRefresh} size="small">
-                        Obnoviť
-                    </Button>
+                <Button variant="secondary" icon={RefreshCw} onClick={handleRefresh} size="small">
+                    Obnoviť
+                </Button>
 
-                    <Button variant="secondary" icon={FileCode2} onClick={handleOpenDevicesEditor} size="small">
-                        Upraviť devices.json
-                    </Button>
-                </div>
+                <Button variant="secondary" icon={FileCode2} onClick={handleOpenDevicesEditor} size="small">
+                    Upraviť devices.json
+                </Button>
             </PageHeader>
 
             <div className="devices-content">

@@ -46,4 +46,27 @@
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+
+    /* Surface overlays */
+    --overlay-soft: rgba(255, 255, 255, 0.05);
+    --overlay-medium: rgba(255, 255, 255, 0.08);
+    --overlay-strong: rgba(255, 255, 255, 0.1);
+    --overlay-inverse-soft: rgba(0, 0, 0, 0.05);
+    --overlay-inverse: rgba(0, 0, 0, 0.2);
+    --overlay-danger-soft: rgba(244, 63, 94, 0.1);
+    --overlay-danger-strong: rgba(244, 63, 94, 0.15);
+
+    /* Mobile / elevated shadows */
+    --shadow-mobile-sidebar: 0 8px 24px rgba(0, 0, 0, 0.18);
+    --shadow-primary-glow: 0 0 15px rgba(99, 102, 241, 0.35);
+
+    /* Notification gradients */
+    --success-gradient-start: #22c55e;
+    --success-gradient-end: #16a34a;
+    --danger-gradient-start: #ef4444;
+    --danger-gradient-end: #dc2626;
+
+    /* Form / editor focus effects */
+    --shadow-inset-sm: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+    --focus-ring-primary: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }

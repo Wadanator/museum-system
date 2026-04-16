@@ -21,10 +21,10 @@ export default function JsonEditor({ value, onChange, isLoading = false }) {
   };
 
   return (
-    <div className="code-editor-wrapper" style={{ position: 'relative', height: '100%' }}>
+    <div className="code-editor-wrapper">
       {/* Loading overlay rieši samotný Monaco editor, ale ak chceš vlastný: */}
       {isLoading && (
-        <div className="editor-loading-overlay" style={{ zIndex: 100 }}>
+        <div className="editor-loading-overlay">
           <span className="loading-label">Načítavam...</span>
         </div>
       )}

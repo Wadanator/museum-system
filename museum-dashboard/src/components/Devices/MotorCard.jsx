@@ -38,7 +38,7 @@ export default function MotorCard({ device }) {
             Ovládanie smeru a rýchlosti motorickej jednotky.
         </div>
 
-        <div className="device-preview" style={{ opacity: 0.1 }}>
+           <div className="device-preview device-preview--faded">
              <Gauge size={64} color="var(--text-primary)" />
         </div>
 
@@ -48,7 +48,6 @@ export default function MotorCard({ device }) {
                     variant="secondary" 
                     onClick={() => handleAction('LEFT', 'Vzad')} 
                     icon={Rewind}
-                    style={{ flex: 1 }}
                     isLoading={loading}
                 >
                     Vzad
@@ -67,7 +66,6 @@ export default function MotorCard({ device }) {
                     variant="secondary" 
                     onClick={() => handleAction('RIGHT', 'Vpred')} 
                     icon={FastForward}
-                    style={{ flex: 1 }}
                     isLoading={loading}
                 >
                     Vpred

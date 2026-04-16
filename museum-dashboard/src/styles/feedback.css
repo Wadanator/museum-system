@@ -13,13 +13,13 @@
 /* Notification */
 .notification {
     position: fixed; top: 32px; right: 32px; padding: 16px 32px;
-    border-radius: 12px; color: #ffffff; font-size: 1rem; font-weight: 600;
+    border-radius: 12px; color: var(--text-white); font-size: 1rem; font-weight: 600;
     z-index: 1000; opacity: 0; transform: translateY(-20px);
-    transition: all 0.4s ease; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transition: all 0.4s ease; box-shadow: var(--shadow-lg);
 }
 .notification.show { opacity: 1; transform: translateY(0); }
-.notification.success { background: linear-gradient(90deg, #22c55e, #16a34a); }
-.notification.error { background: linear-gradient(90deg, #ef4444, #dc2626); }
+.notification.success { background: linear-gradient(90deg, var(--success-gradient-start), var(--success-gradient-end)); }
+.notification.error { background: linear-gradient(90deg, var(--danger-gradient-start), var(--danger-gradient-end)); }
 
 /* Loaders */
 .spinner {

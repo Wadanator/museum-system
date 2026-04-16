@@ -57,7 +57,7 @@ export default function SystemView() {
                                 onClick={rebootSystem} 
                                 variant="secondary" 
                                 icon={RefreshCw}
-                                style={{ flex: 1 }} // Flex pre ButtonGroup je OK (layout)
+                                className="btn-full-width"
                             >
                                 Reštartovať RPi
                             </Button>
@@ -65,7 +65,7 @@ export default function SystemView() {
                                 onClick={shutdownSystem} 
                                 variant="danger" 
                                 icon={Power}
-                                style={{ flex: 1 }}
+                                className="btn-full-width"
                             >
                                 Vypnúť
                             </Button>

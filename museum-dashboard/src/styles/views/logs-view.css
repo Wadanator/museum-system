@@ -32,7 +32,7 @@
 
 .filter-btn:hover {
     color: var(--text-primary);
-    background: rgba(0,0,0,0.05);
+    background: var(--overlay-inverse-soft);
 }
 
 .filter-btn.active {
@@ -49,7 +49,7 @@
 /* Oprava hardcoded farieb -> použitie Theme Variables */
 .card-component.logs-console-card {
     background-color: var(--bg-dark) !important;
-    border-color: rgba(255, 255, 255, 0.1) !important;
+    border-color: var(--overlay-strong) !important;
     color: var(--text-white) !important;
     padding: 0 !important;
     flex: 1;
@@ -73,13 +73,13 @@
     grid-template-columns: 90px 80px 140px 1fr;
     gap: 12px;
     padding: 4px 8px;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
+    border-bottom: 1px solid var(--overlay-soft);
     align-items: baseline;
     line-height: 1.5;
 }
 
 .log-row:hover {
-    background-color: rgba(255,255,255,0.05);
+    background-color: var(--overlay-soft);
 }
 
 /* Farby textov v konzole - OPRAVENÉ */
@@ -106,7 +106,7 @@
 
 .log-row.error {
     /* Ak theme premenné nepodporujú alpha, použijeme jemnú RGBA podobnú --danger */
-    background-color: rgba(244, 63, 94, 0.1);
+    background-color: var(--overlay-danger-soft);
 }
 
 .empty-logs {
@@ -123,4 +123,68 @@
 .login-submit-btn {
     margin-top: 10px;
     border-radius: 12px;
+}
+
+@media (max-width: 640px) {
+    .logs-view {
+        gap: 16px;
+    }
+
+    .card-component.logs-console-card {
+        min-height: 55vh;
+    }
+
+    .logs-console {
+        padding: 10px;
+        font-size: 0.82rem;
+    }
+
+    .log-row {
+        grid-template-columns: 1fr;
+        gap: 4px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        margin-bottom: 8px;
+        background: var(--overlay-inverse-soft);
+        align-items: flex-start;
+    }
+
+    .log-row:hover {
+        background-color: var(--overlay-soft);
+    }
+
+    .log-time,
+    .log-level,
+    .log-module,
+    .log-message {
+        min-width: 0;
+    }
+
+    .log-time {
+        font-size: 0.72rem;
+        opacity: 0.9;
+    }
+
+    .log-level {
+        font-size: 0.72rem;
+        width: fit-content;
+    }
+
+    .log-module {
+        font-size: 0.78rem;
+        opacity: 0.95;
+        width: fit-content;
+        word-break: break-word;
+    }
+
+    .log-message {
+        font-size: 0.82rem;
+        line-height: 1.45;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+    }
+
+    .log-row.error {
+        background-color: var(--overlay-danger-soft);
+    }
 }

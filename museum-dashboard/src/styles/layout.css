@@ -6,6 +6,8 @@
     display: grid;
     grid-template-columns: 260px 1fr; /* Fixný sidebar, zvyšok obsah */
     min-height: 100vh;
+    width: 100%;
+    min-width: 0;
     background-color: var(--bg-main);
     overflow: hidden; /* Zabráni dvojitému scrollbaru */
 }
@@ -20,6 +22,7 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
+    min-width: 0;
     position: sticky;
     top: 0;
     box-shadow: var(--shadow-lg);
@@ -33,7 +36,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--overlay-strong);
     margin-bottom: 10px;
 }
 
@@ -48,7 +51,7 @@
     justify-content: center;
     /* Pre glow efekt použijeme tieň bez hardcoded farby, prípadne definovaný v theme, 
        tu ponecháme transparentný alebo var(--primary) ak to prehliadač podporuje */
-    box-shadow: 0 0 15px var(--primary); 
+    box-shadow: var(--shadow-primary-glow); 
 }
 
 .brand-text h1 {
@@ -89,7 +92,7 @@
 }
 
 .nav-item:hover {
-    background-color: rgba(255, 255, 255, 0.05);
+    background-color: var(--overlay-soft);
     color: var(--bg-main);
     transform: translateX(4px);
 }
@@ -112,11 +115,11 @@
 /* Footer Sidebaru */
 .sidebar-footer {
     padding: 20px;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    border-top: 1px solid var(--overlay-strong);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background-color: rgba(0, 0, 0, 0.2);
+    background-color: var(--overlay-inverse);
     margin-top: auto;
 }
 
@@ -166,7 +169,7 @@
 }
 
 .logout-btn:hover {
-    background: rgba(239, 68, 68, 0.1); /* Danger s opacitou */
+    background: var(--overlay-danger-soft);
     color: var(--danger);
 }
 
@@ -178,6 +181,7 @@
     padding: 30px 40px;
     overflow-y: auto;
     height: 100vh;
+    min-width: 0;
 }
 
 .content-container {
@@ -231,16 +235,81 @@
 @media (max-width: 768px) {
     .app-layout {
         grid-template-columns: 1fr;
+        min-height: 100dvh;
+        overflow: visible;
     }
 
     .sidebar {
         height: auto;
-        position: relative;
-        display: none; 
+        position: sticky;
+        top: 0;
+        display: flex;
+        width: 100%;
+        box-shadow: var(--shadow-mobile-sidebar);
+        border-bottom: 1px solid var(--overlay-medium);
+        overflow: hidden;
+    }
+
+    .sidebar-header {
+        padding: 10px 12px;
+        margin-bottom: 0;
+    }
+
+    .sidebar-nav {
+        flex-direction: row;
+        gap: 6px;
+        padding: 8px 10px 10px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    .sidebar-nav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .nav-item {
+        flex: 0 0 auto;
+        white-space: nowrap;
+        padding: 8px 12px;
+        font-size: 0.9rem;
+    }
+
+    .nav-item:hover {
+        transform: none;
+    }
+
+    .sidebar-footer {
+        padding: 10px 12px;
+    }
+
+    .user-details .role {
+        display: none;
+    }
+
+    .user-avatar {
+        width: 30px;
+        height: 30px;
+        font-size: 0.8rem;
+    }
+
+    .logout-btn {
+        padding: 6px;
+        flex-shrink: 0;
     }
 
     .main-content {
-        padding: 16px;
+        height: auto;
+        min-height: auto;
+        padding: 8px;
+        overflow: visible;
+    }
+
+    .content-container {
+        padding-bottom: 20px;
+        max-width: 100%;
+        min-width: 0;
     }
 
     .status-overview {
@@ -250,5 +319,49 @@
     
     .status-grid, .stats-grid {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .sidebar-header {
+        padding: 8px 10px;
+    }
+
+    .brand-text span {
+        display: none;
+    }
+
+    .brand-text h1 {
+        font-size: 0.95rem;
+    }
+
+    .brand-text span {
+        font-size: 0.65rem;
+    }
+
+    .sidebar-footer {
+        padding: 8px 10px;
+        gap: 8px;
+    }
+
+    .user-details .name {
+        font-size: 0.8rem;
+    }
+
+    .user-details .role {
+        display: none;
+    }
+
+    .user-details {
+        display: none;
+    }
+
+    .sidebar-nav {
+        padding: 6px 8px 8px;
+    }
+
+    .nav-item {
+        padding: 7px 10px;
+        font-size: 0.84rem;
     }
 }

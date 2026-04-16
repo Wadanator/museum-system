@@ -164,10 +164,19 @@
 }
 
 /* JsonEditor wrapper inside body */
+.code-editor-wrapper {
+    position: relative;
+    height: 100%;
+}
+
 .modal-body-editor .code-editor-wrapper {
     flex: 1;
     min-height: 0;
     height: 100%;
+}
+
+.editor-loading-overlay {
+    z-index: 100;
 }
 
 /* ── Footer  (flex-shrink: 0) ───────────────────────────────────── */

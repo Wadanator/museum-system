@@ -75,11 +75,9 @@ export default function DevicesConfigModal({
         </>
       )}
     >
-      <div style={{ height: 'calc(85vh - 180px)' }}>
-        <JsonEditor value={jsonString} onChange={handleCodeChange} />
-      </div>
+      <JsonEditor value={jsonString} onChange={handleCodeChange} />
       {!isValid && (
-        <p style={{ color: 'var(--danger)', marginTop: '10px' }}>
+        <p className="modal-error-text">
           Neplatny JSON
         </p>
       )}

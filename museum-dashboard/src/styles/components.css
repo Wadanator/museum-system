@@ -62,6 +62,20 @@
     gap: 10px;
 }
 
+.button-group {
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    margin-top: 10px;
+    width: 100%;
+    min-width: 0;
+}
+
+.button-group > .btn {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
 /* --- CARD COMPONENT --- */
 .card-component {
     background: var(--bg-card);
@@ -152,7 +166,7 @@
 .modal-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--overlay-inverse);
     backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
@@ -234,11 +248,23 @@
     line-height: 1.5;
 }
 
+.modal-content.large-editor .modal-body-text {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.modal-error-text {
+    color: var(--danger);
+    margin-top: 10px;
+}
+
 /* --- CONFIRM MODAL (New) --- */
 .confirm-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background-color: rgba(0, 0, 0, 0.6);
+    background-color: var(--overlay-inverse);
     z-index: 9999;
     display: flex;
     align-items: center;
@@ -328,6 +354,90 @@
 }
 
 @media (max-width: 640px) {
-    .page-header-container { flex-direction: column; align-items: flex-start; }
-    .page-header-actions { width: 100%; justify-content: flex-start; }
+    .page-header-container {
+        flex-direction: column;
+        align-items: flex-start;
+        padding-bottom: 18px;
+        margin-bottom: 18px;
+        gap: 12px;
+    }
+
+    .page-header-left {
+        width: 100%;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .page-header-icon-box {
+        width: 42px;
+        height: 42px;
+        flex-shrink: 0;
+    }
+
+    .page-title {
+        font-size: 1.3rem;
+    }
+
+    .page-subtitle {
+        font-size: 0.85rem;
+    }
+
+    .page-header-actions {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .page-header-actions > * {
+        width: 100%;
+    }
+
+    .page-header-actions .filters {
+        width: 100%;
+    }
+
+    .filters {
+        flex-wrap: wrap;
+        width: 100%;
+        gap: 6px;
+    }
+
+    .filter-btn {
+        flex: 1 1 calc(50% - 3px);
+        min-width: 0;
+    }
+
+    .modal-content {
+        width: min(94vw, 500px);
+        padding: 20px;
+    }
+
+    .notification.connection-notification {
+        right: 12px;
+        bottom: 12px;
+        left: 12px;
+        width: auto;
+        justify-content: flex-start;
+    }
+
+    .page-header-left,
+    .page-header-actions,
+    .filters,
+    .button-group,
+    .modal-content,
+    .card-component {
+        min-width: 0;
+    }
+}
+
+.notification.connection-notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    top: auto;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }

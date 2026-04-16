@@ -59,10 +59,7 @@ function App() {
       </AppLayout>
       
       {!isConnected && (
-        <div className="notification error show" style={{ 
-            position: 'fixed', bottom: 20, right: 20, top: 'auto', zIndex: 9999, 
-            display: 'flex', alignItems: 'center', gap: 10 
-        }}>
+        <div className="notification error show connection-notification">
             <AlertTriangle size={24} /> Odpojené od servera
         </div>
       )}

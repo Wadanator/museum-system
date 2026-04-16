@@ -43,7 +43,6 @@ export default function RelayCard({ device }) {
               onClick={() => handleCommand("OFF", "VYPNUTÉ")}
               icon={PowerOff}
               isLoading={isLoading}
-              style={{ flex: 1 }}
               aria-label={`Vypnúť ${device.name}`}
             >
               Vypnúť
@@ -53,7 +52,6 @@ export default function RelayCard({ device }) {
               onClick={() => handleCommand("ON", "ZAPNUTÉ")}
               icon={Power}
               isLoading={isLoading}
-              style={{ flex: 1 }}
               aria-label={`Zapnúť ${device.name}`}
             >
               Zapnúť
