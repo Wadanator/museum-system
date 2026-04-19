@@ -1,6 +1,7 @@
 import React, { memo, useState, useCallback } from 'react';
 import { Handle, Position } from 'reactflow';
 import { FiChevronDown, FiChevronUp, FiZap, FiClock, FiShare2, FiActivity, FiFlag, FiPlay, FiCode, FiLogOut } from 'react-icons/fi';
+import Button from '../ui/Button';
 
 // ─── ReactFlow magic class names ─────────────────────────────────────────────
 // nowheel  → wheel events on this element do NOT zoom/pan the canvas
@@ -53,13 +54,15 @@ const CustomFlowNode = ({ data, selected }) => {
                 </div>
                 {!isEnd && (
                     // nodrag nopan → click on chevron never starts a drag
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="small"
                         className="expand-btn nodrag nopan"
                         onClick={handleExpandClick}
                         aria-label={isExpanded ? 'Collapse' : 'Expand'}
-                    >
-                        {isExpanded ? <FiChevronUp /> : <FiChevronDown />}
-                    </button>
+                        icon={isExpanded ? FiChevronUp : FiChevronDown}
+                        cooldown={0}
+                    />
                 )}
             </div>
 

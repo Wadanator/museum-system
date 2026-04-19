@@ -90,6 +90,12 @@
     cursor: pointer;
     transition: all 0.2s;
     background: transparent;
+    padding: 0;
+    min-width: 32px;
+}
+
+.action-btn-icon:hover {
+    transform: none;
 }
 
 /* Play tlačidlo */

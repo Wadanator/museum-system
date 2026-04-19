@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
+import Button from '../ui/Button';
 import { 
   Home, Drama, FolderOpen, Zap, ClipboardList, 
-  BarChart3, Settings, LogOut, Landmark
+  BarChart3, Settings, LogOut, Landmark, Moon, Sun
 } from 'lucide-react';
 
-export default function Sidebar() {
+export default function Sidebar({ theme, onToggleTheme }) {
   const { logout } = useAuth();
 
   const navItems = [
@@ -57,9 +58,26 @@ export default function Sidebar() {
                 <span className="role">Správca</span>
             </div>
         </div>
-        <button onClick={logout} className="logout-btn" title="Odhlásiť">
-            <LogOut size={18} />
-        </button>
+        <div className="sidebar-actions">
+          <Button
+            onClick={onToggleTheme}
+            variant="unstyled"
+            size="small"
+            icon={theme === 'dark' ? Sun : Moon}
+            className="theme-toggle-btn"
+            title={theme === 'dark' ? 'Prepnúť na svetlý režim' : 'Prepnúť na tmavý režim'}
+            aria-label={theme === 'dark' ? 'Prepnúť na svetlý režim' : 'Prepnúť na tmavý režim'}
+          />
+          <Button
+            onClick={logout}
+            variant="unstyled"
+            size="small"
+            icon={LogOut}
+            className="logout-btn"
+            title="Odhlásiť"
+            aria-label="Odhlásiť"
+          />
+        </div>
       </div>
     </aside>
   );

@@ -141,25 +141,25 @@
 .status-badge.online, .status-badge.success {
     background-color: var(--success-bg);
     color: var(--success);
-    border-color: rgba(34, 197, 94, 0.2);
+    border-color: color-mix(in srgb, var(--success) 20%, transparent);
 }
 
 .status-badge.offline, .status-badge.error, .status-badge.danger {
     background-color: var(--danger-bg);
     color: var(--danger);
-    border-color: rgba(239, 68, 68, 0.2);
+    border-color: color-mix(in srgb, var(--danger) 20%, transparent);
 }
 
 .status-badge.warning {
     background-color: var(--warning-bg);
     color: var(--warning);
-    border-color: rgba(245, 158, 11, 0.2);
+    border-color: color-mix(in srgb, var(--warning) 20%, transparent);
 }
 
 .status-badge.info {
     background-color: var(--info-bg);
     color: var(--info);
-    border-color: rgba(59, 130, 246, 0.2);
+    border-color: color-mix(in srgb, var(--info) 20%, transparent);
 }
 
 /* --- MODAL COMPONENT (Standard) --- */
@@ -319,9 +319,24 @@
 
 .btn.btn-small { gap: 6px; }
 
+.btn-unstyled {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    line-height: 1;
+}
+
 /* Stavy tlačidla */
 .btn:disabled,
+.btn-unstyled:disabled,
 .btn.is-loading,
+.btn-unstyled.is-loading,
 .btn.is-disabled {
     opacity: 0.7;
     cursor: not-allowed;

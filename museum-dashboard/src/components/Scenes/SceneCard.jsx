@@ -1,5 +1,6 @@
 import { Play, Settings2, Clock, Clapperboard, Star } from 'lucide-react';
 import Card from '../ui/Card';
+import Button from '../ui/Button';
 
 export default function SceneCard({ scene, onPlay, onEdit }) {
     const date = new Date(scene.modified * 1000).toLocaleDateString('sk-SK', {
@@ -12,13 +13,16 @@ export default function SceneCard({ scene, onPlay, onEdit }) {
         <Card className={`scene-card ${isFeatured ? 'featured' : ''}`}>
             
             <div className="scene-cover">
-                <button 
+                <Button
+                    variant="unstyled"
+                    size="small"
                     className="edit-btn-absolute" 
                     onClick={(e) => { e.stopPropagation(); onEdit(scene.name); }}
                     title="Upraviť scénu"
-                >
-                    <Settings2 size={18} />
-                </button>
+                    aria-label="Upraviť scénu"
+                    icon={Settings2}
+                    cooldown={0}
+                />
             </div>
 
             <div className="scene-icon-float">
@@ -37,13 +41,16 @@ export default function SceneCard({ scene, onPlay, onEdit }) {
                 </div>
             </div>
 
-            <button 
+            <Button
+                variant="unstyled"
+                size="small"
                 className="play-fab" 
                 onClick={(e) => { e.stopPropagation(); onPlay(scene.name); }}
                 title="Spustiť scénu"
-            >
-                <Play size={20} fill="currentColor" />
-            </button>
+                aria-label="Spustiť scénu"
+                icon={Play}
+                cooldown={0}
+            />
 
         </Card>
     );

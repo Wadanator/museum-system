@@ -1,4 +1,5 @@
 import { Clapperboard, Music, Play, Trash2 } from 'lucide-react';
+import Button from '../ui/Button';
 
 export default function FileItem({ file, type, isPlaying, onPlay, onDelete, isDisabled }) {
   return (
@@ -13,22 +14,28 @@ export default function FileItem({ file, type, isPlaying, onPlay, onDelete, isDi
       </div>
       
       <div className="media-actions">
-        <button 
-            className="action-btn-icon play" 
-            onClick={() => !isDisabled && onPlay(type, file.name)} 
+        <Button
+          variant="unstyled"
+            size="small"
+            className="action-btn-icon play"
+            onClick={() => !isDisabled && onPlay(type, file.name)}
             disabled={isDisabled}
+            icon={Play}
             title="Prehrať"
-        >
-            <Play size={16} fill="currentColor" />
-        </button>
-        <button 
-            className="action-btn-icon delete" 
-            onClick={() => !isDisabled && onDelete(type, file.name)} 
+            aria-label="Prehrať"
+            cooldown={0}
+        />
+        <Button
+          variant="unstyled"
+            size="small"
+            className="action-btn-icon delete"
+            onClick={() => !isDisabled && onDelete(type, file.name)}
             disabled={isDisabled}
+            icon={Trash2}
             title="Vymazať"
-        >
-            <Trash2 size={16} />
-        </button>
+            aria-label="Vymazať"
+            cooldown={0}
+        />
       </div>
     </div>
   );

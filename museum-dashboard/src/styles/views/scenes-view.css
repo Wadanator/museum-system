@@ -55,7 +55,7 @@
 /* Cover (Vrch) */
 .scene-cover {
     height: 90px;
-    background: linear-gradient(135deg, var(--bg-main) 0%, #e5e7eb 100%);
+    background: linear-gradient(135deg, var(--bg-main) 0%, var(--border-color) 100%);
     position: relative;
     border-bottom: 1px solid var(--border-color);
 }
@@ -90,7 +90,7 @@
 
 .scene-card.featured .scene-icon-float {
     background: var(--primary);
-    color: white;
+    color: var(--text-white);
     border-color: var(--primary);
 }
 
@@ -115,13 +115,13 @@
 }
 
 /* Tlačidlá na karte */
-.edit-btn-absolute {
+button.edit-btn-absolute.btn-unstyled {
     position: absolute;
     top: 12px;
     right: 12px;
     width: 32px;
     height: 32px;
-    background: rgba(255, 255, 255, 0.6);
+    background: linear-gradient(135deg, var(--bg-card), var(--bg-hover));
     backdrop-filter: blur(4px);
     border-radius: 8px;
     display: flex;
@@ -132,39 +132,62 @@
     cursor: pointer;
     transition: all 0.2s;
     z-index: 5;
+    padding: 0;
+    min-width: 32px;
+    appearance: none;
+    -webkit-appearance: none;
 }
 
-.edit-btn-absolute:hover {
-    background: var(--bg-card);
-    color: var(--primary);
-    box-shadow: var(--shadow-sm);
+button.edit-btn-absolute.btn-unstyled:hover {
+    background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+    color: var(--text-white);
+    box-shadow: var(--shadow-primary-glow);
+    transform: none;
 }
 
-.play-fab {
+button.play-fab.btn-unstyled {
     position: absolute;
     bottom: 20px;
     right: 20px;
     width: 44px;
     height: 44px;
     border-radius: 50%;
-    background: var(--bg-main);
-    color: var(--text-primary);
-    border: 1px solid var(--border-color);
+    background: linear-gradient(135deg, var(--success), var(--success-hover));
+    color: var(--text-white);
+    border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-success-sm);
     transition: all 0.2s ease;
     z-index: 5;
+    padding: 0;
+    min-width: 44px;
+    appearance: none;
+    -webkit-appearance: none;
 }
 
-.play-fab:hover {
-    background: var(--success);
-    color: white;
+button.play-fab.btn-unstyled:hover {
+    background: linear-gradient(135deg, var(--success-hover), var(--success));
+    color: var(--text-white);
     border-color: var(--success);
     transform: scale(1.1);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-success-glow);
+}
+
+button.edit-btn-absolute.btn-unstyled,
+button.play-fab.btn-unstyled {
+    color: var(--text-white);
+}
+
+button.edit-btn-absolute.btn-unstyled svg {
+    color: var(--primary);
+}
+
+button.edit-btn-absolute.btn-unstyled:hover svg,
+button.play-fab.btn-unstyled svg {
+    color: var(--text-white);
 }
 
 .scenes-live-card {

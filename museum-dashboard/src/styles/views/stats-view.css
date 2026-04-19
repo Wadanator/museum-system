@@ -36,7 +36,8 @@
 }
 
 .stats-card h3 { 
-    color: rgba(255, 255, 255, 0.9); 
+    color: var(--text-white);
+    opacity: 0.9;
     font-size: 1rem; 
     margin: 0; 
     font-weight: 500; 
@@ -50,7 +51,7 @@
 
 .card-icon { 
     font-size: 2.5rem; 
-    background: rgba(255, 255, 255, 0.2); 
+    background: var(--overlay-strong);
     width: 60px; 
     height: 60px; 
     display: flex; 

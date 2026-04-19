@@ -10,13 +10,6 @@
    ─────────────────────────────────────────────────────────────────
 */
 
-/* ── EXTRA THEME TOKENS (extend theme.css without editing it) ───── */
-/* These are project-specific tokens not in the global theme.        */
-:root {
-    --color-video:    #ec4899;   /* pink-500 — video transition edges */
-    --minimap-mask:   rgba(241, 245, 249, 0.7);  /* bg-main with opacity */
-}
-
 /* ── FLOW WRAPPER ───────────────────────────────────────────────── */
 .flow-wrapper {
     flex: 1 1 0;
@@ -58,6 +51,8 @@
 .flow-icon-btn {
     width: 32px;
     height: 32px;
+    min-width: 32px;
+    padding: 0;
     border-radius: var(--radius-md);
     border: 1px solid var(--border-color);
     background: var(--bg-card);
@@ -76,6 +71,22 @@
     border-color: var(--primary);
     transform: translateY(-1px);
     box-shadow: var(--shadow-md);
+}
+
+.smart-edge-label-wrapper {
+    position: absolute;
+    pointer-events: all;
+    z-index: 10;
+}
+
+.smart-edge-label {
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-color);
+    font-weight: 600;
+    font-size: 11px;
+    box-shadow: var(--shadow-sm);
+    white-space: nowrap;
 }
 
 /* ── LEGEND PANEL ───────────────────────────────────────────────── */

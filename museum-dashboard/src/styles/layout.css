@@ -93,7 +93,7 @@
 
 .nav-item:hover {
     background-color: var(--overlay-soft);
-    color: var(--bg-main);
+    color: var(--text-white);
     transform: translateX(4px);
 }
 
@@ -121,6 +121,28 @@
     justify-content: space-between;
     background-color: var(--overlay-inverse);
     margin-top: auto;
+}
+
+.sidebar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.theme-toggle-btn {
+    min-width: 34px;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid var(--overlay-medium);
+    border-radius: var(--radius-md);
+    background: var(--overlay-soft);
+    color: var(--text-white);
+}
+
+.theme-toggle-btn:hover {
+    background: var(--primary);
+    border-color: var(--primary);
 }
 
 .user-info {
@@ -160,7 +182,7 @@
 
 .logout-btn {
     background: transparent;
-    border: none;
+    border: 1px solid transparent;
     color: var(--text-secondary);
     cursor: pointer;
     padding: 8px;
@@ -282,6 +304,7 @@
 
     .sidebar-footer {
         padding: 10px 12px;
+        gap: 8px;
     }
 
     .user-details .role {
@@ -297,6 +320,12 @@
     .logout-btn {
         padding: 6px;
         flex-shrink: 0;
+    }
+
+    .theme-toggle-btn {
+        min-width: 30px;
+        width: 30px;
+        height: 30px;
     }
 
     .main-content {

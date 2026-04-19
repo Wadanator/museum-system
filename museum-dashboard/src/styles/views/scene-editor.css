@@ -10,7 +10,7 @@
 
 /* ── Overlay ────────────────────────────────────────────────────── */
 .modal-overlay {
-    background: rgba(0, 0, 0, 0.55);
+    background: var(--overlay-inverse);
     backdrop-filter: blur(6px);
     position: fixed;
     inset: 0;
@@ -106,6 +106,7 @@
     background: var(--bg-hover);
     color: var(--text-primary);
     border-color: var(--border-color);
+    transform: none;
 }
 
 /* ── Tabs  (flex-shrink: 0) ─────────────────────────────────────── */
@@ -138,6 +139,7 @@
     background: var(--bg-hover);
     color: var(--text-primary);
     border-color: var(--border-color);
+    transform: none;
 }
 
 .editor-tab-btn.active {

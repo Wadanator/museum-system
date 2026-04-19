@@ -33,8 +33,7 @@
 
 .main-scene-button:hover { 
     transform: translateY(-3px); 
-    /* Tieň s použitím success farby */
-    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3); /* Ekvivalent var(--success) s opacitou */
+    box-shadow: var(--shadow-success-glow);
 }
 
 .main-scene-button:disabled { 
@@ -53,7 +52,7 @@
 
 .stop-scene-button:hover { 
     transform: translateY(-3px); 
-    box-shadow: 0 8px 25px rgba(244, 63, 94, 0.3); /* Ekvivalent var(--danger) s opacitou */
+    box-shadow: var(--shadow-danger-glow);
 }
 
 .button-icon { font-size: 2rem; margin-bottom: 8px; }
@@ -94,8 +93,6 @@
     transition: all 0.3s ease;
     /* display: flex -> presunuté do components.css pre unifikáciu */
 }
-
-.btn:hover { transform: translateY(-2px); }
 .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid transparent; }
 .btn-ghost:hover { background: var(--overlay-soft); color: var(--text-white); }
 

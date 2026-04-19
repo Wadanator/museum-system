@@ -36,7 +36,7 @@
 .main-status.running {
   background: var(--warning-bg);
   border-color: var(--warning);
-  color: #b45309;
+  color: var(--warning);
 }
 
 .main-status.error {
@@ -75,10 +75,10 @@
 .main-scene-button,
 .stop-scene-button {
   width: 100%;
-  padding: 25px;
-  border: none;
-  border-radius: var(--radius-xl);
-  font-size: 1.1rem;
+  padding: 36px 24px 34px;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius-xl) + 4px);
+  font-size: 1.05rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -89,22 +89,31 @@
   align-items: center;
   justify-content: center;
   color: var(--text-white);
+  gap: 2px;
+  position: relative;
+  overflow: hidden;
 }
 
-.main-scene-button {
-  background: linear-gradient(135deg, var(--success), #16a34a);
+button.main-scene-button.btn-unstyled {
+  background: linear-gradient(135deg, var(--success), var(--success-gradient-end));
+  border-color: color-mix(in srgb, var(--success) 30%, transparent);
+  appearance: none;
+  -webkit-appearance: none;
+  color: var(--text-white) !important;
+  box-shadow: var(--shadow-success-glow);
 }
 
-.main-scene-button:hover {
+button.main-scene-button.btn-unstyled:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(34, 197, 94, 0.3);
+  box-shadow: var(--shadow-success-glow);
 }
 
-.main-scene-button:disabled {
-  background: var(--secondary);
+button.main-scene-button.btn-unstyled:disabled {
+  background: linear-gradient(135deg, var(--secondary), var(--secondary-hover));
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+  border-color: transparent;
 }
 
 .main-scene-button:disabled,
@@ -115,32 +124,63 @@
   box-shadow: none;
 }
 
-.stop-scene-button {
-  background: linear-gradient(135deg, var(--danger), #dc2626);
+button.stop-scene-button.btn-unstyled {
+  background: linear-gradient(135deg, var(--danger), var(--danger-gradient-end));
+  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+  appearance: none;
+  -webkit-appearance: none;
+  color: var(--text-white) !important;
+  box-shadow: var(--shadow-danger-glow);
 }
 
-.stop-scene-button:hover {
+button.stop-scene-button.btn-unstyled:hover {
   transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
+  box-shadow: var(--shadow-danger-glow);
 }
 
 .button-icon {
   font-size: 2rem;
-  margin-bottom: 8px;
+  margin-bottom: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--overlay-medium);
+  box-shadow: inset 0 0 0 1px var(--overlay-soft);
 }
 
 .button-text {
-  font-size: 1.3rem;
-  margin-bottom: 5px;
+  font-size: 1.25rem;
+  margin-bottom: 8px;
 }
 
 .button-subtext {
   font-size: 0.9rem;
   opacity: 0.85;
   font-weight: 400;
+  margin-bottom: 2px;
+}
+
+button.main-scene-button.btn-unstyled .button-icon,
+button.stop-scene-button.btn-unstyled .button-icon {
+  color: var(--text-white);
+}
+
+button.main-scene-button.btn-unstyled .button-icon {
+  background: color-mix(in srgb, var(--text-white) 18%, transparent);
+}
+
+button.stop-scene-button.btn-unstyled .button-icon {
+  background: color-mix(in srgb, var(--text-white) 18%, transparent);
+}
+
+button.main-scene-button.btn-unstyled .button-text,
+button.main-scene-button.btn-unstyled .button-subtext,
+button.stop-scene-button.btn-unstyled .button-text,
+button.stop-scene-button.btn-unstyled .button-subtext {
+  color: var(--text-white);
 }
 
 /* =======================================

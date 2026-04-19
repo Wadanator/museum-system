@@ -1,4 +1,5 @@
 import { Drama, CheckCircle2, AlertTriangle, Play, Square, Loader2 } from 'lucide-react';
+import Button from '../ui/Button';
 
 export default function HeroCard({ status, onRun, onStop, isLoading }) {
   const isRunning = status.scene_running;
@@ -34,10 +35,12 @@ export default function HeroCard({ status, onRun, onStop, isLoading }) {
 
       <div className="main-controls">
         {!isRunning ? (
-          <button
+          <Button
+            variant="unstyled"
             className="main-scene-button"
             onClick={onRun}
             disabled={disabled}
+            cooldown={0}
           >
             <div className="button-icon">
               {isLoading
@@ -46,12 +49,14 @@ export default function HeroCard({ status, onRun, onStop, isLoading }) {
             </div>
             <div className="button-text">Spustiť hlavnú scénu</div>
             <div className="button-subtext">Stlačte pre začatie predstavenia</div>
-          </button>
+          </Button>
         ) : (
-          <button
+          <Button
+            variant="unstyled"
             className="stop-scene-button"
             onClick={onStop}
             disabled={isLoading}
+            cooldown={0}
           >
             <div className="button-icon">
               {isLoading
@@ -60,7 +65,7 @@ export default function HeroCard({ status, onRun, onStop, isLoading }) {
             </div>
             <div className="button-text">Zastaviť scénu</div>
             <div className="button-subtext">Núdzové zastavenie</div>
-          </button>
+          </Button>
         )}
       </div>
     </div>

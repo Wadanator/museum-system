@@ -51,26 +51,39 @@ export default function SceneEditorModal({ isOpen, onClose, filename, initialCon
                         <h3>Úprava scény</h3>
                         <span className="file-badge">{filename}</span>
                     </div>
-                    <button className="close-btn" onClick={onClose}>
-                        <X size={20} />
-                    </button>
+                    <Button
+                        variant="ghost"
+                        size="small"
+                        className="close-btn"
+                        onClick={onClose}
+                        icon={X}
+                        aria-label="Zatvoriť"
+                        title="Zatvoriť"
+                        cooldown={0}
+                    />
                 </div>
 
                 {/* ── Tabs ───────────────────────────────────────────── */}
                 <div className="editor-tabs">
-                    <button
+                    <Button
+                        variant="ghost"
+                        size="small"
                         className={`editor-tab-btn ${activeTab === 'code' ? 'active' : ''}`}
                         onClick={() => setActiveTab('code')}
+                        cooldown={0}
                     >
                         <Code size={16} /> JSON Editor
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        size="small"
                         className={`editor-tab-btn ${activeTab === 'visual' ? 'active' : ''}`}
                         onClick={() => setActiveTab('visual')}
                         disabled={!isValid}
+                        cooldown={0}
                     >
                         <Workflow size={16} /> Vizualizácia
-                    </button>
+                    </Button>
                 </div>
 
                 {/* ── Body — this is the flex-grow area ─────────────── */}

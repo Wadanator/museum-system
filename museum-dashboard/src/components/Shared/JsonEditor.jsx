@@ -1,6 +1,8 @@
 import Editor from '@monaco-editor/react';
+import useDocumentTheme from '../../hooks/useDocumentTheme';
 
 export default function JsonEditor({ value, onChange, isLoading = false }) {
+  const theme = useDocumentTheme();
   
   // Funkcia, ktorá sa zavolá pri zmene kódu
   const handleEditorChange = (nextValue) => {
@@ -35,7 +37,7 @@ export default function JsonEditor({ value, onChange, isLoading = false }) {
         value={value || ''}
         onChange={handleEditorChange}
         options={editorOptions}
-        theme="light"
+        theme={theme === 'dark' ? 'vs-dark' : 'light'}
         loading={<div className="loading-label">Načítavam editor...</div>}
       />
     </div>

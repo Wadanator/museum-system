@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useSocket } from './context/useSocket';
 import { useAuth } from './context/useAuth';
+import useTheme from './hooks/useTheme';
 import { AlertTriangle } from 'lucide-react';
 
 // Import nového Layoutu
@@ -22,6 +23,7 @@ import './styles/layout.css';
 function App() {
   const { isConnected } = useSocket();
   const { isAuthenticated, isLoading } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   if (isLoading) {
     return (
@@ -44,7 +46,7 @@ function App() {
     <>
       <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
 
-      <AppLayout>
+      <AppLayout theme={theme} onToggleTheme={toggleTheme}>
         <Routes>
           <Route path="/" element={<MainDashboard />} />
           <Route path="/live" element={<Navigate to="/scenes" replace />} />

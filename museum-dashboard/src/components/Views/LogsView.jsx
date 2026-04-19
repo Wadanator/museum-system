@@ -33,10 +33,10 @@ export default function LogsView() {
             >
                 {/* Filtre presunuté priamo do header akcií */}
                 <div className="filters">
-                    <button className={`filter-btn ${filter === 'ALL' ? 'active' : ''}`} onClick={() => setFilter('ALL')}>Všetky</button>
-                    <button className={`filter-btn info ${filter === 'INFO' ? 'active' : ''}`} onClick={() => setFilter('INFO')}>Info</button>
-                    <button className={`filter-btn warning ${filter === 'WARNING' ? 'active' : ''}`} onClick={() => setFilter('WARNING')}>Warning</button>
-                    <button className={`filter-btn error ${filter === 'ERROR' ? 'active' : ''}`} onClick={() => setFilter('ERROR')}>Error</button>
+                    <Button variant="unstyled" className={`filter-btn ${filter === 'ALL' ? 'active' : ''}`} onClick={() => setFilter('ALL')}>Všetky</Button>
+                    <Button variant="unstyled" className={`filter-btn info ${filter === 'INFO' ? 'active' : ''}`} onClick={() => setFilter('INFO')}>Info</Button>
+                    <Button variant="unstyled" className={`filter-btn warning ${filter === 'WARNING' ? 'active' : ''}`} onClick={() => setFilter('WARNING')}>Warning</Button>
+                    <Button variant="unstyled" className={`filter-btn error ${filter === 'ERROR' ? 'active' : ''}`} onClick={() => setFilter('ERROR')}>Error</Button>
                 </div>
 
                 <Button onClick={clearLogs} variant="secondary" size="small" icon={Trash2}>

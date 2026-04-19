@@ -69,24 +69,17 @@ export default function SmartEdge({
       {label && (
         <EdgeLabelRenderer>
           <div
+            className="smart-edge-label-wrapper"
             style={{
-              position: 'absolute',
               transform: `translate(-50%, -50%) translate(${customLabelX}px,${customLabelY}px)`,
-              pointerEvents: 'all',
-              zIndex: 10, // Zabezpečí, že text bude nad čiarami
             }}
           >
             <div 
+                className="smart-edge-label"
                 style={{
-                    backgroundColor: labelBgStyle?.fill || '#ffffff',
-                    padding: '4px 8px',
-                    borderRadius: '6px',
-                    border: `1px solid ${labelBgStyle?.stroke || '#ccc'}`,
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    color: labelStyle?.fill || '#000',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                    whiteSpace: 'nowrap',
+                backgroundColor: labelBgStyle?.fill || 'var(--bg-card)',
+                    borderColor: labelBgStyle?.stroke || 'var(--border-color)',
+                color: labelStyle?.fill || 'var(--text-primary)',
                     ...labelStyle
                 }}
             >

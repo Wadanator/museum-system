@@ -19,32 +19,60 @@
 }
 
 .filter-btn {
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-    padding: 6px 12px;
-    border-radius: 6px;
+    background: linear-gradient(135deg, var(--success-bg), var(--bg-card));
+    border: 1px solid color-mix(in srgb, var(--success) 18%, transparent);
+    color: var(--success);
+    padding: 8px 12px;
+    border-radius: var(--radius-md);
     font-size: 0.85rem;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
+    box-shadow: var(--shadow-sm);
 }
 
 .filter-btn:hover {
-    color: var(--text-primary);
-    background: var(--overlay-inverse-soft);
+    color: var(--text-white);
+    background: linear-gradient(135deg, var(--success), var(--success-hover));
+    border-color: var(--success);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-success-sm);
 }
 
 .filter-btn.active {
-    background: var(--bg-card);
-    color: var(--text-primary);
-    box-shadow: var(--shadow-sm);
-    font-weight: 600;
+    background: linear-gradient(135deg, var(--success), var(--success-hover));
+    color: var(--text-white);
+    border-color: var(--success);
+    box-shadow: var(--shadow-success-sm);
+    font-weight: 700;
 }
 
-.filter-btn.info.active { color: var(--info); }
-.filter-btn.warning.active { color: var(--warning); }
-.filter-btn.error.active { color: var(--danger); }
+.filter-btn.info,
+.filter-btn.info.active,
+.filter-btn.info:hover {
+    color: var(--info);
+    border-color: color-mix(in srgb, var(--info) 18%, transparent);
+}
+
+.filter-btn.warning,
+.filter-btn.warning.active,
+.filter-btn.warning:hover {
+    color: var(--warning);
+    border-color: color-mix(in srgb, var(--warning) 18%, transparent);
+}
+
+.filter-btn.error,
+.filter-btn.error.active,
+.filter-btn.error:hover {
+    color: var(--danger);
+    border-color: color-mix(in srgb, var(--danger) 18%, transparent);
+}
+
+.filter-btn.info.active,
+.filter-btn.warning.active,
+.filter-btn.error.active {
+    color: var(--text-white);
+}
 
 /* Oprava hardcoded farieb -> použitie Theme Variables */
 .card-component.logs-console-card {

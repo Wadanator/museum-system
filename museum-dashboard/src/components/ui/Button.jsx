@@ -38,9 +38,9 @@ export default function Button({
 
   // FIX: Pridané stavové triedy
   const finalClassName = [
-    'btn',
-    variant !== 'primary' ? `btn-${variant}` : 'btn-primary',
-    size === 'small' ? 'btn-small' : (size === 'large' ? 'btn-large' : ''),
+    variant === 'unstyled' ? 'btn-unstyled' : 'btn',
+    variant === 'unstyled' ? '' : (variant !== 'primary' ? `btn-${variant}` : 'btn-primary'),
+    variant === 'unstyled' ? '' : (size === 'small' ? 'btn-small' : (size === 'large' ? 'btn-large' : '')),
     isDisabled ? 'is-disabled' : '',
     isLoading ? 'is-loading' : '',
     className

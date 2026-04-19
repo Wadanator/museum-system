@@ -93,7 +93,7 @@
 
 .emoji-large {
     font-size: 4rem;
-    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
+    filter: var(--shadow-icon-filter);
     transition: transform 0.3s ease;
     cursor: default;
 }

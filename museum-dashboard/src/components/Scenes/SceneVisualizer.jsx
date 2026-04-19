@@ -14,6 +14,7 @@ import 'reactflow/dist/style.css';
 import CustomFlowNode from './CustomFlowNode';
 import SmartEdge from './SmartEdge';
 import { Maximize2, Minimize2, ScanSearch } from 'lucide-react';
+import Button from '../ui/Button';
 
 const nodeTypes = { custom: CustomFlowNode };
 const edgeTypes  = { smart: SmartEdge };
@@ -149,7 +150,7 @@ function SceneVisualizerInner({ data, activeStateId }) {
         stateKeys.forEach(stateName => {
             data.states[stateName].transitions?.forEach((trans, idx) => {
                 const varName     = EDGE_CSS_VAR[trans.type] ?? EDGE_CSS_VAR.default;
-                const strokeColor = getCSSVar(varName) || '#64748b';
+                const strokeColor = getCSSVar(varName) || 'var(--secondary)';
                 newEdges.push({
                     id: `e-${stateName}-${trans.goto}-${idx}`,
                     source: stateName,
@@ -236,28 +237,32 @@ function SceneVisualizerInner({ data, activeStateId }) {
                     className="flow-minimap"
                     maskColor="var(--minimap-mask)"
                     nodeColor={(n) => {
-                        if (n.data?.type === 'start')             return getCSSVar('--success')  || '#10b981';
-                        if (n.data?.type === 'end')               return getCSSVar('--danger')   || '#f43f5e';
-                        if (n.className?.includes('node-active')) return getCSSVar('--primary')  || '#6366f1';
-                        return getCSSVar('--secondary') || '#64748b';
+                        if (n.data?.type === 'start')             return getCSSVar('--success')  || 'var(--success)';
+                        if (n.data?.type === 'end')               return getCSSVar('--danger')   || 'var(--danger)';
+                        if (n.className?.includes('node-active')) return getCSSVar('--primary')  || 'var(--primary)';
+                        return getCSSVar('--secondary') || 'var(--secondary)';
                     }}
                 />
 
                 <Panel position="top-right" className="flow-top-panel">
-                    <button
+                    <Button
                         className="flow-icon-btn"
+                        variant="ghost"
+                        size="small"
+                        icon={ScanSearch}
                         onClick={() => fitView({ padding: 0.15, duration: 400 })}
                         title="Prispôsobiť zobrazenie"
-                    >
-                        <ScanSearch size={16} />
-                    </button>
-                    <button
+                        aria-label="Prispôsobiť zobrazenie"
+                    />
+                    <Button
                         className="flow-icon-btn"
+                        variant="ghost"
+                        size="small"
+                        icon={isFullscreen ? Minimize2 : Maximize2}
                         onClick={toggleFullscreen}
                         title={isFullscreen ? 'Zatvoriť (Esc)' : 'Celá obrazovka'}
-                    >
-                        {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-                    </button>
+                        aria-label={isFullscreen ? 'Zatvoriť celú obrazovku' : 'Celá obrazovka'}
+                    />
                 </Panel>
 
                 <Panel position="bottom-left" className="flow-legend-panel">

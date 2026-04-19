@@ -23,7 +23,9 @@
 
 /* Loaders */
 .spinner {
-    border: 3px solid #eee; border-top: 3px solid #007bff; border-radius: 50%;
+    border: var(--border-width-lg) solid var(--border-color);
+    border-top: var(--border-width-lg) solid var(--primary);
+    border-radius: 50%;
     width: 18px; height: 18px; animation: spin 1s linear infinite;
     display: inline-block; vertical-align: middle; margin-right: 6px;
 }
