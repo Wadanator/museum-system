@@ -18,27 +18,35 @@ ALLOWED_EXTENSIONS = {
     'audio': {'mp3', 'wav', 'ogg', 'flac'}
 }
 
+# Cache parsed config paths so config.ini is read only once per process
+_media_path_cache: dict = {}
+
 def get_media_path(media_type):
     """
-    Načíta cestu priamo z config.ini súboru.
+    Načíta cestu priamo z config.ini súboru (výsledok je kešovaný).
     """
+    if media_type in _media_path_cache:
+        return _media_path_cache[media_type]
+
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    root_dir = os.path.dirname(os.path.dirname(current_dir)) # raspberry_pi/
+    root_dir = os.path.dirname(os.path.dirname(current_dir))  # raspberry_pi/
     config_path = os.path.join(root_dir, 'config', 'config.ini')
-    
+
     config = configparser.ConfigParser()
     config.read(config_path)
-    
+
     room_id = config.get('Room', 'room_id', fallback='room1')
     scenes_dir = config.get('Scenes', 'directory', fallback='scenes')
-    
+
     if media_type == 'video':
         media_dir_name = config.get('Video', 'directory', fallback='videos')
     else:
         media_dir_name = config.get('Audio', 'directory', fallback='audio')
 
     full_path = os.path.join(root_dir, scenes_dir, room_id, media_dir_name)
-    return Path(full_path)
+    result = Path(full_path)
+    _media_path_cache[media_type] = result
+    return result
 
 def allowed_file(filename, media_type):
     return '.' in filename and \
@@ -56,6 +64,7 @@ def get_file_info(file_path):
             'modified': modified_time
         }
     except Exception as e:
+        logger.warning(f"Could not stat file {file_path.name}: {e}")
         return {'name': file_path.name, 'size': '?', 'modified': '?'}
 
 @media_bp.route('/<media_type>', methods=['GET'])
@@ -71,8 +80,8 @@ def list_files(media_type):
         if not folder_path.exists():
             try:
                 folder_path.mkdir(parents=True, exist_ok=True)
-            except:
-                pass
+            except Exception as e:
+                logger.warning(f"Could not create media directory {folder_path}: {e}")
             return jsonify([]), 200
 
         files = []

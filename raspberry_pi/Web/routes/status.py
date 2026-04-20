@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """API routes for Status, Logs, and Monitoring."""
 
+import io
 import json
-import tempfile
 from datetime import datetime
 from flask import Blueprint, jsonify, request, send_file
 from ..auth import requires_auth
@@ -63,7 +63,10 @@ def setup_status_routes(dashboard):
     def get_logs():
         """Fetch logs with optional level filtering and limit."""
         level_filter = request.args.get('level', '').upper()
-        limit = int(request.args.get('limit', 500))
+        try:
+            limit = min(int(request.args.get('limit', 500)), 1000)
+        except ValueError:
+            limit = 500
         filtered_logs = dashboard.filter_logs(level_filter, limit)
         return jsonify(filtered_logs)
 
@@ -80,11 +83,9 @@ def setup_status_routes(dashboard):
     def export_logs():
         """Export logs as a JSON file for download."""
         try:
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
-                json.dump(dashboard.log_buffer, f, indent=2)
-                temp_file = f.name
+            buf = io.BytesIO(json.dumps(dashboard.log_buffer, indent=2).encode('utf-8'))
             return send_file(
-                temp_file,
+                buf,
                 as_attachment=True,
                 download_name=f'museum_logs_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json',
                 mimetype='application/json'

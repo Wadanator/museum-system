@@ -52,8 +52,14 @@ class DeviceOutageTracker:
 
     def _save_stats(self):
         """Save stats to JSON file."""
-        with open(self.stats_file, 'w') as f:
-            json.dump(self.stats, f, indent=2)
+        try:
+            with open(self.stats_file, 'w') as f:
+                json.dump(self.stats, f, indent=2)
+        except OSError as e:
+            import logging
+            logging.getLogger('museum.device_outage_tracker').error(
+                f"Failed to save outage stats to {self.stats_file}: {e}"
+            )
 
     def on_device_status_change(self, device_id: str, status: str):
         """

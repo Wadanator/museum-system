@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import os
+import subprocess
 import time
 from utils.logging_setup import get_logger
 
@@ -16,7 +16,7 @@ class SystemMonitor:
     def send_ready_notification(self):
         """Send systemd ready notification"""
         try:
-            os.system('systemd-notify READY=1')
+            subprocess.run(['systemd-notify', 'READY=1'], capture_output=True)
             return True
         except Exception as e:
             self.logger.warning(f"Systemd notify failed: {e}")

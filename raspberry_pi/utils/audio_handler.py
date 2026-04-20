@@ -96,8 +96,8 @@ class AudioHandler:
 
                 try:
                     pygame.mixer.quit()
-                except:
-                    pass
+                except Exception as e:
+                    self.logger.debug(f"mixer.quit during reinit: {e}")
 
                 pygame.mixer.pre_init(
                     frequency=config["freq"],
@@ -312,7 +312,8 @@ class AudioHandler:
                 try:
                     vol = float(clean_message.split(":")[1])
                     return self.set_volume(vol)
-                except:
+                except (ValueError, IndexError) as e:
+                    self.logger.warning(f"Invalid VOLUME command '{clean_message}': {e}")
                     return False
 
             else:
@@ -346,8 +347,8 @@ class AudioHandler:
                 pygame.mixer.music.stop()
                 try:
                     pygame.mixer.music.unload()
-                except:
-                    pass
+                except Exception as e:
+                    self.logger.debug(f"music.unload: {e}")
 
             self.current_music_file = None
 
@@ -575,8 +576,8 @@ class AudioHandler:
         try:
             self.stop_all()
             pygame.mixer.quit()
-        except:
-            pass
+        except Exception as e:
+            self.logger.debug(f"Audio cleanup error: {e}")
 
     # --- Dashboard / Status Methods ---
 
@@ -591,8 +592,8 @@ class AudioHandler:
         if self.audio_available:
             try:
                 music_busy = pygame.mixer.music.get_busy()
-            except:
-                pass
+            except Exception as e:
+                self.logger.debug(f"get_busy error: {e}")
                 
         with self.active_effects_lock:
             sfx_busy = bool(self.active_effects)

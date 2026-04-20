@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Utility functions for the Web Dashboard."""
 
+import logging
 import subprocess
 from pathlib import Path
 from werkzeug.utils import secure_filename
@@ -13,7 +14,6 @@ def get_scenes_path(controller):
     try:
         room_scenes_path.mkdir(parents=True, exist_ok=True)
     except Exception as e:
-        import logging
         logging.getLogger('WEB').error(f"Failed to create scenes directory {room_scenes_path}: {e}")
         
     return room_scenes_path
@@ -30,7 +30,6 @@ def get_commands_path(controller):
     try:
         commands_path.mkdir(parents=True, exist_ok=True)
     except Exception as e:
-        import logging
         logging.getLogger('WEB').error(f"Failed to create commands directory {commands_path}: {e}")
 
     return commands_path
@@ -49,7 +48,6 @@ def get_room_config_path(controller):
     try:
         room_config_path.mkdir(parents=True, exist_ok=True)
     except Exception as e:
-        import logging
         logging.getLogger('WEB').error(
             f"Failed to create room config directory {room_config_path}: {e}"
         )

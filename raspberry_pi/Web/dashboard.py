@@ -30,6 +30,7 @@ class WebDashboard:
         self.log = self._setup_logger()
         self._connected_sids = set()
         self._sids_lock = threading.Lock()
+        self._stats_lock = threading.Lock()
         
         self.log_buffer: List[Dict] = []  # In-memory log storage
         self.stats = {
@@ -252,8 +253,10 @@ class WebDashboard:
 
     def update_stats(self, cleanup=True):
         """Update runtime statistics including uptime and connected devices."""
-        self.stats['total_uptime'] += time.monotonic() - self.stats['last_start_time']
-        self.stats['last_start_time'] = time.monotonic()
+        now = time.monotonic()
+        with self._stats_lock:
+            self.stats['total_uptime'] += now - self.stats['last_start_time']
+            self.stats['last_start_time'] = now
         
         # Fix: Access device registry through the MQTT client structure
         if (hasattr(self.controller, 'mqtt_client') and 

@@ -6,6 +6,7 @@ Manages device connection status, handles retained message filtering,
 and provides device timeout detection to identify offline devices.
 """
 
+import threading
 import time
 from utils.logging_setup import get_logger
 
@@ -29,6 +30,7 @@ class MQTTDeviceRegistry:
         """
         self.logger = logger or get_logger('mqtt_devices')
         self.connected_devices = {}
+        self._lock = threading.Lock()
         # Seconds after which a device is considered offline
         self.device_timeout = device_timeout
         # Optional callback triggered immediately on each status change.
@@ -49,45 +51,39 @@ class MQTTDeviceRegistry:
         """
         current_time = time.time()
 
-        # === Handle Retained Message Filtering ===
-        # Ignore stale retained 'online' messages to prevent false positives
-        if is_retained and status.lower() == 'online':
-            self.logger.debug(
-                f"Ignoring stale retained 'online' status for {device_id}."
-            )
+        with self._lock:
+            # === Handle Retained Message Filtering ===
+            if is_retained and status.lower() == 'online':
+                self.logger.debug(
+                    f"Ignoring stale retained 'online' status for {device_id}."
+                )
+                if device_id not in self.connected_devices:
+                    self.connected_devices[device_id] = {
+                        'status': 'offline',
+                        'last_updated': current_time
+                    }
+                return
 
-            # Ensure the device is at least registered as offline
-            # if we have never seen it before
-            if device_id not in self.connected_devices:
-                self.connected_devices[device_id] = {
-                    'status': 'offline',
-                    'last_updated': current_time
-                }
-            return
+            # === Status Change Detection and Logging ===
+            previous_status = None
+            if device_id in self.connected_devices:
+                previous_status = self.connected_devices[device_id]['status']
 
-        # === Status Change Detection and Logging ===
-        previous_status = None
-        if device_id in self.connected_devices:
-            previous_status = self.connected_devices[device_id]['status']
+            if ((previous_status is None or previous_status == 'offline') and
+                    status == 'online'):
+                self.logger.warning(f"Device {device_id} connected")
+            elif previous_status == 'online' and status == 'offline':
+                self.logger.warning(f"Device {device_id} disconnected")
 
-        # Log device connection (was offline or new device, now online)
-        if ((previous_status is None or previous_status == 'offline') and
-                status == 'online'):
-            self.logger.warning(f"Device {device_id} connected")
-
-        # Log device disconnection (was online, now offline)
-        elif (previous_status == 'online' and status == 'offline'):
-            self.logger.warning(f"Device {device_id} disconnected")
-
-        # === Update Device Registry ===
-        self.connected_devices[device_id] = {
-            'status': status,
-            'last_updated': current_time
-        }
+            # === Update Device Registry ===
+            self.connected_devices[device_id] = {
+                'status': status,
+                'last_updated': current_time
+            }
 
         self.logger.debug(f"Device {device_id} status: {status}")
 
-        # Notify subscribers only when the status actually changed.
+        # Notify subscribers only when the status actually changed (outside lock).
         if self.on_status_change and previous_status != status:
             self.on_status_change(device_id, status)
 
@@ -105,23 +101,22 @@ class MQTTDeviceRegistry:
         current_time = time.time()
         stale_devices = []
 
-        # Find devices that have not updated within the timeout period
-        for device_id, info in self.connected_devices.items():
-            if info['status'] == 'online':
-                time_since_update = current_time - info['last_updated']
-                if time_since_update > self.device_timeout:
-                    stale_devices.append(device_id)
+        with self._lock:
+            for device_id, info in self.connected_devices.items():
+                if info['status'] == 'online':
+                    if current_time - info['last_updated'] > self.device_timeout:
+                        stale_devices.append(device_id)
 
-        # Mark stale devices as offline
+            for device_id in stale_devices:
+                self.logger.warning(
+                    f"Device {device_id} timeout - marking as offline "
+                    f"(last seen {self.device_timeout}s ago)"
+                )
+                self.connected_devices[device_id]['status'] = 'offline'
+                self.connected_devices[device_id]['last_updated'] = current_time
+
+        # Notify subscribers outside the lock
         for device_id in stale_devices:
-            self.logger.warning(
-                f"Device {device_id} timeout - marking as offline "
-                f"(last seen {self.device_timeout}s ago)"
-            )
-            self.connected_devices[device_id]['status'] = 'offline'
-            self.connected_devices[device_id]['last_updated'] = current_time
-
-                # Notify subscribers for timeout-based offline transitions as well.
             if self.on_status_change:
                 self.on_status_change(device_id, 'offline')
 
@@ -138,15 +133,15 @@ class MQTTDeviceRegistry:
         Returns:
             dict: Dictionary of connected devices with their info.
         """
-        # Clean up stale devices first unless the caller already handled it.
         if cleanup:
             self.cleanup_stale_devices()
 
-        return {
-            device_id: info
-            for device_id, info in self.connected_devices.items()
-            if info['status'] == 'online'
-        }
+        with self._lock:
+            return {
+                device_id: info
+                for device_id, info in self.connected_devices.items()
+                if info['status'] == 'online'
+            }
 
     def get_all_devices(self):
         """
@@ -157,10 +152,10 @@ class MQTTDeviceRegistry:
         Returns:
             dict: Copy of all device records with current status.
         """
-        # Clean up stale devices first
         self.cleanup_stale_devices()
 
-        return self.connected_devices.copy()
+        with self._lock:
+            return self.connected_devices.copy()
 
     def get_device_status_summary(self):
         """
@@ -171,17 +166,19 @@ class MQTTDeviceRegistry:
         """
         self.cleanup_stale_devices()
 
-        online = sum(
-            1 for info in self.connected_devices.values()
-            if info['status'] == 'online'
-        )
-        offline = sum(
-            1 for info in self.connected_devices.values()
-            if info['status'] == 'offline'
-        )
+        with self._lock:
+            online = sum(
+                1 for info in self.connected_devices.values()
+                if info['status'] == 'online'
+            )
+            offline = sum(
+                1 for info in self.connected_devices.values()
+                if info['status'] == 'offline'
+            )
+            total = len(self.connected_devices)
 
         return {
-            'total_devices': len(self.connected_devices),
+            'total_devices': total,
             'online_devices': online,
             'offline_devices': offline
         }
@@ -192,5 +189,6 @@ class MQTTDeviceRegistry:
 
     def clear_devices(self):
         """Clear all device records from the registry."""
-        self.connected_devices.clear()
+        with self._lock:
+            self.connected_devices.clear()
         self.logger.debug("Device registry cleared")

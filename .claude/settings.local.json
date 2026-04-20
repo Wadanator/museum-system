@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep *)",
+      "Skill(update-config)",
+      "Bash(python3 -m json.tool)",
+      "Bash(python3 -m json.tool ~/.claude/settings.json)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"import json,sys; d=json.load(sys.stdin); f=d.get('tool_input',{}).get('file_path',''); print(json.dumps({'systemMessage':'[HABIT] Python file edited: ' + f + ' — run /python-review before finishing this session.'}) if f.endswith('.py') else '')\" 2>/dev/null || true",
+            "statusMessage": "Checking if Python review needed..."
+          }
+        ]
+      }
+    ]
+  }
+}
