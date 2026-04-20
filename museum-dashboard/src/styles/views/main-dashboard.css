@@ -75,7 +75,7 @@
 .main-scene-button,
 .stop-scene-button {
   width: 100%;
-  padding: 36px 24px 34px;
+  padding: 52px 24px 50px;
   border: 1px solid transparent;
   border-radius: calc(var(--radius-xl) + 4px);
   font-size: 1.05rem;

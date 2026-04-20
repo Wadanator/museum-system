@@ -54,11 +54,10 @@ const MediaManager = () => {
             subtitle="Audio a Video knižnica"
             icon={FolderOpen}
         >
-            <Button 
-                onClick={stopAllMedia} 
-                className="bg-red-500 hover:bg-red-600 text-white border-red-600 gap-2"
+            <Button
+                onClick={stopAllMedia}
                 variant="danger"
-                disabled={areItemsDisabled} // Tiež zablokujeme STOP ak systém pracuje
+                disabled={areItemsDisabled}
             >
                 <Square size={16} fill="currentColor" />
                 STOP VŠETKO

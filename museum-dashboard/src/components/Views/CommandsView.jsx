@@ -3,6 +3,7 @@ import { Loader2, Zap, Settings2, RefreshCw, OctagonX, FileCode2 } from 'lucide-
 import toast from 'react-hot-toast';
 import { useDevices } from '../../hooks/useDevices';
 import { api } from '../../services/api';
+import { useConfirm } from '../../context/useConfirm';
 import MotorCard from '../Devices/MotorCard';
 import RelayCard from '../Devices/RelayCard';
 import DevicesConfigModal from '../Devices/DevicesConfigModal';
@@ -14,11 +15,18 @@ export default function CommandsView() {
     const { motors, relays, loading, error } = useDevices();
     const [isDevicesEditorOpen, setIsDevicesEditorOpen] = useState(false);
     const [devicesConfig, setDevicesConfig] = useState({ relays: [], motors: [] });
+    const { confirm } = useConfirm();
 
     const handleRefresh = () => window.location.reload();
 
     const handleStopAll = async () => {
-        const confirmed = window.confirm("Naozaj chcete okamžite vypnúť všetky motory a relé?");
+        const confirmed = await confirm({
+            title: 'Vypnúť všetky zariadenia?',
+            message: 'Naozaj chcete okamžite vypnúť všetky motory a relé?',
+            confirmText: 'Vypnúť všetko',
+            cancelText: 'Zrušiť',
+            type: 'danger',
+        });
         if (!confirmed) return;
 
         const toastId = toast.loading("Vypínam všetky zariadenia...");

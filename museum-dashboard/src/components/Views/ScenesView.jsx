@@ -5,6 +5,7 @@ import SceneCard from '../Scenes/SceneCard';
 import SceneEditorModal from '../Scenes/SceneEditorModal';
 import Button from '../ui/Button';
 import PageHeader from '../ui/PageHeader';
+import Modal from '../ui/Modal';
 import LiveView from './LiveView';
 import Card from '../ui/Card';
 import '../../styles/views/scenes-view.css';
@@ -18,6 +19,8 @@ export default function ScenesView() {
 
     const [liveSceneName, setLiveSceneName] = useState(null);
     const [liveSceneData, setLiveSceneData] = useState(null);
+
+    const [newSceneModal, setNewSceneModal] = useState({ isOpen: false, name: '' });
 
     const handleEdit = async (filename) => {
         try {
@@ -38,15 +41,19 @@ export default function ScenesView() {
     };
 
     const handleCreate = () => {
-        const name = prompt('Zadajte názov novej scény (bez .json):');
-        if (!name) return;
+        setNewSceneModal({ isOpen: true, name: '' });
+    };
 
+    const handleCreateConfirm = async () => {
+        const name = newSceneModal.name.trim();
+        if (!name) return;
         const filename = name.endsWith('.json') ? name : `${name}.json`;
         const template = [
             { type: 'log', message: `Začiatok scény ${name}` },
             { type: 'delay', value: 1 },
         ];
-        saveSceneContent(filename, template);
+        await saveSceneContent(filename, template);
+        setNewSceneModal({ isOpen: false, name: '' });
     };
 
     const handlePlayFromCard = async (filename) => {
@@ -129,6 +136,37 @@ export default function ScenesView() {
                 initialContent={editorContent}
                 onSave={handleSave}
             />
+
+            <Modal
+                isOpen={newSceneModal.isOpen}
+                title="Nová scéna"
+                onClose={() => setNewSceneModal({ isOpen: false, name: '' })}
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={() => setNewSceneModal({ isOpen: false, name: '' })}>
+                            Zrušiť
+                        </Button>
+                        <Button
+                            variant="primary"
+                            onClick={handleCreateConfirm}
+                            disabled={!newSceneModal.name.trim()}
+                        >
+                            Vytvoriť
+                        </Button>
+                    </>
+                }
+            >
+                <p className="modal-body-text">Zadajte názov novej scény (bez .json):</p>
+                <input
+                    type="text"
+                    className="modal-input"
+                    value={newSceneModal.name}
+                    onChange={(e) => setNewSceneModal(prev => ({ ...prev, name: e.target.value }))}
+                    onKeyDown={(e) => e.key === 'Enter' && handleCreateConfirm()}
+                    autoFocus
+                    placeholder="napr. uvod_show"
+                />
+            </Modal>
         </div>
     );
 }

@@ -15,7 +15,7 @@ import './styles/components.css'
 import './styles/utilities.css'
 import './styles/feedback.css'
 
-import 'prismjs/themes/prism.css';
+import 'prismjs/themes/prism-tomorrow.css';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
