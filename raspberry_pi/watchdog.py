@@ -58,8 +58,9 @@ class MuseumWatchdog:
         self.cpu_spike_tolerance: int = 3      # consecutive high-CPU readings before restart
         self.high_cpu_count: int = 0
 
-        # Restart rate limiting
-        self.restart_count: int = 0
+        # Restart rate limiting — sliding window keeps timestamps of recent restarts
+        self.restart_count: int = 0            # total lifetime restarts (used in log messages)
+        self._restart_times: list[float] = []  # timestamps driving the hourly rate limit
         self.max_restarts_per_hour: int = 5
         self.consecutive_failures: int = 0
         self.max_consecutive_failures: int = 3
@@ -67,6 +68,12 @@ class MuseumWatchdog:
         # Audio-error grace period — high CPU right after an audio error is expected
         self.audio_error_restart_delay: int = 300   # seconds
         self.last_audio_error_time: float = 0.0
+
+        # Network check target — use the configured MQTT broker, not an internet host.
+        # Pinging the broker works correctly in both LAN and offline (localhost) modes.
+        self._network_check_target: str = _config_manager.config.get(
+            'MQTT', 'broker_ip', fallback='localhost'
+        )
 
         # Scene-aware restart: poll interval and hard timeout while waiting
         self.scene_wait_poll_interval: int = 30     # seconds between state checks
@@ -251,7 +258,9 @@ class MuseumWatchdog:
         audio-error grace period before approving a restart.
         Scene awareness is handled separately in restart_service().
         """
-        if self.restart_count >= self.max_restarts_per_hour:
+        now = time.time()
+        self._restart_times = [t for t in self._restart_times if now - t < 3600]
+        if len(self._restart_times) >= self.max_restarts_per_hour:
             log.error(
                 'Restart limit reached (%d/hour) — manual intervention required.',
                 self.max_restarts_per_hour,
@@ -292,6 +301,7 @@ class MuseumWatchdog:
             self._wait_for_scene_to_finish()
 
         self.restart_count += 1
+        self._restart_times.append(time.time())
         log.warning('Restarting service (#%d) — Reason: %s', self.restart_count, reason)
 
         try:
@@ -357,10 +367,10 @@ class MuseumWatchdog:
             return False
 
     def check_network_connectivity(self) -> bool:
-        """Return True if the external network is reachable."""
+        """Return True if the configured MQTT broker host is reachable."""
         try:
             result = subprocess.run(
-                ['ping', '-c', '1', '8.8.8.8'],
+                ['ping', '-c', '1', '-W', '3', self._network_check_target],
                 capture_output=True, timeout=10,
             )
             return result.returncode == 0
@@ -378,17 +388,10 @@ class MuseumWatchdog:
         network_down_logged = False
         startup_complete = False
         loop_count = 0
-        last_restart_count_reset = time.time()
 
         while True:
             try:
                 loop_count += 1
-                current_time = time.time()
-
-                # Reset hourly restart counter
-                if current_time - last_restart_count_reset > 3600:
-                    self.restart_count = 0
-                    last_restart_count_reset = current_time
 
                 # Ensure the service is active
                 if not self.is_service_running():
