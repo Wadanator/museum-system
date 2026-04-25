@@ -8,6 +8,10 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react()],
     base: '/',
+    build: {
+      outDir: '../raspberry_pi/Web/dist',
+      emptyOutDir: true,
+    },
     server: {
       proxy: {
         '/api': {

@@ -85,11 +85,13 @@ def setup_commands_routes(dashboard):
             payload = json.dumps(message) if isinstance(message, (dict, list)) else str(message)
 
             if hasattr(controller, 'mqtt_client') and controller.mqtt_client:
-                controller.mqtt_client.publish(topic, payload)
+                success = controller.mqtt_client.publish(topic, payload)
+                if not success:
+                    return jsonify({'error': 'MQTT publish failed — broker may be disconnected'}), 503
                 dashboard.log.info(f"Manual MQTT: {topic} -> {payload}")
                 return jsonify({'success': True})
             else:
-                return jsonify({'error': 'MQTT client not connected'}), 503
+                return jsonify({'error': 'MQTT client not available'}), 503
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
@@ -165,7 +167,11 @@ def setup_commands_routes(dashboard):
                 topic = action['topic']
                 message = action['message']
                 if hasattr(controller, 'mqtt_client') and controller.mqtt_client:
-                    controller.mqtt_client.publish(topic, message)
+                    success = controller.mqtt_client.publish(topic, message)
+                    if not success:
+                        return jsonify({'error': f'MQTT publish failed on action: {topic} — broker may be disconnected'}), 503
+                else:
+                    return jsonify({'error': 'MQTT client not available'}), 503
                 dashboard.log.info(f"Executed command action: {topic} = {message}")
 
             return jsonify({'success': True, 'message': f'Command {command_name} executed'})

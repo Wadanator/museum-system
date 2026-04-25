@@ -37,8 +37,8 @@ class SceneParser:
         self.audio_handler = audio_handler
         self.video_handler = video_handler
 
-        self.state_machine = StateMachine(logger=self.logger)
-        self.transition_manager = TransitionManager(logger=self.logger)
+        self.state_machine = StateMachine()
+        self.transition_manager = TransitionManager()
 
         if self.audio_handler:
             self.audio_handler.set_end_callback(self._on_audio_ended)

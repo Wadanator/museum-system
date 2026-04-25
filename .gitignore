@@ -100,3 +100,4 @@ dist-ssr
 
 .esphome/
 /secrets.yaml
+raspberry_pi/Web/device_outages.json

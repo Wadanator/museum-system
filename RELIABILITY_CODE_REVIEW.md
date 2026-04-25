@@ -104,7 +104,7 @@ Acceptance check:
 - Forced port bind failure produces bounded logs.
 - Scene runtime continues normally while web is degraded.
 
-### P1 - Manual MQTT API Reports Success When Publish Fails
+### ✅ P1 - Manual MQTT API Reports Success When Publish Fails — FIXED 2026-04-26
 
 File: `raspberry_pi/Web/routes/commands.py`
 
@@ -201,7 +201,7 @@ Acceptance check:
 
 - Two fast commands to one topic produce two distinguishable feedback outcomes.
 
-### P2 - Frontend Does Not Treat Non-2xx HTTP Responses As Errors
+### ✅ P2 - Frontend Does Not Treat Non-2xx HTTP Responses As Errors — FIXED 2026-04-26
 
 File: `museum-dashboard/src/services/api.js`
 
@@ -232,7 +232,7 @@ Acceptance check:
 
 - When backend returns 400/500, toast shows an error and no success state is applied.
 
-### P2 - Production Frontend Can Drift From Source Frontend
+### ✅ P2 - Production Frontend Can Drift From Source Frontend — FIXED 2026-04-26
 
 File: `raspberry_pi/Web/routes/main.py`
 
@@ -269,7 +269,7 @@ Acceptance check:
 
 - A clean build updates the exact assets served by Flask.
 
-### P2 - Watchdog Service Uses Wrong systemd Ordering
+### ✅ P2 - Watchdog Service Uses Wrong systemd Ordering — FIXED 2026-04-26
 
 File: `raspberry_pi/services/museum-watchdog.service.template`
 

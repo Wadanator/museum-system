@@ -1,6 +1,6 @@
 [Unit]
 Description=Museum Watchdog Service
-After=museum.service
+After=museum-system.service
 
 [Service]
 Type=simple

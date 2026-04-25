@@ -22,6 +22,14 @@ export const authFetch = async (url, options = {}) => {
   if (res.status === 401) {
     throw new Error('Unauthorized');
   }
+  if (!res.ok) {
+    let message = `HTTP ${res.status}`;
+    try {
+      const body = await res.json();
+      message = body.error || body.message || message;
+    } catch (_) {}
+    throw new Error(message);
+  }
   return res;
 };
 
