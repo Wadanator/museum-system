@@ -43,6 +43,7 @@ def _build_controller(scene_running=False):
     controller.audio_handler = None
     controller.video_handler = None
     controller.web_dashboard = None
+    controller.actuator_state_store = None
     return controller
 
 
