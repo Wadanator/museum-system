@@ -125,7 +125,7 @@ export default function LiveView({
                     {sceneData ? (
                         <>
                             <div className="visualizer-overlay">
-                                STAV: {activeState || 'READY'}
+                                STAV: {activeState === 'END' ? 'KONIEC' : (activeState || 'READY')}
                             </div>
                             <SceneVisualizer
                                 data={sceneData}

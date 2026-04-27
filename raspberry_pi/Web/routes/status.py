@@ -30,27 +30,6 @@ def setup_status_routes(dashboard):
         status_data['log_count'] = len(dashboard.log_buffer)
         return jsonify(status_data)
 
-    @status_bp.route('/scene/progress')
-    @requires_auth
-    def get_scene_progress():
-        """[DEPRECATED/FALLBACK] Vráti aktuálny stav progresu scény. Nahradené SocketIO."""
-        try:
-            scene_running = getattr(controller, 'scene_running', False)
-            if not scene_running or not hasattr(controller, 'scene_parser') or not controller.scene_parser:
-                return jsonify({'scene_running': False, 'mode': 'none', 'progress': 0.0, 'remaining_time': 0, 'total_duration': 0})
-            
-            progress_info = controller.scene_parser.get_progress_info()
-            
-            return jsonify({
-                **progress_info,
-                'progress': min(1.0, progress_info.get('states_completed', 0) / max(progress_info.get('total_states', 1), 1)),
-                'remaining_time': 0  
-            })
-            
-        except Exception as e:
-            dashboard.log.error(f"Error getting scene progress: {e}")
-            return jsonify({'scene_running': False, 'mode': 'error', 'progress': 0.0, 'remaining_time': 0, 'total_duration': 0, 'error': str(e)}), 500
-
     @status_bp.route('/stats')
     @requires_auth
     def get_stats():

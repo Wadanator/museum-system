@@ -122,7 +122,7 @@ function SceneVisualizerInner({ data, activeStateId }) {
                     id: stateId,
                     type: 'custom',
                     position: { x: startX + index * (NODE_WIDTH + H_GAP), y: level * LEVEL_HEIGHT },
-                    className: stateId === activeStateId ? 'node-active' : '',
+                    className: '',
                     data: {
                         label: stateId,
                         type: stateId === startState ? 'start' : 'step',
@@ -141,7 +141,7 @@ function SceneVisualizerInner({ data, activeStateId }) {
                 id: 'END',
                 type: 'custom',
                 position: { x: 0, y: (maxDepth + 1) * LEVEL_HEIGHT + 80 },
-                className: activeStateId === 'END' ? 'node-active' : '',
+                className: '',
                 data: { label: 'KONIEC', type: 'end', transitionCount: 0 },
             });
         }
@@ -160,16 +160,28 @@ function SceneVisualizerInner({ data, activeStateId }) {
                     label: trans.type === 'timeout' ? `⏱️ ${trans.delay}s` : '',
                     style: { stroke: strokeColor, strokeWidth: 2 },
                     markerEnd: { type: MarkerType.ArrowClosed, color: strokeColor },
-                    animated: activeStateId === stateName,
+                    animated: false,
                 });
             });
         });
 
         setNodes(newNodes);
         setEdges(newEdges);
-    }, [data, activeStateId, setNodes, setEdges]);
+    }, [data, setNodes, setEdges]);
 
     useEffect(() => { calculateLayout(); }, [calculateLayout]);
+
+    // ── Active-state patch — only updates className/animated, no re-layout ───
+    useEffect(() => {
+        setNodes(nds => nds.map(n => ({
+            ...n,
+            className: n.id === activeStateId ? 'node-active' : '',
+        })));
+        setEdges(eds => eds.map(e => ({
+            ...e,
+            animated: e.source === activeStateId,
+        })));
+    }, [activeStateId, setNodes, setEdges]);
 
     // ── fitView — fires only when scene changes (node count changes) ─────────
     //
