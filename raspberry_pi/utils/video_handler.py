@@ -561,10 +561,27 @@ class VideoHandler:
 
         Should be called periodically from the main loop.
         """
+        tracked_file = self.currently_playing
         is_playing_now = self.is_playing()
 
+        if is_playing_now is None:
+            if (
+                not tracked_file
+                or tracked_file == os.path.basename(self.iddle_image)
+                or self.currently_playing != tracked_file
+            ):
+                self.was_playing = False
+            return
+
         if self.was_playing and not is_playing_now:
-            finished_file = self.currently_playing
+            if (
+                not tracked_file
+                or tracked_file == os.path.basename(self.iddle_image)
+            ):
+                self.was_playing = False
+                return
+
+            finished_file = tracked_file
             self.logger.info(f"Video ended: {finished_file}")
 
             self.stop_video()
@@ -578,9 +595,10 @@ class VideoHandler:
     # STATUS
     # ==========================================================================
 
-    def is_playing(self) -> bool:
+    def is_playing(self) -> Optional[bool]:
         """
-        Return True if a video (not the idle image) is currently playing.
+        Return True if a video is playing, False if mpv confirms idle/end,
+        or None when IPC state is unknown.
 
         Checks the current mpv 'path' property instead of 'idle-active'
         because --image-display-duration=inf keeps mpv in non-idle state
@@ -594,13 +612,15 @@ class VideoHandler:
         )
 
         if response and response.get("error") == "success":
-            current_path = response.get("data") or ""
+            current_path = response.get("data")
+            if not current_path:
+                return None
             # If mpv switched to the idle image, the video has ended
             if os.path.basename(current_path) == os.path.basename(self.iddle_image):
                 return False
-            return bool(current_path)
+            return True
 
-        return False
+        return None
 
     # ==========================================================================
     # CLEANUP

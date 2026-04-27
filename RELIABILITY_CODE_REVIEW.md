@@ -25,8 +25,8 @@ The system already has useful reliability foundations: centralized scene lifecyc
 
 The strongest remaining reliability risks are false state and scene-control ambiguity:
 
-1. `video_handler.py` collapses mpv IPC failure into "video is not playing", so IPC errors can be interpreted as a natural video end.
-2. Watchdog long-scene protection is incomplete: no scene heartbeat exists, and `scene_wait_max_seconds = 3600` can still force a restart during a long scene.
+1. Watchdog long-scene protection is incomplete: no scene heartbeat exists, and `scene_wait_max_seconds = 3600` can still force a restart during a long scene.
+2. Scene MQTT publish failure policy is still a design gap for critical hardware actions.
 3. Several lower-priority issues are real but less dangerous in normal operation: synchronous dashboard log broadcast, web crash loop, and MQTT feedback ambiguity.
 
 Already fixed in current code:
@@ -34,6 +34,7 @@ Already fixed in current code:
 - Main scene button auth fetch.
 - Duplicate scene STOP broadcast.
 - MQTT falsey payload validation.
+- Video end detection no longer treats IPC unknown as confirmed EOF.
 - Web log handler exception isolation.
 - Manual MQTT API publish result check.
 - Frontend `authFetch` non-2xx handling.
@@ -114,7 +115,7 @@ Acceptance check:
 
 Verdict: fixed in source and rebuilt into `raspberry_pi/Web/dist` on 2026-04-27.
 
-### P2 - False Video-End Callback When mpv IPC Fails During Playback
+### [FIXED] P2 - False Video-End Callback When mpv IPC Fails During Playback
 
 Files:
 
@@ -131,7 +132,7 @@ Verified code areas:
 - `scene_parser.py`: `_on_video_ended()`
 - `transition_manager.py`: `_check_video_end()`
 
-Current problem:
+Original problem:
 
 `is_playing()` returns `False` both for a genuine ended/idle video and for unknown IPC states, including timeout, empty response, exception, and blocked restart paths. `check_if_ended()` treats `False` as a confirmed video end:
 
@@ -181,39 +182,21 @@ Why a `currently_playing` snapshot is helpful but insufficient:
 - It does not catch empty IPC responses that do not restart mpv.
 - It does not catch restart-blocked paths where `currently_playing` remains the original filename.
 
-Recommended fix:
+Implemented fix:
 
-Change `is_playing()` from `bool` to a tri-state result:
+`is_playing()` now returns a tri-state result:
 
 - `True`: mpv confirms a real non-idle video path via IPC.
 - `False`: mpv confirms idle/ended state.
 - `None`: state is unknown because IPC failed, timed out, returned empty response, threw an exception, or entered a restart/error path.
 
-Then change `check_if_ended()` so it only fires the callback on confirmed `False`, never on `None`:
-
-```python
-def check_if_ended(self) -> None:
-    result = self.is_playing()  # True | False | None
-
-    if result is None:
-        # IPC/health state is unknown. Do not interpret this as a natural EOF.
-        self.was_playing = False
-        return
-
-    if self.was_playing and result is False:
-        finished_file = self.currently_playing
-        self.stop_video()
-        if self.end_callback and finished_file:
-            self.end_callback(finished_file)
-
-    self.was_playing = (result is True)
-```
+`check_if_ended()` snapshots the tracked filename before querying mpv. It fires the end callback only on confirmed `False`, never on `None`. If mpv restart/stop changes `currently_playing` during an unknown IPC check, it resets `was_playing` without firing a callback. If IPC is transiently unknown but the same video remains tracked, it preserves `was_playing` so a later confirmed idle path can still produce the legitimate `videoEnd`.
 
 Implementation note:
 
-- Be careful when changing `_send_ipc_command()` return values globally. Many callers only need truthy/falsy command success. The critical behavior is that `is_playing()` must be able to distinguish confirmed idle/end from unknown IPC failure.
-- A robust implementation can keep `_send_ipc_command()` mostly compatible and add explicit handling in `is_playing()` for `None`/empty/error responses.
-- Resetting `was_playing` on `None` avoids false transitions. The tradeoff is that a real EOF during an IPC outage may not fire immediately, which is safer than a false mid-scene jump.
+- `_send_ipc_command()` behavior was left compatible for other callers.
+- The tri-state distinction is implemented inside `is_playing()` and `check_if_ended()`, the only internal caller of `VideoHandler.is_playing()`.
+- A real EOF after a transient unknown still fires once when mpv later confirms the idle image path.
 
 Acceptance check:
 
@@ -222,7 +205,7 @@ Acceptance check:
 - Simulated restart blocked by cooldown/max attempts produces zero false `videoEnd` transitions.
 - A genuine completed video still fires exactly one callback with the correct filename.
 
-Verdict: real P2 reliability bug. Fix with tri-state/unknown handling.
+Verdict: fixed on 2026-04-27 with tri-state/unknown handling and offline tests.
 
 ### P2 - Watchdog Can Interrupt A Long Scene
 
@@ -564,7 +547,7 @@ Verdict: exception isolation fixed on 2026-04-27; synchronous fanout remains a l
    - Replace raw `fetch('/api/config/main_scene')`.
    - Rebuild frontend into `raspberry_pi/Web/dist`.
 
-2. Fix video end detection:
+2. Fix video end detection - DONE:
    - Change `is_playing()` to distinguish `True`, `False`, and `None`.
    - Fire `videoEnd` callback only on confirmed `False`.
 
@@ -599,7 +582,7 @@ The review findings are mostly real. The important corrections are:
 - Feedback correlation is real but usually P3 because physical command delivery is not directly affected.
 - Web log handler exception isolation is fixed, but async queue/fanout decoupling remains open.
 - Vite output path is fixed, but deployment enforcement is only partly fixed.
-- The video-end issue is a real P2, and the correct fix is tri-state/unknown handling, not only a restart flag or filename snapshot.
+- The video-end issue was a real P2 and is now fixed with tri-state/unknown handling.
 - The main scene button raw fetch was a real P2 user-facing bug and is now fixed in source.
 
 ## Verification Notes
