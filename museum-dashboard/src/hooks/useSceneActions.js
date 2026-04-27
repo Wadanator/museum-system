@@ -38,8 +38,7 @@ export function useSceneActions() {
     const runScene = async () => {
         await withSafetyLock(async () => {
             try {
-                const res = await fetch('/api/config/main_scene');
-                const config = await res.json();
+                const config = await api.getMainSceneConfig();
                 const sceneName = config.json_file_name || 'intro.json';
 
                 // Potom voláme hlavnú API

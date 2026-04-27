@@ -27,7 +27,9 @@ export const authFetch = async (url, options = {}) => {
     try {
       const body = await res.json();
       message = body.error || body.message || message;
-    } catch (_) {}
+    } catch {
+      // Keep the generic HTTP message when the error body is not JSON.
+    }
     throw new Error(message);
   }
   return res;
@@ -63,6 +65,11 @@ export const api = {
 
   getScenes: async () => {
     const res = await authFetch(`${API_URL}/scenes`);
+    return res.json();
+  },
+
+  getMainSceneConfig: async () => {
+    const res = await authFetch(`${API_URL}/config/main_scene`);
     return res.json();
   },
 

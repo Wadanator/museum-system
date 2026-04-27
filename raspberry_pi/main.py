@@ -406,7 +406,6 @@ class MuseumController:
         if self.video_handler:
             self.video_handler.stop_video()
 
-        self.broadcast_stop()
         self._update_scene_statistics()
 
     def _update_scene_statistics(self):
