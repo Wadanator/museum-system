@@ -11,67 +11,85 @@
 .filters {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     background: var(--bg-hover);
     padding: 4px;
     border-radius: var(--radius-md);
     border: 1px solid var(--border-color);
 }
 
-.filter-btn {
-    background: linear-gradient(135deg, var(--success-bg), var(--bg-card));
-    border: 1px solid color-mix(in srgb, var(--success) 18%, transparent);
-    color: var(--success);
-    padding: 8px 12px;
-    border-radius: var(--radius-md);
-    font-size: 0.85rem;
+/* Vyššia špecifickosť pretlačí .btn-unstyled { padding:0; border:none; background:transparent } */
+.filters .filter-btn {
+    padding: 6px 14px;
+    border-radius: calc(var(--radius-md) - 2px);
+    font-size: 0.82rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    line-height: 1;
+    white-space: nowrap;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--text-secondary);
+}
+
+.filters .filter-btn:hover {
+    background: var(--overlay-inverse-soft);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+.filters .filter-btn.active {
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border-color: var(--border-color);
     box-shadow: var(--shadow-sm);
-}
-
-.filter-btn:hover {
-    color: var(--text-white);
-    background: linear-gradient(135deg, var(--success), var(--success-hover));
-    border-color: var(--success);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-success-sm);
-}
-
-.filter-btn.active {
-    background: linear-gradient(135deg, var(--success), var(--success-hover));
-    color: var(--text-white);
-    border-color: var(--success);
-    box-shadow: var(--shadow-success-sm);
     font-weight: 700;
 }
 
-.filter-btn.info,
-.filter-btn.info.active,
-.filter-btn.info:hover {
+/* INFO */
+.filters .filter-btn.info { color: var(--info); }
+
+.filters .filter-btn.info:hover {
+    background: var(--info-bg);
+    border-color: var(--info);
+}
+
+.filters .filter-btn.info.active {
+    background: var(--info-bg);
+    border-color: var(--info);
     color: var(--info);
-    border-color: color-mix(in srgb, var(--info) 18%, transparent);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--info) 35%, transparent);
 }
 
-.filter-btn.warning,
-.filter-btn.warning.active,
-.filter-btn.warning:hover {
+/* WARNING */
+.filters .filter-btn.warning { color: var(--warning); }
+
+.filters .filter-btn.warning:hover {
+    background: var(--warning-bg);
+    border-color: var(--warning);
+}
+
+.filters .filter-btn.warning.active {
+    background: var(--warning-bg);
+    border-color: var(--warning);
     color: var(--warning);
-    border-color: color-mix(in srgb, var(--warning) 18%, transparent);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--warning) 35%, transparent);
 }
 
-.filter-btn.error,
-.filter-btn.error.active,
-.filter-btn.error:hover {
+/* ERROR */
+.filters .filter-btn.error { color: var(--danger); }
+
+.filters .filter-btn.error:hover {
+    background: var(--danger-bg);
+    border-color: var(--danger);
+}
+
+.filters .filter-btn.error.active {
+    background: var(--danger-bg);
+    border-color: var(--danger);
     color: var(--danger);
-    border-color: color-mix(in srgb, var(--danger) 18%, transparent);
-}
-
-.filter-btn.info.active,
-.filter-btn.warning.active,
-.filter-btn.error.active {
-    color: var(--text-white);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--danger) 35%, transparent);
 }
 
 /* Oprava hardcoded farieb -> použitie Theme Variables */
