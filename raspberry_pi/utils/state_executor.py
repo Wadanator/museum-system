@@ -225,7 +225,7 @@ class StateExecutor:
         topic = action.get("topic")
         message = action.get("message")
 
-        if not topic or not message:
+        if not topic or message is None or (isinstance(message, str) and message == ""):
             self.logger.error(
                 f"MQTT action missing topic or message: {action}"
             )

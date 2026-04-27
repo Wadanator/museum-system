@@ -33,6 +33,7 @@ Already fixed in current code:
 
 - Main scene button auth fetch.
 - Duplicate scene STOP broadcast.
+- MQTT falsey payload validation.
 - Manual MQTT API publish result check.
 - Frontend `authFetch` non-2xx handling.
 - Watchdog systemd `After=` ordering.
@@ -340,7 +341,7 @@ Impact:
 - This is safe as a backward-compatible default for existing scenes.
 - For critical relay/motor actions, it can desynchronize the physical room from the scene timeline.
 
-Additional small bug:
+Additional small bug - fixed:
 
 `_execute_mqtt()` checks:
 
@@ -348,14 +349,21 @@ Additional small bug:
 if not topic or not message:
 ```
 
-That treats valid falsey payloads such as `0` or `False` as missing. The schema allows string, number, and boolean messages, so this should be checked with `message is None` instead.
+That treated valid falsey payloads such as `0` or `False` as missing. The schema allows string, number, and boolean messages.
+
+Implemented fix:
+
+```python
+if not topic or message is None or (isinstance(message, str) and message == ""):
+```
+
+This keeps `None` and empty string invalid, while allowing valid payloads `0` and `False`.
 
 Recommended fix:
 
 - Keep default policy as `continue` for backward compatibility.
 - Add optional scene-level policy, for example `onMqttFailure: continue|retry|abort`.
 - Surface failed scene MQTT publishes visibly in the dashboard.
-- Fix falsey payload validation so `0` and `False` can be sent.
 
 Acceptance check:
 
@@ -568,7 +576,7 @@ Verdict: real P3, low practical urgency in a small LAN setup.
 
 7. Improve scene MQTT failure handling:
    - Add optional retry/abort/continue policy.
-   - Fix falsey MQTT payload handling.
+   - Falsey MQTT payload handling is DONE.
 
 8. Improve feedback truth:
    - Add correlation IDs when ESP protocol can support it, or add a per-topic queue/warning fallback.
@@ -579,6 +587,7 @@ The review findings are mostly real. The important corrections are:
 
 - Web crash loop is real, but P3 by default, not P1/P2.
 - Scene MQTT failure behavior is a design gap; P2 only for critical hardware actions.
+- MQTT falsey payload validation is fixed, but scene-level MQTT failure policy remains open.
 - Feedback correlation is real but usually P3 because physical command delivery is not directly affected.
 - Vite output path is fixed, but deployment enforcement is only partly fixed.
 - The video-end issue is a real P2, and the correct fix is tri-state/unknown handling, not only a restart flag or filename snapshot.
