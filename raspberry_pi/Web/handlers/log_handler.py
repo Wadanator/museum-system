@@ -30,4 +30,7 @@ class WebLogHandler(logging.Handler):
         }
         if record.exc_info:
             log_entry['exception'] = self.format(record).split('\n')[1:]  # Include stack trace if available
-        self.dashboard.add_log_entry(log_entry)
+        try:
+            self.dashboard.add_log_entry(log_entry)
+        except Exception:
+            self.handleError(record)

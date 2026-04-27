@@ -34,6 +34,7 @@ Already fixed in current code:
 - Main scene button auth fetch.
 - Duplicate scene STOP broadcast.
 - MQTT falsey payload validation.
+- Web log handler exception isolation.
 - Manual MQTT API publish result check.
 - Frontend `authFetch` non-2xx handling.
 - Watchdog systemd `After=` ordering.
@@ -516,7 +517,7 @@ Acceptance check:
 
 Verdict: fixed on 2026-04-27.
 
-### P3 - Web Log Handler Broadcasts Synchronously
+### [PARTLY FIXED] P3 - Web Log Handler Broadcasts Synchronously
 
 Files:
 
@@ -534,21 +535,27 @@ Impact:
 - Runtime threads that log can perform dashboard websocket fanout work.
 - With 1-2 LAN clients, practical blocking risk is probably low.
 - Architecturally, this couples core runtime logging to dashboard delivery.
-- The handler also does not isolate exceptions around the dashboard call.
+
+Implemented small fix:
+
+- `WebLogHandler.emit()` now catches exceptions raised by `dashboard.add_log_entry(...)`.
+- It routes those exceptions through `self.handleError(record)`, which is the standard `logging.Handler` failure path.
+- A dashboard exception therefore should not escape back into the runtime thread that called `log.info(...)`.
 
 Recommended fix:
 
 - Put dashboard log events into a bounded queue.
 - Drain that queue from a dashboard-owned background worker.
 - Drop or coalesce old log events if the queue is full.
-- Catch exceptions inside the logging handler so dashboard failures cannot escape into runtime logging paths.
+- Full async queue/fanout decoupling remains open.
 
 Acceptance check:
 
 - Heavy logging does not measurably slow scene processing or MQTT callbacks.
-- A broken/slow dashboard client cannot block a scene-processing thread through logging.
+- A dashboard exception does not escape through logging.
+- A slow dashboard client still can add synchronous latency until the async queue is implemented.
 
-Verdict: real P3, low practical urgency in a small LAN setup.
+Verdict: exception isolation fixed on 2026-04-27; synchronous fanout remains a low-urgency P3 architecture issue.
 
 ## Recommended Fix Order
 
@@ -572,6 +579,7 @@ Verdict: real P3, low practical urgency in a small LAN setup.
    - Add bounded retry/backoff/degraded state for web dashboard startup crashes.
 
 6. Decouple dashboard log broadcasting:
+   - Exception isolation is DONE.
    - Add async bounded queue for web log events.
 
 7. Improve scene MQTT failure handling:
@@ -589,6 +597,7 @@ The review findings are mostly real. The important corrections are:
 - Scene MQTT failure behavior is a design gap; P2 only for critical hardware actions.
 - MQTT falsey payload validation is fixed, but scene-level MQTT failure policy remains open.
 - Feedback correlation is real but usually P3 because physical command delivery is not directly affected.
+- Web log handler exception isolation is fixed, but async queue/fanout decoupling remains open.
 - Vite output path is fixed, but deployment enforcement is only partly fixed.
 - The video-end issue is a real P2, and the correct fix is tri-state/unknown handling, not only a restart flag or filename snapshot.
 - The main scene button raw fetch was a real P2 user-facing bug and is now fixed in source.
