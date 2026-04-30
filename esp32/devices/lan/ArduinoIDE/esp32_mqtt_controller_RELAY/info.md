@@ -1,6 +1,7 @@
 # ESP32 LAN MQTT Relay Controller (`esp32_mqtt_controller_RELAY`)
 
-LAN/W5500 verzia relay firmveru pre Waveshare ESP32-S3 PoE/LAN relay modul.
+LAN/W5500 verzia relay firmveru pre Waveshare ESP32-S3 PoE/LAN relay modul
+s WiFi fallbackom.
 
 Povodny WiFi projekt ostava v:
 
@@ -13,8 +14,27 @@ Tato LAN kopia je v:
 ## Hlavna zmena oproti WiFi verzii
 
 - `wifi_manager.cpp/.h` si nechava povodne nazvy funkcii kvoli kompatibilite so zvyskom kodu.
-- Vnutri vsak nepouziva WiFi, ale `ETH.h` + W5500 cez SPI.
+- LAN cez `ETH.h` + W5500 je primarny transport.
+- WiFi sa pouzije ako fallback, ked LAN nema IP/link.
+- Ked LAN znova ziska IP, MQTT sa odpoji z fallback WiFi a pripoji naspat cez LAN.
 - MQTT, rele logika, efekty, OTA, status LED a device topics ostali z povodneho relay projektu.
+
+## Failover spravanie
+
+- Boot caka najprv na LAN.
+- Po `LAN_PRIMARY_CONNECT_GRACE` ms sa spusti WiFi fallback.
+- `wifiConnected`, `initializeWiFi()` a `isWiFiConnected()` znamenaju v tejto
+  kopii "aspon jeden network transport je pripojeny".
+- Aktivny transport je dostupny cez `getActiveNetworkName()`.
+- Pri zmene transportu sa MQTT socket zavrie a pripoji nanovo na rovnakom
+  client id `Room1_Relays_Ctrl`.
+- Safety vypnutie pri strate MQTT ma `NETWORK_FAILOVER_GRACE` ms toleranciu,
+  aby kratke prepnutie LAN/WiFi hned nevyplo rele.
+
+WiFi fallback udaje su v `config.cpp`:
+
+- SSID: `Museum-Room1`
+- password: `88888888`
 
 ## Ethernet hardware
 
@@ -87,5 +107,6 @@ Payloady:
 ## Poznamka k nazvom
 
 V kode ostavaju identifikatory ako `wifiConnected`, `initializeWiFi()`
-a `isWiFiConnected()`. V LAN projekte znamenaju "network/Ethernet connected".
-Je to zamerne, aby sa nemuseli prepisovat vsetky ostatne moduly.
+a `isWiFiConnected()`. V tejto LAN+WiFi kopii znamenaju "network connected",
+teda LAN alebo fallback WiFi. Je to zamerne, aby sa nemuseli prepisovat vsetky
+ostatne moduly.

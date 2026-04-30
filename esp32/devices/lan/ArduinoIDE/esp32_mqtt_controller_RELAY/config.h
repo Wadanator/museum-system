@@ -23,6 +23,10 @@ extern int ETH_PHY_IRQ_PIN;
 extern int ETH_PHY_RST_PIN;
 extern int ETH_PHY_ADDR;
 
+// WiFi fallback
+extern const char* WIFI_SSID;
+extern const char* WIFI_PASSWORD;
+
 // =============================================================================
 // DEVICE DEFINITIONS
 // =============================================================================
@@ -51,6 +55,8 @@ extern const char* CLIENT_ID;
 
 // Connection Management
 extern unsigned long NETWORK_CONNECT_TIMEOUT;
+extern unsigned long LAN_PRIMARY_CONNECT_GRACE;
+extern unsigned long NETWORK_FAILOVER_GRACE;
 extern unsigned long NETWORK_RETRY_INTERVAL;
 extern unsigned long MQTT_RETRY_INTERVAL;
 extern unsigned long MAX_RETRY_INTERVAL;

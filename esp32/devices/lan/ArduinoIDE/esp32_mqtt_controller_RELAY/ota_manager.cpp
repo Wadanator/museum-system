@@ -13,7 +13,7 @@ bool otaInitialized = false;
 
 void initializeOTA() {
   if (!wifiConnected || !isWiFiConnected()) {
-    debugPrint("OTA: LAN not connected, skipping setup");
+    debugPrint("OTA: network not connected, skipping setup");
     return;
   }
 
@@ -86,8 +86,8 @@ void initializeOTA() {
   ArduinoOTA.begin();
   otaInitialized = true;
 
-  debugPrint("OTA: Initialized successfully");
-  Serial.println("OTA READY: " + String(OTA_HOSTNAME));
+  debugPrint("OTA: Initialized successfully via " + String(getActiveNetworkName()));
+  Serial.println("OTA READY: " + String(OTA_HOSTNAME) + " via " + String(getActiveNetworkName()));
 }
 
 void handleOTA() {

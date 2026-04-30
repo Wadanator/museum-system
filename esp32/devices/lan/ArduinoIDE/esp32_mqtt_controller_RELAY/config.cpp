@@ -24,6 +24,10 @@ int ETH_PHY_IRQ_PIN = 12;
 int ETH_PHY_RST_PIN = 39;
 int ETH_PHY_ADDR = 1;
 
+// WiFi fallback. LAN remains primary; WiFi is used only when LAN is down.
+const char* WIFI_SSID = "Museum-Room1";
+const char* WIFI_PASSWORD = "88888888";
+
 // =============================================================================
 // DEVICE DEFINITIONS
 // =============================================================================
@@ -56,6 +60,8 @@ const char* CLIENT_ID = "Room1_Relays_Ctrl";
 
 // Connection Management
 unsigned long NETWORK_CONNECT_TIMEOUT = 15000;
+unsigned long LAN_PRIMARY_CONNECT_GRACE = 3000;
+unsigned long NETWORK_FAILOVER_GRACE = 5000;
 unsigned long NETWORK_RETRY_INTERVAL = 3000;
 unsigned long MQTT_RETRY_INTERVAL = 2000;
 unsigned long MAX_RETRY_INTERVAL = 30000;

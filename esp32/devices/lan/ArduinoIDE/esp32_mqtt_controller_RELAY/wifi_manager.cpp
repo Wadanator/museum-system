@@ -2,16 +2,91 @@
 #include "config.h"
 #include "debug.h"
 #include <ETH.h>
+#include <Network.h>
 #include <SPI.h>
+#include <WiFi.h>
 
 // Compatibility names retained so the rest of the firmware stays unchanged.
-// In this LAN build they represent Ethernet/W5500 state, not WiFi state.
+// In this hybrid build they represent "some network is connected".
 bool wifiConnected = false;
 unsigned long lastWifiAttempt = 0;
 
+static bool networkEventsRegistered = false;
 static bool ethernetStarted = false;
+static bool fallbackWifiStarted = false;
+static bool lanConnected = false;
+static bool fallbackWifiConnected = false;
+static bool fallbackStopRequested = false;
+static NetworkTransport activeTransport = NETWORK_NONE;
 
-static void onEthernetEvent(arduino_event_id_t event, arduino_event_info_t info) {
+static const char* transportName(NetworkTransport transport) {
+  switch (transport) {
+    case NETWORK_LAN:
+      return "LAN";
+    case NETWORK_WIFI:
+      return "WiFi fallback";
+    default:
+      return "none";
+  }
+}
+
+static void updateActiveTransport() {
+  NetworkTransport nextTransport = NETWORK_NONE;
+
+  if (lanConnected) {
+    nextTransport = NETWORK_LAN;
+  } else if (fallbackWifiConnected) {
+    nextTransport = NETWORK_WIFI;
+  }
+
+  if (nextTransport != activeTransport) {
+    Serial.print("Network transport: ");
+    Serial.print(transportName(activeTransport));
+    Serial.print(" -> ");
+    Serial.println(transportName(nextTransport));
+    debugPrint(
+      "Network transport: " +
+      String(transportName(activeTransport)) +
+      " -> " +
+      String(transportName(nextTransport))
+    );
+    activeTransport = nextTransport;
+  }
+
+  wifiConnected = (activeTransport != NETWORK_NONE);
+}
+
+static void stopFallbackWiFi() {
+  if (!fallbackWifiStarted && !fallbackWifiConnected) {
+    fallbackStopRequested = false;
+    return;
+  }
+
+  Serial.println("Stopping WiFi fallback because LAN is active");
+  debugPrint("Stopping WiFi fallback because LAN is active");
+  WiFi.disconnect(true);
+  fallbackWifiStarted = false;
+  fallbackWifiConnected = false;
+  fallbackStopRequested = false;
+  updateActiveTransport();
+}
+
+static void startFallbackWiFi() {
+  if (fallbackWifiStarted || fallbackWifiConnected) return;
+
+  Serial.print("Starting WiFi fallback: ");
+  Serial.println(WIFI_SSID);
+  debugPrint("Starting WiFi fallback: " + String(WIFI_SSID));
+
+  WiFi.mode(WIFI_STA);
+  WiFi.setHostname(OTA_HOSTNAME);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  fallbackWifiStarted = true;
+}
+
+static void onNetworkEvent(arduino_event_id_t event, arduino_event_info_t info) {
+  (void)info;
+
   switch (event) {
     case ARDUINO_EVENT_ETH_START:
       Serial.println("LAN started");
@@ -23,27 +98,61 @@ static void onEthernetEvent(arduino_event_id_t event, arduino_event_info_t info)
       break;
 
     case ARDUINO_EVENT_ETH_GOT_IP:
-      wifiConnected = true;
+      lanConnected = true;
       lastWifiAttempt = 0;
       Serial.print("LAN connected - IP: ");
       Serial.println(ETH.localIP());
       debugPrint("LAN connected: " + ETH.localIP().toString());
+      updateActiveTransport();
+      fallbackStopRequested = true;
       break;
 
     case ARDUINO_EVENT_ETH_LOST_IP:
       Serial.println("LAN lost IP");
-      wifiConnected = false;
+      lanConnected = false;
+      lastWifiAttempt = 0;
+      updateActiveTransport();
       break;
 
     case ARDUINO_EVENT_ETH_DISCONNECTED:
       Serial.println("LAN disconnected");
-      wifiConnected = false;
+      lanConnected = false;
+      lastWifiAttempt = 0;
+      updateActiveTransport();
       break;
 
     case ARDUINO_EVENT_ETH_STOP:
       Serial.println("LAN stopped");
-      wifiConnected = false;
+      lanConnected = false;
       ethernetStarted = false;
+      lastWifiAttempt = 0;
+      updateActiveTransport();
+      break;
+
+    case ARDUINO_EVENT_WIFI_STA_CONNECTED:
+      Serial.println("WiFi fallback associated");
+      break;
+
+    case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+      fallbackWifiConnected = true;
+      lastWifiAttempt = 0;
+      Serial.print("WiFi fallback connected - IP: ");
+      Serial.println(WiFi.localIP());
+      debugPrint("WiFi fallback connected: " + WiFi.localIP().toString());
+      updateActiveTransport();
+      break;
+
+    case ARDUINO_EVENT_WIFI_STA_LOST_IP:
+      Serial.println("WiFi fallback lost IP");
+      fallbackWifiConnected = false;
+      updateActiveTransport();
+      break;
+
+    case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+      Serial.println("WiFi fallback disconnected");
+      fallbackWifiConnected = false;
+      fallbackWifiStarted = false;
+      updateActiveTransport();
       break;
 
     default:
@@ -51,11 +160,18 @@ static void onEthernetEvent(arduino_event_id_t event, arduino_event_info_t info)
   }
 }
 
+static void registerNetworkEvents() {
+  if (networkEventsRegistered) return;
+  Network.begin();
+  Network.onEvent(onNetworkEvent);
+  networkEventsRegistered = true;
+}
+
 static void startEthernet() {
   if (ethernetStarted) return;
 
+  registerNetworkEvents();
   debugPrint("Starting LAN Ethernet (W5500)");
-  Network.onEvent(onEthernetEvent);
   SPI.begin(ETH_SPI_SCK_PIN, ETH_SPI_MISO_PIN, ETH_SPI_MOSI_PIN);
   ETH.begin(
     ETH_PHY_W5500,
@@ -72,17 +188,28 @@ bool initializeWiFi() {
   startEthernet();
 
   unsigned long startedAt = millis();
-  while (!wifiConnected && (millis() - startedAt < NETWORK_CONNECT_TIMEOUT)) {
+  bool fallbackStartedForBoot = false;
+
+  while (!isWiFiConnected() && (millis() - startedAt < NETWORK_CONNECT_TIMEOUT)) {
+    unsigned long elapsed = millis() - startedAt;
+
+    if (!fallbackStartedForBoot && elapsed >= LAN_PRIMARY_CONNECT_GRACE) {
+      startFallbackWiFi();
+      fallbackStartedForBoot = true;
+    }
+
     delay(100);
   }
 
-  if (wifiConnected) {
+  if (isWiFiConnected()) {
     lastWifiAttempt = 0;
+    Serial.print("Network ready via ");
+    Serial.println(getActiveNetworkName());
     return true;
   }
 
-  Serial.println("LAN not connected yet");
-  debugPrint("LAN connection not ready");
+  Serial.println("No LAN/WiFi network connected yet");
+  debugPrint("No LAN/WiFi network connected yet");
   return false;
 }
 
@@ -91,34 +218,70 @@ void reconnectWiFi() {
   static int networkAttempts = 0;
   static unsigned long networkRetryInterval = NETWORK_RETRY_INTERVAL;
 
-  if (!isWiFiConnected() && (currentTime - lastWifiAttempt >= networkRetryInterval)) {
-    debugPrint("LAN reconnect check " + String(networkAttempts + 1) + "/" + String(MAX_NETWORK_ATTEMPTS));
-    lastWifiAttempt = currentTime;
-    networkAttempts++;
+  if (!ethernetStarted) {
+    startEthernet();
+  }
 
-    if (!ethernetStarted) {
-      startEthernet();
+  if (lanConnected) {
+    if (fallbackStopRequested || fallbackWifiStarted || fallbackWifiConnected) {
+      stopFallbackWiFi();
     }
+    networkAttempts = 0;
+    networkRetryInterval = NETWORK_RETRY_INTERVAL;
+    updateActiveTransport();
+    return;
+  }
 
-    if (isWiFiConnected()) {
-      Serial.println("LAN reconnected");
-      debugPrint("LAN reconnected");
-      networkAttempts = 0;
-      networkRetryInterval = NETWORK_RETRY_INTERVAL;
-    } else {
-      networkRetryInterval = min(networkRetryInterval * 2, MAX_RETRY_INTERVAL);
-      debugPrint("LAN still disconnected - retry in " + String(networkRetryInterval) + "ms");
+  if (fallbackWifiConnected) {
+    networkAttempts = 0;
+    networkRetryInterval = NETWORK_RETRY_INTERVAL;
+    updateActiveTransport();
+    return;
+  }
 
-      if (networkAttempts >= MAX_NETWORK_ATTEMPTS) {
-        debugPrint("Max LAN reconnect checks reached - restarting ESP32");
-        Serial.println("Restarting ESP32...");
-        delay(1000);
-        ESP.restart();
-      }
-    }
+  if (currentTime - lastWifiAttempt < networkRetryInterval) {
+    return;
+  }
+
+  lastWifiAttempt = currentTime;
+  networkAttempts++;
+  debugPrint(
+    "Network reconnect check " +
+    String(networkAttempts) +
+    "/" +
+    String(MAX_NETWORK_ATTEMPTS)
+  );
+
+  startFallbackWiFi();
+  networkRetryInterval = min(networkRetryInterval * 2, MAX_RETRY_INTERVAL);
+
+  if (networkAttempts >= MAX_NETWORK_ATTEMPTS) {
+    debugPrint("Max network reconnect checks reached - restarting ESP32");
+    Serial.println("Restarting ESP32...");
+    delay(1000);
+    ESP.restart();
   }
 }
 
 bool isWiFiConnected() {
+  updateActiveTransport();
   return wifiConnected;
+}
+
+bool isLanConnected() {
+  return lanConnected;
+}
+
+bool isFallbackWifiConnected() {
+  return fallbackWifiConnected;
+}
+
+NetworkTransport getActiveNetworkTransport() {
+  updateActiveTransport();
+  return activeTransport;
+}
+
+const char* getActiveNetworkName() {
+  updateActiveTransport();
+  return transportName(activeTransport);
 }

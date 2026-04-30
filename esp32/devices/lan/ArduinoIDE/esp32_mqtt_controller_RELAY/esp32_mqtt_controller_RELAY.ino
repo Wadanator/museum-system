@@ -13,7 +13,7 @@ void setup() {
   Serial.begin(115200);
   delay(100);
   Serial.println("\n------------------------------------------");
-  Serial.println(" ESP32 LAN MQTT Relay Controller v2.3 + Effects");
+  Serial.println(" ESP32 LAN+WiFi MQTT Relay Controller v2.4 + Effects");
   Serial.println("------------------------------------------");
   debugPrint("=== System startuje ===");
   
@@ -36,9 +36,9 @@ void setup() {
 
   initializeEffects();
   
-  Serial.println("\n--- LAN pripojenie ---");
+  Serial.println("\n--- Network pripojenie (LAN primary, WiFi fallback) ---");
   if (!initializeWiFi()) {
-    Serial.println("LAN zatial nepripojene, budem skusat dalej...");
+    Serial.println("Network zatial nepripojene, budem skusat dalej...");
   }
 
   // OTA inicializacia
@@ -87,12 +87,13 @@ void loop() {
 
   if (currentTime - lastQuickCheck >= 100) {
     lastQuickCheck = currentTime;
-    if (!isWiFiConnected()) {
-      reconnectWiFi();
-      if (wifiConnected) {
-        reinitializeOTAAfterWiFiReconnect();
-      }
+    static bool previousNetworkConnected = false;
+    reconnectWiFi();
+
+    if (wifiConnected && !previousNetworkConnected) {
+      reinitializeOTAAfterWiFiReconnect();
     }
+    previousNetworkConnected = wifiConnected;
 
     if (wifiConnected && !isMqttConnected()) {
       connectToMqtt();
@@ -107,10 +108,19 @@ void loop() {
   }
 
   // 9. Bezpecnostne ochrany
-  if (!isMqttConnected() && !allDevicesOff) {
-    debugPrint("Strata MQTT spojenia -> Vypinam zariadenia");
-    turnOffAllDevices();
-    stopAllEffects();
+  static unsigned long mqttDisconnectedSince = 0;
+  if (!isMqttConnected()) {
+    if (mqttDisconnectedSince == 0) {
+      mqttDisconnectedSince = currentTime;
+    }
+
+    if (!allDevicesOff && (currentTime - mqttDisconnectedSince > NETWORK_FAILOVER_GRACE)) {
+      debugPrint("Strata MQTT spojenia po failover grace -> Vypinam zariadenia");
+      turnOffAllDevices();
+      stopAllEffects();
+    }
+  } else {
+    mqttDisconnectedSince = 0;
   }
   
   if (!allDevicesOff && (currentTime - lastCommandTime > NO_COMMAND_TIMEOUT)) {

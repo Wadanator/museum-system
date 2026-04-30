@@ -67,6 +67,9 @@ class VideoHandler:
         self.last_health_check = time.time()
         self.restart_count = 0
         self.last_restart_time = 0
+        self.ipc_failure_log_interval = min(60, max(10, restart_cooldown // 2))
+        self.last_ipc_failure_log = 0.0
+        self.last_restart_block_log = 0.0
 
         # Video end callback
         self.end_callback: Optional[Callable[[str], None]] = None
@@ -180,6 +183,27 @@ class VideoHandler:
             return False
         return True
 
+    def _process_socket_ready(self) -> bool:
+        """Return True only when mpv is running and its IPC socket exists."""
+        return bool(
+            self.process
+            and self.process.poll() is None
+            and os.path.exists(self.ipc_socket)
+        )
+
+    def _log_throttled(self, level: str, timestamp_attr: str,
+                       message: str) -> None:
+        """Log repeated mpv failures at most once per throttle interval."""
+        now = time.time()
+        interval = getattr(self, 'ipc_failure_log_interval', 30)
+        last_log = getattr(self, timestamp_attr, 0.0)
+
+        if now - last_log >= interval:
+            getattr(self.logger, level)(message)
+            setattr(self, timestamp_attr, now)
+        else:
+            self.logger.debug(f"{message} (suppressed)")
+
     # ==========================================================================
     # MPV LIFECYCLE
     # ==========================================================================
@@ -289,11 +313,32 @@ class VideoHandler:
         Returns:
             bool: True if restart succeeded, False if limits are exceeded.
         """
-        if (time.time() - self.last_restart_time < self.restart_cooldown
-                or self.restart_count >= self.max_restart_attempts):
-            self.logger.critical(
-                f"Cannot restart MPV: exceeded {self.max_restart_attempts} "
-                f"attempts or in cooldown"
+        now = time.time()
+        seconds_since_restart = now - self.last_restart_time
+        in_cooldown = seconds_since_restart < self.restart_cooldown
+
+        if self.restart_count >= self.max_restart_attempts:
+            if in_cooldown:
+                retry_in = self.restart_cooldown - seconds_since_restart
+                self._log_throttled(
+                    'critical',
+                    'last_restart_block_log',
+                    f"Cannot restart MPV: exceeded {self.max_restart_attempts} "
+                    f"attempts; suppressing retries for {retry_in:.0f}s"
+                )
+                return False
+
+            self.logger.warning(
+                "MPV restart cooldown elapsed; allowing new restart attempts"
+            )
+            self.restart_count = 0
+
+        if in_cooldown:
+            retry_in = self.restart_cooldown - seconds_since_restart
+            self._log_throttled(
+                'warning',
+                'last_restart_block_log',
+                f"MPV restart skipped; next retry allowed in {retry_in:.0f}s"
             )
             return False
 
@@ -368,6 +413,16 @@ class VideoHandler:
         if not self._check_process_health():
             return False if not get_response else None
 
+        if not self._process_socket_ready():
+            self._log_throttled(
+                'error',
+                'last_ipc_failure_log',
+                f"IPC command skipped: MPV process/socket unavailable "
+                f"for command: {command}"
+            )
+            self._restart_mpv()
+            return False if not get_response else None
+
         try:
             with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
                 sock.settimeout(2)
@@ -383,7 +438,9 @@ class VideoHandler:
                 response_line = reader.readline()
 
                 if not response_line:
-                    self.logger.error(
+                    self._log_throttled(
+                        'error',
+                        'last_ipc_failure_log',
                         "IPC command failed: MPV closed the connection "
                         "(empty response)"
                     )
@@ -394,13 +451,19 @@ class VideoHandler:
                 return True
 
         except socket.timeout:
-            self.logger.error(f"IPC command timed out: {command}")
+            self._log_throttled(
+                'error',
+                'last_ipc_failure_log',
+                f"IPC command timed out: {command}"
+            )
             # Timeout likely means mpv has frozen — restart to recover
             self._restart_mpv()
             return False if not get_response else None
 
         except Exception as e:
-            self.logger.error(
+            self._log_throttled(
+                'error',
+                'last_ipc_failure_log',
                 f"IPC command failed: {e} for command: {command}"
             )
             self._restart_mpv()

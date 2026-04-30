@@ -12,8 +12,41 @@ bool mqttConnected    = false;
 unsigned long lastMqttAttempt   = 0;
 unsigned long lastStatusPublish = 0;
 String STATUS_TOPIC = String("devices/") + CLIENT_ID + "/status";
+NetworkTransport mqttTransport = NETWORK_NONE;
 
 unsigned long lastCommandTime = 0;
+
+static const char* mqttTransportName(NetworkTransport transport) {
+  switch (transport) {
+    case NETWORK_LAN:
+      return "LAN";
+    case NETWORK_WIFI:
+      return "WiFi fallback";
+    default:
+      return "none";
+  }
+}
+
+static void handleNetworkTransportChange() {
+  NetworkTransport activeTransport = getActiveNetworkTransport();
+  if (activeTransport == mqttTransport) return;
+
+  debugPrint(
+    "MQTT transport switch: " +
+    String(mqttTransportName(mqttTransport)) +
+    " -> " +
+    String(mqttTransportName(activeTransport))
+  );
+
+  if (client.connected()) {
+    client.disconnect();
+  }
+
+  mqttConnected = false;
+  mqttTransport = activeTransport;
+  lastMqttAttempt = 0;
+}
+
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
   // --- Guard: payload size limit ---
@@ -141,7 +174,12 @@ void initializeMqtt() {
 }
 
 void connectToMqtt() {
-  if (!wifiConnected || !isWiFiConnected()) return;
+  if (!wifiConnected || !isWiFiConnected()) {
+    mqttConnected = false;
+    return;
+  }
+
+  handleNetworkTransportChange();
 
   unsigned long currentTime = millis();
   static int mqttAttempts = 0;
@@ -207,7 +245,16 @@ void connectToMqtt() {
 }
 
 void mqttLoop() {
-  if (!wifiConnected) return;
+  if (!wifiConnected || !isWiFiConnected()) {
+    mqttConnected = false;
+    return;
+  }
+
+  handleNetworkTransportChange();
+  if (!client.connected()) {
+    mqttConnected = false;
+    return;
+  }
 
   client.loop();
 
@@ -233,5 +280,12 @@ void publishStatus() {
 }
 
 bool isMqttConnected() {
-  return wifiConnected && mqttConnected && client.connected();
+  NetworkTransport activeTransport = getActiveNetworkTransport();
+  return (
+    wifiConnected &&
+    activeTransport != NETWORK_NONE &&
+    activeTransport == mqttTransport &&
+    mqttConnected &&
+    client.connected()
+  );
 }

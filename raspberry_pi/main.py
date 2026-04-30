@@ -82,6 +82,10 @@ class MuseumController:
         self.scene_running = False
         self.current_scene_name = None
         self.scene_lock = threading.Lock()
+        self.scene_thread = None
+        self.scene_shutdown_join_timeout = max(
+            2.0, float(self.config.get('scene_buffer_time', 1.0))
+        )
         
         # --- KROK 2: Inicializácia cez Service Container ---
         log.info(f"Initializing Museum Controller for {self.room_id}")
@@ -242,11 +246,13 @@ class MuseumController:
         if self.web_dashboard:
             self.web_dashboard.broadcast_status()
 
-        threading.Thread(
+        self.scene_thread = threading.Thread(
             target=self._run_scene_logic, 
             args=(scene_filename,), 
+            name=f"{self.room_id}-scene-runner",
             daemon=True
-        ).start()
+        )
+        self.scene_thread.start()
         return True
 
     def _run_scene_logic(self, scene_filename):
@@ -284,6 +290,10 @@ class MuseumController:
                     if hasattr(self.scene_parser, 'state_machine'):
                         self.scene_parser.state_machine.on_state_change = notify_web
                 # ----------------------------------------------------
+
+                if not self.scene_running or self.shutdown_requested:
+                    log.info("Scene start cancelled before execution.")
+                    return
 
                 try:
                     self.run_scene()
@@ -456,7 +466,7 @@ class MuseumController:
             if not self.mqtt_client.establish_initial_connection():
                 if self.shutdown_requested:
                     return
-                log.warning("⚠️ NETWORK ERROR: System starting in OFFLINE MODE. Will retry connection in background.")
+                log.warning("NETWORK ERROR: System starting in OFFLINE MODE. Will retry connection in background.")
         
         last_device_cleanup = time.time()
         device_cleanup_interval = self.config['device_cleanup_interval']
@@ -494,7 +504,35 @@ class MuseumController:
         """Clean up all system resources gracefully."""
         if self._cleaned_up:
             return
-        
+
+        log.info("Initiating cleanup...")
+        self._cleaned_up = True
+
+        try:
+            if self.scene_running:
+                log.info("Active scene detected during cleanup; stopping it first.")
+                self.stop_scene()
+            else:
+                if self.audio_handler:
+                    self.audio_handler.stop_audio()
+                if self.video_handler:
+                    self.video_handler.stop_video()
+                if self.actuator_state_store:
+                    self.actuator_state_store.force_all_off(source='service_cleanup')
+                self.broadcast_stop()
+        except Exception as e:
+            log.error(f"Safe runtime stop during cleanup failed: {e}")
+
+        scene_thread = self.scene_thread
+        if (
+            scene_thread
+            and scene_thread.is_alive()
+            and scene_thread is not threading.current_thread()
+        ):
+            scene_thread.join(timeout=self.scene_shutdown_join_timeout)
+            if scene_thread.is_alive():
+                log.warning("Scene thread did not finish before cleanup timeout")
+
         if self.web_dashboard:
             try:
                 self.web_dashboard.update_stats()
@@ -503,9 +541,6 @@ class MuseumController:
             except Exception as e:
                 log.error(f"Failed to save stats during cleanup: {e}")
 
-        log.info("Initiating cleanup...")
-        self._cleaned_up = True
-        
         if self.services:
             self.services.cleanup()
             
