@@ -44,6 +44,9 @@ def _build_controller(scene_running=False):
     controller.video_handler = None
     controller.web_dashboard = None
     controller.actuator_state_store = None
+    controller.scene_heartbeat_interval = 0.05
+    controller._heartbeat_stop_event = threading.Event()
+    controller._heartbeat_thread = None
     return controller
 
 

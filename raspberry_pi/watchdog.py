@@ -36,6 +36,9 @@ _LOG_FILE = _BASE_DIR / 'logs' / 'museum.log'
 # Watchdog reads this before deciding to restart.
 _SCENE_STATE_FILE = Path('/tmp/museum_scene_state')
 
+# State file older than this many seconds is treated as stale (main.py likely crashed).
+_SCENE_STATE_STALE_SECONDS = 7200
+
 
 class MuseumWatchdog:
     """
@@ -76,8 +79,10 @@ class MuseumWatchdog:
         )
 
         # Scene-aware restart: poll interval and hard timeout while waiting
-        self.scene_wait_poll_interval: int = 30     # seconds between state checks
-        self.scene_wait_max_seconds: int = 3600     # give up after 1 hour
+        self.scene_wait_poll_interval: int = max(1, _config_manager.config.getint(
+            'System', 'scene_wait_poll_interval', fallback=30))
+        self.scene_wait_max_seconds: int = max(1, _config_manager.config.getint(
+            'System', 'scene_wait_max_seconds', fallback=7200))
 
     # ------------------------------------------------------------------
     # Scene state helpers
@@ -96,7 +101,7 @@ class MuseumWatchdog:
 
         try:
             age = time.time() - _SCENE_STATE_FILE.stat().st_mtime
-            if age > 7200:
+            if age > _SCENE_STATE_STALE_SECONDS:
                 log.debug('Scene state file is %.0fs old — treating as idle', age)
                 return False
 

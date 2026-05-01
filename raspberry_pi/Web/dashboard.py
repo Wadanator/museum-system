@@ -3,6 +3,7 @@
 
 import json
 import logging
+import sqlite3
 import time
 import os
 import base64
@@ -183,7 +184,7 @@ class WebDashboard:
         """Get system uptime in seconds."""
         return time.monotonic() - getattr(self.controller, 'start_time', time.monotonic())
 
-    def load_existing_logs(self):
+    def _load_existing_logs_from_legacy_text_file_unused(self):
         """Efektívne načíta len posledných 64KB logu namiesto celého súboru (zrýchľuje štart)."""
         try:
             if not Config.LOG_DIR.exists():
@@ -216,9 +217,85 @@ class WebDashboard:
                             continue
                 self.log.info(f"Loaded {len([log for log in self.log_buffer if log.get('from_file')])} log entries efficiently")
             else:
-                self.log.info(f"Main log file does not exist: {main_log}")
+                self.log.warning(f"Main log file does not exist: {main_log}")
         except Exception as e:
             self.log.error(f"Error loading existing logs: {e}")
+
+    def load_existing_logs(self):
+        """Load recent persistent logs into the in-memory dashboard buffer."""
+        try:
+            if not Config.LOG_DIR.exists():
+                self.log.info(f"Log directory does not exist: {Config.LOG_DIR}")
+                return
+
+            log_db = Config.LOG_DIR / 'museum_logs.db'
+            if log_db.exists():
+                loaded = self._load_existing_logs_from_db(log_db)
+                self.log.info(f"Loaded {loaded} log entries from SQLite history")
+                return
+
+            main_log = Config.LOG_DIR / 'museum.log'
+            if main_log.exists():
+                loaded = self._load_existing_logs_from_text_file(main_log)
+                self.log.info(f"Loaded {loaded} log entries from text history")
+                return
+
+            self.log.info(f"No persistent log history found in {Config.LOG_DIR}")
+        except Exception as e:
+            self.log.error(f"Error loading existing logs: {e}")
+
+    def _load_existing_logs_from_db(self, log_db: Path) -> int:
+        """Load recent log records from the SQLite history database."""
+        with sqlite3.connect(log_db, timeout=2.0) as conn:
+            rows = conn.execute(
+                """
+                SELECT timestamp, level, module, message
+                FROM logs
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (self.INITIAL_LOG_HISTORY_LIMIT,),
+            ).fetchall()
+
+        for timestamp, level, module, message in reversed(rows):
+            self.log_buffer.append({
+                'timestamp': timestamp,
+                'level': level,
+                'module': module,
+                'message': message,
+                'from_db': True,
+            })
+
+        return len(rows)
+
+    def _load_existing_logs_from_text_file(self, main_log: Path) -> int:
+        """Fallback loader for older text log files."""
+        with open(main_log, 'rb') as f:
+            f.seek(0, 2)
+            size = f.tell()
+            offset = min(size, 64 * 1024)
+            f.seek(size - offset)
+            content = f.read().decode('utf-8', errors='ignore')
+
+        loaded = 0
+        lines = content.splitlines()[-100:]
+        for line in lines:
+            if line.strip() and line.startswith('['):
+                try:
+                    timestamp, rest = line.strip().split('] ', 1)
+                    level, module, message = rest.split(' ', 2)
+                    self.log_buffer.append({
+                        'timestamp': timestamp[1:],
+                        'level': level.strip(),
+                        'module': module.strip(),
+                        'message': message,
+                        'from_file': True,
+                    })
+                    loaded += 1
+                except ValueError:
+                    continue
+
+        return loaded
 
     def _load_stats(self):
         """Load saved statistics from file."""
@@ -233,7 +310,7 @@ class WebDashboard:
                         'last_start_time': time.monotonic(),
                         'connected_devices': {}
                     })
-                    self.log.info(f"Loaded stats from: {Config.STATS_FILE}")
+                    self.log.debug(f"Loaded stats from: {Config.STATS_FILE}")
             else:
                 self.log.info(f"Stats file does not exist, using defaults: {Config.STATS_FILE}")
         except Exception as e:

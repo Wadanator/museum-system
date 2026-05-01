@@ -204,6 +204,8 @@ class ConfigManager:
                 'System', 'mqtt_reconnect_sleep', fallback=0.5),
             'device_cleanup_interval': self.config.getint(
                 'System', 'device_cleanup_interval', fallback=60),
+            'scene_heartbeat_interval': self.config.getfloat(
+                'System', 'scene_heartbeat_interval', fallback=60.0),
 
             # Video
             'ipc_socket': self.config.get(

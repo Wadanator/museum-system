@@ -42,6 +42,10 @@ mqtt_reconnect_timeout = 5
 mqtt_reconnect_sleep = 0.5
 scene_buffer_time = 1
 device_cleanup_interval = 2
+scene_heartbeat_interval = 60
+scene_wait_poll_interval = 30
+# Raise above your longest expected scene duration for ambient or multi-hour installations.
+scene_wait_max_seconds = 7200
 
 [Json]
 json_file_name = test.json
@@ -58,26 +62,36 @@ console_logging = false
 log_format = detailed
 
 [LogLevels]
-# Core system components - use full logger names with museum. prefix
+# Core system components - use exact logger names from get_logger(...)
 museum.main = INFO
-museum.scene_parser = INFO 
-museum.mqtt = WARNING
-museum.audio = WARNING
-museum.video = WARNING
-museum.web = WARNING
+museum.watchdog = INFO
+museum.sceneparser = INFO
+museum.statemachine = WARNING
+museum.stateexecutor = WARNING
+museum.transitionmanager = WARNING
+museum.servicecontainer = INFO
 museum.btn_handler = WARNING
 museum.sys_monitor = WARNING
+museum.device_outage_tracker = WARNING
+museum.config = WARNING
+museum.bootstrap = INFO
 
-# Reduce noise from these components
+# MQTT and device state
+museum.mqtt = WARNING
 museum.mqtt_handler = WARNING
-museum.mqtt_feedback = WARNING
+museum.mqtt_feedback = INFO
 museum.mqtt_devices = WARNING
 museum.actuator_store = WARNING
-museum.config = WARNING
-museum.setup = WARNING
+
+# Media and web dashboard
+museum.audio = WARNING
+museum.video = INFO
+museum.web = INFO
 
 # External libraries - suppress unless critical
 werkzeug = ERROR
 flask = ERROR
 urllib3 = ERROR
 paho = ERROR
+socketio = ERROR
+engineio = ERROR

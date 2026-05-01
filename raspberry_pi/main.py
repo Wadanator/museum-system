@@ -86,6 +86,11 @@ class MuseumController:
         self.scene_shutdown_join_timeout = max(
             2.0, float(self.config.get('scene_buffer_time', 1.0))
         )
+
+        # Scene heartbeat — keeps /tmp/museum_scene_state fresh during long scenes
+        self.scene_heartbeat_interval: float = max(1.0, self.config['scene_heartbeat_interval'])
+        self._heartbeat_stop_event: threading.Event = threading.Event()
+        self._heartbeat_thread: threading.Thread | None = None
         
         # --- KROK 2: Inicializácia cez Service Container ---
         log.info(f"Initializing Museum Controller for {self.room_id}")
@@ -206,8 +211,41 @@ class MuseumController:
             except OSError as exc:
                 log.error(f"Failed to persist scene state '{state_value}': {exc}")
 
+        if is_running:
+            self._start_heartbeat()
+        else:
+            self._stop_heartbeat()
+
         log.info(f"Scene lifecycle transition -> {state_value} ({reason})")
         return True
+
+    def _heartbeat_loop(self) -> None:
+        while not self._heartbeat_stop_event.wait(self.scene_heartbeat_interval):
+            with self.scene_lock:
+                if self._heartbeat_stop_event.is_set() or not self.scene_running:
+                    break
+                try:
+                    _SCENE_STATE_FILE.write_text('running')
+                except OSError as exc:
+                    log.warning(f"Scene heartbeat failed to update state file: {exc}")
+
+    def _start_heartbeat(self) -> None:
+        if self._heartbeat_thread and self._heartbeat_thread.is_alive():
+            return
+        self._heartbeat_stop_event.clear()
+        self._heartbeat_thread = threading.Thread(
+            target=self._heartbeat_loop,
+            name='scene-heartbeat',
+            daemon=True,
+        )
+        self._heartbeat_thread.start()
+
+    def _stop_heartbeat(self) -> None:
+        self._heartbeat_stop_event.set()
+        thread = self._heartbeat_thread
+        if thread and thread.is_alive():
+            thread.join(timeout=2.0)
+        self._heartbeat_thread = None
 
     def _on_mqtt_connection_lost(self):
         log.error("MQTT connection lost - system will continue with limited functionality")
