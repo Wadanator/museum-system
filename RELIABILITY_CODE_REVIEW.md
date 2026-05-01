@@ -244,6 +244,66 @@ Recommended fix:
 - Keep the current plain `running`/`idle` format for now. JSON state would require an atomic update on both writer and reader.
 - Review `scene_wait_max_seconds`: make it configurable, increase it, or remove the hard cap for ambient/multi-hour installations.
 
+Implementation plan:
+
+1. Add config values through the existing config path:
+   - Add `scene_heartbeat_interval` to `ConfigManager.get_all_config()`, reading `[System] scene_heartbeat_interval` with fallback `60.0`.
+   - Add `scene_wait_max_seconds` and optionally `scene_wait_poll_interval` to `watchdog.py`, reading from `[System]` with fallbacks `7200` and `30`.
+   - Add the new keys to `raspberry_pi/config/config.ini.example`.
+   - Document that ambient or multi-hour installations should set `scene_wait_max_seconds` above the longest expected scene duration.
+
+2. Add heartbeat lifecycle fields to `MuseumController.__init__`:
+   - `_heartbeat_thread = None`
+   - `_heartbeat_stop_event = threading.Event()`
+   - `scene_heartbeat_interval = self.config['scene_heartbeat_interval']`
+
+3. Add a heartbeat loop in `main.py`:
+
+```python
+while not self._heartbeat_stop_event.wait(self.scene_heartbeat_interval):
+    with self.scene_lock:
+        if self._heartbeat_stop_event.is_set() or not self.scene_running:
+            break
+        _SCENE_STATE_FILE.write_text("running")
+```
+
+Important: this loop should not log successful heartbeat writes at `INFO`. Either do not log success, or log it only at `DEBUG`. If the write raises `OSError`, log a `WARNING` and let the scene continue.
+
+4. Serialize all scene-state file writes with `scene_lock`:
+   - `_set_scene_running()` already writes `running`/`idle` under `scene_lock`.
+   - The heartbeat write must also acquire `scene_lock`.
+   - This prevents the race where scene end writes `idle`, then a heartbeat writes stale `running` after it.
+
+5. Add `_start_heartbeat()` and `_stop_heartbeat()`:
+   - `_start_heartbeat()` must be idempotent. If the heartbeat thread is already alive, do nothing.
+   - `_stop_heartbeat()` must be idempotent. It should set the stop event and join with a bounded timeout, for example `2.0` seconds.
+   - Do not use `join(timeout=scene_heartbeat_interval + 1)`. Since the loop uses `Event.wait()`, `stop_event.set()` should wake it immediately; waiting up to 61 seconds during `stop_scene()` would be a real operational bug.
+
+6. Wire heartbeat start/stop from `_set_scene_running()` only after the `scene_lock` block:
+   - On successful transition to `running`, call `_start_heartbeat()`.
+   - On successful transition to `idle`, call `_stop_heartbeat()`.
+   - Never call `_stop_heartbeat()` or `join()` while holding `scene_lock`; otherwise heartbeat shutdown can deadlock.
+
+7. Keep the state file format unchanged:
+   - Continue writing plain `running` and `idle`.
+   - Do not migrate to JSON in this fix. JSON would require an atomic reader/writer rollout and backwards compatibility.
+
+8. In `watchdog.py`, replace the hardcoded stale threshold with a named constant:
+   - `_SCENE_STATE_STALE_SECONDS = 7200`
+   - Use this constant in `_is_scene_running()`.
+
+Test plan:
+
+- Heartbeat refreshes `/tmp/museum_scene_state` mtime while `scene_running` is true.
+- Heartbeat stops after `_set_scene_running(False, ...)`; mtime no longer changes and the file remains `idle`.
+- Double start is idempotent and creates only one heartbeat thread.
+- Double stop is safe and returns quickly.
+- Heartbeat write `OSError` is logged but does not crash the scene or heartbeat thread.
+- A race test verifies heartbeat cannot write stale `running` after `_set_scene_running(False)` writes `idle`.
+- Watchdog reads configured `scene_wait_max_seconds` and uses fallback `7200` when the config key is absent.
+- Existing `test_main_scene_state.py` remains green.
+- Run `python -m py_compile raspberry_pi/main.py raspberry_pi/watchdog.py`.
+
 Acceptance check:
 
 - During a multi-hour scene, watchdog always sees a fresh `running` state file.
