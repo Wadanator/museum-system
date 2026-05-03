@@ -24,7 +24,7 @@ class MQTTFeedbackTracker:
     managed with per-command timers and thread-safe locking.
 
     Optionally integrates with MQTTActuatorStateStore to record confirmed
-    hardware states when feedback OK is received.
+    hardware states when successful feedback is received.
     """
 
     def __init__(self, logger=None, feedback_timeout: float = 2) -> None:
@@ -162,15 +162,17 @@ class MQTTFeedbackTracker:
         """
         Process an incoming feedback message and resolve the matching pending command.
 
-        On successful feedback (payload == 'OK'), propagates the confirmed
-        state to MQTTActuatorStateStore if one is wired in.
+        On successful feedback, propagates the confirmed state to
+        MQTTActuatorStateStore if one is wired in. A plain 'OK' confirms the
+        original command, while stateful feedback payloads ('ACTIVE' and
+        'INACTIVE') confirm the state reported by the device.
 
         Cancels the associated timeout timer and logs the latency. Logs a
         debug message if no matching pending command is found.
 
         Args:
             feedback_topic: The MQTT topic the feedback was received on.
-            feedback_payload: The feedback payload string ('OK' or error text).
+            feedback_payload: The feedback payload string.
         """
         original_topic = MQTTTopicRules.original_topic_from_feedback(feedback_topic)
 
@@ -183,11 +185,16 @@ class MQTTFeedbackTracker:
                 data['timer'].cancel()
                 del self.pending_feedbacks[original_topic]
 
-                is_ok = feedback_payload.upper() == 'OK'
+                normalized_payload = str(feedback_payload).strip().upper()
+                is_ok = normalized_payload == 'OK'
+                is_state_feedback = normalized_payload in {'ACTIVE', 'INACTIVE'}
+                is_success = is_ok or is_state_feedback
 
-                if is_ok:
+                if is_success:
+                    feedback_label = 'OK' if is_ok else normalized_payload
                     self.logger.info(
-                        f"Feedback OK: {original_topic} ({elapsed * 1000:.0f}ms)"
+                        f"Feedback {feedback_label}: {original_topic} "
+                        f"({elapsed * 1000:.0f}ms)"
                     )
                 else:
                     self.logger.warning(
@@ -197,7 +204,12 @@ class MQTTFeedbackTracker:
 
                 # Propagate confirmed state outside the lock to avoid potential
                 # re-entrant locking inside the store's own lock.
-                confirmed_command = command if is_ok else None
+                if is_ok:
+                    confirmed_command = command
+                elif is_state_feedback:
+                    confirmed_command = normalized_payload
+                else:
+                    confirmed_command = None
             else:
                 self.logger.debug(
                     f"Unmatched feedback on {feedback_topic}"

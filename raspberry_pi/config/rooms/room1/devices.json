@@ -29,7 +29,7 @@
     {
       "icon": "\ud83d\udca1",
       "id": "light_1",
-      "name": "Svetlo 1",
+      "name": "Edizonka",
       "topic": "room1/light/1"
     },
     {
@@ -41,7 +41,7 @@
     {
       "icon": "\ud83d\udca1",
       "id": "light_2",
-      "name": "Svetlo 2",
+      "name": "Hodiny",
       "topic": "room1/light/2"
     },
     {
@@ -53,13 +53,13 @@
     {
       "icon": "\ud83d\udca1",
       "id": "light_4",
-      "name": "Svetlo 4",
+      "name": "Budik 1",
       "topic": "room1/light/4"
     },
     {
       "icon": "\ud83d\udca1",
       "id": "light_5",
-      "name": "Svetlo 5",
+      "name": "Budik 2",
       "topic": "room1/light/5"
     },
     {

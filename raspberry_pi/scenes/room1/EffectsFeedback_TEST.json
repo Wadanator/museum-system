@@ -1,0 +1,156 @@
+{
+  "sceneId": "effects_feedback_test",
+  "description": "Test ESP32 effect-group feedbacku: ACTIVE/INACTIVE pre group1 a alone.",
+  "version": "1.0",
+  "initialState": "INIT_SAFE_OFF",
+  "globalEvents": [
+    {
+      "type": "mqttMessage",
+      "topic": "room1/emergency",
+      "message": "STOP",
+      "goto": "END"
+    },
+    {
+      "type": "timeout",
+      "delay": 60,
+      "goto": "END"
+    }
+  ],
+  "states": {
+    "INIT_SAFE_OFF": {
+      "description": "Vynulovanie effect skupín a svetiel pred testom.",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/effects/group1",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/effects/alone",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/1",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/4",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/5",
+          "message": "OFF"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 1,
+          "goto": "GROUP1_ON"
+        }
+      ]
+    },
+    "GROUP1_ON": {
+      "description": "Spustenie group1 efektu. Očakávaný feedback: ACTIVE.",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/effects/group1",
+          "message": "ON"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 6,
+          "goto": "GROUP1_OFF"
+        }
+      ]
+    },
+    "GROUP1_OFF": {
+      "description": "Zastavenie group1 efektu. Očakávaný feedback: INACTIVE.",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/effects/group1",
+          "message": "OFF"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 2,
+          "goto": "ALONE_ON"
+        }
+      ]
+    },
+    "ALONE_ON": {
+      "description": "Spustenie alone efektu. Očakávaný feedback: ACTIVE.",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/effects/alone",
+          "message": "ON"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 6,
+          "goto": "ALONE_OFF"
+        }
+      ]
+    },
+    "ALONE_OFF": {
+      "description": "Zastavenie alone efektu. Očakávaný feedback: INACTIVE.",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/effects/alone",
+          "message": "OFF"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 2,
+          "goto": "END"
+        }
+      ]
+    },
+    "END": {
+      "description": "Koniec testu: vypnutie effect skupín aj použitých svetiel.",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/effects/group1",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/effects/alone",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/1",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/4",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/5",
+          "message": "OFF"
+        }
+      ]
+    }
+  }
+}

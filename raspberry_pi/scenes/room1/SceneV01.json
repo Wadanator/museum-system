@@ -26,12 +26,12 @@
         },
         {
           "action": "mqtt",
-          "message": "STOP",
+          "message": "OFF",
           "topic": "room1/motor1"
         },
         {
           "action": "mqtt",
-          "message": "STOP",
+          "message": "OFF",
           "topic": "room1/motor2"
         },
         {
@@ -42,7 +42,17 @@
         {
           "action": "mqtt",
           "message": "OFF",
+          "topic": "room1/light/1"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
           "topic": "room1/light/2"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/3"
         },
         {
           "action": "mqtt",
@@ -178,7 +188,7 @@
         {
           "action": "mqtt",
           "message": "ON:70:L:1000",
-          "topic": "room1/motor1"
+          "topic": "room1/motor2"
         }
       ],
       "transitions": [
@@ -350,7 +360,7 @@
           "topic": "room1/effect/smoke"
         },
         {
-          "at": 11,
+          "at": 9,
           "action": "mqtt",
           "message": "OFF",
           "topic": "room1/effect/smoke"
