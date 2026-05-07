@@ -1,6 +1,7 @@
 # Museum System - Reliability Code Review
 
-Date: 2026-04-27
+Original date: 2026-04-27
+Last updated: 2026-05-06
 Scope: Raspberry Pi backend and web dashboard/frontend
 Review type: static code review on Windows; Raspberry Pi runtime was not started
 
@@ -21,15 +22,15 @@ Ignored:
 
 ## Executive Summary
 
-The system already has useful reliability foundations: centralized scene lifecycle state updates, separated MQTT routing, bounded dashboard log history, video process restart logic, and SocketIO status refresh on reconnect.
+The system has solid reliability foundations: centralized scene lifecycle state updates, separated MQTT routing, bounded dashboard log history, video process restart logic, scene-state heartbeat for the watchdog, tri-state video IPC handling, and SocketIO status refresh on reconnect.
 
-The strongest remaining reliability risks are false state and scene-control ambiguity:
+Currently open reliability risks:
 
-1. Watchdog long-scene protection is incomplete: no scene heartbeat exists, and `scene_wait_max_seconds = 3600` can still force a restart during a long scene.
+1. **Audio is not stopped when the scene thread exits via an exception path** — silently leaves music streaming after a crash until the next scene start. New finding 2026-05-06, applies directly to the looped SceneV01 use case.
 2. Scene MQTT publish failure policy is still a design gap for critical hardware actions.
-3. Several lower-priority issues are real but less dangerous in normal operation: synchronous dashboard log broadcast, web crash loop, and MQTT feedback ambiguity.
+3. Lower-priority issues that are real but less dangerous in normal operation: synchronous dashboard log broadcast, web crash loop, MQTT feedback ambiguity, and pygame `fadeout`/`stop` mismatch causing an audible click on every scene loop.
 
-Already fixed in current code:
+Already fixed (condensed list — short summaries under each closed finding below):
 
 - Main scene button auth fetch.
 - Duplicate scene STOP broadcast.
@@ -40,277 +41,154 @@ Already fixed in current code:
 - Frontend `authFetch` non-2xx handling.
 - Watchdog systemd `After=` ordering.
 - Vite output path now points directly to `raspberry_pi/Web/dist`.
+- Watchdog long-scene protection: scene-state heartbeat plus configurable `scene_wait_max_seconds` and `_SCENE_STATE_STALE_SECONDS`.
 
 Important nuance: the Vite output path is fixed, but deployment is not fully enforced because the install scripts still do not run `npm run build`. If source changes are made and the build step is skipped, Flask can still serve stale assets from `raspberry_pi/Web/dist`.
 
 ## Findings
 
-### [FIXED] P2 - Main Scene Button Used Raw fetch Without Authorization
+### P1 - Audio Not Stopped When Scene Thread Exits Via Exception (NEW 2026-05-06)
 
-Files:
+File:
 
-- `museum-dashboard/src/hooks/useSceneActions.js`
-- `museum-dashboard/src/services/api.js`
-- `raspberry_pi/Web/routes/scenes.py`
-- `raspberry_pi/Web/auth.py`
-
-Original verified code:
-
-- `useSceneActions.js` called raw `fetch('/api/config/main_scene')`.
-- `scenes.py` protects `/api/config/main_scene` with `@requires_auth`.
-- `auth.py` reads credentials from `request.authorization`.
-- `api.js` had `authFetch`, but no `getMainSceneConfig()` wrapper.
-
-Original hook behavior:
-
-```javascript
-const res = await fetch('/api/config/main_scene');
-const config = await res.json();
-const sceneName = config.json_file_name || 'intro.json';
-```
-
-Why this failed:
-
-- The logged-in frontend stores the Basic Auth header in `localStorage`.
-- Raw `fetch()` does not attach that header.
-- Backend returns `401` with a plain-text body.
-- `res.json()` then throws a JSON parse error.
-- The outer `catch` shows a config error toast and the scene never starts.
-
-Impact before fix:
-
-- The main "Run Scene" button fails for authenticated users.
-- Named scene calls and `stopScene()` work because they go through `api.*` methods using `authFetch`.
-- The fallback to `intro.json` does not run because the exception occurs before `config` exists.
-- The current built production asset in `raspberry_pi/Web/dist` also contains the raw fetch, so the deployed dashboard is affected.
-
-Implemented fix:
-
-- Added `getMainSceneConfig()` to `museum-dashboard/src/services/api.js`.
-- The new method uses `authFetch`.
-- `useSceneActions.js` now calls `api.getMainSceneConfig()` instead of raw `fetch`.
-- Frontend production bundle was rebuilt after the source change, so `raspberry_pi/Web/dist` contains the fix.
-
-Implemented source shape:
-
-```javascript
-// api.js
-getMainSceneConfig: async () => {
-  const res = await authFetch(`${API_URL}/config/main_scene`);
-  return res.json();
-},
-```
-
-```javascript
-// useSceneActions.js
-const config = await api.getMainSceneConfig();
-```
-
-Do not import `authFetch` directly into the hook unless the existing API abstraction is intentionally being changed. Keeping route calls behind the `api` object is cleaner and consistent with the rest of the file.
-
-Acceptance check:
-
-- Logged-in user clicks the main run button and the configured scene starts.
-- If scene start later fails because of MQTT or backend state, the error is from that later layer, not from config fetch.
-
-Verdict: fixed in source and rebuilt into `raspberry_pi/Web/dist` on 2026-04-27.
-
-### [FIXED] P2 - False Video-End Callback When mpv IPC Fails During Playback
-
-Files:
-
-- `raspberry_pi/utils/video_handler.py`
-- `raspberry_pi/utils/scene_parser.py`
-- `raspberry_pi/utils/transition_manager.py`
-
-Verified code areas:
-
-- `video_handler.py`: `_restart_mpv()`
-- `video_handler.py`: `_send_ipc_command()`
-- `video_handler.py`: `check_if_ended()`
-- `video_handler.py`: `is_playing()`
-- `scene_parser.py`: `_on_video_ended()`
-- `transition_manager.py`: `_check_video_end()`
-
-Original problem:
-
-`is_playing()` returns `False` both for a genuine ended/idle video and for unknown IPC states, including timeout, empty response, exception, and blocked restart paths. `check_if_ended()` treats `False` as a confirmed video end:
-
-```python
-is_playing_now = self.is_playing()
-
-if self.was_playing and not is_playing_now:
-    finished_file = self.currently_playing
-    self.stop_video()
-    if self.end_callback and finished_file:
-        self.end_callback(finished_file)
-```
-
-There are two important failure paths.
-
-Path A - restart succeeds:
-
-- IPC fails.
-- `_send_ipc_command()` calls `_restart_mpv()`.
-- `_restart_mpv()` calls `_stop_current_process()`, then `_start_mpv()`.
-- `currently_playing` usually becomes the idle image basename, for example `black.png`.
-- Callback fires with `black.png`.
-- `TransitionManager` checks video-end events using exact match against the transition target.
-- A transition like `{"type": "videoEnd", "target": "ghost2.mp4"}` normally will not fire.
-
-Path A is still wrong, but it usually does not advance a normal scene.
-
-Path B - restart is blocked or IPC returns no usable response:
-
-- IPC fails, returns empty response, or `_restart_mpv()` returns early due to cooldown or max restart attempts.
-- `currently_playing` can remain the original video filename, for example `ghost2.mp4`.
-- `is_playing()` returns `False`.
-- `check_if_ended()` fires the callback with `ghost2.mp4`.
-- `TransitionManager` sees `event == target` and can execute a false `videoEnd` transition.
-
-Path B is the dangerous case: a live scene can jump forward as if the video finished naturally.
-
-Why a simple restart flag is not enough:
-
-- `_restart_mpv()` is called synchronously inside `_send_ipc_command()` and `is_playing()`.
-- By the time execution returns to `check_if_ended()`, a flag set and cleared inside `_restart_mpv()` would already be cleared.
-- `check_if_ended()` would not see that flag.
-
-Why a `currently_playing` snapshot is helpful but insufficient:
-
-- Snapshotting before `is_playing()` catches the common path where restart changes `currently_playing` from the real video to `black.png`.
-- It does not catch empty IPC responses that do not restart mpv.
-- It does not catch restart-blocked paths where `currently_playing` remains the original filename.
-
-Implemented fix:
-
-`is_playing()` now returns a tri-state result:
-
-- `True`: mpv confirms a real non-idle video path via IPC.
-- `False`: mpv confirms idle/ended state.
-- `None`: state is unknown because IPC failed, timed out, returned empty response, threw an exception, or entered a restart/error path.
-
-`check_if_ended()` snapshots the tracked filename before querying mpv. It fires the end callback only on confirmed `False`, never on `None`. If mpv restart/stop changes `currently_playing` during an unknown IPC check, it resets `was_playing` without firing a callback. If IPC is transiently unknown but the same video remains tracked, it preserves `was_playing` so a later confirmed idle path can still produce the legitimate `videoEnd`.
-
-Implementation note:
-
-- `_send_ipc_command()` behavior was left compatible for other callers.
-- The tri-state distinction is implemented inside `is_playing()` and `check_if_ended()`, the only internal caller of `VideoHandler.is_playing()`.
-- A real EOF after a transient unknown still fires once when mpv later confirms the idle image path.
-
-Acceptance check:
-
-- Simulated IPC timeout during video playback produces zero `videoEnd` scene transitions.
-- Simulated empty IPC response produces zero `videoEnd` scene transitions.
-- Simulated restart blocked by cooldown/max attempts produces zero false `videoEnd` transitions.
-- A genuine completed video still fires exactly one callback with the correct filename.
-
-Verdict: fixed on 2026-04-27 with tri-state/unknown handling and offline tests.
-
-### P2 - Watchdog Can Interrupt A Long Scene
-
-Files:
-
-- `raspberry_pi/main.py`
-- `raspberry_pi/watchdog.py`
+- `raspberry_pi/main.py` — `_run_scene_logic()` finally block (≈ lines 340–353)
 
 Verified code:
 
-- `main.py` writes `/tmp/museum_scene_state` only in `_set_scene_running()`.
-- The scene loop in `run_scene()` does not heartbeat or touch the state file.
-- `watchdog.py` treats the state file as stale after 7200 seconds.
-- `watchdog.py` also has `scene_wait_max_seconds = 3600`.
+```python
+try:
+    self.run_scene()
+except Exception as e:
+    log.error(f"An error occurred during scene execution: {e}")
+finally:
+    # 1. Vypneme video
+    if self.video_handler:
+        self.video_handler.stop_video()
 
-Current watchdog logic:
+    # 2. Reset príznaku behu a broadcast STOP
+    transitioned = self._set_scene_running(False, f"scene_thread_finally:{scene_filename}")
+    if transitioned:
+        if self.actuator_state_store:
+            self.actuator_state_store.force_all_off(source='scene_end')
+        self.broadcast_stop()
+    ...
+```
+
+The `finally` branch stops video, transitions scene state to idle, force-offs the actuator state store, and publishes the MQTT STOP broadcast. It does **not** call `audio_handler.stop_all()`.
+
+By contrast both `stop_scene()` and `cleanup()` *do* explicitly stop audio. The exception path is the asymmetric one.
+
+Why audio still normally stops on a clean run:
+
+- A scene that completes via the `END` state relies on `END.onEnter` containing `{"action": "audio", "message": "STOP"}` to silence the speakers.
+- `broadcast_stop()` only publishes `<room_id>/STOP` over MQTT. Audio runs locally on the Pi, so MQTT STOP never silences it.
+
+Why this fails in the exception path:
+
+- If `run_scene()` raises (unexpected `state_executor` error, transition glitch, audio handler exception, anything), control jumps to `finally` *before* `END.onEnter` ever runs.
+- The `END` state's `audio: STOP` action never fires.
+- `finally` does not stop audio either.
+- Result: music (e.g. SceneV01's `atmosfera.wav` stream) keeps playing on the Pi's speakers indefinitely.
+- Recovery only happens at the next scene start, when `preload_files_for_scene()` calls `stop_all()`.
+
+Impact for the looped SceneV01 use case:
+
+- Hardware (lights, motors, smoke, relays) is correctly turned off via `actuator_state_store.force_all_off()` and `broadcast_stop()`.
+- Audio remains live until a person presses the button again. In an unattended ambient installation the room can be silent-with-speakers-on for an unbounded amount of time.
+- A single transient scene-thread exception is therefore enough to cause an audible reliability failure for visitors.
+
+Recommended fix:
+
+- In `_run_scene_logic.finally`, before stopping video and transitioning state, call `audio_handler.stop_all()` inside its own try/except so a failing audio shutdown still does not block the rest of the cleanup.
+- Optionally also force `actuator_state_store.force_all_off()` and `broadcast_stop()` even when `transitioned` is False, so external `stop_scene()` followed by an exception does not leave the system in a half-stopped state. (Lower priority — `stop_scene()` already covers that path.)
+
+Acceptance check:
+
+- Inject an exception inside `run_scene()` (e.g. force-throw during state processing).
+- Observed: audio is silenced as soon as the scene thread exits, not at the next button press.
+- Hardware actuators are still turned off as before.
+
+Verdict: real P1 for unattended looped operation. Small, surgical fix.
+
+### P2/P3 - Scene Continues When MQTT Actions Fail
+
+File:
+
+- `raspberry_pi/utils/state_executor.py`
+
+Verified code:
+
+`_execute_mqtt()` logs failed publish but does not stop or alter scene progression:
 
 ```python
-age = time.time() - _SCENE_STATE_FILE.stat().st_mtime
-if age > 7200:
-    log.debug('Scene state file is %.0fs old - treating as idle', age)
-    return False
-
-return _SCENE_STATE_FILE.read_text().strip() == 'running'
+success = self.mqtt_client.publish(topic, message, retain=False)
+if success:
+    self.logger.debug(f"MQTT: {topic} = {message}")
+else:
+    self.logger.error(f"MQTT publish failed: {topic}")
 ```
 
 Impact:
 
-- A valid multi-hour scene can be treated as idle after the file mtime becomes stale.
-- A watchdog restart can be allowed while the scene is still active.
-- Even with a heartbeat, the one-hour `scene_wait_max_seconds` cap can still force restart if a restart reason appears during a long scene.
+- Audio/video timeline can continue while physical devices did not move.
+- This is safe as a backward-compatible default for existing scenes.
+- For critical relay/motor actions, it can desynchronize the physical room from the scene timeline.
+
+Falsey-payload sub-issue: previously `if not topic or not message:` rejected valid payloads `0` and `False`. Already fixed — the guard now correctly accepts those values.
 
 Recommended fix:
 
-- While a scene is running, periodically rewrite or touch `/tmp/museum_scene_state` with the same `running` content.
-- Keep the current plain `running`/`idle` format for now. JSON state would require an atomic update on both writer and reader.
-- Review `scene_wait_max_seconds`: make it configurable, increase it, or remove the hard cap for ambient/multi-hour installations.
-
-Implementation plan:
-
-1. Add config values through the existing config path:
-   - Add `scene_heartbeat_interval` to `ConfigManager.get_all_config()`, reading `[System] scene_heartbeat_interval` with fallback `60.0`.
-   - Add `scene_wait_max_seconds` and optionally `scene_wait_poll_interval` to `watchdog.py`, reading from `[System]` with fallbacks `7200` and `30`.
-   - Add the new keys to `raspberry_pi/config/config.ini.example`.
-   - Document that ambient or multi-hour installations should set `scene_wait_max_seconds` above the longest expected scene duration.
-
-2. Add heartbeat lifecycle fields to `MuseumController.__init__`:
-   - `_heartbeat_thread = None`
-   - `_heartbeat_stop_event = threading.Event()`
-   - `scene_heartbeat_interval = self.config['scene_heartbeat_interval']`
-
-3. Add a heartbeat loop in `main.py`:
-
-```python
-while not self._heartbeat_stop_event.wait(self.scene_heartbeat_interval):
-    with self.scene_lock:
-        if self._heartbeat_stop_event.is_set() or not self.scene_running:
-            break
-        _SCENE_STATE_FILE.write_text("running")
-```
-
-Important: this loop should not log successful heartbeat writes at `INFO`. Either do not log success, or log it only at `DEBUG`. If the write raises `OSError`, log a `WARNING` and let the scene continue.
-
-4. Serialize all scene-state file writes with `scene_lock`:
-   - `_set_scene_running()` already writes `running`/`idle` under `scene_lock`.
-   - The heartbeat write must also acquire `scene_lock`.
-   - This prevents the race where scene end writes `idle`, then a heartbeat writes stale `running` after it.
-
-5. Add `_start_heartbeat()` and `_stop_heartbeat()`:
-   - `_start_heartbeat()` must be idempotent. If the heartbeat thread is already alive, do nothing.
-   - `_stop_heartbeat()` must be idempotent. It should set the stop event and join with a bounded timeout, for example `2.0` seconds.
-   - Do not use `join(timeout=scene_heartbeat_interval + 1)`. Since the loop uses `Event.wait()`, `stop_event.set()` should wake it immediately; waiting up to 61 seconds during `stop_scene()` would be a real operational bug.
-
-6. Wire heartbeat start/stop from `_set_scene_running()` only after the `scene_lock` block:
-   - On successful transition to `running`, call `_start_heartbeat()`.
-   - On successful transition to `idle`, call `_stop_heartbeat()`.
-   - Never call `_stop_heartbeat()` or `join()` while holding `scene_lock`; otherwise heartbeat shutdown can deadlock.
-
-7. Keep the state file format unchanged:
-   - Continue writing plain `running` and `idle`.
-   - Do not migrate to JSON in this fix. JSON would require an atomic reader/writer rollout and backwards compatibility.
-
-8. In `watchdog.py`, replace the hardcoded stale threshold with a named constant:
-   - `_SCENE_STATE_STALE_SECONDS = 7200`
-   - Use this constant in `_is_scene_running()`.
-
-Test plan:
-
-- Heartbeat refreshes `/tmp/museum_scene_state` mtime while `scene_running` is true.
-- Heartbeat stops after `_set_scene_running(False, ...)`; mtime no longer changes and the file remains `idle`.
-- Double start is idempotent and creates only one heartbeat thread.
-- Double stop is safe and returns quickly.
-- Heartbeat write `OSError` is logged but does not crash the scene or heartbeat thread.
-- A race test verifies heartbeat cannot write stale `running` after `_set_scene_running(False)` writes `idle`.
-- Watchdog reads configured `scene_wait_max_seconds` and uses fallback `7200` when the config key is absent.
-- Existing `test_main_scene_state.py` remains green.
-- Run `python -m py_compile raspberry_pi/main.py raspberry_pi/watchdog.py`.
+- Keep default policy as `continue` for backward compatibility.
+- Add optional scene-level policy, for example `onMqttFailure: continue|retry|abort`.
+- Surface failed scene MQTT publishes visibly in the dashboard.
 
 Acceptance check:
 
-- During a multi-hour scene, watchdog always sees a fresh `running` state file.
-- When the scene stops, heartbeat stops and state changes to `idle`.
-- Watchdog does not force-restart mid-scene solely because a long scene exceeded one hour.
+- Existing scenes keep current behavior unless they opt into stricter failure policy.
+- A critical MQTT action can retry, abort, or enter a known safe state.
 
-Verdict: real P2. It needs multiple conditions to trigger, but the outcome is severe enough to fix before unattended long-scene operation.
+Verdict: real design gap. P2 for critical hardware actions, otherwise P3/feature-level.
+
+### P3 - Music Stop Fadeout Is Cut Short, Producing An Audible Click (NEW 2026-05-06)
+
+File:
+
+- `raspberry_pi/utils/audio_handler.py` — `stop_all()`
+
+Verified code:
+
+```python
+if pygame.mixer.music.get_busy():
+    self.logger.info("Stopping music stream...")
+    pygame.mixer.music.fadeout(500)
+    time.sleep(0.1)
+    pygame.mixer.music.stop()
+```
+
+`pygame.mixer.music.fadeout(ms)` schedules a fade running asynchronously over 500 ms. The subsequent `time.sleep(0.1)` waits only 100 ms, then `pygame.mixer.music.stop()` cuts playback immediately. The fade is therefore aborted at roughly 20 % completion (still around 80 % volume), producing an audible click on the speakers every time `stop_all()` runs.
+
+Why this matters for the looped SceneV01 use case:
+
+- Every scene end runs `END.onEnter`'s `audio: STOP` action, which calls `handle_command("STOP")` → `stop_all()`.
+- Every next scene start runs `preload_files_for_scene()` which also calls `stop_all()`.
+- For a museum installation looping a single scene, this means an audible click on the speakers on every loop transition. It is the most visitor-perceptible runtime defect in the current code.
+
+Why the fix does not break anything:
+
+- Either `time.sleep(0.5)` to honour the fade or removing the `fadeout` and keeping just `stop()` gives consistent behaviour with no side effects on tracking state, channels, or `current_music_file` reset.
+- The `pygame.mixer.stop()` call below (which halts SFX channels) and `active_effects.clear()` are unaffected.
+
+Recommended fix (either is safe):
+
+- Change `time.sleep(0.1)` to `time.sleep(0.5)` so the 500 ms fade actually completes.
+- Or drop the `fadeout(500)` call entirely and rely on the immediate `stop()`. The click is replaced by a clean cut, which is at least consistent.
+
+Acceptance check:
+
+- Looping the scene on real hardware produces no click between iterations.
+- The music stream is silenced cleanly within at most 500 ms of `STOP`.
+
+Verdict: real P3 quality bug. Affects every loop iteration on real hardware.
 
 ### P3 - Web Dashboard Has An Infinite Crash Loop
 
@@ -340,82 +218,6 @@ Acceptance check:
 - Scene runtime continues normally while web dashboard is degraded.
 
 Verdict: real issue, but P3 by default. It can be treated as P2 only if dashboard availability is operationally critical.
-
-### [FIXED] Manual MQTT API Reports Success When Publish Fails
-
-Files:
-
-- `raspberry_pi/Web/routes/commands.py`
-- `raspberry_pi/utils/mqtt/mqtt_client.py`
-
-Current code now checks the boolean return value from `controller.mqtt_client.publish(...)` and returns `503` when publish fails. `MQTTClient.publish()` returns `False` when disconnected, when paho returns a nonzero result code, or on exception.
-
-Important limit:
-
-- This confirms local MQTT publish success, not physical hardware acknowledgement.
-- Hardware acknowledgement still depends on feedback topics and the feedback tracker.
-
-Acceptance check:
-
-- With broker disconnected, manual MQTT command returns an HTTP error instead of `success: true`.
-
-Verdict: fixed at publish-wrapper level.
-
-### P2/P3 - Scene Continues When MQTT Actions Fail
-
-File:
-
-- `raspberry_pi/utils/state_executor.py`
-
-Verified code:
-
-`_execute_mqtt()` logs failed publish but does not stop or alter scene progression:
-
-```python
-success = self.mqtt_client.publish(topic, message, retain=False)
-if success:
-    self.logger.debug(f"MQTT: {topic} = {message}")
-else:
-    self.logger.error(f"MQTT publish failed: {topic}")
-```
-
-Impact:
-
-- Audio/video timeline can continue while physical devices did not move.
-- This is safe as a backward-compatible default for existing scenes.
-- For critical relay/motor actions, it can desynchronize the physical room from the scene timeline.
-
-Additional small bug - fixed:
-
-`_execute_mqtt()` checks:
-
-```python
-if not topic or not message:
-```
-
-That treated valid falsey payloads such as `0` or `False` as missing. The schema allows string, number, and boolean messages.
-
-Implemented fix:
-
-```python
-if not topic or message is None or (isinstance(message, str) and message == ""):
-```
-
-This keeps `None` and empty string invalid, while allowing valid payloads `0` and `False`.
-
-Recommended fix:
-
-- Keep default policy as `continue` for backward compatibility.
-- Add optional scene-level policy, for example `onMqttFailure: continue|retry|abort`.
-- Surface failed scene MQTT publishes visibly in the dashboard.
-
-Acceptance check:
-
-- Existing scenes keep current behavior unless they opt into stricter failure policy.
-- A critical MQTT action can retry, abort, or enter a known safe state.
-- Payloads `0` and `False` are not rejected as missing.
-
-Verdict: real design gap. P2 for critical hardware actions, otherwise P3/feature-level.
 
 ### P3 - Feedback Tracking Is Not Correlated To A Specific Command
 
@@ -456,20 +258,6 @@ Acceptance check:
 
 Verdict: real P3. It can become P2 if dashboard truth is used for safety-critical operator decisions.
 
-### [FIXED] Frontend Does Not Treat Non-2xx HTTP Responses As Errors
-
-File:
-
-- `museum-dashboard/src/services/api.js`
-
-Current `authFetch()` now throws for every `!res.ok` and attempts to parse backend JSON error fields.
-
-Acceptance check:
-
-- Backend `400`, `500`, and `503` responses do not produce success UI state.
-
-Verdict: fixed.
-
 ### [PARTLY FIXED] Production Frontend Can Drift From Source Frontend
 
 Files:
@@ -481,16 +269,8 @@ Files:
 
 Verified current state:
 
-- Vite is configured with `outDir: '../raspberry_pi/Web/dist'`.
-- Flask serves assets from `raspberry_pi/Web/dist`.
-- The old separate `museum-dashboard/dist` output path is no longer the active build target.
-- Install scripts create services but do not run `npm run build`.
-
-Impact:
-
-- The previous two-dist mismatch is structurally fixed.
-- Source changes can still fail to reach production if the build step is skipped.
-- Built assets in `raspberry_pi/Web/dist` remain the source of truth for Flask runtime.
+- Vite output path now points directly to `raspberry_pi/Web/dist`. The previous two-`dist` mismatch is structurally fixed.
+- Install scripts still do not run `npm run build`. If a developer changes frontend source and forgets to build, Flask serves stale built assets.
 
 Recommended fix:
 
@@ -501,64 +281,7 @@ Acceptance check:
 
 - A clean deployment process always serves assets generated from current `museum-dashboard/src`.
 
-Verdict: path drift fixed, deployment enforcement only partly fixed.
-
-### [FIXED] Watchdog Service Uses Wrong systemd Ordering
-
-File:
-
-- `raspberry_pi/services/museum-watchdog.service.template`
-
-Current code:
-
-```ini
-After=museum-system.service
-```
-
-This now matches the installed main service name.
-
-Note:
-
-- `Wants=museum-system.service` is optional. The current watchdog loop can start the service when it sees it inactive, so `Wants=` is not required for correctness.
-
-Verdict: fixed.
-
-### [FIXED] P3 - broadcast_stop() Was Called Twice
-
-File:
-
-- `raspberry_pi/main.py`
-
-Original verified paths:
-
-Normal completion:
-
-1. `run_scene()` exits the processing loop and calls `broadcast_stop()`.
-2. `_run_scene_logic()` then runs its `finally` block, transitions scene state to idle, and calls `broadcast_stop()` again.
-
-External stop:
-
-1. `stop_scene()` transitions state to idle and calls `broadcast_stop()`.
-2. `run_scene()` sees `scene_running == False`, exits, and calls `broadcast_stop()` again.
-
-Impact before fix:
-
-- All MQTT devices can receive duplicate STOP messages.
-- STOP appears idempotent, so physical behavior should remain correct.
-- Logs show duplicate "Broadcasting STOP signal" entries, which makes debugging noisier.
-
-Implemented fix:
-
-- Removed the redundant `broadcast_stop()` call from inside `run_scene()`.
-- Current call graph is safe because `_run_scene_logic().finally` handles normal completion and `stop_scene()` handles external stop.
-- `run_scene()` is currently called only from `_run_scene_logic()`.
-
-Acceptance check:
-
-- Normal scene completion produces one STOP broadcast.
-- External stop produces one STOP broadcast.
-
-Verdict: fixed on 2026-04-27.
+Verdict: path drift fixed; deployment enforcement still open.
 
 ### [PARTLY FIXED] P3 - Web Log Handler Broadcasts Synchronously
 
@@ -567,83 +290,98 @@ Files:
 - `raspberry_pi/Web/handlers/log_handler.py`
 - `raspberry_pi/Web/dashboard.py`
 
-Verified path:
+Original problem:
 
-- `WebLogHandler.emit()` calls `dashboard.add_log_entry(...)`.
-- `add_log_entry()` appends to the log buffer and calls `_broadcast_event('new_log', ...)`.
-- `_broadcast_event()` iterates connected SocketIO sessions and calls `socketio.emit(...)`.
+- `WebLogHandler.emit()` called `dashboard.add_log_entry(...)` which iterated SocketIO sessions and emitted log events synchronously.
+- Runtime threads that logged were therefore performing dashboard websocket fanout work.
+- A dashboard exception could escape back into the runtime thread that called `log.info(...)`.
 
-Impact:
+What was changed:
 
-- Runtime threads that log can perform dashboard websocket fanout work.
-- With 1-2 LAN clients, practical blocking risk is probably low.
-- Architecturally, this couples core runtime logging to dashboard delivery.
+- `WebLogHandler.emit()` now isolates exceptions raised by the dashboard via the standard `logging.Handler` failure path, so a dashboard fault no longer propagates into runtime threads.
 
-Implemented small fix:
+Still open:
 
-- `WebLogHandler.emit()` now catches exceptions raised by `dashboard.add_log_entry(...)`.
-- It routes those exceptions through `self.handleError(record)`, which is the standard `logging.Handler` failure path.
-- A dashboard exception therefore should not escape back into the runtime thread that called `log.info(...)`.
+- Synchronous fanout to SocketIO clients remains. With one or two LAN clients the practical risk is low, but a slow client can still add latency to whichever thread is logging at that moment.
 
 Recommended fix:
 
-- Put dashboard log events into a bounded queue.
-- Drain that queue from a dashboard-owned background worker.
+- Put dashboard log events into a bounded queue and drain them from a dashboard-owned background worker.
 - Drop or coalesce old log events if the queue is full.
-- Full async queue/fanout decoupling remains open.
 
-Acceptance check:
+Verdict: exception isolation done; full async decoupling remains a low-urgency P3.
 
-- Heavy logging does not measurably slow scene processing or MQTT callbacks.
-- A dashboard exception does not escape through logging.
-- A slow dashboard client still can add synchronous latency until the async queue is implemented.
+## Closed Findings (Already Fixed)
 
-Verdict: exception isolation fixed on 2026-04-27; synchronous fanout remains a low-urgency P3 architecture issue.
+These were previously analysed in detail. Implementation specifics have been removed; the problem statement is kept for traceability.
+
+### [FIXED] P2 - Main Scene Button Used Raw fetch Without Authorization
+
+The dashboard's main "Run Scene" button used a raw `fetch('/api/config/main_scene')` that did not attach the Basic Auth header stored in `localStorage`. The endpoint is `@requires_auth`, so the request returned 401 plain-text, the JSON parse threw, the outer `catch` showed a config error toast, and the scene never started. The fallback to `intro.json` also never ran because the exception fired before `config` existed.
+
+Fix: route the call through the authenticated API helper and rebuild the production frontend bundle.
+
+### [FIXED] P2 - False Video-End Callback When mpv IPC Fails During Playback
+
+`is_playing()` returned `False` both for a genuine ended/idle video and for unknown IPC states (timeout, empty response, exception, blocked restart). `check_if_ended()` treated `False` as a confirmed video end and could fire the end callback with the original video filename, which `TransitionManager` then matched against a `videoEnd` transition target — causing live scenes to jump forward as if the video had finished naturally.
+
+Fix: `is_playing()` now distinguishes confirmed-playing, confirmed-idle, and unknown. End callbacks fire only on confirmed-idle.
+
+### [FIXED] P2 - Watchdog Could Interrupt A Long Scene
+
+Watchdog had no scene heartbeat, treated the state file as stale after a fixed window, and capped scene-wait time at one hour. A long scene could therefore be force-restarted mid-playback.
+
+Fix: main.py now writes a periodic `running` heartbeat under the scene lock while a scene is active; watchdog reads `scene_wait_max_seconds` from config; the stale threshold is a named constant.
+
+### [FIXED] Manual MQTT API Reports Success When Publish Fails
+
+Manual MQTT command endpoint always returned `success: true` even when the broker was disconnected and `MQTTClient.publish()` returned False.
+
+Fix: the publish wrapper return value is now checked and the API returns an HTTP error when publish fails. (This is local-broker delivery success, not hardware acknowledgement.)
+
+### [FIXED] Frontend Does Not Treat Non-2xx HTTP Responses As Errors
+
+`authFetch()` previously returned non-2xx responses as if they were successes, so backend `400/500/503` could end up driving success UI state.
+
+Fix: `authFetch()` now throws on every non-OK response and attempts to parse a backend JSON error.
+
+### [FIXED] Watchdog Service Used Wrong systemd Ordering
+
+The watchdog unit's `After=` clause did not match the installed main service name, so unit ordering at boot was unreliable.
+
+Fix: the `After=` value now matches the installed main service name.
+
+### [FIXED] P3 - broadcast_stop() Was Called Twice
+
+Both normal completion and external stop produced two `broadcast_stop()` calls. STOP is idempotent so physical behaviour stayed correct, but logs showed duplicate entries.
+
+Fix: the redundant call inside `run_scene()` was removed; `_run_scene_logic.finally` and `stop_scene()` are now the single sources of STOP broadcast.
+
+### [FIXED] MQTT Action Falsey Payload Validation
+
+`_execute_mqtt()` previously rejected valid payloads `0` and `False` because of an `if not topic or not message:` guard.
+
+Fix: the guard now treats only `None` and empty string as missing, while preserving `0` and `False` as valid payloads.
 
 ## Recommended Fix Order
 
-1. Main scene button auth - DONE:
-   - Add `api.getMainSceneConfig()` using `authFetch`.
-   - Replace raw `fetch('/api/config/main_scene')`.
-   - Rebuild frontend into `raspberry_pi/Web/dist`.
-
-2. Fix video end detection - DONE:
-   - Change `is_playing()` to distinguish `True`, `False`, and `None`.
-   - Fire `videoEnd` callback only on confirmed `False`.
-
-3. Fix watchdog long-scene behavior:
-   - Add periodic `running` heartbeat while a scene is active.
-   - Review or configure `scene_wait_max_seconds`.
-
-4. Remove duplicate STOP - DONE:
-   - Delete the redundant `broadcast_stop()` call from `run_scene()`.
-
-5. Improve dashboard failure isolation:
-   - Add bounded retry/backoff/degraded state for web dashboard startup crashes.
-
-6. Decouple dashboard log broadcasting:
-   - Exception isolation is DONE.
-   - Add async bounded queue for web log events.
-
-7. Improve scene MQTT failure handling:
-   - Add optional retry/abort/continue policy.
-   - Falsey MQTT payload handling is DONE.
-
-8. Improve feedback truth:
-   - Add correlation IDs when ESP protocol can support it, or add a per-topic queue/warning fallback.
+1. **NEW: Stop audio in `_run_scene_logic.finally`** — small surgical fix; eliminates the "audio plays forever after a crash" failure mode for the looped SceneV01 deployment.
+2. **NEW: Fix pygame `fadeout`/`stop` timing mismatch** — one-line change that removes the audible click on every scene loop end.
+3. Improve dashboard failure isolation — bounded retry/backoff/degraded state for web dashboard startup crashes.
+5. Decouple dashboard log broadcasting — add async bounded queue for web log events. Exception isolation already done.
+6. Improve scene MQTT failure handling — add optional `onMqttFailure` policy for critical actions.
+7. Improve feedback truth — add correlation IDs when the ESP protocol can support it, or add a per-topic queue/warning fallback.
+8. Enforce frontend build in install/release flow.
 
 ## Final Verdict
 
-The review findings are mostly real. The important corrections are:
-
-- Web crash loop is real, but P3 by default, not P1/P2.
-- Scene MQTT failure behavior is a design gap; P2 only for critical hardware actions.
-- MQTT falsey payload validation is fixed, but scene-level MQTT failure policy remains open.
+- Audio-not-stopped-on-scene-exception is a real P1 for unattended looped operation; fix is small.
+- Web crash loop is real but P3 by default.
+- Scene MQTT failure behaviour is a design gap; P2 only for critical hardware actions.
 - Feedback correlation is real but usually P3 because physical command delivery is not directly affected.
-- Web log handler exception isolation is fixed, but async queue/fanout decoupling remains open.
-- Vite output path is fixed, but deployment enforcement is only partly fixed.
-- The video-end issue was a real P2 and is now fixed with tri-state/unknown handling.
-- The main scene button raw fetch was a real P2 user-facing bug and is now fixed in source.
+- Web log handler exception isolation is done; async queue/fanout decoupling remains.
+- Vite output path is fixed; deployment enforcement is only partly fixed.
+- Video-end tri-state and watchdog scene heartbeat are now in place and resolved.
 
 ## Verification Notes
 
