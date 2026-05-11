@@ -219,7 +219,7 @@ Acceptance check:
 
 Verdict: real issue, but P3 by default. It can be treated as P2 only if dashboard availability is operationally critical.
 
-### P3 - Feedback Tracking Is Not Correlated To A Specific Command
+### P3 - Feedback Tracking Is Not Correlated To A Specific Command - NOT CRITICAL FOR NOW
 
 File:
 
@@ -368,10 +368,10 @@ Fix: the guard now treats only `None` and empty string as missing, while preserv
 1. **NEW: Stop audio in `_run_scene_logic.finally`** — small surgical fix; eliminates the "audio plays forever after a crash" failure mode for the looped SceneV01 deployment.
 2. **NEW: Fix pygame `fadeout`/`stop` timing mismatch** — one-line change that removes the audible click on every scene loop end.
 3. Improve dashboard failure isolation — bounded retry/backoff/degraded state for web dashboard startup crashes.
-5. Decouple dashboard log broadcasting — add async bounded queue for web log events. Exception isolation already done.
-6. Improve scene MQTT failure handling — add optional `onMqttFailure` policy for critical actions.
-7. Improve feedback truth — add correlation IDs when the ESP protocol can support it, or add a per-topic queue/warning fallback.
-8. Enforce frontend build in install/release flow.
+4. Decouple dashboard log broadcasting — add async bounded queue for web log events. Exception isolation already done.
+5. Improve scene MQTT failure handling — add optional `onMqttFailure` policy for critical actions.
+6. Improve feedback truth — add correlation IDs when the ESP protocol can support it, or add a per-topic queue/warning fallback.
+7. Enforce frontend build in install/release flow.
 
 ## Final Verdict
 
