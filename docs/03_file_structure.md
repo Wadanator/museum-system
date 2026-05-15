@@ -75,7 +75,6 @@ museum-system/
 │   ├── public/
 │   │   └── vite.svg
 │   ├── src/
-│   │   ├── App.css
 │   │   ├── App.jsx
 │   │   ├── assets/
 │   │   │   └── react.svg
@@ -84,7 +83,6 @@ museum-system/
 │   │   ├── hooks/
 │   │   ├── services/
 │   │   ├── styles/
-│   │   ├── index.css
 │   │   └── main.jsx
 │   └── vite.config.js
 └── raspberry_pi/
@@ -96,8 +94,7 @@ museum-system/
     │   ├── dashboard.py
     │   ├── handlers/
     │   │   ├── __init__.py
-    │   │   ├── log_handler.py
-    │   │   └── route_handler.py
+    │   │   └── log_handler.py
     │   ├── routes/
     │   │   ├── __init__.py
     │   │   ├── api.py
@@ -144,9 +141,7 @@ museum-system/
     ├── services/
     │   ├── museum-watchdog.service.template
     │   ├── museum.service.template
-    │   ├── restart_service.sh
-    │   └── tempCodeRunnerFile.sh
-    ├── tempCodeRunnerFile.sh
+    │   └── restart_service.sh
     ├── tests/
     │   ├── manual_scene_service_stress.py
     │   ├── manual_web_retry_p03_test.sh

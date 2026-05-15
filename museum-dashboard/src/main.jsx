@@ -6,7 +6,6 @@ import { AuthProvider } from './context/AuthContext.jsx'
 import { ConfirmProvider } from './context/ConfirmContext.jsx'
 import App from './App.jsx'
 
-import './index.css'
 import './styles/base.css'
 import './styles/theme.css'
 import './styles/layout.css'
