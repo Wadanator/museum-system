@@ -31,71 +31,21 @@ The repository still contains a few older artifacts from previous iterations:
 
 ## Safe Cleanup Candidates
 
-These appear safe to remove after one final `rg` check. They are not part of the current runtime path.
+### ~~`raspberry_pi/Web/handlers/route_handler.py`~~ ✓ DONE
 
-### `raspberry_pi/Web/handlers/route_handler.py`
+Deleted. Empty file with no runtime references. Removed from `docs/03_file_structure.md`.
 
-Status: tracked file, currently empty.
+### ~~`raspberry_pi/tempCodeRunnerFile.sh`~~ ✓ DONE
 
-Evidence:
-- File length is `0`.
-- No active import found outside documentation.
-- Flask blueprints are registered through `raspberry_pi/Web/app.py` and `raspberry_pi/Web/routes/api.py`.
+Deleted. VS Code runner artifact, not used by install or runtime. Removed from `docs/03_file_structure.md`.
 
-Recommendation:
-- Delete this file.
-- Remove it from `docs/03_file_structure.md`.
+### ~~`raspberry_pi/services/tempCodeRunnerFile.sh`~~ ✓ DONE
 
-Risk:
-- Very low. It has no content and no runtime references.
+Deleted. Same editor artifact with ad-hoc service commands. Removed from `docs/03_file_structure.md`.
 
-### `raspberry_pi/tempCodeRunnerFile.sh`
+### ~~`museum-dashboard/src/App.css`~~ ✓ DONE
 
-Status: tracked file, editor/runner artifact.
-
-Evidence:
-- Name matches VS Code temporary runner output.
-- Not referenced by install scripts or runtime.
-- Listed in `docs/03_file_structure.md`, which likely captured it accidentally.
-
-Recommendation:
-- Delete this file.
-- Remove it from `docs/03_file_structure.md`.
-
-Risk:
-- Very low.
-
-### `raspberry_pi/services/tempCodeRunnerFile.sh`
-
-Status: tracked file, editor/runner artifact.
-
-Evidence:
-- Contains ad-hoc service stop/start commands.
-- Not used by `install.sh` or `install_offline.sh`.
-- Production service templates are `museum.service.template` and `museum-watchdog.service.template`.
-
-Recommendation:
-- Delete this file.
-- Remove it from `docs/03_file_structure.md`.
-
-Risk:
-- Very low. If a manual restart helper is desired, create a clearly named script such as `restart_services_dev.sh`.
-
-### `museum-dashboard/src/App.css`
-
-Status: tracked file, currently empty.
-
-Evidence:
-- File length is `0`.
-- No active import found in current `App.jsx`.
-- Styling is now centralized under `src/styles/`.
-
-Recommendation:
-- Delete this file.
-- Remove it from docs.
-
-Risk:
-- Very low.
+Deleted. Empty file, not imported anywhere. Styling is in `src/styles/`. Removed from `docs/03_file_structure.md`.
 
 ### `raspberry_pi/**/__pycache__/` and `*.pyc`
 
@@ -133,53 +83,17 @@ Risk:
 
 ## Likely Legacy, But Verify Before Deleting
 
-These are probably historical, but deletion could affect manual workflows or archived demos.
+### ~~`museum-dashboard/src/components/Dashboard/DashboardControls.jsx`~~ ✓ DONE
 
-### `museum-dashboard/src/components/Dashboard/DashboardControls.jsx`
+Deleted. Not imported anywhere in the current dashboard. UI duplicated controls now inside `HeroCard`.
 
-Status: tracked, not imported by current dashboard source.
+### ~~`museum-dashboard/src/components/Dashboard/BigStatusCard.jsx`~~ ✓ DONE
 
-Evidence:
-- `MainDashboard.jsx` currently uses `HeroCard`.
-- No active import of `DashboardControls` found outside built assets/docs.
-- Its UI duplicates the run/stop control now implemented inside `HeroCard`.
+Deleted. Not imported anywhere. Status display is now part of `HeroCard`.
 
-Recommendation:
-- Delete if no branch or pending UI refactor still uses it.
+### ~~`museum-dashboard/src/index.css`~~ ✓ DONE
 
-Risk:
-- Low for current app.
-- If someone planned to split `HeroCard` again into smaller pieces, archive the file content first or recreate from Git history.
-
-### `museum-dashboard/src/components/Dashboard/BigStatusCard.jsx`
-
-Status: tracked, not imported by current dashboard source.
-
-Evidence:
-- `MainDashboard.jsx` uses `HeroCard`.
-- `BigStatusCard` duplicates the status half of `HeroCard`.
-- No active import found outside built assets/docs.
-
-Recommendation:
-- Delete together with `DashboardControls.jsx`.
-
-Risk:
-- Low for current app.
-
-### `museum-dashboard/src/index.css`
-
-Status: tracked, empty, still imported by `museum-dashboard/src/main.jsx`.
-
-Evidence:
-- File length is `0`.
-- `main.jsx` imports it before the real style files.
-
-Recommendation:
-- Either keep it as an intentional Vite placeholder, or remove the import and delete the file.
-- If deleted, verify `npm run build`.
-
-Risk:
-- Very low, but requires removing the import too.
+Deleted. Empty file. Import removed from `main.jsx`. Removed from `docs/03_file_structure.md`.
 
 ### `raspberry_pi/scenes/room2/intro.json`
 
@@ -290,44 +204,33 @@ Risk if renamed directly:
 
 ### `docs/03_file_structure.md`
 
-Status: outdated in places.
-
-Evidence:
-- Lists `route_handler.py`.
-- Lists `tempCodeRunnerFile.sh`.
-- Lists empty/legacy frontend files as normal structure.
-- Does not fully reflect newer config layout under `raspberry_pi/config/rooms/`.
-
-Recommendation:
-- Update after cleanup, not before.
-- Treat as documentation drift rather than runtime risk.
+Status: updated after LOW-risk cleanup (2026-05-15). Still needs a pass for newer config layout under `raspberry_pi/config/rooms/`.
 
 ## Suggested Cleanup Order
 
-1. Delete editor/runtime artifacts:
-   - `raspberry_pi/tempCodeRunnerFile.sh`
-   - `raspberry_pi/services/tempCodeRunnerFile.sh`
+1. ~~Delete editor/runtime artifacts~~ ✓ DONE
+   - ~~`raspberry_pi/tempCodeRunnerFile.sh`~~
+   - ~~`raspberry_pi/services/tempCodeRunnerFile.sh`~~
    - local `__pycache__/`
    - local root `tmp*` directories after manual inspection
 
-2. Delete empty or unused source placeholders:
-   - `raspberry_pi/Web/handlers/route_handler.py`
-   - `museum-dashboard/src/App.css`
-   - optionally `museum-dashboard/src/index.css` plus its import
+2. ~~Delete empty or unused source placeholders~~ ✓ DONE
+   - ~~`raspberry_pi/Web/handlers/route_handler.py`~~
+   - ~~`museum-dashboard/src/App.css`~~
+   - ~~`museum-dashboard/src/index.css` plus its import~~
 
-3. Delete obsolete frontend components:
-   - `DashboardControls.jsx`
-   - `BigStatusCard.jsx`
+3. ~~Delete obsolete frontend components~~ ✓ DONE
+   - ~~`DashboardControls.jsx`~~
+   - ~~`BigStatusCard.jsx`~~
 
 4. Decide on legacy data:
    - `raspberry_pi/scenes/room2/*`
    - `raspberry_pi/scenes/room1/devices.json`
 
 5. Update documentation:
-   - `docs/03_file_structure.md`
+   - `docs/03_file_structure.md` — partial, needs config/rooms section
 
 6. Run checks:
    - frontend build after frontend cleanup
    - Python compile after backend cleanup
    - manual web smoke test on Raspberry Pi
-
