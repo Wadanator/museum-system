@@ -122,7 +122,7 @@ class WebDashboard:
             """Handle SocketIO client disconnections."""
             with self._sids_lock:
                 self._connected_sids.discard(flask_request.sid)
-            self.log.info("SocketIO client disconnected")
+            self.log.debug("SocketIO client disconnected")
 
         @self.socketio.on('request_logs')
         def handle_log_request():

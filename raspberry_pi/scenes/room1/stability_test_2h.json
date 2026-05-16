@@ -1,0 +1,94 @@
+{
+  "sceneId": "stability_test_2h",
+  "description": "2h stability test – light/1 prepína každých 60s (1 klik/min), light/3 posiela idempotentné heartbeaty každých 10s (bez kliku, len MQTT+feedback test)",
+  "version": "1.0",
+  "initialState": "MINUTE_ON",
+  "globalEvents": [
+    {
+      "type": "mqttMessage",
+      "topic": "room1/emergency",
+      "message": "STOP",
+      "goto": "END"
+    },
+    {
+      "type": "timeout",
+      "delay": 7200,
+      "goto": "END"
+    }
+  ],
+  "states": {
+    "MINUTE_ON": {
+      "description": "light/1 ON (60s) – heartbeat light/3 ON každých 10s, bez reálneho kliku",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/1"
+        },
+        {
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/3"
+        }
+      ],
+      "timeline": [
+        { "at": 10, "action": "mqtt", "message": "ON", "topic": "room1/light/3" },
+        { "at": 20, "action": "mqtt", "message": "ON", "topic": "room1/light/3" },
+        { "at": 30, "action": "mqtt", "message": "ON", "topic": "room1/light/3" },
+        { "at": 40, "action": "mqtt", "message": "ON", "topic": "room1/light/3" },
+        { "at": 50, "action": "mqtt", "message": "ON", "topic": "room1/light/3" }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 60,
+          "goto": "MINUTE_OFF"
+        }
+      ]
+    },
+    "MINUTE_OFF": {
+      "description": "light/1 OFF (60s) – heartbeat light/3 OFF každých 10s, bez reálneho kliku",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/1"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/3"
+        }
+      ],
+      "timeline": [
+        { "at": 10, "action": "mqtt", "message": "OFF", "topic": "room1/light/3" },
+        { "at": 20, "action": "mqtt", "message": "OFF", "topic": "room1/light/3" },
+        { "at": 30, "action": "mqtt", "message": "OFF", "topic": "room1/light/3" },
+        { "at": 40, "action": "mqtt", "message": "OFF", "topic": "room1/light/3" },
+        { "at": 50, "action": "mqtt", "message": "OFF", "topic": "room1/light/3" }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 60,
+          "goto": "MINUTE_ON"
+        }
+      ]
+    },
+    "END": {
+      "description": "Koniec testu – vypnutie všetkého",
+      "onEnter": [
+        { "action": "mqtt", "message": "OFF", "topic": "room1/light/1" },
+        { "action": "mqtt", "message": "OFF", "topic": "room1/light/2" },
+        { "action": "mqtt", "message": "OFF", "topic": "room1/light/3" },
+        { "action": "mqtt", "message": "OFF", "topic": "room1/light/4" },
+        { "action": "mqtt", "message": "OFF", "topic": "room1/light/5" },
+        { "action": "mqtt", "message": "OFF", "topic": "room1/light/fire" },
+        { "action": "mqtt", "message": "OFF", "topic": "room1/effect/smoke" },
+        { "action": "mqtt", "message": "OFF", "topic": "room1/power/smoke_ON" },
+        { "action": "audio", "message": "STOP" },
+        { "action": "video", "message": "STOP_VIDEO" }
+      ]
+    }
+  }
+}

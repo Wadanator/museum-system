@@ -88,7 +88,7 @@ def setup_commands_routes(dashboard):
                 success = controller.mqtt_client.publish(topic, payload)
                 if not success:
                     return jsonify({'error': 'MQTT publish failed — broker may be disconnected'}), 503
-                dashboard.log.info(f"Manual MQTT: {topic} -> {payload}")
+                dashboard.log.debug(f"Manual MQTT: {topic} -> {payload}")
                 return jsonify({'success': True})
             else:
                 return jsonify({'error': 'MQTT client not available'}), 503

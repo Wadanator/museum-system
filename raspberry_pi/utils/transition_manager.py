@@ -216,7 +216,7 @@ class TransitionManager:
         elif level == "error":
             self.logger.error(f"{log_msg} -> {goto}")
         else:
-            self.logger.info(f"{log_msg} -> {goto}")
+            self.logger.debug(f"{log_msg} -> {goto}")
         return goto
 
     # --- Event Registration Methods (Thread-Safe) ---

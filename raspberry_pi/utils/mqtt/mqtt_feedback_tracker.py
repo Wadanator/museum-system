@@ -192,7 +192,7 @@ class MQTTFeedbackTracker:
 
                 if is_success:
                     feedback_label = 'OK' if is_ok else normalized_payload
-                    self.logger.info(
+                    self.logger.debug(
                         f"Feedback {feedback_label}: {original_topic} "
                         f"({elapsed * 1000:.0f}ms)"
                     )

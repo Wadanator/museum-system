@@ -1,0 +1,95 @@
+{
+  "sceneId": "global_event_test",
+  "description": "Test globalných prechodov – normálne stavy bežia 60s každý, ale globalny timeout 10s ich preruší skôr",
+  "version": "1.0",
+  "initialState": "LOOP_A",
+  "globalEvents": [
+    {
+      "type": "mqttMessage",
+      "topic": "room1/emergency",
+      "message": "STOP",
+      "goto": "END"
+    },
+    {
+      "type": "timeout",
+      "delay": 10,
+      "goto": "END"
+    }
+  ],
+  "states": {
+    "LOOP_A": {
+      "description": "Stav A (60s): light/1 ON – globalny timeout 10s ho preruší skôr ako dobehne",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/1"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/2"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 60,
+          "goto": "LOOP_B"
+        }
+      ]
+    },
+    "LOOP_B": {
+      "description": "Stav B (60s): light/2 ON – sem by sa nikdy nemalo dôjsť ak globalny funguje",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/1"
+        },
+        {
+          "action": "mqtt",
+          "message": "ON",
+          "topic": "room1/light/2"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 60,
+          "goto": "LOOP_A"
+        }
+      ]
+    },
+    "END": {
+      "description": "Koniec – globalny prechod funguje ak toto nastane po ~180s",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/1"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/2"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/3"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/4"
+        },
+        {
+          "action": "mqtt",
+          "message": "OFF",
+          "topic": "room1/light/5"
+        }
+      ]
+    }
+  }
+}
