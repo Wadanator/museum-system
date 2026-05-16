@@ -231,7 +231,7 @@ class WebDashboard:
             log_db = Config.LOG_DIR / 'museum_logs.db'
             if log_db.exists():
                 loaded = self._load_existing_logs_from_db(log_db)
-                self.log.info(f"Loaded {loaded} log entries from SQLite history")
+                self.log.debug(f"Loaded {loaded} log entries from SQLite history")
                 return
 
             main_log = Config.LOG_DIR / 'museum.log'

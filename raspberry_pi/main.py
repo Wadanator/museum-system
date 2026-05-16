@@ -411,7 +411,7 @@ class MuseumController:
         """Publish a STOP command to all MQTT devices in the room."""
         if self.mqtt_client and self.mqtt_client.is_connected():
             stop_topic = f"{self.room_id}/STOP"
-            log.info(f"Broadcasting STOP signal to MQTT: {stop_topic}")
+            log.debug(f"Broadcasting STOP signal to MQTT: {stop_topic}")
             try:
                 self.mqtt_client.publish(stop_topic, "STOP")
             except Exception as e:
@@ -440,7 +440,7 @@ class MuseumController:
 
         while not self.shutdown_requested:
             if not self.scene_running:
-                log.info("Scene execution was stopped externally.")
+                log.debug("Scene execution was stopped externally.")
                 break
             
             scene_continues = self.scene_parser.process_scene()
@@ -450,7 +450,7 @@ class MuseumController:
             
             time.sleep(self.scene_processing_sleep)
 
-        log.info("Scene execution finished")
+        log.debug("Scene execution finished")
 
         if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
             if self.mqtt_client.feedback_tracker:

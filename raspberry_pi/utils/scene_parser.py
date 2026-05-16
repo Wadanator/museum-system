@@ -150,7 +150,7 @@ class SceneParser:
             self._collect_audio_files(self.state_machine.scene_data, required_audio)
 
             if required_audio:
-                self.logger.info(
+                self.logger.debug(
                     f"Found {len(required_audio)} audio files required for this scene."
                 )
                 # 2. Send list to AudioHandler for RAM preloading (acts as a loading screen)
@@ -243,7 +243,7 @@ class SceneParser:
             self.transition_manager.clear_events()
         if self.state_executor:
             self.state_executor.reset_timeline_tracking()
-        self.logger.info("SceneParser internal state reset.")
+        self.logger.debug("SceneParser internal state reset.")
 
     def register_mqtt_event(self, topic, payload):
         """

@@ -91,6 +91,7 @@ def setup_scenes_routes(dashboard):
 
             success = controller.start_scene_by_name(requested_scene)
             if success:
+                dashboard.log.info(f"[MANUAL] Scene '{requested_scene}' started via dashboard")
                 return jsonify({'success': True, 'message': f'Scene {requested_scene} started'})
 
             # Scene start was rejected (typically scene already running).
@@ -106,14 +107,14 @@ def setup_scenes_routes(dashboard):
     def stop_scene():
         """Zastaví prebiehajúcu scénu a vyčistí stav systému."""
         try:
-            dashboard.log.info("Web dashboard requested GLOBAL STOP")
+            dashboard.log.info("[MANUAL] STOP requested via dashboard")
             controller.stop_scene()
         except Exception as e:
             dashboard.log.error(f"Critical error during stop_scene route: {e}")
             return jsonify({'error': str(e)}), 500
         finally:
             dashboard._broadcast_event('status_update', _get_current_status_data(controller))
-            dashboard.log.info("Scene stop sequence finished.")
+            dashboard.log.debug("Scene stop sequence finished.")
         return jsonify({'success': True, 'message': 'Stop signal broadcasted to all devices'})
 
 

@@ -156,6 +156,7 @@ def play_audio():
         controller = current_app.config.get('CONTROLLER')
         
         if controller and controller.audio_handler:
+            logger.info(f"[MANUAL] Audio play: {filename}")
             success = controller.audio_handler.play_audio(filename)
             if success:
                 return jsonify({'status': 'playing', 'file': filename})
@@ -182,6 +183,7 @@ def play_video():
         controller = current_app.config.get('CONTROLLER')
         
         if controller and controller.video_handler:
+            logger.info(f"[MANUAL] Video play: {filename}")
             success = controller.video_handler.play_video(filename)
             if success:
                 return jsonify({'status': 'playing', 'file': filename})
@@ -207,11 +209,12 @@ def stop_all_media():
         if controller.audio_handler:
             controller.audio_handler.stop_audio()
             stopped.append('audio')
-            
+
         if controller.video_handler:
             controller.video_handler.stop_video()
             stopped.append('video')
-            
+
+        logger.info(f"[MANUAL] All media stopped via dashboard ({', '.join(stopped)})")
         return jsonify({'status': 'stopped', 'components': stopped})
 
     except Exception as e:

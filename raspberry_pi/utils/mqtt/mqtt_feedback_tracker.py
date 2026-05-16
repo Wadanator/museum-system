@@ -101,7 +101,7 @@ class MQTTFeedbackTracker:
                         pending_count,
                     )
                 self.pending_feedbacks.clear()
-                self.logger.info("MQTT feedback tracking disabled")
+                self.logger.debug("MQTT feedback tracking disabled")
 
     def track_published_message(self, original_topic: str, message: str) -> None:
         """
