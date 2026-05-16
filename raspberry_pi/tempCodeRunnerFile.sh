@@ -1,1 +1,0 @@
-sudo systemctl restart museum-system.service
