@@ -81,7 +81,7 @@ class VideoHandler:
         os.makedirs(self.video_dir, exist_ok=True)
         self._ensure_iddle_image()
         self._start_mpv()
-        self.logger.info("Video handler initialized")
+        self.logger.debug("Video handler initialized")
 
     # ==========================================================================
     # HARDWARE DETECTION

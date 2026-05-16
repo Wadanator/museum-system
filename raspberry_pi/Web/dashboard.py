@@ -113,7 +113,7 @@ class WebDashboard:
                 self.update_stats()
                 self._emit_to_sid('stats_update', self.stats, flask_request.sid)
                 self._emit_to_sid('status_update', self._get_status_data(), flask_request.sid)
-                self.log.info("SocketIO client connected")
+                self.log.debug("SocketIO client connected")
             except Exception as e:
                 self.log.error(f"Error on connect: {e}")
 

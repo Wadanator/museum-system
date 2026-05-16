@@ -60,7 +60,7 @@ class ServiceContainer:
         Returns:
             ServiceContainer: Returns self to allow method chaining.
         """
-        self.log.info("Initializing system services...")
+        self.log.debug("Initializing system services...")
 
         self._init_audio()
         self._init_video()
