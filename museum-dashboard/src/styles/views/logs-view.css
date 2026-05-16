@@ -166,11 +166,6 @@
     gap: 10px;
 }
 
-.login-submit-btn {
-    margin-top: 10px;
-    border-radius: 12px;
-}
-
 @media (max-width: 640px) {
     .logs-view {
         gap: 16px;

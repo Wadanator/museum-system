@@ -93,3 +93,8 @@
     font-size: 0.9rem;
     text-align: center;
 }
+
+.login-submit-btn {
+    margin-top: 10px;
+    border-radius: var(--radius-lg);
+}

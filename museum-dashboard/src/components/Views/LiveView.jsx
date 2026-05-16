@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useSocket } from '../../context/useSocket';
 import { useScenes } from '../../hooks/useScenes';
 import { useDevices } from '../../hooks/useDevices';
 import { useDeviceRuntimeState } from '../../hooks/useDeviceRuntimeState';
+import { useSceneProgress } from '../../hooks/useSceneProgress';
 import SceneVisualizer from '../Scenes/SceneVisualizer';
 import PageHeader from '../ui/PageHeader';
 import Button from '../ui/Button';
@@ -16,14 +16,13 @@ export default function LiveView({
     showSceneSelector = true,
     onSceneDataLoaded,
 }) {
-    const { socket } = useSocket();
     const { scenes, loadSceneContent, playScene, fetchScenes } = useScenes();
     const { devices } = useDevices();
     const { getStateForDevice, getDisplayStateForDevice } = useDeviceRuntimeState();
+    const { activeState, resetActiveState } = useSceneProgress();
 
     const [internalSelectedScene, setInternalSelectedScene] = useState(null);
     const [internalSceneData, setInternalSceneData] = useState(null);
-    const [activeState, setActiveState] = useState(null);
 
     const selectedScene = controlledSelectedScene ?? internalSelectedScene;
     const sceneData = controlledSceneData ?? internalSceneData;
@@ -34,19 +33,6 @@ export default function LiveView({
         }
     }, [showSceneSelector, fetchScenes]);
 
-    useEffect(() => {
-        if (!socket) return;
-
-        const handleProgress = (data) => {
-            if (data?.activeState) {
-                setActiveState(data.activeState);
-            }
-        };
-
-        socket.on('scene_progress', handleProgress);
-        return () => socket.off('scene_progress', handleProgress);
-    }, [socket]);
-
     const handleSelectScene = async (e) => {
         const filename = e.target.value;
         setInternalSelectedScene(filename);
@@ -55,13 +41,13 @@ export default function LiveView({
         const content = await loadSceneContent(filename);
         setInternalSceneData(content);
         onSceneDataLoaded?.(filename, content);
-        setActiveState(null);
+        resetActiveState();
     };
 
     const handlePlay = () => {
         if (!selectedScene) return;
         playScene(selectedScene);
-        setActiveState(null);
+        resetActiveState();
     };
 
     const sceneLabel = selectedScene

@@ -1,5 +1,11 @@
 /* src/styles/views/media-manager.css */
 
+.media-manager-view {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
 /* Zoznam súborov v karte */
 .files-list {
     display: flex;

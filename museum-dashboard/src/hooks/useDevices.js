@@ -6,30 +6,25 @@ export function useDevices() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    const loadDevices = async () => {
+        const response = await api.getDevices();
+        const motors = (response.motors || []).map(d => ({ ...d, type: 'motor' }));
+        const relaysRaw = response.relays || [];
+        const lightsRaw = response.lights || [];
+        const allRelays = [...relaysRaw, ...lightsRaw].map(d => ({ ...d, type: 'relay' }));
+        setData({
+            all: [...motors, ...allRelays],
+            motors,
+            relays: allRelays
+        });
+    };
+
     useEffect(() => {
         const fetchDevices = async () => {
             try {
-                const response = await api.getDevices();
-                
-                // Motors
-                const motors = (response.motors || []).map(d => ({ ...d, type: 'motor' }));
-                
-                const relaysRaw = response.relays || [];
-                const lightsRaw = response.lights || [];
-                
-                // Combine them (concat is fine here to avoid duplicates)
-                const allRelays = [...relaysRaw, ...lightsRaw].map(d => ({ ...d, type: 'relay' }));
-
-                setData({
-                    all: [...motors, ...allRelays],
-                    motors,
-                    relays: allRelays
-                });
-                
+                await loadDevices();
                 setError(null);
-                
             } catch (err) {
-                console.error("Device fetch error:", err);
                 setError(err.message || 'Failed to fetch devices');
             } finally {
                 setLoading(false);
@@ -39,36 +34,23 @@ export function useDevices() {
         fetchDevices();
     }, []);
 
-    // Refresh function that other components can use
     const refresh = async () => {
         setLoading(true);
         setError(null);
-        
         try {
-            const response = await api.getDevices();
-            const motors = (response.motors || []).map(d => ({ ...d, type: 'motor' }));
-            const relaysRaw = response.relays || [];
-            const lightsRaw = response.lights || [];
-            const allRelays = [...relaysRaw, ...lightsRaw].map(d => ({ ...d, type: 'relay' }));
-
-            setData({
-                all: [...motors, ...allRelays],
-                motors,
-                relays: allRelays
-            });
+            await loadDevices();
         } catch (err) {
-            console.error("Device refresh error:", err);
             setError(err.message || 'Failed to refresh devices');
         } finally {
             setLoading(false);
         }
     };
 
-    return { 
-        devices: data.all, 
-        motors: data.motors, 
-        relays: data.relays, 
-        loading, 
+    return {
+        devices: data.all,
+        motors: data.motors,
+        relays: data.relays,
+        loading,
         error,
         refresh
     };
