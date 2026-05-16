@@ -92,7 +92,6 @@ class MuseumController:
         self._heartbeat_stop_event: threading.Event = threading.Event()
         self._heartbeat_thread: threading.Thread | None = None
         
-        # --- KROK 2: Inicializácia cez Service Container ---
         log.info(f"Initializing Museum Controller for {self.room_id}")
         
         self.services = ServiceContainer(self.config, self.room_id, log)
@@ -104,7 +103,7 @@ class MuseumController:
         # Device outage tracker for ESP device statistics
         self.outage_tracker = DeviceOutageTracker()
         
-        # Vytiahneme si referencie pre ľahší prístup v kóde
+        # Extract service references for direct access throughout the controller
         self.audio_handler = self.services.audio_handler
         self.video_handler = self.services.video_handler
         self.mqtt_client = self.services.mqtt_client
@@ -114,7 +113,6 @@ class MuseumController:
         self.system_monitor = self.services.system_monitor
         self.button_handler = self.services.button_handler
 
-        # --- Wiring (Prepojenie Callbackov) ---
         self._wire_dependencies()
         
         # Web Dashboard
@@ -127,7 +125,7 @@ class MuseumController:
                 log.warning(f"Web dashboard failed to start: {e}")
 
     def _wire_dependencies(self):
-        """Prepojenie callbackov a závislostí medzi službami a controllerom."""
+        """Wire callbacks and dependencies between services and the controller."""
         
         # 1. MQTT Callbacks
         if self.mqtt_message_handler:
@@ -163,7 +161,8 @@ class MuseumController:
             video_handler=self.video_handler
         )
         
-        # Prepojenie Parser -> MQTT Handler
+        # Connect scene parser to MQTT message handler so incoming messages
+        # can trigger mqttMessage transitions in the running state machine
         if self.mqtt_message_handler:
             self.mqtt_message_handler.scene_parser = self.scene_parser
             log.debug("Scene parser connected to MQTT message handler for transitions")
@@ -220,6 +219,8 @@ class MuseumController:
         return True
 
     def _heartbeat_loop(self) -> None:
+        """Periodically rewrite the scene state file to 'running' so the watchdog
+        does not mistake a long-running scene for a hung service."""
         while not self._heartbeat_stop_event.wait(self.scene_heartbeat_interval):
             with self.scene_lock:
                 if self._heartbeat_stop_event.is_set() or not self.scene_running:
@@ -230,6 +231,7 @@ class MuseumController:
                     log.warning(f"Scene heartbeat failed to update state file: {exc}")
 
     def _start_heartbeat(self) -> None:
+        """Start the heartbeat thread if it is not already running."""
         if self._heartbeat_thread and self._heartbeat_thread.is_alive():
             return
         self._heartbeat_stop_event.clear()
@@ -241,6 +243,7 @@ class MuseumController:
         self._heartbeat_thread.start()
 
     def _stop_heartbeat(self) -> None:
+        """Signal the heartbeat thread to stop and wait for it to exit."""
         self._heartbeat_stop_event.set()
         thread = self._heartbeat_thread
         if thread and thread.is_alive():
@@ -327,7 +330,6 @@ class MuseumController:
                     
                     if hasattr(self.scene_parser, 'state_machine'):
                         self.scene_parser.state_machine.on_state_change = notify_web
-                # ----------------------------------------------------
 
                 if not self.scene_running or self.shutdown_requested:
                     log.info("Scene start cancelled before execution.")
@@ -338,11 +340,17 @@ class MuseumController:
                 except Exception as e:
                     log.error(f"An error occurred during scene execution: {e}")
                 finally:
-                    # 1. Vypneme video
+                    # Stop local media unconditionally — covers the exception path
+                    # where END.onEnter (which normally issues audio STOP) never ran.
+                    if self.audio_handler:
+                        try:
+                            self.audio_handler.stop_audio()
+                        except Exception as e:
+                            log.error(f"Error stopping audio in scene finally: {e}")
+
                     if self.video_handler:
                         self.video_handler.stop_video()
 
-                    # 2. Reset príznaku behu a broadcast STOP
                     transitioned = self._set_scene_running(False, f"scene_thread_finally:{scene_filename}")
                     if transitioned:
                         if self.actuator_state_store:
@@ -364,7 +372,7 @@ class MuseumController:
                 self.web_dashboard.broadcast_status()
 
     def stop_scene(self):
-        """Zastaví prebiehajúcu scénu a vypne všetky externé zariadenia cez MQTT."""
+        """Stop the running scene and shut down all local and external devices."""
         log.info(f"Initiating GLOBAL STOP for {self.room_id}")
 
         transitioned = self._set_scene_running(False, "external_stop", expect_current=True)
@@ -400,7 +408,7 @@ class MuseumController:
         return True
 
     def broadcast_stop(self):
-        """Odošle STOP správu všetkým MQTT zariadeniam v miestnosti."""
+        """Publish a STOP command to all MQTT devices in the room."""
         if self.mqtt_client and self.mqtt_client.is_connected():
             stop_topic = f"{self.room_id}/STOP"
             log.info(f"Broadcasting STOP signal to MQTT: {stop_topic}")
@@ -418,12 +426,11 @@ class MuseumController:
 
         log.debug("Starting state machine scene execution")
 
-        # 1. Tracking ON
+        # Enable MQTT feedback tracking for the duration of the scene
         if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
             if self.mqtt_client.feedback_tracker:
                 self.mqtt_client.feedback_tracker.enable_feedback_tracking()
 
-        # 2. Start
         if not self.scene_parser.start_scene():
             log.error("Failed to start scene state machine")
             if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
@@ -431,7 +438,6 @@ class MuseumController:
                     self.mqtt_client.feedback_tracker.disable_feedback_tracking()
             return
 
-        # 3. Loop
         while not self.shutdown_requested:
             if not self.scene_running:
                 log.info("Scene execution was stopped externally.")
@@ -446,7 +452,6 @@ class MuseumController:
 
         log.info("Scene execution finished")
 
-        # 4. Tracking OFF & Cleanup
         if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
             if self.mqtt_client.feedback_tracker:
                 self.mqtt_client.feedback_tracker.disable_feedback_tracking()
@@ -467,7 +472,6 @@ class MuseumController:
                 log.warning("Cannot update scene stats: Unknown scene name")
                 self.web_dashboard.stats['total_scenes_played'] += 1
                 self.web_dashboard.save_stats()
-            # FIX: pridať namespace='/'
             self.web_dashboard.socketio.emit(
                 'stats_update',
                 self.web_dashboard.stats,
@@ -477,6 +481,7 @@ class MuseumController:
             log.error(f"Error updating stats: {e}")
 
     def system_restart(self):
+        """Reboot the Raspberry Pi (triggered from the web dashboard)."""
         log.warning("Initiating System Reboot...")
         try:
             subprocess.Popen(['sudo', 'reboot'], shell=False)
@@ -484,6 +489,7 @@ class MuseumController:
             log.error(f"Failed to initiate reboot: {e}")
 
     def system_shutdown(self):
+        """Power off the Raspberry Pi (triggered from the web dashboard)."""
         log.warning("Initiating System Shutdown...")
         try:
             subprocess.Popen(['sudo', 'shutdown', '-h', 'now'], shell=False)
@@ -491,6 +497,7 @@ class MuseumController:
             log.error(f"Failed to initiate shutdown: {e}")
 
     def service_restart(self):
+        """Exit the process so systemd can restart the museum service."""
         log.warning("Initiating Service Restart (Exit)...")
         self.shutdown_requested = True
         sys.exit(0) 

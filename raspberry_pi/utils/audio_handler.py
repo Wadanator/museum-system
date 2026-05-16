@@ -343,7 +343,7 @@ class AudioHandler:
             if pygame.mixer.music.get_busy():
                 self.logger.info("Stopping music stream...")
                 pygame.mixer.music.fadeout(500)
-                time.sleep(0.1)
+                time.sleep(0.5)
                 pygame.mixer.music.stop()
                 try:
                     pygame.mixer.music.unload()

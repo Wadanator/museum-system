@@ -1,7 +1,7 @@
 # Museum System - Reliability Code Review
 
 Original date: 2026-04-27
-Last updated: 2026-05-06
+Last updated: 2026-05-16
 Scope: Raspberry Pi backend and web dashboard/frontend
 Review type: static code review on Windows; Raspberry Pi runtime was not started
 
@@ -26,12 +26,13 @@ The system has solid reliability foundations: centralized scene lifecycle state 
 
 Currently open reliability risks:
 
-1. **Audio is not stopped when the scene thread exits via an exception path** — silently leaves music streaming after a crash until the next scene start. New finding 2026-05-06, applies directly to the looped SceneV01 use case.
-2. Scene MQTT publish failure policy is still a design gap for critical hardware actions.
-3. Lower-priority issues that are real but less dangerous in normal operation: synchronous dashboard log broadcast, web crash loop, MQTT feedback ambiguity, and pygame `fadeout`/`stop` mismatch causing an audible click on every scene loop.
+1. Scene MQTT publish failure policy is still a design gap for critical hardware actions.
+2. Lower-priority issues that are real but less dangerous in normal operation: synchronous dashboard log broadcast, web crash loop, MQTT feedback ambiguity.
 
 Already fixed (condensed list — short summaries under each closed finding below):
 
+- Audio not stopped on scene exception path — `_run_scene_logic.finally` now calls `stop_audio()` unconditionally.
+- pygame fadeout click — `time.sleep(0.1)` → `time.sleep(0.5)` so the 500 ms fade completes before `stop()`.
 - Main scene button auth fetch.
 - Duplicate scene STOP broadcast.
 - MQTT falsey payload validation.
@@ -47,68 +48,13 @@ Important nuance: the Vite output path is fixed, but deployment is not fully enf
 
 ## Findings
 
-### P1 - Audio Not Stopped When Scene Thread Exits Via Exception (NEW 2026-05-06)
+### [FIXED] P1 - Audio Not Stopped When Scene Thread Exits Via Exception
 
-File:
+File: `raspberry_pi/main.py` — `_run_scene_logic()` finally block
 
-- `raspberry_pi/main.py` — `_run_scene_logic()` finally block (≈ lines 340–353)
+**Problem:** When `run_scene()` raised an exception, the `finally` block stopped video, reset scene state, and broadcast MQTT STOP — but never called `audio_handler.stop_audio()`. On a clean scene end, `END.onEnter` normally issues the audio `STOP` action. On the exception path that action never runs, so music kept playing on the Pi's speakers until the next button press.
 
-Verified code:
-
-```python
-try:
-    self.run_scene()
-except Exception as e:
-    log.error(f"An error occurred during scene execution: {e}")
-finally:
-    # 1. Vypneme video
-    if self.video_handler:
-        self.video_handler.stop_video()
-
-    # 2. Reset príznaku behu a broadcast STOP
-    transitioned = self._set_scene_running(False, f"scene_thread_finally:{scene_filename}")
-    if transitioned:
-        if self.actuator_state_store:
-            self.actuator_state_store.force_all_off(source='scene_end')
-        self.broadcast_stop()
-    ...
-```
-
-The `finally` branch stops video, transitions scene state to idle, force-offs the actuator state store, and publishes the MQTT STOP broadcast. It does **not** call `audio_handler.stop_all()`.
-
-By contrast both `stop_scene()` and `cleanup()` *do* explicitly stop audio. The exception path is the asymmetric one.
-
-Why audio still normally stops on a clean run:
-
-- A scene that completes via the `END` state relies on `END.onEnter` containing `{"action": "audio", "message": "STOP"}` to silence the speakers.
-- `broadcast_stop()` only publishes `<room_id>/STOP` over MQTT. Audio runs locally on the Pi, so MQTT STOP never silences it.
-
-Why this fails in the exception path:
-
-- If `run_scene()` raises (unexpected `state_executor` error, transition glitch, audio handler exception, anything), control jumps to `finally` *before* `END.onEnter` ever runs.
-- The `END` state's `audio: STOP` action never fires.
-- `finally` does not stop audio either.
-- Result: music (e.g. SceneV01's `atmosfera.wav` stream) keeps playing on the Pi's speakers indefinitely.
-- Recovery only happens at the next scene start, when `preload_files_for_scene()` calls `stop_all()`.
-
-Impact for the looped SceneV01 use case:
-
-- Hardware (lights, motors, smoke, relays) is correctly turned off via `actuator_state_store.force_all_off()` and `broadcast_stop()`.
-- Audio remains live until a person presses the button again. In an unattended ambient installation the room can be silent-with-speakers-on for an unbounded amount of time.
-- A single transient scene-thread exception is therefore enough to cause an audible reliability failure for visitors.
-
-Recommended fix:
-
-- In `_run_scene_logic.finally`, before stopping video and transitioning state, call `audio_handler.stop_all()` inside its own try/except so a failing audio shutdown still does not block the rest of the cleanup.
-- Optionally also force `actuator_state_store.force_all_off()` and `broadcast_stop()` even when `transitioned` is False, so external `stop_scene()` followed by an exception does not leave the system in a half-stopped state. (Lower priority — `stop_scene()` already covers that path.)
-
-Acceptance check:
-
-- Inject an exception inside `run_scene()` (e.g. force-throw during state processing).
-- Observed: audio is silenced as soon as the scene thread exits, not at the next button press.
-- Hardware actuators are still turned off as before.
-
-Verdict: real P1 for unattended looped operation. Small, surgical fix.
+**Fix:** `_run_scene_logic.finally` now calls `audio_handler.stop_audio()` unconditionally (inside its own try/except) before the rest of cleanup. All three exit paths — clean end, external stop, and exception — now stop audio consistently.
 
 ### P2/P3 - Scene Continues When MQTT Actions Fail
 
@@ -149,46 +95,13 @@ Acceptance check:
 
 Verdict: real design gap. P2 for critical hardware actions, otherwise P3/feature-level.
 
-### P3 - Music Stop Fadeout Is Cut Short, Producing An Audible Click (NEW 2026-05-06)
+### [FIXED] P3 - Music Stop Fadeout Is Cut Short, Producing An Audible Click
 
-File:
+File: `raspberry_pi/utils/audio_handler.py` — `stop_all()`
 
-- `raspberry_pi/utils/audio_handler.py` — `stop_all()`
+**Problem:** `fadeout(500)` schedules a 500 ms async fade, but `time.sleep(0.1)` waited only 100 ms before `stop()` cut playback at ~80 % volume — producing an audible click on every scene loop end.
 
-Verified code:
-
-```python
-if pygame.mixer.music.get_busy():
-    self.logger.info("Stopping music stream...")
-    pygame.mixer.music.fadeout(500)
-    time.sleep(0.1)
-    pygame.mixer.music.stop()
-```
-
-`pygame.mixer.music.fadeout(ms)` schedules a fade running asynchronously over 500 ms. The subsequent `time.sleep(0.1)` waits only 100 ms, then `pygame.mixer.music.stop()` cuts playback immediately. The fade is therefore aborted at roughly 20 % completion (still around 80 % volume), producing an audible click on the speakers every time `stop_all()` runs.
-
-Why this matters for the looped SceneV01 use case:
-
-- Every scene end runs `END.onEnter`'s `audio: STOP` action, which calls `handle_command("STOP")` → `stop_all()`.
-- Every next scene start runs `preload_files_for_scene()` which also calls `stop_all()`.
-- For a museum installation looping a single scene, this means an audible click on the speakers on every loop transition. It is the most visitor-perceptible runtime defect in the current code.
-
-Why the fix does not break anything:
-
-- Either `time.sleep(0.5)` to honour the fade or removing the `fadeout` and keeping just `stop()` gives consistent behaviour with no side effects on tracking state, channels, or `current_music_file` reset.
-- The `pygame.mixer.stop()` call below (which halts SFX channels) and `active_effects.clear()` are unaffected.
-
-Recommended fix (either is safe):
-
-- Change `time.sleep(0.1)` to `time.sleep(0.5)` so the 500 ms fade actually completes.
-- Or drop the `fadeout(500)` call entirely and rely on the immediate `stop()`. The click is replaced by a clean cut, which is at least consistent.
-
-Acceptance check:
-
-- Looping the scene on real hardware produces no click between iterations.
-- The music stream is silenced cleanly within at most 500 ms of `STOP`.
-
-Verdict: real P3 quality bug. Affects every loop iteration on real hardware.
+**Fix:** `time.sleep(0.1)` → `time.sleep(0.5)`. The fade now completes before `stop()` is called.
 
 ### P3 - Web Dashboard Has An Infinite Crash Loop
 
@@ -365,17 +278,15 @@ Fix: the guard now treats only `None` and empty string as missing, while preserv
 
 ## Recommended Fix Order
 
-1. **NEW: Stop audio in `_run_scene_logic.finally`** — small surgical fix; eliminates the "audio plays forever after a crash" failure mode for the looped SceneV01 deployment.
-2. **NEW: Fix pygame `fadeout`/`stop` timing mismatch** — one-line change that removes the audible click on every scene loop end.
-3. Improve dashboard failure isolation — bounded retry/backoff/degraded state for web dashboard startup crashes.
-4. Decouple dashboard log broadcasting — add async bounded queue for web log events. Exception isolation already done.
-5. Improve scene MQTT failure handling — add optional `onMqttFailure` policy for critical actions.
-6. Improve feedback truth — add correlation IDs when the ESP protocol can support it, or add a per-topic queue/warning fallback.
-7. Enforce frontend build in install/release flow.
+1. Improve dashboard failure isolation — bounded retry/backoff/degraded state for web dashboard startup crashes.
+3. Decouple dashboard log broadcasting — add async bounded queue for web log events. Exception isolation already done.
+4. Improve scene MQTT failure handling — add optional `onMqttFailure` policy for critical actions.
+5. Improve feedback truth — add correlation IDs when the ESP protocol can support it, or add a per-topic queue/warning fallback.
+6. Enforce frontend build in install/release flow.
 
 ## Final Verdict
 
-- Audio-not-stopped-on-scene-exception is a real P1 for unattended looped operation; fix is small.
+- Audio-not-stopped-on-scene-exception: fixed.
 - Web crash loop is real but P3 by default.
 - Scene MQTT failure behaviour is a design gap; P2 only for critical hardware actions.
 - Feedback correlation is real but usually P3 because physical command delivery is not directly affected.
