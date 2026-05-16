@@ -109,13 +109,13 @@ class VideoHandler:
             version_str = result.stdout.strip()
             major = int(version_str.split('.')[0])
             if major >= 12:
-                self.logger.info("Hardware decoding: v4l2 (Bookworm / Debian 12+)")
+                self.logger.debug("Hardware decoding: v4l2 (Bookworm / Debian 12+)")
                 return 'v4l2'
         except Exception:
             pass
 
         # Bullseye (Debian 11) or unknown — default to MMAL
-        self.logger.info("Hardware decoding: rpi4-mmal (Bullseye / Debian 11)")
+        self.logger.debug("Hardware decoding: rpi4-mmal (Bullseye / Debian 11)")
         return 'rpi4-mmal'
 
     # ==========================================================================
