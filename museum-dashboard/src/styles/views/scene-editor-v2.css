@@ -532,3 +532,227 @@
   border-color: var(--primary);
   background: var(--overlay-inverse-soft);
 }
+
+/* ── Editor Palette ──────────────────────────────────────────── */
+
+.se2-pal-root {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Target toggle row */
+.se2-pal-target-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-main);
+  flex-shrink: 0;
+}
+
+.se2-pal-target-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.se2-pal-target-toggle {
+  display: flex;
+  gap: 2px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+
+.se2-pal-target-btn {
+  padding: 2px var(--spacing-sm);
+  font-size: 0.68rem;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-weight: 600;
+  background: none;
+  border: none;
+  border-radius: calc(var(--radius-sm) - 2px);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.se2-pal-target-btn.active {
+  background: var(--primary);
+  color: var(--text-white);
+}
+
+/* Hint / empty */
+.se2-pal-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-style: italic;
+  margin: 0;
+  padding: var(--spacing-md) var(--spacing-md);
+}
+
+/* Loading */
+.se2-pal-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xl);
+}
+
+/* Section */
+.se2-pal-section {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.se2-pal-section-header {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  padding: var(--spacing-xs) var(--spacing-md);
+  background: var(--bg-main);
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Device row */
+.se2-pal-device-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 5px var(--spacing-sm);
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.1s;
+}
+
+.se2-pal-device-row:last-child {
+  border-bottom: none;
+}
+
+.se2-pal-device-row:hover {
+  background: var(--bg-hover);
+}
+
+.se2-pal-device-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+}
+
+.se2-pal-device-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.se2-pal-quick-btns {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.se2-pal-quick-btn {
+  height: 20px;
+  padding: 0 6px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.se2-pal-quick-btn:hover:not(:disabled) {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--text-white);
+}
+
+.se2-pal-quick-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Media row (audio / video) */
+.se2-pal-media-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 5px var(--spacing-sm);
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.1s;
+}
+
+.se2-pal-media-row:last-child {
+  border-bottom: none;
+}
+
+.se2-pal-media-row:hover {
+  background: var(--bg-hover);
+}
+
+.se2-pal-media-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.73rem;
+  font-family: 'Consolas', 'Monaco', monospace;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.se2-pal-media-btns {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.se2-pal-preview-btn,
+.se2-pal-insert-btn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  padding: 0;
+}
+
+.se2-pal-preview-btn:hover {
+  background: var(--success);
+  border-color: var(--success);
+  color: var(--text-white);
+}
+
+.se2-pal-insert-btn:hover:not(:disabled) {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--text-white);
+}
+
+.se2-pal-insert-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}

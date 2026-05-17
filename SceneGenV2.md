@@ -617,10 +617,10 @@ Cieľ: Funkčný editor stavov v dashboarde, parita s aktuálnym SceneGen.
 ### Fáza 2 — Device & Audio palety
 Cieľ: Palety namiesto hardcoded constants.
 
-1. ⬜ **→ ĎALŠÍ KROK:** `useDevicePalette.js` — transformácia `useDevices()` na palette items
-2. ⬜ `DevicePalette.jsx` + `AudioPalette.jsx` komponent v pravom paneli
-3. ⬜ `@dnd-kit` drag z palety → drop na `ActionListEditor`
-4. ⬜ Preview tlačidlo pre audio súbory (volá existujúci `api.playMedia`)
+1. ✅ `useDevicePalette.js` — transformácia `useDevices()` + `useMedia()` na palette items
+2. ✅ `EditorPalette.jsx` — motory, relé/svetlá (ON/OFF quick-insert), audio (▶ preview + insert), video (insert); onEnter/onExit toggle
+3. ⬜ **→ ĎALŠÍ KROK:** `@dnd-kit` drag z palety → drop na `ActionListEditor`
+4. ✅ Preview tlačidlo pre audio súbory (volá existujúci `api.playMedia`)
 
 ### Fáza 3 — Visual Timeline
 Cieľ: FL Studio-štýl timeline namiesto textového zoznamu.
