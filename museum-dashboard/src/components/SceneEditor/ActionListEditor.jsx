@@ -80,7 +80,7 @@ function SortableActionRow({ action, stateId, section, onUpdate, onDelete }) {
         placeholder={
           type === 'audio' ? 'PLAY:file.wav:1.0' :
           type === 'video' ? 'PLAY_VIDEO:file.mp4' :
-          'ON'
+          'ON:50:L | OFF | SPEED:80 | DIR:L'
         }
         spellCheck={false}
       />

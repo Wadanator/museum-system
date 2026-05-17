@@ -16,7 +16,8 @@ export function useDevicePalette() {
       label: d.name,
       topic: d.topic,
       deviceType: 'motor',
-      quickMessages: ['ON', 'OFF'],
+      // ON:<speed>:<dir>[:<rampMs>] | OFF | SPEED:<0-100> | DIR:L/R
+      quickMessages: ['ON:50:L', 'ON:50:R', 'OFF', 'SPEED:80', 'DIR:L', 'DIR:R'],
     })),
     [motors]
   );
