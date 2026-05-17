@@ -1,0 +1,216 @@
+/* Scene Editor V2 — full-height 3-panel layout
+   Rendered inside .main-content (padding: 30px 40px, height: 100vh).
+   The view fills available space as a bordered card. */
+
+.se2-view {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 120px); /* layout math: 30px top + 30px bottom padding + 40px content padding + 20px buffer */
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Header ──────────────────────────────────────────────────── */
+
+.se2-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-2xl);
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.se2-header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  min-width: 0;
+}
+
+.se2-header-icon {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+
+.se2-header-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+
+.se2-dirty-badge {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--warning);
+  white-space: nowrap;
+}
+
+/* ── Body — flex row of 3 panels ─────────────────────────────── */
+
+.se2-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+/* ── Shared panel chrome ─────────────────────────────────────── */
+
+.se2-panel-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-lg);
+  border-bottom: 1px solid var(--border-color);
+  background: var(--bg-main);
+}
+
+.se2-panel-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+}
+
+/* ── State List (left panel) ─────────────────────────────────── */
+
+.se2-state-list {
+  width: 240px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-color);
+  background: var(--bg-card);
+  overflow: hidden;
+}
+
+.se2-state-items {
+  list-style: none;
+  margin: 0;
+  padding: var(--spacing-xs) 0;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.se2-state-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-sm) var(--spacing-sm) var(--spacing-lg);
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: background 0.1s;
+}
+
+.se2-state-item:hover {
+  background: var(--bg-hover);
+}
+
+.se2-state-item.active {
+  background: var(--overlay-inverse-soft);
+  border-left-color: var(--primary);
+}
+
+.se2-state-name {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.se2-initial-dot {
+  color: var(--success);
+  font-size: 0.65rem;
+  flex-shrink: 0;
+}
+
+.se2-delete-btn {
+  opacity: 0;
+  transition: opacity 0.1s;
+  flex-shrink: 0;
+}
+
+.se2-state-item:hover .se2-delete-btn {
+  opacity: 1;
+}
+
+/* ── Main panel (center) ─────────────────────────────────────── */
+
+.se2-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: var(--bg-main);
+}
+
+/* ── Palette (right panel) ───────────────────────────────────── */
+
+.se2-palette {
+  width: 280px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border-color);
+  background: var(--bg-card);
+  overflow-y: auto;
+}
+
+/* ── Placeholder (center + palette empty states) ─────────────── */
+
+.se2-placeholder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-3xl);
+  text-align: center;
+}
+
+.se2-placeholder--sm {
+  padding: var(--spacing-xl);
+  justify-content: flex-start;
+  padding-top: var(--spacing-2xl);
+}
+
+.se2-placeholder-icon {
+  color: var(--text-muted);
+  opacity: 0.35;
+}
+
+.se2-placeholder-state {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.se2-placeholder-hint {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0;
+  max-width: 260px;
+  line-height: 1.5;
+}
