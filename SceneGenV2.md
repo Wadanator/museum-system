@@ -594,11 +594,11 @@ Cieľ: Funkčný editor stavov v dashboarde, parita s aktuálnym SceneGen.
    - State list (add/delete/select, `▶` initial indicator), placeholder main + palette
    - `src/styles/views/scene-editor-v2.css` (theme variables only)
    - Route `/scene-editor` + `/scene-editor/:sceneName`, nav item v Sidebar
-3. ⬜ **→ ĎALŠÍ KROK: `StatePanel.jsx`** — editor obsahu vybraného stavu
-   - `ActionListEditor` — zoznam `onEnter` / `onExit` akcií (typ badge, topic, message, delete)
-   - `TransitionEditor` — zoznam prechodov (type dropdown, parametre, goto dropdown)
-   - Nahradiť placeholder v strednom paneli reálnym editorom
-4. ⬜ Pridať `@dnd-kit/sortable` pre reorder onEnter/onExit akcií
+3. ✅ `StatePanel.jsx` — editor obsahu vybraného stavu
+   - `ActionListEditor` — zoznam `onEnter` / `onExit` akcií (typ badge cykluje mqtt→audio→video, topic, message, delete)
+   - `TransitionEditor` — zoznam prechodov (type dropdown, parametre podľa typu, goto dropdown)
+   - Nahradený placeholder v strednom paneli reálnym editorom
+4. ⬜ **→ ĎALŠÍ KROK:** Pridať `@dnd-kit/sortable` pre reorder onEnter/onExit akcií
 5. ⬜ Načítanie scény z Pi pri otvorení (`api.getSceneContent` podľa URL param)
 6. ⬜ Nahradiť `SceneEditorModal` týmto editorom v `ScenesView`
 

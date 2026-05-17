@@ -1,8 +1,9 @@
 import { useParams } from 'react-router-dom';
-import { Save, Plus, Trash2, Pencil, Wand2 } from 'lucide-react';
+import { Save, Plus, Trash2, Wand2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useSceneEditor } from '../../hooks/useSceneEditor';
 import Button from '../ui/Button';
+import StatePanel from './StatePanel';
 import '../../styles/views/scene-editor-v2.css';
 
 export default function SceneEditorView() {
@@ -18,8 +19,19 @@ export default function SceneEditorView() {
     selectState,
     addState,
     deleteState,
+    renameState,
+    updateState,
+    updateMetadata,
+    addAction,
+    updateAction,
+    deleteAction,
+    addTransition,
+    updateTransition,
+    deleteTransition,
     saveToBackend,
   } = useSceneEditor({ sceneName });
+
+  const setInitialState = (name) => updateMetadata({ initialState: name });
 
   const handleSave = async () => {
     try {
@@ -97,16 +109,23 @@ export default function SceneEditorView() {
           </ul>
         </aside>
 
-        {/* Panel 2 — Main (placeholder) */}
+        {/* Panel 2 — State detail */}
         <main className="se2-main">
           {selectedState ? (
-            <div className="se2-placeholder">
-              <Pencil size={28} className="se2-placeholder-icon" />
-              <p className="se2-placeholder-state">{selectedState.name}</p>
-              <p className="se2-placeholder-hint">
-                Editor akcií, timeline a prechodov príde v ďalšej iterácii.
-              </p>
-            </div>
+            <StatePanel
+              state={selectedState}
+              allStates={states}
+              initialState={initialState}
+              onRename={renameState}
+              onUpdateState={updateState}
+              onSetInitial={setInitialState}
+              onAddAction={addAction}
+              onUpdateAction={updateAction}
+              onDeleteAction={deleteAction}
+              onAddTransition={addTransition}
+              onUpdateTransition={updateTransition}
+              onDeleteTransition={deleteTransition}
+            />
           ) : (
             <div className="se2-placeholder">
               <p className="se2-placeholder-hint">Vyber stav z ľavého panela.</p>
