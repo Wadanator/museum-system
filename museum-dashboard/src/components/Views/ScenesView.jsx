@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, Loader2, RefreshCw, Sparkles, Activity } from 'lucide-react';
 import { useScenes } from '../../hooks/useScenes';
 import SceneCard from '../Scenes/SceneCard';
+import SceneEditorModal from '../Scenes/SceneEditorModal';
 import Button from '../ui/Button';
 import PageHeader from '../ui/PageHeader';
 import Modal from '../ui/Modal';
@@ -17,11 +18,28 @@ export default function ScenesView() {
     const [liveSceneName, setLiveSceneName] = useState(null);
     const [liveSceneData, setLiveSceneData] = useState(null);
 
+    // JSON editor modal (gear button)
+    const [editorOpen, setEditorOpen] = useState(false);
+    const [editingFile, setEditingFile] = useState(null);
+    const [editorContent, setEditorContent] = useState(null);
+
     const [newSceneModal, setNewSceneModal] = useState({ isOpen: false, name: '' });
 
-    // Open scene in SceneEditor V2
-    const handleEdit = (filename) => {
-        navigate(`/scene-editor/${filename}`);
+    // Open scene in JSON editor modal (gear button)
+    const handleEdit = async (filename) => {
+        try {
+            const content = await loadSceneContent(filename);
+            setEditingFile(filename);
+            setEditorContent(content);
+            setEditorOpen(true);
+        } catch (_err) {
+            // fall through — modal won't open
+        }
+    };
+
+    const handleSave = async (filename, content) => {
+        await saveSceneContent(filename, content);
+        setEditorOpen(false);
     };
 
     const handleCreate = () => {
@@ -120,6 +138,14 @@ export default function ScenesView() {
                     />
                 </Card>
             )}
+
+            <SceneEditorModal
+                isOpen={editorOpen}
+                onClose={() => setEditorOpen(false)}
+                filename={editingFile}
+                initialContent={editorContent}
+                onSave={handleSave}
+            />
 
             <Modal
                 isOpen={newSceneModal.isOpen}
