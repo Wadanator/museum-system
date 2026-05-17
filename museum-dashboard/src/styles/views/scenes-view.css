@@ -190,6 +190,23 @@ button.play-fab.btn-unstyled svg {
     color: var(--text-white);
 }
 
+/* SceneEditor V2 shortcut — offset left of the JSON edit button */
+button.edit-btn-absolute--v2.btn-unstyled {
+    right: 52px;
+}
+
+button.edit-btn-absolute--v2.btn-unstyled svg {
+    color: var(--primary);
+}
+
+button.edit-btn-absolute--v2.btn-unstyled:hover {
+    background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+}
+
+button.edit-btn-absolute--v2.btn-unstyled:hover svg {
+    color: var(--text-white);
+}
+
 .scenes-live-card {
     min-height: 560px;
 }

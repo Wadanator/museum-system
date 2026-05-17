@@ -1,8 +1,10 @@
-import { Play, Settings2, Clock, Clapperboard, Star } from 'lucide-react';
+import { Play, Settings2, Clock, Clapperboard, Star, Wand2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 
 export default function SceneCard({ scene, onPlay, onEdit }) {
+  const navigate = useNavigate();
     const date = new Date(scene.modified * 1000).toLocaleDateString('sk-SK', {
         day: '2-digit', month: '2-digit', year: 'numeric'
     });
@@ -16,11 +18,21 @@ export default function SceneCard({ scene, onPlay, onEdit }) {
                 <Button
                     variant="unstyled"
                     size="small"
-                    className="edit-btn-absolute" 
+                    className="edit-btn-absolute"
                     onClick={(e) => { e.stopPropagation(); onEdit(scene.name); }}
-                    title="Upraviť scénu"
+                    title="Upraviť scénu (JSON)"
                     aria-label="Upraviť scénu"
                     icon={Settings2}
+                    cooldown={0}
+                />
+                <Button
+                    variant="unstyled"
+                    size="small"
+                    className="edit-btn-absolute edit-btn-absolute--v2"
+                    onClick={(e) => { e.stopPropagation(); navigate(`/scene-editor/${scene.name}`); }}
+                    title="Otvoriť v SceneEditor V2"
+                    aria-label="Otvoriť v SceneEditor V2"
+                    icon={Wand2}
                     cooldown={0}
                 />
             </div>

@@ -598,9 +598,12 @@ Cieľ: Funkčný editor stavov v dashboarde, parita s aktuálnym SceneGen.
    - `ActionListEditor` — zoznam `onEnter` / `onExit` akcií (typ badge cykluje mqtt→audio→video, topic, message, delete)
    - `TransitionEditor` — zoznam prechodov (type dropdown, parametre podľa typu, goto dropdown)
    - Nahradený placeholder v strednom paneli reálnym editorom
-4. ⬜ **→ ĎALŠÍ KROK:** Pridať `@dnd-kit/sortable` pre reorder onEnter/onExit akcií
-5. ⬜ Načítanie scény z Pi pri otvorení (`api.getSceneContent` podľa URL param)
-6. ⬜ Nahradiť `SceneEditorModal` týmto editorom v `ScenesView`
+4. ✅ `resetFromSchema()` v hooku + fetch scény z Pi pri otvorení URL
+   - `SceneEditorView` načíta scénu cez `api.getSceneContent(sceneName)` pri monte
+   - Loading overlay počas načítavania, fallback na localStorage/default pri chybe
+   - `SceneCard` má nové tlačidlo Wand2 → naviguje na `/scene-editor/:sceneName`
+5. ⬜ **→ ĎALŠÍ KROK:** Nahradiť `SceneEditorModal` týmto editorom v `ScenesView`
+6. ⬜ Pridať `@dnd-kit/sortable` pre reorder onEnter/onExit akcií
 
 ### Fáza 2 — Device & Audio palety
 Cieľ: Palety namiesto hardcoded constants.
