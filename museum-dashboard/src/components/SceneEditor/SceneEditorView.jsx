@@ -2,7 +2,7 @@ import { useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Save, Plus, Trash2, Wand2, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import api from '../../services/api';
+import { api } from '../../services/api';
 import { useSceneEditor } from '../../hooks/useSceneEditor';
 import Button from '../ui/Button';
 import StatePanel from './StatePanel';
