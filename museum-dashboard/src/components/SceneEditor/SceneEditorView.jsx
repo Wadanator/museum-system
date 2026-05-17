@@ -27,6 +27,7 @@ export default function SceneEditorView() {
     addAction,
     updateAction,
     deleteAction,
+    reorderActions,
     addTransition,
     updateTransition,
     deleteTransition,
@@ -145,6 +146,7 @@ export default function SceneEditorView() {
               onAddAction={addAction}
               onUpdateAction={updateAction}
               onDeleteAction={deleteAction}
+              onReorderAction={reorderActions}
               onAddTransition={addTransition}
               onUpdateTransition={updateTransition}
               onDeleteTransition={deleteTransition}

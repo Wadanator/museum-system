@@ -1,7 +1,8 @@
 # SceneGen V2 — Špecifikácia Vizuálneho Editora Scén
 
-> **Stav:** Návrh (neprogramovať, len plánovanie)  
-> **Dátum:** 2025-05-16  
+> **Stav:** 🚧 V implementácii — Fáza 1 dokončená (iterácie 1–5 ✅), Fáza 2 začína  
+> **Dátum:** 2026-05-17  
+> **Branch:** `claude/epic-kepler-a0d35a`  
 > **Cieľ:** Nahradiť aktuálny standalone SceneGen plnohodnotným vizuálnym editorom priamo v `museum-dashboard`, s FL Studio-štýl timeline pre každý stav.
 
 ---
@@ -606,13 +607,18 @@ Cieľ: Funkčný editor stavov v dashboarde, parita s aktuálnym SceneGen.
    - `handleEdit` naviguje na `/scene-editor/:filename` namiesto otvárania modalu
    - `handleCreateConfirm` uloží V2 šablónu a naviguje do editora
    - Odstránené: `editorOpen/editingFile/editorContent`, `handleSave`, `<SceneEditorModal>`
-6. ⬜ **→ ĎALŠÍ KROK:** Pridať `@dnd-kit/sortable` pre reorder onEnter/onExit akcií
+6. ✅ Pridať `@dnd-kit/sortable` pre reorder onEnter/onExit akcií
+   - `SortableActionRow` s `GripVertical` drag handle (`useSortable`)
+   - `DndContext` + `SortableContext` obaľujú zoznam akcií
+   - `onReorderAction` prop prenesený cez `StatePanel` → `ActionListEditor`
+   - `reorderActions` z hooku zapojený v `SceneEditorView`
+   - CSS: `.se2-drag-handle`, `.se2-action-row--dragging`
 
 ### Fáza 2 — Device & Audio palety
 Cieľ: Palety namiesto hardcoded constants.
 
-1. ⬜ `useDevicePalette.js` — transformácia `useDevices()` na palette items
-2. ⬜ `DevicePalette.jsx` + `AudioPalette.jsx` komponent
+1. ⬜ **→ ĎALŠÍ KROK:** `useDevicePalette.js` — transformácia `useDevices()` na palette items
+2. ⬜ `DevicePalette.jsx` + `AudioPalette.jsx` komponent v pravom paneli
 3. ⬜ `@dnd-kit` drag z palety → drop na `ActionListEditor`
 4. ⬜ Preview tlačidlo pre audio súbory (volá existujúci `api.playMedia`)
 

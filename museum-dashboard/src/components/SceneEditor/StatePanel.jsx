@@ -20,6 +20,7 @@ export default function StatePanel({
   onAddAction,
   onUpdateAction,
   onDeleteAction,
+  onReorderAction,
   onAddTransition,
   onUpdateTransition,
   onDeleteTransition,
@@ -85,6 +86,7 @@ export default function StatePanel({
         onAdd={onAddAction}
         onUpdate={onUpdateAction}
         onDelete={onDeleteAction}
+        onReorder={onReorderAction}
       />
 
       {/* ── onExit ───────────────────────────────────────────── */}
@@ -96,6 +98,7 @@ export default function StatePanel({
         onAdd={onAddAction}
         onUpdate={onUpdateAction}
         onDelete={onDeleteAction}
+        onReorder={onReorderAction}
       />
 
       {/* ── Transitions ──────────────────────────────────────── */}
