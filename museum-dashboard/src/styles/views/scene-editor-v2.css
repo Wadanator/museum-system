@@ -494,3 +494,41 @@
   font-family: 'Consolas', 'Monaco', monospace;
   font-weight: 600;
 }
+
+/* ── Drag handle (action row reorder) ───────────────────────── */
+
+.se2-drag-handle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.1s, color 0.1s;
+}
+
+.se2-action-row:hover .se2-drag-handle {
+  opacity: 1;
+}
+
+.se2-drag-handle:hover {
+  color: var(--text-secondary);
+}
+
+.se2-drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Row being dragged — ghost stays visible but dimmed */
+.se2-action-row--dragging {
+  opacity: 0.45;
+  border-color: var(--primary);
+  background: var(--overlay-inverse-soft);
+}
