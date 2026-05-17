@@ -586,38 +586,47 @@ Nasledujúce časti SceneGen sa PRENÁŠAJÚ (reimplementujú v dashboard štýl
 ### Fáza 1 — Základ (MVP editor bez vizuálnej timeline)
 Cieľ: Funkčný editor stavov v dashboarde, parita s aktuálnym SceneGen.
 
-1. Vytvoriť `useSceneEditor.js` hook (portovanie `useSceneManager`)
-2. Vytvoriť `SceneEditorView.jsx` s 3-panel layoutom (zatiaľ bez vizuálnej timeline)
-3. Portovať `ActionListEditor`, `TransitionEditor`, `GlobalEventsEditor`
-4. Pridať `@dnd-kit/sortable` pre reorder onEnter/onExit
-5. Napojenie na `api.getSceneContent` + `api.saveScene`
-6. Nahradiť `SceneEditorModal` týmto editorom v `ScenesView`
+1. ✅ Vytvoriť `useSceneEditor.js` hook — `src/hooks/useSceneEditor.js`
+   - schéma↔interný formát, CRUD stavov/akcií/timeline/tranzícií
+   - `renameState` propaguje `goto` referencie cez celú scénu
+   - `localStorage` auto-save per `sceneName`, `saveToBackend()`, `isDirty`
+2. ✅ Vytvoriť `SceneEditorView.jsx` s 3-panel layoutom — `src/components/SceneEditor/SceneEditorView.jsx`
+   - State list (add/delete/select, `▶` initial indicator), placeholder main + palette
+   - `src/styles/views/scene-editor-v2.css` (theme variables only)
+   - Route `/scene-editor` + `/scene-editor/:sceneName`, nav item v Sidebar
+3. ⬜ **→ ĎALŠÍ KROK: `StatePanel.jsx`** — editor obsahu vybraného stavu
+   - `ActionListEditor` — zoznam `onEnter` / `onExit` akcií (typ badge, topic, message, delete)
+   - `TransitionEditor` — zoznam prechodov (type dropdown, parametre, goto dropdown)
+   - Nahradiť placeholder v strednom paneli reálnym editorom
+4. ⬜ Pridať `@dnd-kit/sortable` pre reorder onEnter/onExit akcií
+5. ⬜ Načítanie scény z Pi pri otvorení (`api.getSceneContent` podľa URL param)
+6. ⬜ Nahradiť `SceneEditorModal` týmto editorom v `ScenesView`
 
 ### Fáza 2 — Device & Audio palety
 Cieľ: Palety namiesto hardcoded constants.
 
-1. `useDevicePalette.js` — transformácia `useDevices()` na palette items
-2. `DevicePalette.jsx` + `AudioPalette.jsx` komponent
-3. `@dnd-kit` drag z palety → drop na `ActionListEditor`
-4. Preview tlačidlo pre audio súbory (volá existujúci `api.playMedia`)
+1. ⬜ `useDevicePalette.js` — transformácia `useDevices()` na palette items
+2. ⬜ `DevicePalette.jsx` + `AudioPalette.jsx` komponent
+3. ⬜ `@dnd-kit` drag z palety → drop na `ActionListEditor`
+4. ⬜ Preview tlačidlo pre audio súbory (volá existujúci `api.playMedia`)
 
 ### Fáza 3 — Visual Timeline
 Cieľ: FL Studio-štýl timeline namiesto textového zoznamu.
 
-1. `TimeRuler.jsx` — SVG ruler so tickmarkami
-2. `TimelineTrack.jsx` — horizontálna stopa s clipmi (CSS position absolute pre X)
-3. `TimelineClip.jsx` + `useTimeline.js` — pointer events drag
-4. `VisualTimeline.jsx` — orchestrátor všetkých stôp + scroll container
-5. Zoom + snap controls v `TimelineToolbar.jsx`
-6. Drop zone — `useDroppable` z @dnd-kit → nový clip na pozícii dropu
-7. `moveTimelineItem` v `useSceneEditor`
+1. ⬜ `TimeRuler.jsx` — SVG ruler so tickmarkami
+2. ⬜ `TimelineTrack.jsx` — horizontálna stopa s clipmi (CSS position absolute pre X)
+3. ⬜ `TimelineClip.jsx` + `useTimeline.js` — pointer events drag
+4. ⬜ `VisualTimeline.jsx` — orchestrátor všetkých stôp + scroll container
+5. ⬜ Zoom + snap controls v `TimelineToolbar.jsx`
+6. ⬜ Drop zone — `useDroppable` z @dnd-kit → nový clip na pozícii dropu
+7. ✅ `moveTimelineItem` v `useSceneEditor` (implementované v hooku)
 
 ### Fáza 4 — Polish a integrácia
-1. Validácia pri ukladaní (frontend echo logiky `schema_validator.py`)
-2. `isDirty` indikátor (badge v headeri)
-3. Keyboard shortcuts (Delete = zmazať vybraný clip, Ctrl+Z = undo základný)
-4. Voliteľný backend endpoint pre audio duration
-5. Migrácia standalone SceneGen — ponechať ako offline dev nástroj
+1. ⬜ Validácia pri ukladaní (frontend echo logiky `schema_validator.py`)
+2. ✅ `isDirty` indikátor (badge „● neuložené" v headeri)
+3. ⬜ Keyboard shortcuts (Delete = zmazať vybraný clip, Ctrl+Z = undo)
+4. ⬜ Voliteľný backend endpoint pre audio duration
+5. ⬜ Migrácia standalone SceneGen — ponechať ako offline dev nástroj
 
 ---
 
