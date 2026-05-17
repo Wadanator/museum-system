@@ -6,6 +6,7 @@ import { api } from '../../services/api';
 import { useSceneEditor } from '../../hooks/useSceneEditor';
 import Button from '../ui/Button';
 import StatePanel from './StatePanel';
+import EditorPalette from './EditorPalette';
 import '../../styles/views/scene-editor-v2.css';
 
 export default function SceneEditorView() {
@@ -158,14 +159,15 @@ export default function SceneEditorView() {
           )}
         </main>
 
-        {/* Panel 3 — Palette (placeholder) */}
+        {/* Panel 3 — Palette */}
         <aside className="se2-palette">
           <div className="se2-panel-header">
             <span className="se2-panel-label">Paleta</span>
           </div>
-          <div className="se2-placeholder se2-placeholder--sm">
-            <p className="se2-placeholder-hint">Zariadenia a médiá prídu v ďalšej iterácii.</p>
-          </div>
+          <EditorPalette
+            selectedStateId={selectedStateId}
+            onAddAction={addAction}
+          />
         </aside>
 
       </div>{/* end se2-body */}
