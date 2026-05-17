@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Cpu, Zap, Lightbulb, Music, Video, Play, Plus, Loader2 } from 'lucide-react';
+import { Cpu, Zap, Lightbulb, GripVertical, Play, Plus, Loader2 } from 'lucide-react';
+import { useDraggable } from '@dnd-kit/core';
 import { useDevicePalette } from '../../hooks/useDevicePalette';
 import { createEmptyAction } from '../../hooks/useSceneEditor';
 
@@ -24,11 +25,19 @@ function PalSection({ label, children }) {
 }
 
 function DeviceRow({ item, onInsert, disabled }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `pal:mqtt:${item.id}`,
+    data: { type: 'palette', actionType: 'mqtt', topic: item.topic, message: 'ON', label: item.label },
+  });
   return (
-    <div className="se2-pal-device-row">
-      <span className="se2-pal-device-icon">
-        <DeviceIcon deviceType={item.deviceType} />
-      </span>
+    <div
+      ref={setNodeRef}
+      className={`se2-pal-device-row${isDragging ? ' se2-pal-row--dragging' : ''}`}
+    >
+      <button className="se2-pal-grip" {...attributes} {...listeners} type="button" title="Potiahnuť">
+        <GripVertical size={12} />
+      </button>
+      <span className="se2-pal-device-icon"><DeviceIcon deviceType={item.deviceType} /></span>
       <span className="se2-pal-device-name" title={item.topic}>{item.label}</span>
       <div className="se2-pal-quick-btns">
         {item.quickMessages.map((msg) => (
@@ -50,8 +59,15 @@ function DeviceRow({ item, onInsert, disabled }) {
 
 function AudioRow({ item, onInsert, onPreview, disabled }) {
   const shortName = item.name.replace(/\.[^.]+$/, '');
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `pal:audio:${item.name}`,
+    data: { type: 'palette', actionType: 'audio', topic: null, message: item.insertMessage, label: shortName },
+  });
   return (
-    <div className="se2-pal-media-row">
+    <div ref={setNodeRef} className={`se2-pal-media-row${isDragging ? ' se2-pal-row--dragging' : ''}`}>
+      <button className="se2-pal-grip" {...attributes} {...listeners} type="button" title="Potiahnuť">
+        <GripVertical size={12} />
+      </button>
       <span className="se2-pal-media-name" title={item.name}>{shortName}</span>
       <div className="se2-pal-media-btns">
         <button
@@ -78,8 +94,15 @@ function AudioRow({ item, onInsert, onPreview, disabled }) {
 
 function VideoRow({ item, onInsert, disabled }) {
   const shortName = item.name.replace(/\.[^.]+$/, '');
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `pal:video:${item.name}`,
+    data: { type: 'palette', actionType: 'video', topic: null, message: item.insertMessage, label: shortName },
+  });
   return (
-    <div className="se2-pal-media-row">
+    <div ref={setNodeRef} className={`se2-pal-media-row${isDragging ? ' se2-pal-row--dragging' : ''}`}>
+      <button className="se2-pal-grip" {...attributes} {...listeners} type="button" title="Potiahnuť">
+        <GripVertical size={12} />
+      </button>
       <span className="se2-pal-media-name" title={item.name}>{shortName}</span>
       <div className="se2-pal-media-btns">
         <button

@@ -1,11 +1,5 @@
 import { GripVertical, Plus, Trash2 } from 'lucide-react';
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
+import { useDroppable } from '@dnd-kit/core';
 import {
   SortableContext,
   useSortable,
@@ -19,7 +13,7 @@ const TYPE_LABELS = { mqtt: 'MQTT', audio: 'AUDIO', video: 'VIDEO' };
 const TYPE_CYCLE  = { mqtt: 'audio', audio: 'video', video: 'mqtt' };
 
 /** Single sortable action row with drag handle */
-function SortableActionRow({ action, onUpdate, onDelete }) {
+function SortableActionRow({ action, stateId, section, onUpdate, onDelete }) {
   const {
     attributes,
     listeners,
@@ -27,7 +21,10 @@ function SortableActionRow({ action, onUpdate, onDelete }) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: action.id });
+  } = useSortable({
+    id: action.id,
+    data: { type: 'action-item', stateId, section },
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -102,53 +99,36 @@ function SortableActionRow({ action, onUpdate, onDelete }) {
 }
 
 /** Renders onEnter or onExit action list for one state, with drag-to-reorder */
-export default function ActionListEditor({
-  stateId,
-  section,
-  actions,
-  onAdd,
-  onUpdate,
-  onDelete,
-  onReorder,
-}) {
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
-  );
-
-  const handleDragEnd = ({ active, over }) => {
-    if (!over || active.id === over.id) return;
-    const oldIndex = actions.findIndex((a) => a.id === active.id);
-    const newIndex = actions.findIndex((a) => a.id === over.id);
-    if (oldIndex !== -1 && newIndex !== -1) {
-      onReorder(stateId, section, oldIndex, newIndex);
-    }
-  };
+export default function ActionListEditor({ stateId, section, actions, onAdd, onUpdate, onDelete }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `dropzone:${stateId}:${section}`,
+    data: { type: 'action-item', stateId, section },
+  });
 
   return (
-    <div className="se2-action-list">
+    <div
+      ref={setNodeRef}
+      className={`se2-action-list${isOver ? ' se2-action-list--over' : ''}`}
+    >
       {actions.length === 0 && (
         <p className="se2-empty-hint">Žiadne akcie.</p>
       )}
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragEnd={handleDragEnd}
+      <SortableContext
+        items={actions.map((a) => a.id)}
+        strategy={verticalListSortingStrategy}
       >
-        <SortableContext
-          items={actions.map((a) => a.id)}
-          strategy={verticalListSortingStrategy}
-        >
-          {actions.map((action) => (
-            <SortableActionRow
-              key={action.id}
-              action={action}
-              onUpdate={(partial) => onUpdate(stateId, section, action.id, partial)}
-              onDelete={() => onDelete(stateId, section, action.id)}
-            />
-          ))}
-        </SortableContext>
-      </DndContext>
+        {actions.map((action) => (
+          <SortableActionRow
+            key={action.id}
+            action={action}
+            stateId={stateId}
+            section={section}
+            onUpdate={(partial) => onUpdate(stateId, section, action.id, partial)}
+            onDelete={() => onDelete(stateId, section, action.id)}
+          />
+        ))}
+      </SortableContext>
 
       <Button
         variant="ghost"
