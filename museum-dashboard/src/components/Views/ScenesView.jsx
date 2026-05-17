@@ -1,8 +1,8 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Loader2, RefreshCw, Sparkles, Activity } from 'lucide-react';
 import { useScenes } from '../../hooks/useScenes';
 import SceneCard from '../Scenes/SceneCard';
-import SceneEditorModal from '../Scenes/SceneEditorModal';
 import Button from '../ui/Button';
 import PageHeader from '../ui/PageHeader';
 import Modal from '../ui/Modal';
@@ -11,33 +11,17 @@ import Card from '../ui/Card';
 import '../../styles/views/scenes-view.css';
 
 export default function ScenesView() {
+    const navigate = useNavigate();
     const { scenes, loading, fetchScenes, playScene, loadSceneContent, saveSceneContent } = useScenes();
-
-    const [editorOpen, setEditorOpen] = useState(false);
-    const [editingFile, setEditingFile] = useState(null);
-    const [editorContent, setEditorContent] = useState(null);
 
     const [liveSceneName, setLiveSceneName] = useState(null);
     const [liveSceneData, setLiveSceneData] = useState(null);
 
     const [newSceneModal, setNewSceneModal] = useState({ isOpen: false, name: '' });
 
-    const handleEdit = async (filename) => {
-        try {
-            const content = await loadSceneContent(filename);
-            setEditingFile(filename);
-            setEditorContent(content);
-            setEditorOpen(true);
-        } catch (error) {
-            console.error(error);
-        }
-    };
-
-    const handleSave = async (filename, content) => {
-        const success = await saveSceneContent(filename, content);
-        if (success) {
-            setEditorOpen(false);
-        }
+    // Open scene in SceneEditor V2
+    const handleEdit = (filename) => {
+        navigate(`/scene-editor/${filename}`);
     };
 
     const handleCreate = () => {
@@ -48,12 +32,21 @@ export default function ScenesView() {
         const name = newSceneModal.name.trim();
         if (!name) return;
         const filename = name.endsWith('.json') ? name : `${name}.json`;
-        const template = [
-            { type: 'log', message: `Začiatok scény ${name}` },
-            { type: 'delay', value: 1 },
-        ];
+        const sceneId = filename.replace('.json', '');
+
+        // Minimal V2 state-machine template
+        const template = {
+            sceneId,
+            version: '2.0',
+            initialState: 'INTRO',
+            states: {
+                INTRO: { transitions: [{ type: 'always', goto: 'END' }] },
+            },
+        };
+
         await saveSceneContent(filename, template);
         setNewSceneModal({ isOpen: false, name: '' });
+        navigate(`/scene-editor/${filename}`);
     };
 
     const handlePlayFromCard = async (filename) => {
@@ -62,8 +55,8 @@ export default function ScenesView() {
             setLiveSceneName(filename);
             setLiveSceneData(content);
             playScene(filename);
-        } catch (error) {
-            console.error(error);
+        } catch (_err) {
+            // play failure is visible in LiveView
         }
     };
 
@@ -127,15 +120,6 @@ export default function ScenesView() {
                     />
                 </Card>
             )}
-
-            <SceneEditorModal
-                key={`${editingFile ?? 'new'}-${editorOpen ? 'open' : 'closed'}`}
-                isOpen={editorOpen}
-                onClose={() => setEditorOpen(false)}
-                filename={editingFile}
-                initialContent={editorContent}
-                onSave={handleSave}
-            />
 
             <Modal
                 isOpen={newSceneModal.isOpen}

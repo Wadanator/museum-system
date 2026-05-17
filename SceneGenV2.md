@@ -602,8 +602,11 @@ Cieľ: Funkčný editor stavov v dashboarde, parita s aktuálnym SceneGen.
    - `SceneEditorView` načíta scénu cez `api.getSceneContent(sceneName)` pri monte
    - Loading overlay počas načítavania, fallback na localStorage/default pri chybe
    - `SceneCard` má nové tlačidlo Wand2 → naviguje na `/scene-editor/:sceneName`
-5. ⬜ **→ ĎALŠÍ KROK:** Nahradiť `SceneEditorModal` týmto editorom v `ScenesView`
-6. ⬜ Pridať `@dnd-kit/sortable` pre reorder onEnter/onExit akcií
+5. ✅ Nahradiť `SceneEditorModal` týmto editorom v `ScenesView`
+   - `handleEdit` naviguje na `/scene-editor/:filename` namiesto otvárania modalu
+   - `handleCreateConfirm` uloží V2 šablónu a naviguje do editora
+   - Odstránené: `editorOpen/editingFile/editorContent`, `handleSave`, `<SceneEditorModal>`
+6. ⬜ **→ ĎALŠÍ KROK:** Pridať `@dnd-kit/sortable` pre reorder onEnter/onExit akcií
 
 ### Fáza 2 — Device & Audio palety
 Cieľ: Palety namiesto hardcoded constants.
