@@ -17,6 +17,7 @@ import StatsView from './components/Views/StatsView';
 import SystemView from './components/Views/SystemView';
 import LoginView from './components/Views/LoginView';
 import MediaManager from './components/Views/MediaManager';
+import SceneEditorView from './components/SceneEditor/SceneEditorView';
 
 import './styles/layout.css'; 
 
@@ -56,6 +57,8 @@ function App() {
           <Route path="/logs" element={<LogsView />} />
           <Route path="/stats" element={<StatsView />} />
           <Route path="/system" element={<SystemView />} />
+          <Route path="/scene-editor" element={<SceneEditorView />} />
+          <Route path="/scene-editor/:sceneName" element={<SceneEditorView />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppLayout>
