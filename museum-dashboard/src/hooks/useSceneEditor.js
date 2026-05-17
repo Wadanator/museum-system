@@ -430,6 +430,15 @@ export const useSceneEditor = ({ sceneName, initialData } = {}) => {
     if (sceneName) localStorage.removeItem(storageKey(sceneName));
   }, [sceneName]);
 
+  // Replaces the entire editor state from a Pi schema object (used on load)
+  const resetFromSchema = useCallback((schemaJson) => {
+    const next = schemaToInternal(schemaJson);
+    if (sceneName) localStorage.removeItem(storageKey(sceneName));
+    setEditor(next);
+    setSelectedStateId(next.states[0]?.id ?? null);
+    setIsDirty(false);
+  }, [sceneName]);
+
   return {
     // Metadata
     sceneId: editor.sceneId,
@@ -477,6 +486,7 @@ export const useSceneEditor = ({ sceneName, initialData } = {}) => {
     importFromJSON,
     saveToBackend,
     clearRecovery,
+    resetFromSchema,
 
     // Status
     isDirty,

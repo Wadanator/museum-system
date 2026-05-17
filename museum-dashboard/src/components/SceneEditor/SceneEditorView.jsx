@@ -1,6 +1,8 @@
 import { useParams } from 'react-router-dom';
-import { Save, Plus, Trash2, Wand2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Save, Plus, Trash2, Wand2, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import api from '../../services/api';
 import { useSceneEditor } from '../../hooks/useSceneEditor';
 import Button from '../ui/Button';
 import StatePanel from './StatePanel';
@@ -29,7 +31,22 @@ export default function SceneEditorView() {
     updateTransition,
     deleteTransition,
     saveToBackend,
+    resetFromSchema,
   } = useSceneEditor({ sceneName });
+
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch scene from Pi whenever sceneName changes
+  useEffect(() => {
+    if (!sceneName) return;
+    let cancelled = false;
+    setIsLoading(true);
+    api.getSceneContent(sceneName)
+      .then((data) => { if (!cancelled) resetFromSchema(data); })
+      .catch(() => { /* keep default/localStorage state on error */ })
+      .finally(() => { if (!cancelled) setIsLoading(false); });
+    return () => { cancelled = true; };
+  }, [sceneName]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setInitialState = (name) => updateMetadata({ initialState: name });
 
@@ -66,7 +83,13 @@ export default function SceneEditorView() {
       </div>
 
       {/* ── 3-panel body ───────────────────────────────────────── */}
-      <div className="se2-body">
+      <div className={`se2-body${isLoading ? ' se2-body--loading' : ''}`}>
+        {isLoading && (
+          <div className="se2-loading-overlay">
+            <Loader2 size={32} className="se2-loading-spinner" />
+            <span>Načítavam scénu z Pi…</span>
+          </div>
+        )}
 
         {/* Panel 1 — State List */}
         <aside className="se2-state-list">
@@ -143,7 +166,7 @@ export default function SceneEditorView() {
           </div>
         </aside>
 
-      </div>
+      </div>{/* end se2-body */}
     </div>
   );
 }
