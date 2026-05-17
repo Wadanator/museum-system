@@ -2,8 +2,18 @@ import { useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { Save, Plus, Trash2, Wand2, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  pointerWithin,
+  rectIntersection,
+} from '@dnd-kit/core';
 import { api } from '../../services/api';
-import { useSceneEditor } from '../../hooks/useSceneEditor';
+import { useSceneEditor, createEmptyAction } from '../../hooks/useSceneEditor';
 import Button from '../ui/Button';
 import StatePanel from './StatePanel';
 import EditorPalette from './EditorPalette';
@@ -37,6 +47,61 @@ export default function SceneEditorView() {
   } = useSceneEditor({ sceneName });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [activeDragData, setActiveDragData] = useState(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
+  );
+
+  // Palette items drag across panels — use pointer-based detection so distance
+  // between panels doesn't fool closestCenter. Sortable reorder keeps closestCenter.
+  const collisionDetection = (args) => {
+    if (args.active.data?.current?.type === 'palette') {
+      const hits = pointerWithin(args);
+      return hits.length > 0 ? hits : rectIntersection(args);
+    }
+    return closestCenter(args);
+  };
+
+  const handleDragStart = ({ active }) => {
+    setActiveDragData(active.data?.current ?? null);
+  };
+
+  const handleDragEnd = ({ active, over }) => {
+    setActiveDragData(null);
+    if (!over || active.id === over.id) return;
+
+    const activeData = active.data?.current;
+    const overData   = over.data?.current;
+
+    if (activeData?.type === 'palette') {
+      // Palette item dropped onto an action list
+      const targetStateId = overData?.stateId;
+      const targetSection = overData?.section;
+      if (!targetStateId || !targetSection) return;
+
+      const action = {
+        ...createEmptyAction(activeData.actionType),
+        ...(activeData.topic ? { topic: activeData.topic } : {}),
+        message: activeData.message,
+      };
+      addAction(targetStateId, targetSection, action);
+
+    } else if (activeData?.type === 'action-item') {
+      // Sortable reorder within the same list
+      if (!overData?.stateId) return;
+      if (activeData.stateId !== overData.stateId || activeData.section !== overData.section) return;
+
+      const { stateId, section } = activeData;
+      const targetState = states.find((s) => s.id === stateId);
+      const actionList  = targetState?.[section] ?? [];
+      const fromIdx = actionList.findIndex((a) => a.id === active.id);
+      const toIdx   = actionList.findIndex((a) => a.id === over.id);
+      if (fromIdx !== -1 && toIdx !== -1 && fromIdx !== toIdx) {
+        reorderActions(stateId, section, fromIdx, toIdx);
+      }
+    }
+  };
 
   // Fetch scene from Pi whenever sceneName changes
   useEffect(() => {
@@ -85,6 +150,12 @@ export default function SceneEditorView() {
       </div>
 
       {/* ── 3-panel body ───────────────────────────────────────── */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={collisionDetection}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
       <div className={`se2-body${isLoading ? ' se2-body--loading' : ''}`}>
         {isLoading && (
           <div className="se2-loading-overlay">
@@ -147,7 +218,6 @@ export default function SceneEditorView() {
               onAddAction={addAction}
               onUpdateAction={updateAction}
               onDeleteAction={deleteAction}
-              onReorderAction={reorderActions}
               onAddTransition={addTransition}
               onUpdateTransition={updateTransition}
               onDeleteTransition={deleteTransition}
@@ -171,6 +241,15 @@ export default function SceneEditorView() {
         </aside>
 
       </div>{/* end se2-body */}
+
+      <DragOverlay>
+        {activeDragData?.type === 'palette' && (
+          <div className="se2-drag-overlay-pill">
+            {activeDragData.label}
+          </div>
+        )}
+      </DragOverlay>
+      </DndContext>
     </div>
   );
 }
