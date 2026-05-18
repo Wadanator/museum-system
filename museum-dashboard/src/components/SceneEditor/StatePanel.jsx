@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import ActionListEditor from './ActionListEditor';
 import TransitionEditor from './TransitionEditor';
+import VisualTimeline from './VisualTimeline';
 
 function SectionHeader({ label }) {
   return <div className="se2-section-header"><span>{label}</span></div>;
@@ -20,6 +21,9 @@ export default function StatePanel({
   onAddAction,
   onUpdateAction,
   onDeleteAction,
+  onMoveTimelineItem,
+  onCommitTimelineItem,
+  onDeleteTimelineItem,
   onAddTransition,
   onUpdateTransition,
   onDeleteTransition,
@@ -96,6 +100,16 @@ export default function StatePanel({
         onAdd={onAddAction}
         onUpdate={onUpdateAction}
         onDelete={onDeleteAction}
+      />
+
+      {/* ── Timeline ─────────────────────────────────────────── */}
+      <SectionHeader label="Timeline" />
+      <VisualTimeline
+        stateId={state.id}
+        timeline={state.timeline}
+        onMove={onMoveTimelineItem}
+        onCommit={onCommitTimelineItem}
+        onDelete={onDeleteTimelineItem}
       />
 
       {/* ── Transitions ──────────────────────────────────────── */}

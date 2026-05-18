@@ -1,6 +1,6 @@
 # SceneGen V2 — Špecifikácia Vizuálneho Editora Scén
 
-> **Stav:** 🚧 V implementácii — Fáza 1 ✅, Fáza 2 ✅ — Fáza 3 (Visual Timeline) je ďalší krok  
+> **Stav:** 🚧 V implementácii — Fáza 1 ✅, Fáza 2 ✅, Fáza 3 ✅ — Fáza 4 (Polish) je ďalší krok  
 > **Dátum:** 2026-05-18  
 > **Branch:** `claude/epic-kepler-a0d35a`  
 > **Cieľ:** Nahradiť aktuálny standalone SceneGen plnohodnotným vizuálnym editorom priamo v `museum-dashboard`, s FL Studio-štýl timeline pre každý stav.
@@ -334,7 +334,13 @@ Pre audio clipy kde je zrejmé trvanie (WAV súbor má metadata) môže byť cli
 
 ### Technická implementácia
 
-**NE-použiť** pre timeline drag žiadnu knižnicu (react-dnd, @dnd-kit) — pixel-to-time matematika si vyžaduje custom pointer handling. Knižnice sú určené pre reorder listov, nie pre kontinuálnu os.
+**Hodnotenie knižníc (preskúmané 2026-05-18):**
+- `dnd-timeline` (samuelarbibe) — headless, postavená na dnd-kit, má snap/zoom/drag-from-outside. **ZAMIETNUTÁ:** pracuje s intervalmi `{ start, end }`, naše položky sú body (`at: number`). Workaround by bojoval s dizajnom knižnice.
+- `@xzdarcy/react-timeline-editor` — vlastné UI, ťažko prispôsobiť design systému. **ZAMIETNUTÁ.**
+
+**Záver: custom pointer events je správna voľba** — nie preto že knižnica neexistuje, ale preto že model "bod v čase" vs. "interval s trvaním" je zásadná nekompatibilita. Snap a zoom sú ~20 riadkov navyše.
+
+**NE-použiť** pre timeline drag žiadnu knižnicu (react-dnd, @dnd-kit) — pixel-to-time matematika si vyžaduje custom pointer handling. Knižnice sú určené pre reorder listov alebo intervalové klipsy, nie pre event-bodové časové osi.
 
 **Použiť** `@dnd-kit` iba pre:
 - Reorder akcií v `ActionListEditor` (onEnter/onExit)
@@ -623,15 +629,15 @@ Cieľ: Palety namiesto hardcoded constants.
 4. ✅ Preview tlačidlo pre audio súbory (volá existujúci `api.playMedia`)
 5. ✅ Motor quick messages podľa ESP32 kódu: `ON:<speed>:<dir>[:<rampMs>]`, `OFF`, `SPEED:<val>`, `DIR:L/R` — quick tlačidlá: `ON:50:L`, `ON:50:R`, `OFF`, `SPEED:80`, `DIR:L`, `DIR:R`
 
-### Fáza 3 — Visual Timeline ← **ĎALŠÍ KROK**
+### Fáza 3 — Visual Timeline ✅
 Cieľ: FL Studio-štýl timeline namiesto textového zoznamu.
 
-1. ⬜ `TimeRuler.jsx` — SVG ruler so tickmarkami
-2. ⬜ `TimelineTrack.jsx` — horizontálna stopa s clipmi (CSS position absolute pre X)
-3. ⬜ `TimelineClip.jsx` + `useTimeline.js` — pointer events drag
-4. ⬜ `VisualTimeline.jsx` — orchestrátor všetkých stôp + scroll container
-5. ⬜ Zoom + snap controls v `TimelineToolbar.jsx`
-6. ⬜ Drop zone — `useDroppable` z @dnd-kit → nový clip na pozícii dropu
+1. ✅ `TimeRuler.jsx` — pravítko s major (1s) a minor (0.5s) tickmarkami
+2. ✅ `TimelineTrack.jsx` — horizontálna stopa s clipmi (CSS position absolute, useDroppable)
+3. ✅ `TimelineClip.jsx` + `useTimeline.js` — pointer events drag (setPointerCapture)
+4. ✅ `VisualTimeline.jsx` — orchestrátor (3 stopy + ruler + scroll)
+5. ✅ Zoom + snap controls v `TimelineToolbar.jsx` (40–400 px/s, snap 0.1s)
+6. ✅ Drop zone — `useDroppable` z @dnd-kit → nový clip (at = maxAt + 0.5s)
 7. ✅ `moveTimelineItem` v `useSceneEditor` (implementované v hooku)
 
 ### Fáza 4 — Polish a integrácia

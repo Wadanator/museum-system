@@ -13,7 +13,7 @@ import {
   rectIntersection,
 } from '@dnd-kit/core';
 import { api } from '../../services/api';
-import { useSceneEditor, createEmptyAction } from '../../hooks/useSceneEditor';
+import { useSceneEditor, createEmptyAction, createEmptyTimelineItem } from '../../hooks/useSceneEditor';
 import Button from '../ui/Button';
 import StatePanel from './StatePanel';
 import EditorPalette from './EditorPalette';
@@ -39,6 +39,9 @@ export default function SceneEditorView() {
     updateAction,
     deleteAction,
     reorderActions,
+    addTimelineItem,
+    moveTimelineItem,
+    deleteTimelineItem,
     addTransition,
     updateTransition,
     deleteTransition,
@@ -75,7 +78,23 @@ export default function SceneEditorView() {
     const overData   = over.data?.current;
 
     if (activeData?.type === 'palette') {
-      // Palette item dropped onto an action list
+      if (overData?.zone === 'timeline-track') {
+        // Palette item dropped onto a visual timeline track
+        const { stateId: tlStateId } = overData;
+        const targetState = states.find((s) => s.id === tlStateId);
+        const maxAt = targetState?.timeline?.reduce((m, i) => Math.max(m, i.at), 0) ?? 0;
+        const at    = +(maxAt + 0.5).toFixed(2);
+        const item  = {
+          ...createEmptyTimelineItem(at),
+          action: activeData.actionType,
+          ...(activeData.topic ? { topic: activeData.topic } : {}),
+          message: activeData.message ?? '',
+        };
+        addTimelineItem(tlStateId, item);
+        return;
+      }
+
+      // Palette item dropped onto an action list (onEnter / onExit)
       const targetStateId = overData?.stateId;
       const targetSection = overData?.section;
       if (!targetStateId || !targetSection) return;
@@ -218,6 +237,9 @@ export default function SceneEditorView() {
               onAddAction={addAction}
               onUpdateAction={updateAction}
               onDeleteAction={deleteAction}
+              onMoveTimelineItem={moveTimelineItem}
+              onCommitTimelineItem={moveTimelineItem}
+              onDeleteTimelineItem={deleteTimelineItem}
               onAddTransition={addTransition}
               onUpdateTransition={updateTransition}
               onDeleteTransition={deleteTransition}
