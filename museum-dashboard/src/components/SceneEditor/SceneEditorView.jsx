@@ -171,7 +171,11 @@ export default function SceneEditorView() {
 
   const handleTestState = async (state) => {
     try {
+      // 1. Save the mini-scene first
       await api.saveScene('__test__', buildTestScene(state));
+      // 2. Stop whatever is currently running on the Pi (best-effort)
+      try { await api.stopScene(); } catch { /* ignore if nothing running */ }
+      // 3. Now run the freshly saved scene
       await api.runScene('__test__');
       setTestingState({ name: state.name });
       toast.success(`▶ Testuje sa: ${state.name}`);
