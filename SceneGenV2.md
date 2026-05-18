@@ -1,6 +1,6 @@
 # SceneGen V2 — Špecifikácia Vizuálneho Editora Scén
 
-> **Stav:** 🚧 V implementácii — Fáza 1 ✅, Fáza 2 ✅, Fáza 3 ✅ — Fáza 4 (Polish) je ďalší krok  
+> **Stav:** 🚧 V implementácii — Fáza 1 ✅, Fáza 2 ✅, Fáza 3 ✅ (+ bugfixy) — Fáza 4 (Polish) je ďalší krok  
 > **Dátum:** 2026-05-18  
 > **Branch:** `claude/epic-kepler-a0d35a`  
 > **Cieľ:** Nahradiť aktuálny standalone SceneGen plnohodnotným vizuálnym editorom priamo v `museum-dashboard`, s FL Studio-štýl timeline pre každý stav.
@@ -346,34 +346,67 @@ Pre audio clipy kde je zrejmé trvanie (WAV súbor má metadata) môže byť cli
 - Reorder akcií v `ActionListEditor` (onEnter/onExit)
 - Drag z `ActionPalette` na track (drop detection cez `useDraggable` + `useDroppable`)
 
-### Pseudokód useTimelineDrag hook
+**⚠️ Dôležité: React syntetické eventy + dnd-kit interference**  
+`onPointerMove` / `onPointerUp` ako React handlery (props na div) nefungujú spoľahlivo keď je clip vnorený do `DndContext` — dnd-kit `PointerSensor` zachytáva eventy na document úrovni. Riešenie: `pointermove` / `pointerup` registrovať ako **natívne `window.addEventListener`** v `onPointerDown`. `liveRef` drží čerstvé callbacks aby sa vyhol stale closures.
+
+### useClipDrag hook — skutočná implementácia
 
 ```js
 // hooks/useTimeline.js
-function useTimelineDrag({ item, pixelsPerSecond, snap, snapInterval, onChange }) {
+export function useClipDrag({ item, pixelsPerSecond, snapEnabled, snapInterval = 0.1, onMove, onCommit, onClick }) {
+  const liveRef = useRef(null);
+  liveRef.current = { item, pixelsPerSecond, snapEnabled, snapInterval, onMove, onCommit, onClick };
   const startRef = useRef(null);
 
   function onPointerDown(e) {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    startRef.current = { clientX: e.clientX, originalAt: item.at };
+    e.stopPropagation();
+    e.nativeEvent.stopImmediatePropagation(); // blokuje dnd-kit PointerSensor
+    startRef.current = { clientX: e.clientX, originalAt: item.at, dragged: false };
+
+    function handleMove(ev) {
+      if (!startRef.current) return;
+      if (Math.abs(ev.clientX - startRef.current.clientX) > 4) {
+        startRef.current.dragged = true;
+        const { pixelsPerSecond: pps, snapEnabled: se, snapInterval: si } = liveRef.current;
+        const raw = Math.max(0, startRef.current.originalAt + (ev.clientX - startRef.current.clientX) / pps);
+        const at  = +(se ? Math.round(raw / si) * si : raw).toFixed(2);
+        liveRef.current.onMove(liveRef.current.item.id, at);
+      }
+    }
+    function handleUp(ev) {
+      if (!startRef.current) return;
+      if (startRef.current.dragged) {
+        const { pixelsPerSecond: pps, snapEnabled: se, snapInterval: si } = liveRef.current;
+        const raw = Math.max(0, startRef.current.originalAt + (ev.clientX - startRef.current.clientX) / pps);
+        const at  = +(se ? Math.round(raw / si) * si : raw).toFixed(2);
+        liveRef.current.onCommit(liveRef.current.item.id, at);
+      } else {
+        liveRef.current.onClick?.();
+      }
+      startRef.current = null;
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+    }
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
   }
 
-  function onPointerMove(e) {
-    if (!startRef.current) return;
-    const deltaX = e.clientX - startRef.current.clientX;
-    const deltaSeconds = deltaX / pixelsPerSecond;
-    let newAt = Math.max(0, startRef.current.originalAt + deltaSeconds);
-    if (snap) newAt = Math.round(newAt / snapInterval) * snapInterval;
-    onChange({ ...item, at: +newAt.toFixed(2) });
-  }
-
-  function onPointerUp() {
-    startRef.current = null;
-  }
-
-  return { onPointerDown, onPointerMove, onPointerUp };
+  return { onPointerDown }; // move/up sú na window, nie React props
 }
 ```
+
+### Lane stacking — prekrývajúce sa klipsy
+
+Keď sú dva klipsy bližšie ako šírka clipu (130 px / pps sekúnd), dostanú rôzny `lane` index a track sa vertikálne roztiahne (`min-height: calc(var(--se2-tl-lane-count, 1) * 52px + 12px)`).
+
+### Popover editor
+
+Klik na clip (bez dragu, pohyb < 4 px) otvorí `ClipPopover` cez `ReactDOM.createPortal`. Portal nutný — escapuje `overflow: hidden` scroll kontajner. Pozícia: `position: fixed` z `getBoundingClientRect()` pri otvorení.
+
+### Clip label formát
+
+- MQTT: `light/fire: ON` (posledné 2 segmenty topicu + správa)
+- Audio/Video: `sfx_alarm` (meno súboru bez prípony)
 
 ---
 
