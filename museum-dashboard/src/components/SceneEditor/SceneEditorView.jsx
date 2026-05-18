@@ -152,7 +152,7 @@ export default function SceneEditorView() {
     const duration = Math.max(maxAt + 15, 30); // at least 30s, or timeline end + 15s buffer
 
     return {
-      sceneId: '__test__',
+      sceneId: 'sc_preview',
       version: '2.0',
       initialState: state.name,
       states: {
@@ -171,8 +171,12 @@ export default function SceneEditorView() {
 
   const handleTestState = async (state) => {
     try {
-      await api.saveScene('__test__', buildTestScene(state));
-      await api.runScene('__test__');
+      // 1. Save the mini-scene first
+      await api.saveScene('sc_preview', buildTestScene(state));
+      // 2. Stop whatever is currently running on the Pi (best-effort)
+      try { await api.stopScene(); } catch { /* ignore if nothing running */ }
+      // 3. Now run the freshly saved scene
+      await api.runScene('sc_preview');
       setTestingState({ name: state.name });
       toast.success(`▶ Testuje sa: ${state.name}`);
     } catch (err) {
