@@ -3,19 +3,17 @@ import { useRef, useEffect } from 'react';
 /**
  * useClipDrag — native pointer-event drag for a single timeline clip.
  *
- * Registers event listeners directly on the DOM element via useEffect so that:
- *   - setPointerCapture redirects all move/up to the element (reliable cross-browser)
- *   - React synthetic event system is bypassed entirely
- *   - dnd-kit PointerSensor never sees pointerdown on a clip
+ * Strategy:
+ *   - pointerdown: native listener on the element (fires before React synthetic events
+ *     and before dnd-kit, because useEffect attaches it directly to the DOM node)
+ *   - pointermove / pointerup: document capture-phase listeners
+ *     (capture = true means they fire before ANY other handler, including dnd-kit)
  *
- * Elements with [data-no-drag] attribute (e.g. the delete button) inside the clip
- * are excluded — clicking them does NOT start a drag.
+ * Elements with [data-no-drag] (e.g. delete button) skip drag activation.
  *
- * Distinguishes click (move < DRAG_THRESHOLD_PX) from drag:
- *   - drag  → onMove (live) + onCommit (on up)
- *   - click → onClick
+ * click vs drag: if pointer moved < DRAG_THRESHOLD_PX on up → onClick fires instead.
  *
- * Returns { ref } — attach to the clip's root div.
+ * Returns { ref } — attach to the clip root div.
  */
 
 const DRAG_THRESHOLD_PX = 4;
@@ -29,33 +27,26 @@ export function useClipDrag({
   onCommit,
   onClick,
 }) {
-  const ref     = useRef(null);
+  const ref      = useRef(null);
   const startRef = useRef(null);
-
-  // Keep a mutable ref so the effect closure always sees fresh props/callbacks
-  const liveRef = useRef(null);
+  const liveRef  = useRef(null);
+  // Always keep liveRef current so closures inside the effect never go stale
   liveRef.current = { item, pixelsPerSecond, snapEnabled, snapInterval, onMove, onCommit, onClick };
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
 
-    function snap(seconds) {
-      const { snapEnabled: se, snapInterval: si } = liveRef.current;
-      return se ? Math.round(seconds / si) * si : seconds;
-    }
-
     function calcAt(clientX) {
-      const { pixelsPerSecond: pps } = liveRef.current;
-      const deltaX = clientX - startRef.current.clientX;
-      const raw    = Math.max(0, startRef.current.originalAt + deltaX / pps);
-      return +snap(raw).toFixed(2);
+      const { pixelsPerSecond: pps, snapEnabled: se, snapInterval: si } = liveRef.current;
+      const raw = Math.max(0, startRef.current.originalAt + (clientX - startRef.current.clientX) / pps);
+      return +(se ? Math.round(raw / si) * si : raw).toFixed(2);
     }
 
+    // Capture-phase: fires before dnd-kit and React synthetic handlers
     function handleMove(e) {
       if (!startRef.current) return;
-      const dx = Math.abs(e.clientX - startRef.current.clientX);
-      if (dx > DRAG_THRESHOLD_PX) {
+      if (Math.abs(e.clientX - startRef.current.clientX) > DRAG_THRESHOLD_PX) {
         startRef.current.dragged = true;
         liveRef.current.onMove(liveRef.current.item.id, calcAt(e.clientX));
       }
@@ -69,35 +60,27 @@ export function useClipDrag({
         liveRef.current.onClick?.();
       }
       startRef.current = null;
-      el.removeEventListener('pointermove', handleMove);
-      el.removeEventListener('pointerup',   handleUp);
+      document.removeEventListener('pointermove', handleMove, true);
+      document.removeEventListener('pointerup',   handleUp,   true);
     }
 
     function handleDown(e) {
-      // Ignore clicks on elements marked as non-draggable (e.g. delete button)
       if (e.target.closest('[data-no-drag]')) return;
-
-      // Block dnd-kit and any other listeners on the same element
       e.stopPropagation();
       e.stopImmediatePropagation();
-
-      // Capture pointer so move/up go to this element even outside its bounds
-      el.setPointerCapture(e.pointerId);
-      startRef.current = {
-        clientX:    e.clientX,
-        originalAt: liveRef.current.item.at,
-        dragged:    false,
-      };
-
-      el.addEventListener('pointermove', handleMove);
-      el.addEventListener('pointerup',   handleUp);
+      startRef.current = { clientX: e.clientX, originalAt: liveRef.current.item.at, dragged: false };
+      document.addEventListener('pointermove', handleMove, true);
+      document.addEventListener('pointerup',   handleUp,   true);
     }
 
     el.addEventListener('pointerdown', handleDown);
     return () => {
       el.removeEventListener('pointerdown', handleDown);
+      // Safety cleanup if component unmounts mid-drag
+      document.removeEventListener('pointermove', handleMove, true);
+      document.removeEventListener('pointerup',   handleUp,   true);
     };
-  }, []); // empty — all values accessed via liveRef
+  }, []); // empty — all values via liveRef
 
   return { ref };
 }

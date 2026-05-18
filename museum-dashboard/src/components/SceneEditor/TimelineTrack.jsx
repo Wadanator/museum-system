@@ -87,7 +87,8 @@ export default function TimelineTrack({
             pixelsPerSecond={pixelsPerSecond}
             snapEnabled={snapEnabled}
             isSelected={selectedId === item.id}
-            onSelect={() => setSelectedId((prev) => prev === item.id ? null : item.id)}
+            onSelect={() => setSelectedId(item.id)}
+            onClose={() => setSelectedId(null)}
             onMove={onMove}
             onCommit={onCommit}
             onDelete={onDelete}
