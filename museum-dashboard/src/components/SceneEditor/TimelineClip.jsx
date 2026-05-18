@@ -6,9 +6,22 @@ import ClipPopover from './ClipPopover';
 const LANE_HEIGHT_PX = 52;
 const CLIP_TOP_PX    = 6;
 
-function shortLabel(message) {
-  if (!message) return '—';
-  return message.split(':').slice(0, 2).join(':');
+/**
+ * Build a compact readable label for the clip body.
+ * MQTT: last 2 topic segments + message  →  "light/fire: ON"
+ * Audio/Video: filename without extension  →  "sfx_alarm"
+ */
+function clipLabel(item) {
+  if (item.action === 'mqtt') {
+    const topicShort = item.topic
+      ? item.topic.split('/').slice(-2).join('/')
+      : '';
+    return topicShort
+      ? `${topicShort}: ${item.message || '?'}`
+      : (item.message || '—');
+  }
+  // audio / video: strip extension
+  return item.message ? item.message.replace(/\.[^.]+$/, '') : '—';
 }
 
 /**
@@ -37,7 +50,7 @@ export default function TimelineClip({
 }) {
   const clipRef = useRef(null);
 
-  const { onPointerDown, onPointerMove, onPointerUp } = useClipDrag({
+  const { onPointerDown } = useClipDrag({
     item,
     pixelsPerSecond,
     snapEnabled,
@@ -56,12 +69,10 @@ export default function TimelineClip({
       className={`se2-tl-clip se2-tl-clip--${item.action}${isSelected ? ' se2-tl-clip--selected' : ''}`}
       style={{ left: item.at * pixelsPerSecond, top: topPx }}
       onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
       title={isSelected ? undefined : tooltip}
     >
       <span className="se2-tl-clip-time">@{item.at}s</span>
-      <span className="se2-tl-clip-label">{shortLabel(item.message)}</span>
+      <span className="se2-tl-clip-label">{clipLabel(item)}</span>
 
       <button
         className="se2-tl-clip-delete"
