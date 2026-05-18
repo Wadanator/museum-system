@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Cpu, Zap, Lightbulb, GripVertical, Play, Plus, Loader2 } from 'lucide-react';
+import { Cpu, Zap, Lightbulb, GripVertical, Play, Plus, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 import { useDevicePalette } from '../../hooks/useDevicePalette';
 import { createEmptyAction } from '../../hooks/useSceneEditor';
@@ -15,11 +15,18 @@ function DeviceIcon({ deviceType }) {
 
 // ── sub-components ────────────────────────────────────────────────────────────
 
-function PalSection({ label, children }) {
+function PalSection({ label, open, onToggle, children }) {
+  const Chevron = open ? ChevronDown : ChevronRight;
   return (
     <div className="se2-pal-section">
-      <div className="se2-pal-section-header">{label}</div>
-      {children}
+      <div
+        className={`se2-pal-section-header${open ? ' se2-pal-section-header--open' : ''}`}
+        onClick={onToggle}
+      >
+        <Chevron size={11} />
+        {label}
+      </div>
+      {open && children}
     </div>
   );
 }
@@ -126,6 +133,8 @@ export default function EditorPalette({ selectedStateId, onAddAction }) {
     useDevicePalette();
 
   const [targetSection, setTargetSection] = useState('onEnter');
+  const [openCats, setOpenCats] = useState({ motors: true, relays: false, audio: false, video: false });
+  const toggleCat = (cat) => setOpenCats((prev) => ({ ...prev, [cat]: !prev[cat] }));
 
   const noState = !selectedStateId;
 
@@ -178,7 +187,7 @@ export default function EditorPalette({ selectedStateId, onAddAction }) {
       ) : (
         <>
           {motorItems.length > 0 && (
-            <PalSection label="Motory">
+            <PalSection label="Motory" open={openCats.motors} onToggle={() => toggleCat('motors')}>
               {motorItems.map((item) => (
                 <DeviceRow
                   key={item.id}
@@ -191,7 +200,7 @@ export default function EditorPalette({ selectedStateId, onAddAction }) {
           )}
 
           {relayItems.length > 0 && (
-            <PalSection label="Relé / Svetlá">
+            <PalSection label="Relé / Svetlá" open={openCats.relays} onToggle={() => toggleCat('relays')}>
               {relayItems.map((item) => (
                 <DeviceRow
                   key={item.id}
@@ -204,7 +213,7 @@ export default function EditorPalette({ selectedStateId, onAddAction }) {
           )}
 
           {audioItems.length > 0 && (
-            <PalSection label="Audio">
+            <PalSection label="Audio" open={openCats.audio} onToggle={() => toggleCat('audio')}>
               {audioItems.map((item) => (
                 <AudioRow
                   key={item.name}
@@ -218,7 +227,7 @@ export default function EditorPalette({ selectedStateId, onAddAction }) {
           )}
 
           {videoItems.length > 0 && (
-            <PalSection label="Video">
+            <PalSection label="Video" open={openCats.video} onToggle={() => toggleCat('video')}>
               {videoItems.map((item) => (
                 <VideoRow
                   key={item.name}

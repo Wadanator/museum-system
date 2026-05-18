@@ -15,6 +15,7 @@ import {
 import { api } from '../../services/api';
 import { useSceneEditor, createEmptyAction, createEmptyTimelineItem } from '../../hooks/useSceneEditor';
 import Button from '../ui/Button';
+import PageHeader from '../ui/PageHeader';
 import StatePanel from './StatePanel';
 import EditorPalette from './EditorPalette';
 import '../../styles/views/scene-editor-v2.css';
@@ -153,13 +154,12 @@ export default function SceneEditorView() {
     <div className="se2-view">
 
       {/* ── Header ─────────────────────────────────────────────── */}
-      <div className="se2-header">
-        <div className="se2-header-left">
-          <Wand2 size={18} className="se2-header-icon" />
-          <span className="se2-header-title">Editor scén</span>
-          {sceneName && <span className="file-badge">{sceneName}</span>}
-          {isDirty && <span className="se2-dirty-badge">● neuložené</span>}
-        </div>
+      <PageHeader
+        title="Editor scén"
+        subtitle={sceneName}
+        icon={Wand2}
+      >
+        {isDirty && <span className="se2-dirty-badge">● neuložené</span>}
         <Button
           variant="primary"
           icon={Save}
@@ -170,7 +170,7 @@ export default function SceneEditorView() {
         >
           Uložiť na Pi
         </Button>
-      </div>
+      </PageHeader>
 
       {/* ── 3-panel body ───────────────────────────────────────── */}
       <DndContext

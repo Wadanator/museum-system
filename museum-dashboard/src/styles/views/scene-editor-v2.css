@@ -1,64 +1,35 @@
-/* Scene Editor V2 — full-height 3-panel layout
-   Rendered inside .main-content (padding: 30px 40px, height: 100vh).
-   The view fills available space as a bordered card. */
+/* Scene Editor V2 — natural-scroll 3-panel layout
+   Rendered inside .main-content (overflow-y: auto; height: 100vh).
+   The view is a flex column that grows with content; sticky sidebars stay in view. */
 
 .se2-view {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 120px); /* layout math: 30px top + 30px bottom padding + 40px content padding + 20px buffer */
-  overflow: hidden;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-sm);
-}
-
-/* ── Header ──────────────────────────────────────────────────── */
-
-.se2-header {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: var(--spacing-md);
-  padding: var(--spacing-md) var(--spacing-2xl);
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--border-color);
 }
 
-.se2-header-left {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  min-width: 0;
-}
-
-.se2-header-icon {
-  color: var(--primary);
-  flex-shrink: 0;
-}
-
-.se2-header-title {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  white-space: nowrap;
-}
+/* ── Dirty badge (shown in PageHeader actions area) ──────────── */
 
 .se2-dirty-badge {
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--warning);
   white-space: nowrap;
+  align-self: center;
 }
 
 /* ── Body — flex row of 3 panels ─────────────────────────────── */
 
+/* NOTE: NO overflow:hidden here — that would break position:sticky on sidebars */
 .se2-body {
-  flex: 1;
-  min-height: 0;
   display: flex;
-  overflow: hidden;
+  align-items: flex-start;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  background: var(--bg-card);
+  min-height: 600px;
+  position: relative;
 }
 
 /* ── Shared panel chrome ─────────────────────────────────────── */
@@ -91,6 +62,11 @@
   border-right: 1px solid var(--border-color);
   background: var(--bg-card);
   overflow: hidden;
+  /* sticky: keeps state list in view as center panel scrolls */
+  position: sticky;
+  top: 0;
+  max-height: 100vh;
+  border-radius: var(--radius-lg) 0 0 var(--radius-lg);
 }
 
 .se2-state-items {
@@ -154,12 +130,12 @@
 
 /* ── Main panel (center) ─────────────────────────────────────── */
 
+/* No overflow-y: auto here — the page itself scrolls via .main-content */
 .se2-main {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
   background: var(--bg-main);
 }
 
@@ -173,6 +149,11 @@
   border-left: 1px solid var(--border-color);
   background: var(--bg-card);
   overflow-y: auto;
+  /* sticky: palette scrolls independently, stays in view */
+  position: sticky;
+  top: 0;
+  max-height: 100vh;
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
 }
 
 /* ── Placeholder (center + palette empty states) ─────────────── */
@@ -260,24 +241,84 @@
   padding-bottom: var(--spacing-3xl);
 }
 
-/* ── Section header (onEnter / onExit / Prechody) ────────────── */
+/* ── Section accordion (onEnter / Timeline / onExit / Prechody) ─ */
 
-.se2-section-header {
-  display: flex;
-  align-items: center;
-  padding: var(--spacing-xs) var(--spacing-xl);
-  background: var(--bg-card);
+.se2-section-accordion {
   border-top: 1px solid var(--border-color);
-  border-bottom: 1px solid var(--border-color);
 }
 
-.se2-section-header span {
+.se2-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-xl);
+  background: var(--bg-card);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.1s;
+}
+
+.se2-section-toggle:hover {
+  background: var(--bg-hover);
+}
+
+.se2-section-toggle-left {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.se2-section-chevron {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.se2-section-label {
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
   font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.se2-section-count {
+  min-width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay-inverse-soft);
+  border-radius: 9px;
+  font-size: 0.64rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 0 4px;
+}
+
+.se2-section-add-btn {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
+  padding: 0;
+}
+
+.se2-section-add-btn:hover {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--text-white);
+}
+
+.se2-section-body {
+  background: var(--bg-main);
 }
 
 /* ── Metadata form ───────────────────────────────────────────── */
@@ -613,6 +654,9 @@
 }
 
 .se2-pal-section-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
   font-size: 0.65rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -621,6 +665,17 @@
   padding: var(--spacing-xs) var(--spacing-md);
   background: var(--bg-main);
   border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s;
+}
+
+.se2-pal-section-header:hover {
+  background: var(--bg-hover);
+}
+
+.se2-pal-section-header--open {
+  background: var(--bg-card);
 }
 
 /* Device row */
