@@ -348,8 +348,12 @@ export const useSceneEditor = ({ sceneName, initialData } = {}) => {
     }));
   }, [update]);
 
-  const moveTimelineItem = useCallback((stateId, itemId, newAt) => {
-    updateTimelineItem(stateId, itemId, { at: Math.max(0, +newAt.toFixed(2)) });
+  // Third arg is either a bare number (from drag) or a partial object {at, message, topic, …} (from popover)
+  const moveTimelineItem = useCallback((stateId, itemId, atOrPartial) => {
+    const partial = typeof atOrPartial === 'number'
+      ? { at: Math.max(0, +atOrPartial.toFixed(2)) }
+      : atOrPartial;
+    updateTimelineItem(stateId, itemId, partial);
   }, [updateTimelineItem]);
 
   // ── Transitions ───────────────────────────────────────────────────────────
