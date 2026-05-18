@@ -1,6 +1,6 @@
 import { useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { Save, Plus, Trash2, Wand2, Loader2 } from 'lucide-react';
+import { Save, Plus, Trash2, Wand2, Loader2, Play, Square } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
   DndContext,
@@ -52,6 +52,7 @@ export default function SceneEditorView() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [activeDragData, setActiveDragData] = useState(null);
+  const [testingState, setTestingState] = useState(null); // { name } when a test run is active
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
@@ -141,6 +142,53 @@ export default function SceneEditorView() {
 
   const setInitialState = (name) => updateMetadata({ initialState: name });
 
+  // ── State test-run ────────────────────────────────────────────
+  // Builds a minimal 1-state scene, saves it as __test__ on the Pi, and runs it.
+  // Uses only existing api.saveScene + api.runScene — no Pi-side changes needed.
+
+  const buildTestScene = (state) => {
+    const stripId = ({ id, ...rest }) => rest;
+    const maxAt = state.timeline.reduce((m, item) => Math.max(m, item.at), 0);
+    const duration = Math.max(maxAt + 15, 30); // at least 30s, or timeline end + 15s buffer
+
+    return {
+      sceneId: '__test__',
+      version: '2.0',
+      initialState: state.name,
+      states: {
+        [state.name]: {
+          ...(state.onEnter?.length  ? { onEnter:   state.onEnter.map(stripId)  } : {}),
+          ...(state.timeline?.length ? { timeline:  [...state.timeline]
+            .sort((a, b) => a.at - b.at)
+            .map(({ id, ...r }) => ({ ...r, at: Number(r.at) })) } : {}),
+          ...(state.onExit?.length   ? { onExit:    state.onExit.map(stripId)   } : {}),
+          transitions: [{ type: 'timeout', delay: duration, goto: '__END__' }],
+        },
+        __END__: {},
+      },
+    };
+  };
+
+  const handleTestState = async (state) => {
+    try {
+      await api.saveScene('__test__', buildTestScene(state));
+      await api.runScene('__test__');
+      setTestingState({ name: state.name });
+      toast.success(`▶ Testuje sa: ${state.name}`);
+    } catch (err) {
+      toast.error(err.message || 'Chyba pri spúšťaní testu');
+    }
+  };
+
+  const handleStopTest = async () => {
+    try {
+      await api.stopScene();
+    } catch {
+      // ignore — best-effort stop
+    }
+    setTestingState(null);
+  };
+
   const handleSave = async () => {
     try {
       await saveToBackend();
@@ -171,6 +219,18 @@ export default function SceneEditorView() {
           Uložiť na Pi
         </Button>
       </PageHeader>
+
+      {/* ── Test-run banner ────────────────────────────────────── */}
+      {testingState && (
+        <div className="se2-test-banner">
+          <span className="se2-test-banner-pulse" />
+          <span className="se2-test-banner-text">Testuje sa stav <strong>{testingState.name}</strong> na Pi…</span>
+          <button className="se2-test-banner-stop" type="button" onClick={handleStopTest}>
+            <Square size={11} />
+            Zastaviť
+          </button>
+        </div>
+      )}
 
       {/* ── 3-panel body ───────────────────────────────────────── */}
       <DndContext
@@ -213,16 +273,32 @@ export default function SceneEditorView() {
                   )}
                   {state.name}
                 </span>
-                <Button
-                  variant="ghost"
-                  size="small"
-                  icon={Trash2}
-                  cooldown={0}
-                  disabled={states.length <= 1}
-                  onClick={(e) => { e.stopPropagation(); deleteState(state.id); }}
-                  className="se2-delete-btn"
-                  title="Vymazať stav"
-                />
+                <div className="se2-state-actions">
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    icon={testingState?.name === state.name ? Square : Play}
+                    cooldown={0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      testingState?.name === state.name
+                        ? handleStopTest()
+                        : handleTestState(state);
+                    }}
+                    className={`se2-test-btn${testingState?.name === state.name ? ' se2-test-btn--active' : ''}`}
+                    title={testingState?.name === state.name ? 'Zastaviť test' : 'Otestovať stav na Pi'}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="small"
+                    icon={Trash2}
+                    cooldown={0}
+                    disabled={states.length <= 1}
+                    onClick={(e) => { e.stopPropagation(); deleteState(state.id); }}
+                    className="se2-delete-btn"
+                    title="Vymazať stav"
+                  />
+                </div>
               </li>
             ))}
           </ul>
