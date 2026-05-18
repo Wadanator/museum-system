@@ -36,6 +36,7 @@ export default function TimelineClip({
   snapEnabled,
   isSelected,
   onSelect,
+  onClose,
   onMove,
   onCommit,
   onUpdate,
@@ -80,7 +81,7 @@ export default function TimelineClip({
           item={item}
           anchorRect={clipRef.current?.getBoundingClientRect()}
           onUpdate={onUpdate}
-          onClose={onSelect}
+          onClose={onClose}
         />
       )}
     </div>

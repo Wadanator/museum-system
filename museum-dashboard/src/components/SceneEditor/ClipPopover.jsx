@@ -13,7 +13,8 @@ import { X } from 'lucide-react';
  *   - Enter key (commits the edit)
  */
 export default function ClipPopover({ item, anchorRect, onUpdate, onClose }) {
-  const ref = useRef(null);
+  const ref          = useRef(null);
+  const committedRef = useRef(false); // guard: onBlur + outside-click can both fire at once
   const [at,      setAt]      = useState(String(item.at));
   const [topic,   setTopic]   = useState(item.topic   ?? '');
   const [message, setMessage] = useState(item.message ?? '');
@@ -52,6 +53,8 @@ export default function ClipPopover({ item, anchorRect, onUpdate, onClose }) {
   }, [onClose]);
 
   function commit() {
+    if (committedRef.current) return; // already committed — ignore duplicate call
+    committedRef.current = true;
     const newAt = parseFloat(at);
     if (!isNaN(newAt) && newAt >= 0) {
       onUpdate(item.id, {
