@@ -28,7 +28,7 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   background: var(--bg-card);
-  min-height: 600px;
+  min-height: 780px;
   position: relative;
 }
 
@@ -758,9 +758,10 @@
 /* Device row */
 .se2-pal-device-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
   gap: var(--spacing-xs);
-  padding: 5px var(--spacing-sm);
+  padding: 4px var(--spacing-sm);
   border-bottom: 1px solid var(--border-color);
   transition: background 0.1s;
 }
@@ -792,8 +793,9 @@
 
 .se2-pal-quick-btns {
   display: flex;
+  flex-wrap: wrap;
   gap: 2px;
-  flex-shrink: 0;
+  justify-content: flex-end;
 }
 
 .se2-pal-quick-btn {
@@ -1077,7 +1079,7 @@
 /* Track content area — height grows with lane count */
 .se2-tl-track {
   flex: 1;
-  min-height: calc(var(--se2-tl-lane-count, 1) * 52px + 12px);
+  min-height: calc(var(--se2-tl-lane-count, 1) * 64px + 16px);
   position: relative;
   background-image: repeating-linear-gradient(
     90deg,
