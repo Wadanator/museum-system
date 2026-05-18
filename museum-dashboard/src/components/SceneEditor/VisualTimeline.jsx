@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import TimeRuler from './TimeRuler';
 import TimelineTrack from './TimelineTrack';
 import TimelineToolbar from './TimelineToolbar';
@@ -19,9 +19,12 @@ const MIN_DURATION_S = 12;  // minimum visible duration in seconds
  *     [VIDEO row]   — 64 px label        + TimelineTrack (droppable)
  *
  * Clips are events (points in time, not intervals).
- * Clip drag uses native pointer events via useClipDrag — zero re-renders.
+ * Clip drag uses native pointer events via useClipDrag — zero re-renders during drag.
  * Palette → track drop uses dnd-kit useDroppable; the actual item creation
  * is handled one level up in SceneEditorView.handleDragEnd.
+ *
+ * Callbacks received from StatePanel/SceneEditorView use signature
+ *   (stateId, itemId, partial) — so we bind stateId here before passing down.
  */
 export default function VisualTimeline({
   stateId,
@@ -47,6 +50,13 @@ export default function VisualTimeline({
     audio: timeline.filter((i) => i.action === 'audio'),
     video: timeline.filter((i) => i.action === 'video'),
   }), [timeline]);
+
+  // Bind stateId so child components only need (itemId, ...) args.
+  // onMove / onCommit / onDelete all have signature (stateId, itemId, partial).
+  const handleMove   = useCallback((itemId, at)      => onMove(stateId,   itemId, { at }),    [stateId, onMove]);
+  const handleCommit = useCallback((itemId, at)      => onCommit(stateId, itemId, { at }),    [stateId, onCommit]);
+  const handleDelete = useCallback((itemId)          => onDelete(stateId, itemId),            [stateId, onDelete]);
+  const handleUpdate = useCallback((itemId, partial) => onMove(stateId,   itemId, partial),   [stateId, onMove]);
 
   return (
     <div className="se2-tl-root">
@@ -80,9 +90,10 @@ export default function VisualTimeline({
               pixelsPerSecond={pixelsPerSecond}
               snapEnabled={snapEnabled}
               trackWidth={trackWidth}
-              onMove={onMove}
-              onCommit={onCommit}
-              onDelete={onDelete}
+              onMove={handleMove}
+              onCommit={handleCommit}
+              onDelete={handleDelete}
+              onUpdate={handleUpdate}
             />
           ))}
 
