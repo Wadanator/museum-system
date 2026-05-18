@@ -1,4 +1,3 @@
-import { useRef } from 'react';
 import { Trash2 } from 'lucide-react';
 import { useClipDrag } from '../../hooks/useTimeline';
 import ClipPopover from './ClipPopover';
@@ -20,21 +19,15 @@ function clipLabel(item) {
       ? `${topicShort}: ${item.message || '?'}`
       : (item.message || '—');
   }
-  // audio / video: strip extension
   return item.message ? item.message.replace(/\.[^.]+$/, '') : '—';
 }
 
 /**
  * TimelineClip — a single draggable event marker on a timeline track.
  *
- * Position:
- *   left = item.at * pixelsPerSecond
- *   top  = CLIP_TOP_PX + lane * LANE_HEIGHT_PX   (lane stacking)
- *
- * Interaction:
- *   - Drag  → moves the clip (pointer capture, zero-latency)
- *   - Click → opens ClipPopover inline editor (portal, position: fixed)
- *   - ×     → deletes the clip
+ * Drag is handled entirely via native pointer events in useClipDrag (useEffect).
+ * The hook returns a ref that must be attached to the root div.
+ * Delete button has [data-no-drag] so it never accidentally starts a drag.
  */
 export default function TimelineClip({
   item,
@@ -48,9 +41,7 @@ export default function TimelineClip({
   onUpdate,
   onDelete,
 }) {
-  const clipRef = useRef(null);
-
-  const { onPointerDown } = useClipDrag({
+  const { ref: clipRef } = useClipDrag({
     item,
     pixelsPerSecond,
     snapEnabled,
@@ -68,18 +59,18 @@ export default function TimelineClip({
       ref={clipRef}
       className={`se2-tl-clip se2-tl-clip--${item.action}${isSelected ? ' se2-tl-clip--selected' : ''}`}
       style={{ left: item.at * pixelsPerSecond, top: topPx }}
-      onPointerDown={onPointerDown}
       title={isSelected ? undefined : tooltip}
     >
       <span className="se2-tl-clip-time">@{item.at}s</span>
       <span className="se2-tl-clip-label">{clipLabel(item)}</span>
 
+      {/* data-no-drag prevents the clip's native pointerdown handler from starting a drag */}
       <button
+        data-no-drag
         className="se2-tl-clip-delete"
         type="button"
         title="Odstrániť"
-        onClick={(e)      => { e.stopPropagation(); onDelete(item.id); }}
-        onPointerDown={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); }}
+        onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
       >
         <Trash2 size={10} />
       </button>
