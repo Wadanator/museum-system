@@ -399,9 +399,9 @@
   opacity: 0.8;
 }
 
-.se2-action-badge--mqtt  { background: #1e40af22; color: #3b82f6; }
-.se2-action-badge--audio { background: #14532d22; color: #22c55e; }
-.se2-action-badge--video { background: #4c1d9522; color: #a855f7; }
+.se2-action-badge--mqtt  { background: var(--badge-mqtt-bg);  color: var(--badge-mqtt-color); }
+.se2-action-badge--audio { background: var(--badge-audio-bg); color: var(--badge-audio-color); }
+.se2-action-badge--video { background: var(--badge-video-bg); color: var(--badge-video-color); }
 
 .se2-action-input {
   flex: 1;
