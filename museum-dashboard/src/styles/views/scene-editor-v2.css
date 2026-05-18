@@ -126,22 +126,31 @@
   margin-left: auto;
 }
 
-.se2-delete-btn,
-.se2-test-btn {
+.se2-delete-btn {
   opacity: 0;
   transition: opacity 0.1s;
   flex-shrink: 0;
 }
 
-.se2-state-item:hover .se2-delete-btn,
+.se2-state-item:hover .se2-delete-btn {
+  opacity: 1;
+}
+
+/* Play button — always visible, green */
+.se2-test-btn {
+  flex-shrink: 0;
+  color: var(--success, #22c55e) !important;
+  opacity: 0.55;
+  transition: opacity 0.1s;
+}
+
 .se2-state-item:hover .se2-test-btn {
   opacity: 1;
 }
 
-/* Active test button stays visible and coloured green */
+/* Actively testing — full green, no fade */
 .se2-test-btn--active {
   opacity: 1 !important;
-  color: var(--success, #22c55e) !important;
 }
 
 /* ── Test-run banner ─────────────────────────────────────────── */
