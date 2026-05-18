@@ -1,22 +1,21 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 
 /**
- * Pointer-event drag hook for a single timeline clip.
+ * useClipDrag — native pointer-event drag for a single timeline clip.
  *
- * Uses native window-level listeners for pointermove/pointerup so that:
- *   - drag continues outside the clip element boundary
- *   - React synthetic event system and dnd-kit do NOT interfere
+ * Registers event listeners directly on the DOM element via useEffect so that:
+ *   - setPointerCapture redirects all move/up to the element (reliable cross-browser)
+ *   - React synthetic event system is bypassed entirely
+ *   - dnd-kit PointerSensor never sees pointerdown on a clip
  *
- * Distinguishes a click (pointer-up with <DRAG_THRESHOLD_PX movement) from
- * a drag. On click, `onClick` is called instead of `onCommit`.
+ * Elements with [data-no-drag] attribute (e.g. the delete button) inside the clip
+ * are excluded — clicking them does NOT start a drag.
  *
- * @param {object}   params.item            - timeline item with `at` (seconds)
- * @param {number}   params.pixelsPerSecond - current zoom level
- * @param {boolean}  params.snapEnabled     - whether to snap to snapInterval
- * @param {number}   [params.snapInterval]  - snap grid in seconds (default 0.1)
- * @param {function} params.onMove          - (itemId, newAt) => void — live update while dragging
- * @param {function} params.onCommit        - (itemId, newAt) => void — final commit on pointer-up
- * @param {function} [params.onClick]       - () => void — fired on click (no significant drag)
+ * Distinguishes click (move < DRAG_THRESHOLD_PX) from drag:
+ *   - drag  → onMove (live) + onCommit (on up)
+ *   - click → onClick
+ *
+ * Returns { ref } — attach to the clip's root div.
  */
 
 const DRAG_THRESHOLD_PX = 4;
@@ -30,18 +29,16 @@ export function useClipDrag({
   onCommit,
   onClick,
 }) {
-  // Keep a ref so native listeners always see fresh callbacks/props
+  const ref     = useRef(null);
+  const startRef = useRef(null);
+
+  // Keep a mutable ref so the effect closure always sees fresh props/callbacks
   const liveRef = useRef(null);
   liveRef.current = { item, pixelsPerSecond, snapEnabled, snapInterval, onMove, onCommit, onClick };
 
-  const startRef = useRef(null);
-
-  function onPointerDown(e) {
-    // Prevent dnd-kit PointerSensor from activating
-    e.stopPropagation();
-    e.nativeEvent.stopImmediatePropagation();
-
-    startRef.current = { clientX: e.clientX, originalAt: item.at, dragged: false };
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
 
     function snap(seconds) {
       const { snapEnabled: se, snapInterval: si } = liveRef.current;
@@ -55,31 +52,52 @@ export function useClipDrag({
       return +snap(raw).toFixed(2);
     }
 
-    function handleMove(ev) {
+    function handleMove(e) {
       if (!startRef.current) return;
-      const dx = Math.abs(ev.clientX - startRef.current.clientX);
+      const dx = Math.abs(e.clientX - startRef.current.clientX);
       if (dx > DRAG_THRESHOLD_PX) {
         startRef.current.dragged = true;
-        liveRef.current.onMove(liveRef.current.item.id, calcAt(ev.clientX));
+        liveRef.current.onMove(liveRef.current.item.id, calcAt(e.clientX));
       }
     }
 
-    function handleUp(ev) {
+    function handleUp(e) {
       if (!startRef.current) return;
       if (startRef.current.dragged) {
-        liveRef.current.onCommit(liveRef.current.item.id, calcAt(ev.clientX));
+        liveRef.current.onCommit(liveRef.current.item.id, calcAt(e.clientX));
       } else {
         liveRef.current.onClick?.();
       }
       startRef.current = null;
-      window.removeEventListener('pointermove', handleMove);
-      window.removeEventListener('pointerup',   handleUp);
+      el.removeEventListener('pointermove', handleMove);
+      el.removeEventListener('pointerup',   handleUp);
     }
 
-    window.addEventListener('pointermove', handleMove);
-    window.addEventListener('pointerup',   handleUp);
-  }
+    function handleDown(e) {
+      // Ignore clicks on elements marked as non-draggable (e.g. delete button)
+      if (e.target.closest('[data-no-drag]')) return;
 
-  // Only pointerDown is a React handler; move/up use native window listeners
-  return { onPointerDown };
+      // Block dnd-kit and any other listeners on the same element
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+
+      // Capture pointer so move/up go to this element even outside its bounds
+      el.setPointerCapture(e.pointerId);
+      startRef.current = {
+        clientX:    e.clientX,
+        originalAt: liveRef.current.item.at,
+        dragged:    false,
+      };
+
+      el.addEventListener('pointermove', handleMove);
+      el.addEventListener('pointerup',   handleUp);
+    }
+
+    el.addEventListener('pointerdown', handleDown);
+    return () => {
+      el.removeEventListener('pointerdown', handleDown);
+    };
+  }, []); // empty — all values accessed via liveRef
+
+  return { ref };
 }

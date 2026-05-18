@@ -51,7 +51,8 @@ export default function TimelineTrack({
 
   const { setNodeRef, isOver } = useDroppable({
     id:   `timeline-track:${stateId}:${type}`,
-    data: { zone: 'timeline-track', stateId, trackType: type },
+    // pixelsPerSecond is included so SceneEditorView can compute the drop time
+    data: { zone: 'timeline-track', stateId, trackType: type, pixelsPerSecond },
   });
 
   const lanedItems = useMemo(

@@ -70,7 +70,7 @@ export default function SceneEditorView() {
     setActiveDragData(active.data?.current ?? null);
   };
 
-  const handleDragEnd = ({ active, over }) => {
+  const handleDragEnd = ({ active, over, delta, activatorEvent }) => {
     setActiveDragData(null);
     if (!over || active.id === over.id) return;
 
@@ -79,12 +79,16 @@ export default function SceneEditorView() {
 
     if (activeData?.type === 'palette') {
       if (overData?.zone === 'timeline-track') {
-        // Palette item dropped onto a visual timeline track
+        // Compute drop time from actual pointer position relative to track's left edge.
+        // over.rect is a MutableRefObject<ClientRect> in dnd-kit v6.
+        const trackRect = over.rect?.current ?? over.rect;
+        const pps       = overData.pixelsPerSecond ?? 80;
+        const pointerX  = (activatorEvent?.clientX ?? 0) + (delta?.x ?? 0);
+        const relX      = trackRect ? Math.max(0, pointerX - trackRect.left) : 0;
+        const at        = +(relX / pps).toFixed(2);
+
         const { stateId: tlStateId } = overData;
-        const targetState = states.find((s) => s.id === tlStateId);
-        const maxAt = targetState?.timeline?.reduce((m, i) => Math.max(m, i.at), 0) ?? 0;
-        const at    = +(maxAt + 0.5).toFixed(2);
-        const item  = {
+        const item = {
           ...createEmptyTimelineItem(at),
           action: activeData.actionType,
           ...(activeData.topic ? { topic: activeData.topic } : {}),
