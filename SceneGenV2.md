@@ -1,7 +1,7 @@
 # SceneGen V2 — Špecifikácia Vizuálneho Editora Scén
 
-> **Stav:** 🚧 V implementácii — Fáza 1 dokončená (iterácie 1–5 ✅), Fáza 2 začína  
-> **Dátum:** 2026-05-17  
+> **Stav:** 🚧 V implementácii — Fáza 1 ✅, Fáza 2 ✅ — Fáza 3 (Visual Timeline) je ďalší krok  
+> **Dátum:** 2026-05-18  
 > **Branch:** `claude/epic-kepler-a0d35a`  
 > **Cieľ:** Nahradiť aktuálny standalone SceneGen plnohodnotným vizuálnym editorom priamo v `museum-dashboard`, s FL Studio-štýl timeline pre každý stav.
 
@@ -614,15 +614,16 @@ Cieľ: Funkčný editor stavov v dashboarde, parita s aktuálnym SceneGen.
    - `reorderActions` z hooku zapojený v `SceneEditorView`
    - CSS: `.se2-drag-handle`, `.se2-action-row--dragging`
 
-### Fáza 2 — Device & Audio palety
+### Fáza 2 — Device & Audio palety ✅
 Cieľ: Palety namiesto hardcoded constants.
 
 1. ✅ `useDevicePalette.js` — transformácia `useDevices()` + `useMedia()` na palette items
-2. ✅ `EditorPalette.jsx` — motory, relé/svetlá (ON/OFF quick-insert), audio (▶ preview + insert), video (insert); onEnter/onExit toggle
-3. ⬜ **→ ĎALŠÍ KROK:** `@dnd-kit` drag z palety → drop na `ActionListEditor`
+2. ✅ `EditorPalette.jsx` — motory, relé/svetlá, audio (▶ preview + insert), video (insert); onEnter/onExit toggle
+3. ✅ `@dnd-kit` drag z palety → drop na `ActionListEditor` — single `DndContext` v `SceneEditorView`, custom `collisionDetection` (`pointerWithin` pre palette items, `closestCenter` pre sortable reorder), `DragOverlay` floating pill
 4. ✅ Preview tlačidlo pre audio súbory (volá existujúci `api.playMedia`)
+5. ✅ Motor quick messages podľa ESP32 kódu: `ON:<speed>:<dir>[:<rampMs>]`, `OFF`, `SPEED:<val>`, `DIR:L/R` — quick tlačidlá: `ON:50:L`, `ON:50:R`, `OFF`, `SPEED:80`, `DIR:L`, `DIR:R`
 
-### Fáza 3 — Visual Timeline
+### Fáza 3 — Visual Timeline ← **ĎALŠÍ KROK**
 Cieľ: FL Studio-štýl timeline namiesto textového zoznamu.
 
 1. ⬜ `TimeRuler.jsx` — SVG ruler so tickmarkami
