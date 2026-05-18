@@ -46,7 +46,6 @@ export default function TimelineClip({
     item,
     pixelsPerSecond,
     snapEnabled,
-    onMove,
     onCommit,
     onClick: onSelect,
   });
