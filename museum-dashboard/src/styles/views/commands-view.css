@@ -4,8 +4,8 @@
 .commands-view {
     display: flex;
     flex-direction: column;
-    gap: 24px;
-    padding-bottom: 40px;
+    gap: var(--spacing-2xl);
+    padding-bottom: var(--spacing-4xl);
     height: 100%;
 }
 
@@ -13,28 +13,28 @@
 .devices-content {
     display: flex;
     flex-direction: column;
-    gap: 40px;
+    gap: var(--spacing-4xl);
     overflow-y: auto;
-    padding-right: 5px;
+    padding-right: var(--spacing-xs);
 }
 
 .device-section {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: var(--spacing-lg);
 }
 
 .section-header {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--border-color);
+    gap: var(--spacing-md);
+    padding-bottom: var(--spacing-sm-plus);
+    border-bottom: var(--border-width-sm) solid var(--border-color);
     color: var(--text-primary);
 }
 
 .section-header h3 {
-    font-size: 1.25rem;
+    font-size: var(--font-size-xl);
     font-weight: 700;
     margin: 0;
 }
@@ -46,24 +46,24 @@
 .count-badge {
     background: var(--bg-hover);
     color: var(--text-secondary);
-    padding: 2px 10px;
-    border-radius: 12px;
-    font-size: 0.85rem;
+    padding: var(--spacing-2xs) var(--spacing-sm-plus);
+    border-radius: var(--radius-lg);
+    font-size: var(--font-size-sm);
     font-weight: 600;
-    border: 1px solid var(--border-color);
+    border: var(--border-width-sm) solid var(--border-color);
 }
 
 /* --- GRID SYSTÉM --- */
 .devices-grid {
     display: grid;
-    gap: 24px;
+    gap: var(--spacing-2xl);
     /* UPRAVENÉ: Zväčšené na 380px pre viac miesta */
-    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(var(--device-grid-min-width), 1fr));
 }
 
 .motors-grid {
     /* UPRAVENÉ: Zväčšené na 380px (zjednotené) */
-    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); 
+    grid-template-columns: repeat(auto-fill, minmax(var(--device-grid-min-width), 1fr)); 
 }
 
 /* --- UPDATE DEVICE CARD (Overrides) --- */
@@ -71,8 +71,8 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    transition: all 0.2s ease;
-    border: 1px solid var(--border-color);
+    transition: all var(--transition-base);
+    border: var(--border-width-sm) solid var(--border-color);
 }
 
 .device-card:hover {
@@ -87,14 +87,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px 0;
-    min-height: 120px;
+    padding: var(--spacing-xl) 0;
+    min-height: var(--device-preview-min-height);
 }
 
 .emoji-large {
-    font-size: 4rem;
+    font-size: var(--font-size-display-lg);
     filter: var(--shadow-icon-filter);
-    transition: transform 0.3s ease;
+    transition: transform var(--transition-slow);
     cursor: default;
 }
 
@@ -105,16 +105,16 @@
 /* Kontrolky naspodku */
 .card-controls-footer {
     margin-top: auto;
-    padding-top: 16px;
-    border-top: 1px solid var(--bg-main); /* Jemná čiara oddelujúca tlačidlá */
+    padding-top: var(--spacing-lg);
+    border-top: var(--border-width-sm) solid var(--bg-main); /* Jemná čiara oddelujúca tlačidlá */
 }
 
 /* Empty State */
 .empty-state {
     text-align: center;
-    padding: 60px;
+    padding: var(--spacing-6xl);
     background: var(--bg-card);
-    border: 1px dashed var(--border-color);
+    border: var(--border-width-sm) dashed var(--border-color);
     border-radius: var(--radius-lg);
     color: var(--text-muted);
 }
@@ -124,8 +124,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 15px;
-    height: 300px;
+    gap: var(--spacing-md-loose);
+    height: var(--loading-state-height);
     color: var(--text-muted);
 }
 

@@ -213,14 +213,15 @@ export default function SceneEditorView() {
       >
         {isDirty && <span className="se2-dirty-badge">● neuložené</span>}
         <Button
-          variant="primary"
+          variant="toolbar-primary"
           icon={Save}
           onClick={handleSave}
           disabled={!isDirty || !sceneName}
           loading={isSaving}
           size="small"
+          title="Uložiť scénu na Raspberry Pi"
         >
-          Uložiť na Pi
+          Uložiť
         </Button>
       </PageHeader>
 

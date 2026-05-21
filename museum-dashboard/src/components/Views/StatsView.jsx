@@ -3,6 +3,7 @@ import { useSystemStats } from '../../hooks/useSystemStats';
 import PageHeader from '../ui/PageHeader';
 import StatusBadge from '../ui/StatusBadge';
 import Card from '../ui/Card'; // Použitie generickej karty
+import StateNotice from '../ui/StateNotice';
 import '../../styles/views/stats-view.css';
 
 export default function StatsView() {
@@ -40,7 +41,12 @@ export default function StatsView() {
           <Card title="Pripojené zariadenia" icon={Plug}>
               <div className="device-grid">
                   {sortedDevices.length === 0 ? (
-                      <div className="empty-message">Žiadne zariadenia</div> 
+                      <StateNotice
+                        icon={Plug}
+                        title="Žiadne zariadenia"
+                        message="Zatiaľ nie sú dostupné žiadne pripojené zariadenia."
+                        compact
+                      />
                   ) : (
                       sortedDevices.map(([id, info]) => (
                         <div className={`device-card-item ${info.status.toLowerCase()}`} key={id}>
@@ -60,7 +66,12 @@ export default function StatsView() {
           <Card title="Top scény" icon={ScrollText}>
               <div className="scene-ranking-list">
                 {sortedScenes.length === 0 ? (
-                    <div className="empty-message">Žiadna aktivita</div>
+                    <StateNotice
+                      icon={ScrollText}
+                      title="Žiadna aktivita"
+                      message="Po spustení scén sa tu zobrazí ich používanie."
+                      compact
+                    />
                 ) : (
                     sortedScenes.map(([name, count], index) => (
                         <div className="ranking-item" key={name}>

@@ -6,6 +6,7 @@ import { useSceneProgress } from '../../hooks/useSceneProgress';
 import SceneVisualizer from '../Scenes/SceneVisualizer';
 import PageHeader from '../ui/PageHeader';
 import Button from '../ui/Button';
+import StateNotice from '../ui/StateNotice';
 import { Activity, Play, Zap, Power, Cpu, RefreshCw } from 'lucide-react';
 import '../../styles/views/live-view.css';
 
@@ -119,10 +120,11 @@ export default function LiveView({
                             />
                         </>
                     ) : (
-                        <div className="empty-state">
-                            <Activity size={48} opacity={0.2} />
-                            <div>Vyberte scénu zo zoznamu</div>
-                        </div>
+                        <StateNotice
+                            icon={Activity}
+                            title="Vyberte scénu"
+                            message="Po výbere sa zobrazí priebeh scény a aktuálny stav zariadení."
+                        />
                     )}
                 </div>
 
@@ -134,9 +136,12 @@ export default function LiveView({
 
                     <div className="devices-list">
                         {devices.length === 0 ? (
-                            <div className="text-muted text-sm p-4 text-center">
-                                Žiadne zariadenia v devices.json
-                            </div>
+                            <StateNotice
+                                icon={Zap}
+                                title="Žiadne zariadenia"
+                                message="V konfigurácii zatiaľ nie sú zariadenia pre live náhľad."
+                                compact
+                            />
                         ) : (
                             devices.map((device) => {
                                 const confirmedState = getStateForDevice(device);

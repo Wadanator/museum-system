@@ -1,4 +1,4 @@
-import { Play, Settings2, Clock, Clapperboard, Star, Wand2 } from 'lucide-react';
+import { Play, FileCode2, Clock, Drama, Wand2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -20,9 +20,9 @@ export default function SceneCard({ scene, onPlay, onEdit }) {
                     size="small"
                     className="edit-btn-absolute"
                     onClick={(e) => { e.stopPropagation(); onEdit(scene.name); }}
-                    title="Upraviť scénu (JSON)"
-                    aria-label="Upraviť scénu"
-                    icon={Settings2}
+                    title="Upraviť JSON"
+                    aria-label="Upraviť JSON scény"
+                    icon={FileCode2}
                     cooldown={0}
                 />
                 <Button
@@ -30,15 +30,15 @@ export default function SceneCard({ scene, onPlay, onEdit }) {
                     size="small"
                     className="edit-btn-absolute edit-btn-absolute--v2"
                     onClick={(e) => { e.stopPropagation(); navigate(`/scene-editor/${scene.name}`); }}
-                    title="Otvoriť v SceneEditor V2"
-                    aria-label="Otvoriť v SceneEditor V2"
+                    title="Otvoriť editor"
+                    aria-label="Otvoriť editor scény"
                     icon={Wand2}
                     cooldown={0}
                 />
             </div>
 
             <div className="scene-icon-float">
-                {isFeatured ? <Star size={24} fill="currentColor" /> : <Clapperboard size={24} />}
+                <Drama size={24} />
             </div>
 
             <div className="scene-body">

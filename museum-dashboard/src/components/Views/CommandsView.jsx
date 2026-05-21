@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, Zap, Settings2, RefreshCw, OctagonX, FileCode2 } from 'lucide-react';
+import { Loader2, Zap, Settings2, RefreshCw, OctagonX, SlidersHorizontal } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useDevices } from '../../hooks/useDevices';
 import { api } from '../../services/api';
@@ -9,6 +9,7 @@ import RelayCard from '../Devices/RelayCard';
 import DevicesConfigModal from '../Devices/DevicesConfigModal';
 import Button from '../ui/Button';
 import PageHeader from '../ui/PageHeader';
+import StateNotice from '../ui/StateNotice';
 import '../../styles/views/commands-view.css';
 
 export default function CommandsView() {
@@ -73,41 +74,53 @@ export default function CommandsView() {
     };
 
     if (loading) return (
-        <div className="loading-state">
-            <Loader2 className="animate-spin" size={40} />
-            <p>Načítavam zariadenia...</p>
-        </div>
+        <StateNotice
+            icon={Loader2}
+            title="Načítavam zariadenia"
+            message="Zoznam motorov, relé a efektov sa načítava z konfigurácie."
+            isLoading
+        />
     );
 
     if (error) return (
-        <div className="error-state">
-            <p>Chyba načítania: {error}</p>
-            <Button onClick={handleRefresh} variant="secondary">Skúsiť znova</Button>
-        </div>
+        <StateNotice
+            icon={OctagonX}
+            title="Zariadenia sa nepodarilo načítať"
+            message={error}
+            tone="danger"
+        >
+            <Button onClick={handleRefresh} variant="toolbar">Skúsiť znova</Button>
+        </StateNotice>
     );
 
     return (
         <div className="view-container commands-view">
             <PageHeader 
-                title="Ovládanie Zariadení" 
+                title="Ovládanie zariadení" 
                 subtitle="Manuálna kontrola motorov a efektov"
                 icon={Zap}
             >
                 <Button 
-                    variant="danger" 
+                    variant="toolbar-danger" 
                     icon={OctagonX} 
                     onClick={handleStopAll} 
                     disabled={motors.length === 0 && relays.length === 0}
                 >
-                    VYPNÚŤ VŠETKO
+                    Vypnúť všetko
                 </Button>
 
-                <Button variant="secondary" icon={RefreshCw} onClick={handleRefresh} size="small">
+                <Button variant="toolbar" icon={RefreshCw} onClick={handleRefresh} size="small">
                     Obnoviť
                 </Button>
 
-                <Button variant="secondary" icon={FileCode2} onClick={handleOpenDevicesEditor} size="small">
-                    Upraviť devices.json
+                <Button
+                    variant="toolbar"
+                    icon={SlidersHorizontal}
+                    onClick={handleOpenDevicesEditor}
+                    size="small"
+                    title="Upraviť devices.json"
+                >
+                    Konfigurácia zariadení
                 </Button>
             </PageHeader>
 
@@ -145,9 +158,15 @@ export default function CommandsView() {
                 )}
 
                 {motors.length === 0 && relays.length === 0 && (
-                    <div className="empty-state">
-                        Nenašli sa žiadne zariadenia v konfigurácii.
-                    </div>
+                    <StateNotice
+                        icon={SlidersHorizontal}
+                        title="Žiadne zariadenia"
+                        message="V konfigurácii zatiaľ nie sú pridané motory, relé ani efekty."
+                    >
+                        <Button variant="toolbar-primary" icon={SlidersHorizontal} onClick={handleOpenDevicesEditor}>
+                            Otvoriť konfiguráciu
+                        </Button>
+                    </StateNotice>
                 )}
             </div>
 

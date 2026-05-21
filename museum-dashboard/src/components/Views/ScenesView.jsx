@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Loader2, RefreshCw, Sparkles, Activity } from 'lucide-react';
+import { Plus, Loader2, RefreshCw, Activity, Drama } from 'lucide-react';
 import { useScenes } from '../../hooks/useScenes';
 import SceneCard from '../Scenes/SceneCard';
 import SceneEditorModal from '../Scenes/SceneEditorModal';
@@ -9,6 +9,7 @@ import PageHeader from '../ui/PageHeader';
 import Modal from '../ui/Modal';
 import LiveView from './LiveView';
 import Card from '../ui/Card';
+import StateNotice from '../ui/StateNotice';
 import '../../styles/views/scenes-view.css';
 
 export default function ScenesView() {
@@ -86,40 +87,43 @@ export default function ScenesView() {
     return (
         <div className="view-container scenes-view">
             <PageHeader
-                title="Knižnica Scén"
+                title="Knižnica scén"
                 subtitle="Dostupné show súbory"
-                icon={Sparkles}
+                icon={Drama}
             >
-                <Button variant="secondary" icon={RefreshCw} onClick={fetchScenes} disabled={loading} size="small">
+                <Button variant="toolbar" icon={RefreshCw} onClick={fetchScenes} disabled={loading} size="small">
                     Obnoviť
-                </Button>
-                <Button variant="primary" icon={Plus} onClick={handleCreate}>
-                    Nová scéna
                 </Button>
             </PageHeader>
 
             {loading ? (
-                <div className="loading-state">
-                    <Loader2 className="animate-spin" size={40} strokeWidth={1.5} />
-                    <span>Načítavam scenáre...</span>
-                </div>
+                <StateNotice
+                    icon={Loader2}
+                    title="Načítavam scény"
+                    message="Zoznam dostupných scenárov sa obnovuje zo servera."
+                    isLoading
+                />
             ) : (
                 <div className="scenes-grid">
-                    {scenes.length === 0 ? (
-                        <div className="empty-state">
-                            <Sparkles size={48} opacity={0.2} />
-                            Žiadne scény sa nenašli. Vytvorte novú.
-                        </div>
-                    ) : (
-                        scenes.map((scene) => (
-                            <SceneCard
-                                key={scene.name}
-                                scene={scene}
-                                onPlay={handlePlayFromCard}
-                                onEdit={handleEdit}
-                            />
-                        ))
-                    )}
+                    {scenes.map((scene) => (
+                        <SceneCard
+                            key={scene.name}
+                            scene={scene}
+                            onPlay={handlePlayFromCard}
+                            onEdit={handleEdit}
+                        />
+                    ))}
+                    <button
+                        type="button"
+                        className="create-scene-card"
+                        onClick={handleCreate}
+                    >
+                        <span className="create-scene-card__icon">
+                            <Plus size={28} />
+                        </span>
+                        <span className="create-scene-card__title">Vytvoriť scénu</span>
+                        <span className="create-scene-card__meta">Nový JSON scenár</span>
+                    </button>
                 </div>
             )}
 
@@ -150,7 +154,7 @@ export default function ScenesView() {
 
             <Modal
                 isOpen={newSceneModal.isOpen}
-                title="Nová scéna"
+                title="Vytvoriť scénu"
                 onClose={() => setNewSceneModal({ isOpen: false, name: '' })}
                 footer={
                     <>

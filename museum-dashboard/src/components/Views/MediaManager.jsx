@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Video, Upload, Square, FolderOpen, Volume2 } from 'lucide-react';
+import { Video, Upload, Square, FolderOpen, Volume2, Loader2 } from 'lucide-react';
 import { useMedia } from '../../hooks/useMedia';
 import '../../styles/views/media-manager.css';
 
@@ -8,6 +8,7 @@ import PageHeader from '../ui/PageHeader';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import Modal from '../ui/Modal';
+import StateNotice from '../ui/StateNotice';
 // Nový import
 import FileItem from '../Media/FileItem';
 
@@ -43,24 +44,31 @@ const MediaManager = () => {
     if (success) closeDeleteModal();
   };
 
-  if (isLoading) return <div className="loading-state">Načítavam knižnicu médií...</div>;
+  if (isLoading) return (
+    <StateNotice
+      icon={Loader2}
+      title="Načítavam médiá"
+      message="Audio, video a obrázky sa načítavajú z knižnice."
+      isLoading
+    />
+  );
 
   const areItemsDisabled = isLoading || playingFile !== null;
 
   return (
     <div className="media-manager-view">
         <PageHeader 
-            title="Správca Médií" 
-            subtitle="Audio a Video knižnica"
+            title="Správca médií" 
+            subtitle="Audio a video knižnica"
             icon={FolderOpen}
         >
             <Button
                 onClick={stopAllMedia}
-                variant="danger"
+                variant="toolbar-danger"
+                icon={Square}
                 disabled={areItemsDisabled}
             >
-                <Square size={16} fill="currentColor" />
-                STOP VŠETKO
+                Zastaviť všetko
             </Button>
         </PageHeader>
       
@@ -71,7 +79,7 @@ const MediaManager = () => {
             title={`Video & Obrázky (${videos.length})`} 
             icon={Video} 
             actions={
-              <Button size="small" variant="secondary" onClick={() => handleUploadClick('video')} icon={Upload} disabled={isLoading}>
+              <Button size="small" variant="toolbar" onClick={() => handleUploadClick('video')} icon={Upload} disabled={isLoading}>
                   Nahrať
               </Button>
             }
@@ -90,7 +98,16 @@ const MediaManager = () => {
                         />
                     ))
                  ) : (
-                    <div className="empty-state">Žiadne video súbory</div>
+                    <StateNotice
+                      icon={Upload}
+                      title="Žiadne video súbory"
+                      message="Nahrajte video alebo obrázok pre projekciu."
+                      compact
+                    >
+                      <Button size="small" variant="toolbar-primary" onClick={() => handleUploadClick('video')} icon={Upload}>
+                        Nahrať video
+                      </Button>
+                    </StateNotice>
                  )}
               </div>
           </Card>
@@ -100,7 +117,7 @@ const MediaManager = () => {
             title={`Zvukové efekty (${audios.length})`} 
             icon={Volume2} 
             actions={
-              <Button size="small" variant="secondary" onClick={() => handleUploadClick('audio')} icon={Upload} disabled={isLoading}>
+              <Button size="small" variant="toolbar" onClick={() => handleUploadClick('audio')} icon={Upload} disabled={isLoading}>
                   Nahrať
               </Button>
             }
@@ -119,7 +136,16 @@ const MediaManager = () => {
                         />
                     ))
                  ) : (
-                    <div className="empty-state">Žiadne audio súbory</div>
+                    <StateNotice
+                      icon={Upload}
+                      title="Žiadne audio súbory"
+                      message="Nahrajte hudbu alebo zvukový efekt pre scény."
+                      compact
+                    >
+                      <Button size="small" variant="toolbar-primary" onClick={() => handleUploadClick('audio')} icon={Upload}>
+                        Nahrať audio
+                      </Button>
+                    </StateNotice>
                  )}
               </div>
           </Card>

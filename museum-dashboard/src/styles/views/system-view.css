@@ -3,23 +3,23 @@
 .system-view {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: var(--spacing-2xl);
     height: 100%;
 }
 
 /* Grid pre systémové karty */
 .system-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-    gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(var(--system-card-min-width), 1fr));
+    gap: var(--spacing-2xl);
 }
 
 /* Typografia v kartách */
 .system-card-description {
-    margin-bottom: 24px;
+    margin-bottom: var(--spacing-2xl);
     color: var(--text-secondary);
-    font-size: 0.95rem;
-    line-height: 1.5;
+    font-size: var(--font-size-md-plus);
+    line-height: var(--line-height-normal);
 }
 
 /* Utility pre tlačidlá v tomto view */

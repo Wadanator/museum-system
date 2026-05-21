@@ -11,19 +11,19 @@
 
 .live-header-controls {
     display: flex;
-    gap: 12px;
+    gap: var(--spacing-md);
     align-items: center;
 }
 
 .live-select {
     background: var(--bg-card);
-    border: 1px solid var(--border-color);
+    border: var(--border-width-sm) solid var(--border-color);
     color: var(--text-primary);
-    padding: 8px 12px;
+    padding: var(--spacing-sm) var(--spacing-md);
     border-radius: var(--radius-md);
-    min-width: 240px;
+    min-width: var(--live-select-min-width);
     outline: none;
-    transition: border-color 0.2s;
+    transition: border-color var(--transition-base);
 }
 
 .live-select:focus {
@@ -33,7 +33,7 @@
 /* --- GRID LAYOUT --- */
 .live-grid {
     display: grid;
-    grid-template-columns: 1fr 340px; /* Graf vs Panel */
+    grid-template-columns: 1fr var(--live-device-panel-width); /* Graf vs Panel */
     gap: var(--spacing-lg);
     flex: 1;
     min-height: 0;
@@ -42,7 +42,7 @@
 /* --- ĽAVÁ ČASŤ: VIZUALIZÉR --- */
 .visualizer-panel {
     background: var(--bg-card);
-    border: 1px solid var(--border-color);
+    border: var(--border-width-sm) solid var(--border-color);
     border-radius: var(--radius-lg);
     position: relative;
     overflow: hidden;
@@ -53,17 +53,17 @@
 
 .visualizer-overlay {
     position: absolute;
-    top: 20px;
-    left: 20px;
+    top: var(--spacing-xl);
+    left: var(--spacing-xl);
     z-index: 10;
     background: var(--overlay-black-strong);
     backdrop-filter: blur(4px);
-    padding: 8px 12px;
+    padding: var(--spacing-sm) var(--spacing-md);
     border-radius: var(--radius-sm);
-    border: 1px solid var(--primary);
+    border: var(--border-width-sm) solid var(--primary);
     color: var(--primary);
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
     box-shadow: var(--shadow-md);
 }
 
@@ -73,14 +73,14 @@
     border: var(--border-width-md) solid var(--success) !important;
     box-shadow: var(--shadow-success-active);
     transform: scale(1.05);
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+    transition: all var(--transition-spring) !important;
     z-index: 1000 !important;
 }
 
 /* --- PRAVÁ ČASŤ: DEVICES PANEL --- */
 .devices-panel {
     background: var(--bg-card);
-    border: 1px solid var(--border-color);
+    border: var(--border-width-sm) solid var(--border-color);
     border-radius: var(--radius-lg);
     display: flex;
     flex-direction: column;
@@ -89,23 +89,23 @@
 }
 
 .devices-header {
-    padding: 16px;
-    border-bottom: 1px solid var(--border-color);
+    padding: var(--spacing-lg);
+    border-bottom: var(--border-width-sm) solid var(--border-color);
     font-weight: 600;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--spacing-sm-plus);
     background: var(--bg-hover);
     color: var(--text-primary);
 }
 
 .devices-list {
-    padding: 12px;
+    padding: var(--spacing-md);
     overflow-y: auto;
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--spacing-sm);
 }
 
 /* --- DEVICE ITEM --- */
@@ -113,11 +113,11 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 12px;
+    padding: var(--spacing-md);
     border-radius: var(--radius-md);
-    border: 1px solid var(--border-color);
+    border: var(--border-width-sm) solid var(--border-color);
     background: var(--bg-main);
-    transition: all 0.3s ease;
+    transition: all var(--transition-slow);
 }
 
 /* Aktívny stav zariadenia */
@@ -129,19 +129,19 @@
 .device-info {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: var(--spacing-md);
 }
 
 .device-icon {
-    width: 36px;
-    height: 36px;
+    width: var(--size-icon-md);
+    height: var(--size-icon-md);
     border-radius: var(--radius-md);
     background: var(--bg-card);
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--text-muted);
-    transition: all 0.3s;
+    transition: all var(--transition-slow);
 }
 
 .device-item.active .device-icon {
@@ -152,24 +152,24 @@
 
 .device-name {
     font-weight: 500;
-    font-size: 0.9rem;
+    font-size: var(--font-size-md);
     color: var(--text-primary);
 }
 
 .device-id {
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     color: var(--text-muted);
     font-family: monospace;
 }
 
 .device-status {
-    padding: 4px 10px;
+    padding: var(--spacing-xs) var(--spacing-sm-plus);
     border-radius: var(--radius-sm);
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     font-weight: 700;
     background: var(--bg-card);
     color: var(--text-muted);
-    min-width: 40px;
+    min-width: var(--size-icon-lg);
     text-align: center;
 }
 
@@ -192,7 +192,7 @@
 .live-view-inline-title {
     margin: 0;
     color: var(--text-primary);
-    font-size: 1.25rem;
+    font-size: var(--font-size-xl);
     font-weight: 700;
 }
 
@@ -205,7 +205,7 @@
 .live-current-scene {
     padding: var(--spacing-sm) var(--spacing-md);
     border-radius: var(--radius-md);
-    border: 1px solid var(--border-color);
+    border: var(--border-width-sm) solid var(--border-color);
     background: var(--bg-main);
     color: var(--text-secondary);
     font-weight: 500;

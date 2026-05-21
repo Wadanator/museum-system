@@ -4,7 +4,7 @@
 
 .app-layout {
     display: grid;
-    grid-template-columns: 260px 1fr; /* Fixný sidebar, zvyšok obsah */
+    grid-template-columns: var(--sidebar-width) 1fr; /* Fixný sidebar, zvyšok obsah */
     min-height: 100vh;
     width: 100%;
     min-width: 0;
@@ -32,19 +32,19 @@
 
 /* Header Sidebaru */
 .sidebar-header {
-    padding: 24px;
+    padding: var(--spacing-2xl);
     display: flex;
     align-items: center;
-    gap: 12px;
-    border-bottom: 1px solid var(--overlay-strong);
-    margin-bottom: 10px;
+    gap: var(--spacing-md);
+    border-bottom: var(--border-width-sm) solid var(--overlay-strong);
+    margin-bottom: var(--spacing-sm-plus);
 }
 
 .brand-icon {
     background: var(--primary);
     color: var(--text-white);
-    width: 40px;
-    height: 40px;
+    width: var(--size-icon-lg);
+    height: var(--size-icon-lg);
     border-radius: var(--radius-md);
     display: flex;
     align-items: center;
@@ -55,7 +55,7 @@
 }
 
 .brand-text h1 {
-    font-size: 1.1rem;
+    font-size: var(--font-size-lg);
     font-weight: 700;
     margin: 0;
     letter-spacing: 0.5px;
@@ -63,7 +63,7 @@
 }
 
 .brand-text span {
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -73,20 +73,20 @@
 /* Navigácia */
 .sidebar-nav {
     flex: 1;
-    padding: 12px;
+    padding: var(--spacing-md);
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--spacing-xs);
 }
 
 .nav-item {
     display: flex;
     align-items: center;
-    padding: 12px 16px;
+    padding: var(--spacing-md) var(--spacing-lg);
     color: var(--text-muted);
     text-decoration: none;
     border-radius: var(--radius-md);
-    transition: all 0.2s ease;
+    transition: all var(--transition-base);
     position: relative;
     font-weight: 500;
 }
@@ -104,7 +104,7 @@
 }
 
 .nav-icon {
-    margin-right: 12px;
+    margin-right: var(--spacing-md);
     opacity: 0.8;
 }
 
@@ -114,8 +114,8 @@
 
 /* Footer Sidebaru */
 .sidebar-footer {
-    padding: 20px;
-    border-top: 1px solid var(--overlay-strong);
+    padding: var(--spacing-xl);
+    border-top: var(--border-width-sm) solid var(--overlay-strong);
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -126,15 +126,15 @@
 .sidebar-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--spacing-sm);
 }
 
 .theme-toggle-btn {
-    min-width: 34px;
-    width: 34px;
-    height: 34px;
+    min-width: var(--size-sidebar-action);
+    width: var(--size-sidebar-action);
+    height: var(--size-sidebar-action);
     padding: 0;
-    border: 1px solid var(--overlay-medium);
+    border: var(--border-width-sm) solid var(--overlay-medium);
     border-radius: var(--radius-md);
     background: var(--overlay-soft);
     color: var(--text-white);
@@ -148,12 +148,12 @@
 .user-info {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--spacing-sm-plus);
 }
 
 .user-avatar {
-    width: 36px;
-    height: 36px;
+    width: var(--size-icon-md);
+    height: var(--size-icon-md);
     background: var(--text-secondary);
     border-radius: 50%;
     display: flex;
@@ -161,7 +161,7 @@
     justify-content: center;
     font-weight: bold;
     color: var(--text-white);
-    border: 2px solid var(--bg-dark);
+    border: var(--border-width-md) solid var(--bg-dark);
 }
 
 .user-details {
@@ -170,24 +170,24 @@
 }
 
 .user-details .name {
-    font-size: 0.9rem;
+    font-size: var(--font-size-md);
     color: var(--text-white);
     font-weight: 500;
 }
 
 .user-details .role {
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     color: var(--text-secondary);
 }
 
 .logout-btn {
     background: transparent;
-    border: 1px solid transparent;
+    border: var(--border-width-sm) solid transparent;
     color: var(--text-secondary);
     cursor: pointer;
-    padding: 8px;
-    border-radius: 6px;
-    transition: all 0.2s;
+    padding: var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-base);
 }
 
 .logout-btn:hover {
@@ -200,23 +200,23 @@
    ======================================= */
 
 .main-content {
-    padding: 30px 40px;
+    padding: var(--spacing-2xl-plus) var(--spacing-4xl);
     overflow-y: auto;
     height: 100vh;
     min-width: 0;
 }
 
 .content-container {
-    max-width: 1400px;
+    max-width: var(--content-max-width);
     margin: 0 auto;
     animation: fadeIn 0.3s ease-out;
-    padding-bottom: 40px;
+    padding-bottom: var(--spacing-4xl);
 }
 
 .view-container {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: var(--spacing-2xl);
 }
 
 @keyframes fadeIn {
@@ -233,27 +233,27 @@
 .status-overview,
 .scene-progress,
 .main-controls {
-    margin-bottom: 30px;
+    margin-bottom: var(--spacing-2xl-plus);
 }
 
 .status-grid,
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 24px;
-    margin-bottom: 30px;
+    grid-template-columns: repeat(auto-fit, minmax(var(--status-grid-min-width), 1fr));
+    gap: var(--spacing-2xl);
+    margin-bottom: var(--spacing-2xl-plus);
 }
 
 .scene-list {
     display: grid;
-    gap: 20px;
-    margin-bottom: 40px;
+    gap: var(--spacing-xl);
+    margin-bottom: var(--spacing-4xl);
 }
 
 .status-overview {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(var(--status-overview-min-width), 1fr));
+    gap: var(--spacing-2xl);
 }
 
 /* =======================================
@@ -274,19 +274,19 @@
         display: flex;
         width: 100%;
         box-shadow: var(--shadow-mobile-sidebar);
-        border-bottom: 1px solid var(--overlay-medium);
+        border-bottom: var(--border-width-sm) solid var(--overlay-medium);
         overflow: hidden;
     }
 
     .sidebar-header {
-        padding: 10px 12px;
+        padding: var(--spacing-sm-plus) var(--spacing-md);
         margin-bottom: 0;
     }
 
     .sidebar-nav {
         flex-direction: row;
-        gap: 6px;
-        padding: 8px 10px 10px;
+        gap: var(--spacing-xs-plus);
+        padding: var(--spacing-sm) var(--spacing-sm-plus) var(--spacing-sm-plus);
         overflow-x: auto;
         overflow-y: hidden;
         scrollbar-width: none;
@@ -300,8 +300,8 @@
     .nav-item {
         flex: 0 0 auto;
         white-space: nowrap;
-        padding: 8px 12px;
-        font-size: 0.9rem;
+        padding: var(--spacing-sm) var(--spacing-md);
+        font-size: var(--font-size-md);
     }
 
     .nav-item:hover {
@@ -309,8 +309,8 @@
     }
 
     .sidebar-footer {
-        padding: 10px 12px;
-        gap: 8px;
+        padding: var(--spacing-sm-plus) var(--spacing-md);
+        gap: var(--spacing-sm);
     }
 
     .user-details .role {
@@ -318,38 +318,38 @@
     }
 
     .user-avatar {
-        width: 30px;
-        height: 30px;
-        font-size: 0.8rem;
+        width: var(--size-icon-xs);
+        height: var(--size-icon-xs);
+        font-size: var(--font-size-xs-plus);
     }
 
     .logout-btn {
-        padding: 6px;
+        padding: var(--spacing-xs-plus);
         flex-shrink: 0;
     }
 
     .theme-toggle-btn {
-        min-width: 30px;
-        width: 30px;
-        height: 30px;
+        min-width: var(--size-icon-xs);
+        width: var(--size-icon-xs);
+        height: var(--size-icon-xs);
     }
 
     .main-content {
         height: auto;
         min-height: auto;
-        padding: 8px;
+        padding: var(--spacing-sm);
         overflow: visible;
     }
 
     .content-container {
-        padding-bottom: 20px;
+        padding-bottom: var(--spacing-xl);
         max-width: 100%;
         min-width: 0;
     }
 
     .status-overview {
         grid-template-columns: 1fr; 
-        gap: 15px;
+        gap: var(--spacing-md-loose);
     }
     
     .status-grid, .stats-grid {
@@ -359,7 +359,7 @@
 
 @media (max-width: 480px) {
     .sidebar-header {
-        padding: 8px 10px;
+        padding: var(--spacing-sm) var(--spacing-sm-plus);
     }
 
     .brand-text span {
@@ -367,20 +367,20 @@
     }
 
     .brand-text h1 {
-        font-size: 0.95rem;
+        font-size: var(--font-size-md-plus);
     }
 
     .brand-text span {
-        font-size: 0.65rem;
+        font-size: var(--font-size-2xs);
     }
 
     .sidebar-footer {
-        padding: 8px 10px;
-        gap: 8px;
+        padding: var(--spacing-sm) var(--spacing-sm-plus);
+        gap: var(--spacing-sm);
     }
 
     .user-details .name {
-        font-size: 0.8rem;
+        font-size: var(--font-size-xs-plus);
     }
 
     .user-details .role {
@@ -392,11 +392,11 @@
     }
 
     .sidebar-nav {
-        padding: 6px 8px 8px;
+        padding: var(--spacing-xs-plus) var(--spacing-sm) var(--spacing-sm);
     }
 
     .nav-item {
-        padding: 7px 10px;
-        font-size: 0.84rem;
+        padding: var(--spacing-nav-compact-y) var(--spacing-sm-plus);
+        font-size: var(--font-size-nav-compact);
     }
 }

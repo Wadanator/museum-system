@@ -4,32 +4,32 @@
     display: flex;
     flex-direction: column;
     height: 100%;
-    gap: 24px;
+    gap: var(--spacing-2xl);
 }
 
 /* --- FILTRE --- */
 .filters {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--spacing-xs-plus);
     background: var(--bg-hover);
-    padding: 4px;
+    padding: var(--spacing-xs);
     border-radius: var(--radius-md);
-    border: 1px solid var(--border-color);
+    border: var(--border-width-sm) solid var(--border-color);
 }
 
 /* Vyššia špecifickosť pretlačí .btn-unstyled { padding:0; border:none; background:transparent } */
 .filters .filter-btn {
-    padding: 6px 14px;
+    padding: var(--spacing-xs-plus) var(--spacing-md-plus);
     border-radius: calc(var(--radius-md) - 2px);
-    font-size: 0.82rem;
+    font-size: var(--font-size-log-filter);
     font-weight: 600;
     cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
     line-height: 1;
     white-space: nowrap;
     background: transparent;
-    border: 1px solid transparent;
+    border: var(--border-width-sm) solid transparent;
     color: var(--text-secondary);
 }
 
@@ -106,8 +106,8 @@
 
 .logs-console {
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-    font-size: 0.9rem;
-    padding: 16px;
+    font-size: var(--font-size-log-base);
+    padding: var(--spacing-lg);
     overflow-y: auto;
     flex: 1;
     background-color: transparent;
@@ -116,12 +116,12 @@
 /* --- RIADKY LOGOV --- */
 .log-row {
     display: grid;
-    grid-template-columns: 90px 80px 140px 1fr;
-    gap: 12px;
-    padding: 4px 8px;
-    border-bottom: 1px solid var(--overlay-soft);
+    grid-template-columns: var(--log-grid-time-width) var(--log-grid-level-width) var(--log-grid-module-width) 1fr;
+    gap: var(--spacing-md);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-bottom: var(--border-width-sm) solid var(--overlay-soft);
     align-items: baseline;
-    line-height: 1.5;
+    line-height: var(--line-height-normal);
 }
 
 .log-row:hover {
@@ -129,17 +129,17 @@
 }
 
 /* Farby textov v konzole - OPRAVENÉ */
-.log-time { color: var(--text-muted); font-size: 0.8rem; }
+.log-time { color: var(--text-muted); font-size: var(--font-size-log-time); }
 .log-module { color: var(--primary); }
 
 .log-level {
     font-weight: 700;
-    font-size: 0.75rem;
+    font-size: var(--font-size-log-level);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--spacing-xs-plus);
 }
 
 /* Použitie Theme farieb namiesto hex kódov */
@@ -163,29 +163,29 @@
     height: 100%;
     color: var(--text-muted);
     font-style: italic;
-    gap: 10px;
+    gap: var(--spacing-sm-plus);
 }
 
 @media (max-width: 640px) {
     .logs-view {
-        gap: 16px;
+        gap: var(--spacing-lg);
     }
 
     .card-component.logs-console-card {
-        min-height: 55vh;
+        min-height: var(--log-console-mobile-min-height);
     }
 
     .logs-console {
-        padding: 10px;
-        font-size: 0.82rem;
+        padding: var(--spacing-sm-plus);
+        font-size: var(--font-size-log-filter);
     }
 
     .log-row {
         grid-template-columns: 1fr;
-        gap: 4px;
-        padding: 10px 12px;
-        border-radius: 10px;
-        margin-bottom: 8px;
+        gap: var(--spacing-xs);
+        padding: var(--spacing-sm-plus) var(--spacing-md);
+        border-radius: var(--spacing-sm-plus);
+        margin-bottom: var(--spacing-sm);
         background: var(--overlay-inverse-soft);
         align-items: flex-start;
     }
@@ -202,25 +202,25 @@
     }
 
     .log-time {
-        font-size: 0.72rem;
+        font-size: var(--font-size-log-mobile-sm);
         opacity: 0.9;
     }
 
     .log-level {
-        font-size: 0.72rem;
+        font-size: var(--font-size-log-mobile-sm);
         width: fit-content;
     }
 
     .log-module {
-        font-size: 0.78rem;
+        font-size: var(--font-size-log-mobile-md);
         opacity: 0.95;
         width: fit-content;
         word-break: break-word;
     }
 
     .log-message {
-        font-size: 0.82rem;
-        line-height: 1.45;
+        font-size: var(--font-size-log-filter);
+        line-height: var(--line-height-log-mobile);
         word-break: break-word;
         overflow-wrap: anywhere;
     }
