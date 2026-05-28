@@ -13,7 +13,7 @@ scenes_bp = Blueprint('scenes', __name__)
 
 def setup_scenes_routes(dashboard):
     controller = dashboard.controller
-    hidden_scene_files = {'devices.json'}
+    hidden_scene_files = {'devices.json', 'sc_preview.json'}
 
     @scenes_bp.route('/scenes')
     @requires_auth

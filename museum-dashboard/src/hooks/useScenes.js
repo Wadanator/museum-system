@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { api } from '../services/api';
 
+const HIDDEN_SCENE_FILES = new Set(['devices.json', 'sc_preview.json', 'sc_preview']);
+
 export function useScenes() {
     const [scenes, setScenes] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -11,7 +13,7 @@ export function useScenes() {
             setLoading(true);
             const data = await api.getScenes();
             const safeScenes = (data || []).filter(
-                (scene) => scene?.name !== 'devices.json'
+                (scene) => !HIDDEN_SCENE_FILES.has(scene?.name)
             );
             setScenes(safeScenes);
         } catch (e) {
