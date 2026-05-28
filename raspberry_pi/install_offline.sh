@@ -95,6 +95,10 @@ need_cmd mosquitto_pub
 need_cmd mosquitto_sub
 need_cmd amixer
 
+if ! command -v cec-client >/dev/null 2>&1; then
+  echo -e "${YELLOW}(!) cec-client nenajdeny. HDMI-CEC test skripty budu fungovat az po doinstalovani balika cec-utils.${NC}"
+fi
+
 # ==========================================
 # 5. MQTT (MOSQUITTO) KONFIGURÁCIA - OFFLINE
 # ==========================================

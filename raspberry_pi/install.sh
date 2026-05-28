@@ -73,8 +73,8 @@ sudo raspi-config nonint do_blanking 1
 # ==========================================
 echo -e "\n${GREEN}📦 Inštalujem balíčky...${NC}"
 sudo apt-get update
-# Pridáme aj alsa-utils pre istotu
-sudo apt-get install -y python3-venv python3-pip git mosquitto mosquitto-clients mpv libasound2-dev alsa-utils
+# Pridame aj alsa-utils pre zvuk a cec-utils pre HDMI-CEC testy.
+sudo apt-get install -y python3-venv python3-pip git mosquitto mosquitto-clients mpv libasound2-dev alsa-utils cec-utils
 
 # Konfigurácia Mosquitto
 echo -e "\n${GREEN}📡 Konfigurujem MQTT...${NC}"
