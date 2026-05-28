@@ -181,8 +181,9 @@ class MuseumController:
     def _on_device_status_change(self, device_id: str, status: str) -> None:
         """Handle MQTT device online/offline transitions."""
         # Track outages (short disconnections) to JSON
-        if self.outage_tracker:
-            self.outage_tracker.on_device_status_change(device_id, status)
+        outage_tracker = getattr(self, 'outage_tracker', None)
+        if outage_tracker:
+            outage_tracker.on_device_status_change(device_id, status)
         
         if status == 'offline' and self.actuator_state_store:
             self.actuator_state_store.mark_node_offline(device_id)

@@ -331,7 +331,12 @@ class WebDashboard:
     def update_stats(self, cleanup=True):
         """Update runtime statistics including uptime and connected devices."""
         now = time.monotonic()
-        with self._stats_lock:
+        stats_lock = getattr(self, '_stats_lock', None)
+        if stats_lock is None:
+            stats_lock = threading.Lock()
+            self._stats_lock = stats_lock
+
+        with stats_lock:
             self.stats['total_uptime'] += now - self.stats['last_start_time']
             self.stats['last_start_time'] = now
         
