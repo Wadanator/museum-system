@@ -53,8 +53,16 @@ sudo usermod -a -G gpio,audio,video,render,dialout,plugdev "$CURRENT_USER"
 echo "   -> Vynucujem Audio výstup na 3.5mm JACK..."
 # Skúsime moderný spôsob cez raspi-config
 sudo raspi-config nonint do_audio 1
-# Poistka: Nastavenie hlasitosti na 95%
-sudo amixer cset numid=1 95% 2>/dev/null || true
+# Poistka: Nastavenie systemovej hlasitosti a unmute.
+TARGET_VOL="95%"
+echo "   -> Nastavujem systemovu hlasitost na $TARGET_VOL..."
+sudo amixer cset numid=1 "$TARGET_VOL" 2>/dev/null || true
+for card in 0 1; do
+    for control in PCM Master Headphone HDMI "Line Out" Speaker; do
+        sudo amixer -c "$card" set "$control" "$TARGET_VOL" unmute >/dev/null 2>&1 || true
+    done
+done
+sudo alsactl store >/dev/null 2>&1 || true
 
 # D. Vypnutie šetriča obrazovky (Console Blanking)
 echo "   -> Vypínam zhasínanie obrazovky..."

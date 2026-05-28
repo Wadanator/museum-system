@@ -53,8 +53,16 @@ else
   echo -e "   ${YELLOW}(!) raspi-config nenájdený, preskakujem do_audio${NC}"
 fi
 
-# Poistka: nastavenie hlasitosti (ak je karta/numid iná, nepadneme)
-sudo amixer cset numid=1 95% 2>/dev/null || true
+# Poistka: nastavenie systemovej hlasitosti a unmute.
+TARGET_VOL="95%"
+echo "   -> Nastavujem systemovu hlasitost na $TARGET_VOL..."
+sudo amixer cset numid=1 "$TARGET_VOL" 2>/dev/null || true
+for card in 0 1; do
+  for control in PCM Master Headphone HDMI "Line Out" Speaker; do
+    sudo amixer -c "$card" set "$control" "$TARGET_VOL" unmute >/dev/null 2>&1 || true
+  done
+done
+sudo alsactl store >/dev/null 2>&1 || true
 
 # D. Vypnutie zhasínania obrazovky
 echo "   -> Vypínam zhasínanie obrazovky..."
