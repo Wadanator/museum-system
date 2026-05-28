@@ -1,736 +1,453 @@
-# SceneGen V2 — Špecifikácia Vizuálneho Editora Scén
-
-> **Stav:** 🚧 V implementácii — Fáza 1 ✅, Fáza 2 ✅, Fáza 3 ✅ (+ bugfixy) — Fáza 4 (Polish) je ďalší krok  
-> **Dátum:** 2026-05-18  
-> **Branch:** `claude/epic-kepler-a0d35a`  
-> **Cieľ:** Nahradiť aktuálny standalone SceneGen plnohodnotným vizuálnym editorom priamo v `museum-dashboard`, s FL Studio-štýl timeline pre každý stav.
-
----
-
-## 1. Kontext a motivácia
-
-### Kde sme dnes
-
-**Standalone `SceneGen/`** je oddelená React/Tailwind appka:
-- Edituje stavy (onEnter, timeline, onExit, transitions) cez formulárové inputy
-- Timeline editor je iba textový zoznam riadkov `{ at: 1.4, action, topic, message }`
-- Zariadenia sú hardcoded v `constants.js` (MQTT_DEVICES) — nie sú napojené na skutočné `devices.json` na Pi
-- Žiadne napojenie na backend — export iba cez lokálne stiahnutie JSON
-
-**`museum-dashboard/`** má:
-- `SceneEditorModal` = Monaco JSON editor + `SceneVisualizer` (ReactFlow read-only graf)
-- `api.getDevices()`, `api.getMedia('audio')`, `api.saveScene()` — všetky potrebné API volania existujú
-- `useDevices`, `useMedia`, `useScenes` hooks — fungujúce
-- Design system: `theme.css` s CSS premennými, komponenty `Button`, `Card`, `Modal`, `PageHeader`, `StatusBadge`
-- `reactflow` nainštalovaný a použitý
-- `react-hot-toast`, `lucide-react`, `@monaco-editor/react` nainštalované
-
-### Kde chceme byť
-
-SceneGenV2 = nový **View v museum-dashboard** (`SceneEditorView`), ktorý:
-1. Nahrádza aktuálny `SceneEditorModal` ako plnohodnotný editor (nie modal)
-2. Má FL Studio-štýl vizuálnu timeline pre každý stav
-3. Je napojený na živé `devices.json` a `audio/` knižnicu z Pi
-4. Ukladá scény priamo cez `api.saveScene()` na backend
-5. Dodržiava 100% kompatibilitu so schémou `scene_schema` (validovanou cez `schema_validator.py`)
-
----
-
-## 2. 100% Kompatibilita so Schémou
-
-Schéma (`utils/schema_validator.py`) je zákon. SceneGenV2 musí generovať iba platné JSON:
-
-```
-Scene {
-  sceneId: string
-  description?: string
-  version?: string
-  initialState: string
-  globalEvents?: Transition[]
-  states: { [stateName: string]: State }
-}
-
-State {
-  description?: string
-  onEnter?: Action[]
-  onExit?: Action[]
-  timeline?: TimelineItem[]
-  transitions?: Transition[]
-}
-
-Action {
-  action: 'mqtt' | 'audio' | 'video'
-  topic?: string
-  message?: string | number | boolean
-  retain?: boolean
-}
-
-TimelineItem {
-  at: number          <- cas v sekundach od vstupu do stavu
-  action: 'mqtt' | 'audio' | 'video'
-  topic?: string
-  message?: string | number | boolean
-  -- ALEBO --
-  actions?: Action[]  <- viacero akcii v jednom casovom bode
-}
-
-Transition {
-  type: 'timeout' | 'mqttMessage' | 'audioEnd' | 'videoEnd' | 'always'
-  goto: string
-  delay?: number      <- len pre timeout
-  topic?: string      <- len pre mqttMessage
-  message?: string    <- len pre mqttMessage
-  target?: string     <- len pre audioEnd/videoEnd
-}
-```
-
-**Klucova pointa**: Timeline polozky su **bod v case** (`at: 1.4`), nie intervaly. Clip na vizualnej timeline predstavuje moment, nie trvanie. Vizualna sirka clipa je fixna (ikona + label), nie mapovanie na trvanie.
-
----
-
-## 3. Integrácia do museum-dashboard
-
-### Prečo nie standalone
-
-Standalone SceneGen nemôže vedieť, aké zariadenia sú nakonfigurované v `devices.json` a aké audio súbory sú nahrané. Toto je blocker pre akýkoľvek zmysluplný editor — bez týchto dát by používateľ stále musel ručne písať topic stringy.
-
-### Umiestnenie
-
-```
-museum-dashboard/src/
-├── components/
-│   └── SceneEditor/           <- nova domenova domena
-│       ├── SceneEditorView.jsx        <- hlavny View (nahradzuje SceneEditorModal)
-│       ├── StateList.jsx              <- lavy sidebar (zoznam stavov)
-│       ├── StatePanel.jsx             <- prava plocha (editor / timeline)
-│       ├── StateMetaForm.jsx          <- meno + popis stavu
-│       ├── ActionListEditor.jsx       <- onEnter / onExit zoznam akcii
-│       ├── TransitionEditor.jsx       <- editor prechodov
-│       ├── VisualTimeline/
-│       │   ├── VisualTimeline.jsx     <- FL Studio canvas
-│       │   ├── TimelineTrack.jsx      <- jedna horizontalna stopa
-│       │   ├── TimelineClip.jsx       <- jeden klik/bod na stope
-│       │   ├── TimeRuler.jsx          <- pravitko v sekundach
-│       │   └── TimelineToolbar.jsx    <- zoom, snap, trvanie osi
-│       ├── Palette/
-│       │   ├── ActionPalette.jsx      <- pravy panel s dostupnymi akciami
-│       │   ├── DevicePalette.jsx      <- zariadenia z devices.json
-│       │   └── AudioPalette.jsx       <- audio subory z /api/media/audio
-│       └── GlobalEventsEditor.jsx     <- existujuca logika z SceneGen
-├── hooks/
-│   ├── useSceneEditor.js      <- centralny state management editora
-│   ├── useTimeline.js         <- timeline drag logika (pointer events)
-│   └── useDevicePalette.js    <- devices + audio nacitanie a formatovanie
-├── styles/
-│   └── views/
-│       └── scene-editor-v2.css        <- view-specific styly
-└── services/
-    └── api.js                 <- EXISTUJUCE (api.getDevices, api.getMedia, api.saveScene)
-```
-
-### Navigácia
-
-Nová položka v `Sidebar.jsx` dashboardu: **"Editor Scén"** → `/scene-editor` alebo ako modal s full-screen layout (preferovaný).
-
-Alternatíva: upgrade `SceneEditorModal` na full-page view (otvára sa cez `navigate('/scene-editor/:sceneName')`).
-
----
-
-## 4. Celkový UI Layout
-
-```
-+--------------------------------------------------------------------+
-| HEADER: Nazov sceny | [Import] [Export JSON] [Ulozit na Pi] [X]   |
-+---------------+-------------------------------------+---------------+
-|               |                                     |               |
-|  STATE LIST   |     HLAVNY EDITOR PANEL             |  PALETA       |
-|  (sidebar)    |                                     |  (pravy panel)|
-|               |  [STATE METADATA]                   |               |
-|  INIT_ATMO    |  Nazov: INIT_ATMOSFERA              |  ZARIADENIA   |
-|  > START_OH.  |  Popis: Uvod, atmosfera...          |  motor1       |
-|  > ZVUK_ALA   |                                     |  motor2       |
-|  > ZVUK_PARA  |  +-- ON ENTER ------------------+  |  light/fire   |
-|  > ...        |  | [+] audio STOP              |   |  light/1..5   |
-|               |  | [+] video STOP_VIDEO        |   |  effect/smoke |
-|  [+ Novy]     |  | [+] audio PLAY:atmosfera... |   |  power/smoke  |
-|               |  +---------------------------------+ |               |
-|  GLOBAL       |                                     |  AUDIO SUBORY |
-|  EVENTS       |  +-- VISUAL TIMELINE ------------+  |  atmosfera.wav|
-|  [2 eventy]   |  | 0s  2s  4s  6s  8s  10s     |  |  sfx_para.wav |
-|               |  | --+---------------------------  |  sfx_alarm..  |
-|               |  |M  |[light/fire ON] [smoke ON] |  |  ...          |
-|               |  |Q  |                           |  |               |
-|               |  |T  |                           |  |  VIDEO SUBORY |
-|               |  |T  |                           |  |  intro.mp4    |
-|               |  +--+---------------------------  |  |  ...          |
-|               |  |AU |[atmosfera.wav 0.5vol]     |  |               |
-|               |  +--+---------------------------  |  |               |
-|               |  |VI |[STOP_VIDEO]               |  |               |
-|               |  +-------------------------------+  |               |
-|               |                                     |               |
-|               |  +-- ON EXIT ----------------+      |               |
-|               |  +----------------------------+     |               |
-|               |                                     |               |
-|               |  +-- TRANSITIONS ------------+      |               |
-|               |  | timer 10s -> START_OHEN   |      |               |
-|               |  +----------------------------+     |               |
-+---------------+-------------------------------------+---------------+
-| BOTTOM TABS: [Editor] [Flow Graf] [JSON Preview]                   |
-+--------------------------------------------------------------------+
-```
-
----
-
-## 5. Panel 1: State List (ľavý sidebar)
-
-### Čo zobrazuje
-- Zoznam všetkých stavov ako klikateľné riadky
-- Aktívny stav zvýraznený (CSS `--primary`)
-- Počet akcií v onEnter + timeline ako badge
-- Transition šípky ako malé tagy (`→ NEXT_STATE`)
-- Stav `initialState` má zelenú ikonku `▶`
-- Drag-and-drop reorder stavov (mení poradie iba v editore, nie v JSON — stavy sú dictionary)
-- `[+ Nový stav]` tlačidlo dole
-
-### Global Events sekcia
-- Rozbaľovacia sekcia pod zoznamom stavov
-- Zobrazuje počet globálnych eventov (emergency stop, timeout)
-- Kliknutím otvorí `GlobalEventsEditor` v hlavnom paneli
-
-### Technická poznámka
-Stavový sidebar je čisto presentačný — žiadna biznis logika. Dostáva `states[]`, `selectedStateId`, `onSelectState`, `initialState` ako props.
-
----
-
-## 6. Panel 2: Hlavný Editor Panel (stred)
-
-### Sekcia: State Metadata
-- Input: Názov stavu (ID) — `font-mono`, validácia (len `[A-Z0-9_]`, uppercase)
-- Input: Popis (textový)
-- Checkbox/radio: `isInitialState`
-- Rename propagácia: zmena mena aktualizuje všetky `goto:` referencie v celej scéne
-
-### Sekcia: onEnter / onExit
-Vertikálny zoznam akcií, každá akcia ako riadok:
-
-```
-[drag handle] [action type badge] [payload editor] [delete]
-```
-
-**Drag-and-drop reorder** v rámci zoznamu pomocou `@dnd-kit/sortable`.
-
-**Action type badge** (`mqtt` / `audio` / `video`) — kliknutím zmení typ.
-
-**Payload editor** — závisí od typu:
-- `mqtt`: `[topic input] → [message input]` — topic je dropdown zo zariadení (DevicePalette) alebo manuálny input
-- `audio`: `[file dropdown z API] [volume slider 0.0-1.0]` — generuje `PLAY:filename.wav:0.8`
-- `video`: `[príkaz dropdown: PLAY_VIDEO / STOP_VIDEO / PAUSE_VIDEO]` + `[file dropdown]`
-
-**Drop zone**: Zariadenie/audio súbor z palety sa dá pretiahnuť priamo sem → vytvorí novú akciu.
-
-### Sekcia: Visual Timeline (hlavný nový feature — viď §7)
-
-### Sekcia: Transitions
-Zoznam prechodov. Každý prechod:
-
-```
-[type dropdown] [parametre podla typu] -> [GOTO dropdown zo stavov] [delete]
-```
-
-| Type | Parametre |
-|------|-----------|
-| `timeout` | `delay: [number input]s` |
-| `mqttMessage` | `topic: [input]` `message: [input]` |
-| `audioEnd` | `target: [file dropdown]` |
-| `videoEnd` | `target: [file dropdown]` |
-| `always` | (žiadne parametre) |
-
-`GOTO` dropdown zobrazuje všetky stavy + špeciálne `END`.
-
----
-
-## 7. Visual Timeline Editor (FL Studio štýl)
-
-Toto je **jadro SceneGenV2** — nahradenie textového zoznamu `{ at: ..., action: ... }` vizuálnym horizontálnym plátnom.
-
-### Konceptuálny model
-
-```
-Cas (s):  0---------1---------2---------3---------4---------5---------6---------7---------8---------9--------10
-          |                                                                                                    |
-MQTT      |  *[light/fire ON]              *[smoke ON]                                           *[smoke OFF] |
-          |                                                                                                    |
-AUDIO     |  *[atmosfera.wav 0.5vol]                                                                          |
-          |                                                                                                    |
-VIDEO     |  *[STOP_VIDEO]                                                                                    |
-          +----------------------------------------------------------------------------------------------------+
-```
-
-Každý `*` bod je jeden `TimelineItem` zo schémy (`{ at: 1.4, action: 'mqtt', ... }`).
-
-### Stopy (Tracks)
-
-Tri fixné stopy:
-1. **MQTT track** — všetky `action: 'mqtt'` timeline položky
-2. **Audio track** — všetky `action: 'audio'` timeline položky
-3. **Video track** — všetky `action: 'video'` timeline položky
-
-Každá stopa má farebnú akcentáciu zodpovedajúcu design systému:
-- MQTT: `var(--primary)` (indigo)
-- Audio: `var(--success)` (zelená)
-- Video: `var(--color-video)` (ružová — existuje v theme.css)
-
-### Clip (bod na timeline)
-
-```
-+-----------------------+
-| bolt light/fire ON    |
-| @ 1.4s                |
-+-----------------------+
-```
-
-- Fixná šírka (~180px) — clip NIE JE proporcionálny trvaniu (lebo timeline položky sú body, nie intervaly)
-- Obsahuje: ikonu action type + skrátený popis + čas
-- Hover: tooltip s plným popisom
-- Kliknutie: otvorí inline editor payload v clip paneli alebo v pravom property paneli
-- **Drag horizontálne**: presúva clip po osi X → mení hodnotu `at` v reálnom čase
-- **Snap to grid**: voliteľný, default 0.1s snap (viditeľné gridlines na ruleroy)
-- `[x]` tlačidlo pre zmazanie
-
-### Time Ruler
-
-```
-0s       1s       2s       3s       4s       5s
-|--------+--------+--------+--------+--------+
-```
-
-- Hlavné tickmarky každú 1s, menšie každých 0.1s (pri dostatočnom zoome)
-- Kliknutie na ruler: presúva "playhead" pozíciu (len vizuálny marker, nehrá reálne)
-- Dĺžka osi sa automaticky nastavuje na `max(at) + buffer` alebo na `transition.delay` stavu
-
-### Zoom a Scroll
-
-- Horizontálny zoom: `+` / `-` tlačidlá alebo `Ctrl + scroll` (mení `pixelsPerSecond`)
-- Horizontálny scroll keď obsah presahuje viewport
-- Minimálny zoom: 40px/s, maximálny: 400px/s, default: 80px/s
-- Snap toggle: checkbox v toolbare timeline
-
-### Interakcie (Drag na timeline)
-
-**Presúvanie existujúceho clipu**:
-```
-onPointerDown -> record startX, startAt
-onPointerMove -> deltaX / pixelsPerSecond -> newAt (snap ak je aktivny)
-onPointerUp   -> commit newAt do state
-```
-Implementácia cez natívne pointer events — je to najspoľahlivejší spôsob pre pixel-to-time transformácie. Žiadna externá knižnica toto nevyrieši lepšie.
-
-**Pridanie novej akcie na timeline**:
-1. Ťahanie z `ActionPalette` na track → drop → vytvorí nový TimelineItem na pozícii `dropX / pixelsPerSecond`
-2. Dvojklik na prázdnu plochu tracku → vytvorí novú akciu na pozícii kliknutia
-
-**Trvanie akcie (voliteľné vizuálne)**:
-Pre audio clipy kde je zrejmé trvanie (WAV súbor má metadata) môže byť clip vizuálne natiahnutý — ale `at:` zostáva bod, nie interval. Trvanie je len vizuálna nápoveda.
-
-### Technická implementácia
-
-**Hodnotenie knižníc (preskúmané 2026-05-18):**
-- `dnd-timeline` (samuelarbibe) — headless, postavená na dnd-kit, má snap/zoom/drag-from-outside. **ZAMIETNUTÁ:** pracuje s intervalmi `{ start, end }`, naše položky sú body (`at: number`). Workaround by bojoval s dizajnom knižnice.
-- `@xzdarcy/react-timeline-editor` — vlastné UI, ťažko prispôsobiť design systému. **ZAMIETNUTÁ.**
-
-**Záver: custom pointer events je správna voľba** — nie preto že knižnica neexistuje, ale preto že model "bod v čase" vs. "interval s trvaním" je zásadná nekompatibilita. Snap a zoom sú ~20 riadkov navyše.
-
-**NE-použiť** pre timeline drag žiadnu knižnicu (react-dnd, @dnd-kit) — pixel-to-time matematika si vyžaduje custom pointer handling. Knižnice sú určené pre reorder listov alebo intervalové klipsy, nie pre event-bodové časové osi.
-
-**Použiť** `@dnd-kit` iba pre:
-- Reorder akcií v `ActionListEditor` (onEnter/onExit)
-- Drag z `ActionPalette` na track (drop detection cez `useDraggable` + `useDroppable`)
-
-**⚠️ Dôležité: React syntetické eventy + dnd-kit interference**  
-`onPointerMove` / `onPointerUp` ako React handlery (props na div) nefungujú spoľahlivo keď je clip vnorený do `DndContext` — dnd-kit `PointerSensor` zachytáva eventy na document úrovni. Riešenie: `pointermove` / `pointerup` registrovať ako **natívne `window.addEventListener`** v `onPointerDown`. `liveRef` drží čerstvé callbacks aby sa vyhol stale closures.
-
-### useClipDrag hook — skutočná implementácia
-
-```js
-// hooks/useTimeline.js
-export function useClipDrag({ item, pixelsPerSecond, snapEnabled, snapInterval = 0.1, onMove, onCommit, onClick }) {
-  const liveRef = useRef(null);
-  liveRef.current = { item, pixelsPerSecond, snapEnabled, snapInterval, onMove, onCommit, onClick };
-  const startRef = useRef(null);
-
-  function onPointerDown(e) {
-    e.stopPropagation();
-    e.nativeEvent.stopImmediatePropagation(); // blokuje dnd-kit PointerSensor
-    startRef.current = { clientX: e.clientX, originalAt: item.at, dragged: false };
-
-    function handleMove(ev) {
-      if (!startRef.current) return;
-      if (Math.abs(ev.clientX - startRef.current.clientX) > 4) {
-        startRef.current.dragged = true;
-        const { pixelsPerSecond: pps, snapEnabled: se, snapInterval: si } = liveRef.current;
-        const raw = Math.max(0, startRef.current.originalAt + (ev.clientX - startRef.current.clientX) / pps);
-        const at  = +(se ? Math.round(raw / si) * si : raw).toFixed(2);
-        liveRef.current.onMove(liveRef.current.item.id, at);
-      }
-    }
-    function handleUp(ev) {
-      if (!startRef.current) return;
-      if (startRef.current.dragged) {
-        const { pixelsPerSecond: pps, snapEnabled: se, snapInterval: si } = liveRef.current;
-        const raw = Math.max(0, startRef.current.originalAt + (ev.clientX - startRef.current.clientX) / pps);
-        const at  = +(se ? Math.round(raw / si) * si : raw).toFixed(2);
-        liveRef.current.onCommit(liveRef.current.item.id, at);
-      } else {
-        liveRef.current.onClick?.();
-      }
-      startRef.current = null;
-      window.removeEventListener('pointermove', handleMove);
-      window.removeEventListener('pointerup', handleUp);
-    }
-    window.addEventListener('pointermove', handleMove);
-    window.addEventListener('pointerup', handleUp);
-  }
-
-  return { onPointerDown }; // move/up sú na window, nie React props
-}
-```
-
-### Lane stacking — prekrývajúce sa klipsy
-
-Keď sú dva klipsy bližšie ako šírka clipu (130 px / pps sekúnd), dostanú rôzny `lane` index a track sa vertikálne roztiahne (`min-height: calc(var(--se2-tl-lane-count, 1) * 52px + 12px)`).
-
-### Popover editor
-
-Klik na clip (bez dragu, pohyb < 4 px) otvorí `ClipPopover` cez `ReactDOM.createPortal`. Portal nutný — escapuje `overflow: hidden` scroll kontajner. Pozícia: `position: fixed` z `getBoundingClientRect()` pri otvorení.
-
-### Clip label formát
-
-- MQTT: `light/fire: ON` (posledné 2 segmenty topicu + správa)
-- Audio/Video: `sfx_alarm` (meno súboru bez prípony)
-
----
-
-## 8. Panel 3: Paleta (pravý panel)
-
-### DevicePalette — napojenie na `devices.json`
-
-Aktuálny SceneGen má zariadenia hardcoded v `constants.js`. SceneGenV2 ich načíta zo servera:
-
-```js
-// Existujuci hook, len ho pouzijeme
-const { devices, motors, relays } = useDevices();
-```
-
-Paleta zobrazuje karty zariadení zoskupené podľa typu:
-- `motors` → Motor 1 (Kolesá), Motor 2 (Hodiny) — s rýchlym builderom správy `ON:75:R:1000`
-- `relays` + `lights` → jednoduché ON/OFF/BLINK karty
-
-Každá karta má:
-- Label zo `devices.json` (napr. "Svetlo 1", "Dymostroj")
-- MQTT topic (napr. `room1/light/1`)
-- Predvolené správy ako tlačidlá (ON / OFF)
-- **Drag handle** — pretiahnuť na:
-  - `onEnter`/`onExit` zoznam → pridá akciu
-  - `VisualTimeline` track → pridá TimelineItem na pozíciu dropu
-
-Zariadenia z `devices.json` majú topic ako `{room}/{device_id}`. Hook `useDevicePalette.js` transformuje raw devices.json štruktúru na palette items (normalizácia motors, relays, lights do jednotného formátu).
-
-### AudioPalette — napojenie na `/api/media/audio`
-
-```js
-// Existujuci hook
-const { audios } = useMedia();
-```
-
-Zobrazuje zoznam dostupných audio súborov s:
-- Menom súboru
-- Tlačidlo preview (volá `api.playMedia('audio', filename)`)
-- Drag handle → generuje `{ action: 'audio', message: 'PLAY:filename.wav:1.0' }`
-- Volume slider (0.0–1.0) pred dragom — nastaví výsledný volume v message
-
-### VideoPalette
-
-Podobne ako AudioPalette, ale pre video súbory. Drag generuje `{ action: 'video', message: 'PLAY_VIDEO:filename.mp4' }`.
-
-### Custom MQTT
-
-Text input pre manuálne zadanie topic + message — pre zariadenia, ktoré nie sú v `devices.json` (ESP32 custom, debug topics atď.).
-
----
-
-## 9. Bottom Tabs
-
-Tri záložky prepínajú hlavný pohľad:
-
-| Tab | Obsah |
-|-----|-------|
-| **Editor** | State metadata + onEnter + VisualTimeline + onExit + Transitions |
-| **Flow Graf** | Existujúca `SceneVisualizer` (ReactFlow, read-only) — import z `components/Scenes/SceneVisualizer.jsx` |
-| **JSON Preview** | Monaco editor (read-only alebo editable) — existujúci `@monaco-editor/react` |
-
-`Flow Graf` a `JSON Preview` sú read-only pohľady na aktuálnu scénu — vygenerované live z editora.
-
----
-
-## 10. Správa Stavu (`useSceneEditor.js`)
-
-Centrálny hook je evolúcia `useSceneManager.js` zo SceneGen:
-
-```js
-const {
-  // Metadata
-  sceneId, description, version, initialState, globalPrefix,
-
-  // States
-  states,           // State[]
-  selectedStateId,  // string | null
-  globalEvents,     // Transition[]
-
-  // Actions
-  selectState,        // (id) => void
-  addState,           // () => string (returns new id)
-  updateState,        // (id, partial) => void
-  deleteState,        // (id) => void
-  renameState,        // (id, newName) => void -- propaguje vsetky goto refs
-  reorderStates,      // (oldIndex, newIndex) => void
-
-  updateMetadata,     // (partial) => void
-  setGlobalEvents,    // (events) => void
-
-  // Timeline specific
-  addTimelineItem,    // (stateId, item) => void
-  updateTimelineItem, // (stateId, itemId, partial) => void
-  deleteTimelineItem, // (stateId, itemId) => void
-  moveTimelineItem,   // (stateId, itemId, newAt) => void
-
-  // Persistence
-  saveToBackend,      // () => Promise<void> -- calls api.saveScene()
-  exportJSON,         // () => string
-  importJSON,         // (jsonString) => void
-  isDirty,            // boolean -- unsaved changes
-
-} = useSceneEditor({ sceneName, initialData });
-```
-
-**LocalStorage** — rovnaká stratégia ako v aktuálnom SceneGen — auto-save každú zmenu pre recovery.
-
-**Backend save** — `api.saveScene(sceneName, jsonData)` — existuje a funguje.
-
----
-
-## 11. Nové Knižnice (len 1 nová závislosť)
-
-```json
-"@dnd-kit/core": "^6.x",
-"@dnd-kit/sortable": "^8.x"
-```
-
-**Prečo @dnd-kit**:
-- Moderná náhrada za `react-beautiful-dnd` (deprecated)
-- Lightweight, accessible, tree-shakeable
-- Perfektný pre **sortable listy** (reorder onEnter/onExit akcií) a **drag z palety** na track cez `useDraggable` + `useDroppable`
-- Dashboard zatiaľ nemá žiadnu drag-and-drop knižnicu
-
-**Čo @dnd-kit NERIEŠI** (a prečo):
-- Timeline clip dragging — to je custom pointer events (pixely → sekundy matematika); žiadna DnD knižnica to nevyrieši, lebo nepozná pojem "časová os"
-
-**Čo sa NEpridáva**:
-- `react-resizable` — klipse nepotrebujú resize (sú body v čase, nie intervaly)
-- `wavesurfer.js` — overkill pre audio paletu, stačí `HTMLAudioElement` preview
-- `react-virtualized` — timeline má realisticky < 50 clipov, virtualizácia zbytočná
-- `react-draggable` — je v starom SceneGen, ale pre dashboard je @dnd-kit lepšia voľba
-
----
-
-## 12. API Integrácia
-
-Všetky potrebné API volania **už existujú** v `museum-dashboard/src/services/api.js`:
-
-| Potreba | Existujúce API |
-|---------|----------------|
-| Načítanie scény | `api.getSceneContent(sceneName)` |
-| Uloženie scény | `api.saveScene(sceneName, data)` |
-| Zoznam scén | `api.getScenes()` |
-| Zariadenia | `api.getDevices()` → `{ motors, relays, lights }` |
-| Audio súbory | `api.getMedia('audio')` → pole file objektov s `.name` |
-| Video súbory | `api.getMedia('video')` |
-| Preview audio | `api.playMedia('audio', filename)` |
-
-**NOVÉ API volanie** — voliteľné pre SceneGenV2:
-
-```python
-# raspberry_pi/Web/routes/media.py -- novy endpoint
-@bp.route('/api/media/audio/<filename>/duration', methods=['GET'])
-def get_audio_duration(filename):
-    # Vrati dlzku WAV/MP3 v sekundach pre vizualnu reprezentaciu v timeline
-    # Pouzitie: standardna kniznica 'wave' alebo mutagen
-```
-
-Toto je nice-to-have — umožní vizuálne zobraziť trvanie audio clipu na timeline ako nápovedu.
-
----
-
-## 13. Štýlovanie (dodržanie design systému)
-
-Všetky štýly musia:
-- Používať CSS premenné z `theme.css` (NIKDY hardcoded hex)
-- Reusable komponent štýly → `components.css`
-- View-specific štýly → `styles/views/scene-editor-v2.css`
-- Existujúce UI komponenty: `Button`, `Card`, `Modal`, `StatusBadge`, `PageHeader`
-
-**Nové CSS premenné potrebné v `theme.css`** (ak ešte neexistujú):
-
-```css
-/* Timeline farebne stopy */
---timeline-track-mqtt:  var(--primary);
---timeline-track-audio: var(--success);
---timeline-track-video: var(--color-video);   /* uz existuje */
---timeline-ruler-bg:    var(--bg-dark);
---timeline-clip-bg:     var(--bg-card);
---timeline-clip-border: var(--border-color);
---timeline-grid-line:   var(--border-color);
---timeline-playhead:    var(--warning);
-```
-
-**Výšky stôp**: fixná výška jednej stopy = `52px`, ruler = `32px`.
-
-Dashboard má light + dark theme cez `data-theme='dark'` — timeline musí vyzerať dobre v oboch.
-
----
-
-## 14. Reuse existujúceho kódu zo SceneGen
-
-Nasledujúce časti SceneGen sa PRENÁŠAJÚ (reimplementujú v dashboard štýle, nie Tailwind):
-
-| SceneGen komponent | Dashboard ekvivalent |
-|--------------------|----------------------|
-| `useSceneManager.js` | `useSceneEditor.js` (rozšírený) |
-| `jsonExport.js` | Rovnaká logika `generateStateMachineJSON`, `importJSON` |
-| `StateEditor.jsx` (metadata + sekcie) | `StatePanel.jsx` + `StateMetaForm.jsx` |
-| `ActionListEditor.jsx` | `ActionListEditor.jsx` (+ @dnd-kit sortable) |
-| `TransitionEditor.jsx` | `TransitionEditor.jsx` |
-| `GlobalEventsEditor.jsx` | `GlobalEventsEditor.jsx` |
-| `generators.js` (createEmptyState, createEmptyAction, generateId) | Prenesie sa 1:1 |
-| `GraphicPreview.jsx` | **Existujuci** `SceneVisualizer.jsx` v dashboarde |
-
-Čo je v SceneGen a NEprenesie sa:
-- Tailwind CSS (dashboard nemá Tailwind)
-- `App.jsx` layout (nahradí ho nový View)
-- `constants.js / MQTT_DEVICES` (nahradí real-time `useDevices`)
-- `Sidebar.jsx` zo SceneGen (iný layout ako dashboard Sidebar)
-
----
-
-## 15. Implementačný plán (fázy)
-
-### Fáza 1 — Základ (MVP editor bez vizuálnej timeline)
-Cieľ: Funkčný editor stavov v dashboarde, parita s aktuálnym SceneGen.
-
-1. ✅ Vytvoriť `useSceneEditor.js` hook — `src/hooks/useSceneEditor.js`
-   - schéma↔interný formát, CRUD stavov/akcií/timeline/tranzícií
-   - `renameState` propaguje `goto` referencie cez celú scénu
-   - `localStorage` auto-save per `sceneName`, `saveToBackend()`, `isDirty`
-2. ✅ Vytvoriť `SceneEditorView.jsx` s 3-panel layoutom — `src/components/SceneEditor/SceneEditorView.jsx`
-   - State list (add/delete/select, `▶` initial indicator), placeholder main + palette
-   - `src/styles/views/scene-editor-v2.css` (theme variables only)
-   - Route `/scene-editor` + `/scene-editor/:sceneName`, nav item v Sidebar
-3. ✅ `StatePanel.jsx` — editor obsahu vybraného stavu
-   - `ActionListEditor` — zoznam `onEnter` / `onExit` akcií (typ badge cykluje mqtt→audio→video, topic, message, delete)
-   - `TransitionEditor` — zoznam prechodov (type dropdown, parametre podľa typu, goto dropdown)
-   - Nahradený placeholder v strednom paneli reálnym editorom
-4. ✅ `resetFromSchema()` v hooku + fetch scény z Pi pri otvorení URL
-   - `SceneEditorView` načíta scénu cez `api.getSceneContent(sceneName)` pri monte
-   - Loading overlay počas načítavania, fallback na localStorage/default pri chybe
-   - `SceneCard` má nové tlačidlo Wand2 → naviguje na `/scene-editor/:sceneName`
-5. ✅ Nahradiť `SceneEditorModal` týmto editorom v `ScenesView`
-   - `handleEdit` naviguje na `/scene-editor/:filename` namiesto otvárania modalu
-   - `handleCreateConfirm` uloží V2 šablónu a naviguje do editora
-   - Odstránené: `editorOpen/editingFile/editorContent`, `handleSave`, `<SceneEditorModal>`
-6. ✅ Pridať `@dnd-kit/sortable` pre reorder onEnter/onExit akcií
-   - `SortableActionRow` s `GripVertical` drag handle (`useSortable`)
-   - `DndContext` + `SortableContext` obaľujú zoznam akcií
-   - `onReorderAction` prop prenesený cez `StatePanel` → `ActionListEditor`
-   - `reorderActions` z hooku zapojený v `SceneEditorView`
-   - CSS: `.se2-drag-handle`, `.se2-action-row--dragging`
-
-### Fáza 2 — Device & Audio palety ✅
-Cieľ: Palety namiesto hardcoded constants.
-
-1. ✅ `useDevicePalette.js` — transformácia `useDevices()` + `useMedia()` na palette items
-2. ✅ `EditorPalette.jsx` — motory, relé/svetlá, audio (▶ preview + insert), video (insert); onEnter/onExit toggle
-3. ✅ `@dnd-kit` drag z palety → drop na `ActionListEditor` — single `DndContext` v `SceneEditorView`, custom `collisionDetection` (`pointerWithin` pre palette items, `closestCenter` pre sortable reorder), `DragOverlay` floating pill
-4. ✅ Preview tlačidlo pre audio súbory (volá existujúci `api.playMedia`)
-5. ✅ Motor quick messages podľa ESP32 kódu: `ON:<speed>:<dir>[:<rampMs>]`, `OFF`, `SPEED:<val>`, `DIR:L/R` — quick tlačidlá: `ON:50:L`, `ON:50:R`, `OFF`, `SPEED:80`, `DIR:L`, `DIR:R`
-
-### Fáza 3 — Visual Timeline ✅
-Cieľ: FL Studio-štýl timeline namiesto textového zoznamu.
-
-1. ✅ `TimeRuler.jsx` — pravítko s major (1s) a minor (0.5s) tickmarkami
-2. ✅ `TimelineTrack.jsx` — horizontálna stopa s clipmi (CSS position absolute, useDroppable)
-3. ✅ `TimelineClip.jsx` + `useTimeline.js` — pointer events drag (setPointerCapture)
-4. ✅ `VisualTimeline.jsx` — orchestrátor (3 stopy + ruler + scroll)
-5. ✅ Zoom + snap controls v `TimelineToolbar.jsx` (40–400 px/s, snap 0.1s)
-6. ✅ Drop zone — `useDroppable` z @dnd-kit → nový clip (at = maxAt + 0.5s)
-7. ✅ `moveTimelineItem` v `useSceneEditor` (implementované v hooku)
-
-### Fáza 4 — Polish a integrácia
-1. ⬜ Validácia pri ukladaní (frontend echo logiky `schema_validator.py`)
-2. ✅ `isDirty` indikátor (badge „● neuložené" v headeri)
-3. ⬜ Keyboard shortcuts (Delete = zmazať vybraný clip, Ctrl+Z = undo)
-4. ⬜ Voliteľný backend endpoint pre audio duration
-5. ⬜ Migrácia standalone SceneGen — ponechať ako offline dev nástroj
-
----
-
-## 16. Hraničné prípady a riziká
-
-### 1. Timeline položky s `actions[]` (multi-akcia v jednom bode)
-Schéma podporuje `{ at: 1.0, actions: [Action1, Action2] }`. V aktuálnom SceneGen sa toto nepoužíva. V SceneGenV2 to zjednodušiť: každý clip = jedna akcia. Ak import nájde `actions[]`, rozexploduje ich na viaceré clipse na rovnakom `at`.
-
-### 2. Kolízie clipov na rovnakom `at`
-Dva clipse na rovnakom čase v tej istej stope sa vizuálne prekryjú. Riešenie: neblokujeme to (schéma to dovoľuje), ale vizuálne ich posunieme `y`-ovo o `+8px` ako stack indikátor.
-
-### 3. Rename stavu
-Zmena mena stavu musí aktualizovať všetky `goto:` referencie v celej scéne (vrátane `globalEvents`). Toto je kritická logika — `useSceneEditor.renameState` musí prejsť celou scénou. Aktuálny SceneGen to má v `useSceneManager.updateState` — rovnakú logiku preniesť 1:1.
-
-### 4. Veľké scény (20+ stavov)
-Sidebar s 20+ stavmi — možno pridať filter/search input do `StateList`. Vizuálna timeline zostáva manageable keďže každý stav sa pozerá izolovaný (nie všetky stavy naraz na jednej timeline).
-
-### 5. Autosave vs. manuálne uloženie
-Dashboard má backend (na rozdiel od standalone SceneGen). Preto: autosave do `localStorage` (recovery), ale **manuálne save** na Pi cez tlačidlo "Uložiť na Pi" s `react-hot-toast` potvrdením. Indikátor `isDirty` ukazuje nezapísané zmeny.
-
----
-
-## 17. Rozhodnutia, ktoré treba urobiť pred implementáciou
-
-1. **Kde žije SceneEditorV2 v UI?**
-   - A) Nový route `/scene-editor/:name` (full-page, odporúčané)
-   - B) Upgrade existujúceho `SceneEditorModal` na large overlay
-
-2. **Standalone SceneGen — čo s ním?**
-   - A) Zachovať ako offline dev nástroj (bez backendu)
-   - B) Deprecovať po dokončení V2
-   - C) Refaktorovať aby používal rovnaký `useSceneEditor` hook (zdieľaná logika)
-
-3. **Undo/Redo?**
-   - Implementovať od začiatku (history stack v `useSceneEditor`) alebo skip pre V1?
-
-4. **Audio duration API endpoint?**
-   - Pridať do Pi backendu (jednoduchý `wave` modul, trivial) alebo skip?
-
----
-
-## Záver a realizovateľnosť
-
-**Áno, je to realizovateľné.** Všetky kľúčové prerekvizity sú splnené:
-
-- Schéma je čistá a dobre zdokumentovaná — editor môže generovať valídny JSON
-- Backend API pre devices, media, scenes existuje a funguje
-- `reactflow`, `monaco-editor`, `react-hot-toast` sú v dashboarde
-- Existujúci `SceneVisualizer` je read-only Flow Graf — môžeme ho priamo zaradiť do V2 tabs
-- Existujúci `useDevices` a `useMedia` hooks napájajú paletu bez nového API
-
-**Najnáročnejšia časť** je Visual Timeline (Fáza 3) — konkrétne pointer events drag s pixel-to-time transformáciou a drop detection z palety. Toto je custom implementácia (~300–400 riadkov v `useTimeline.js` + `VisualTimeline.jsx`), ale žiadna knižnica toto za nás nevyrieši inak. FL Studio-štýl timeline pre event data (nie audio waveforms) je inherentne custom logika.
-
-**Dôvod prečo integrovať do dashboardu a nie standalone SceneGen rozšíriť:**  
-Standalone SceneGen nemá a nemôže mať prístup k `devices.json` ani audio knižnici bez toho, aby sme doň pridali autentizáciu + API vrstvu — čo by duplikovalo celý dashboard backend. Integrácia do dashboardu je správna architektúra.
+# SceneGen V2 Status
+
+Date: 2026-05-23
+
+Scope: visual scene editor inside `museum-dashboard`.
+
+This file replaces the older long-form SceneGen V2 specification. It tracks what
+is already implemented and what is still missing.
+
+## Current Verdict
+
+SceneGen V2 is mostly implemented as a working dashboard-based scene editor.
+
+It is not just a design draft anymore. The main editor route, state editor,
+device/media palette, action editing, transitions, and visual timeline already
+exist in `museum-dashboard/src`.
+
+The remaining work is mostly polish, validation, full replacement of the old
+JSON modal workflow, and a few editor quality-of-life features.
+
+## Done
+
+### Dashboard Route And Navigation
+
+Status: done
+
+Implemented in:
+
+- `museum-dashboard/src/App.jsx`
+- `museum-dashboard/src/components/Layout/Sidebar.jsx`
+- `museum-dashboard/src/components/Scenes/SceneCard.jsx`
+- `museum-dashboard/src/components/Views/ScenesView.jsx`
+
+What exists:
+
+- Route `/scene-editor`.
+- Route `/scene-editor/:sceneName`.
+- Sidebar entry for the scene editor.
+- Scene cards have a V2 editor button using the `Wand2` icon.
+- Creating a new scene saves a minimal V2-compatible template and navigates to
+  `/scene-editor/<filename>`.
+
+### Main Scene Editor View
+
+Status: done
+
+Implemented in:
+
+- `museum-dashboard/src/components/SceneEditor/SceneEditorView.jsx`
+- `museum-dashboard/src/styles/views/scene-editor-v2.css`
+
+What exists:
+
+- Full-page editor view.
+- Three-panel layout: state list, state detail editor, palette.
+- Dirty-state badge.
+- Save button using `api.saveScene`.
+- Loading overlay while opening an existing scene.
+- State-level test run helper that saves `sc_preview`, stops current scene
+  best-effort, and runs the preview scene.
+
+### Scene State Management Hook
+
+Status: done
+
+Implemented in:
+
+- `museum-dashboard/src/hooks/useSceneEditor.js`
+
+What exists:
+
+- Schema-to-internal conversion.
+- Internal-to-schema conversion.
+- Stable React IDs for editor-only objects.
+- State CRUD.
+- State rename with `goto` reference propagation.
+- Action CRUD.
+- onEnter/onExit action reorder.
+- Timeline item CRUD and movement.
+- Transition CRUD.
+- Global events stored in editor state.
+- LocalStorage recovery per `sceneName`.
+- Backend save support.
+
+### State Metadata Editor
+
+Status: done
+
+Implemented in:
+
+- `museum-dashboard/src/components/SceneEditor/StatePanel.jsx`
+
+What exists:
+
+- State name editing.
+- State description editing.
+- Initial-state toggle.
+- Collapsible sections for onEnter, timeline, onExit, and transitions.
+
+### onEnter / onExit Action Editing
+
+Status: done
+
+Implemented in:
+
+- `museum-dashboard/src/components/SceneEditor/ActionListEditor.jsx`
+
+What exists:
+
+- Add/delete/update actions.
+- Drag reorder with `@dnd-kit/sortable`.
+- Action type cycle: `mqtt -> audio -> video`.
+- MQTT topic field.
+- Message/command field.
+
+### Transition Editing
+
+Status: done
+
+Implemented in:
+
+- `museum-dashboard/src/components/SceneEditor/TransitionEditor.jsx`
+
+What exists:
+
+- Transition type dropdown.
+- Supported types: `timeout`, `mqttMessage`, `audioEnd`, `videoEnd`, `always`.
+- Type-specific parameter fields.
+- `goto` dropdown from existing states plus `END`.
+- Add/delete/update transitions.
+
+### Device And Media Palette
+
+Status: done
+
+Implemented in:
+
+- `museum-dashboard/src/hooks/useDevicePalette.js`
+- `museum-dashboard/src/components/SceneEditor/EditorPalette.jsx`
+- existing hooks `useDevices` and `useMedia`
+
+What exists:
+
+- Palette is built from live devices and media data.
+- Motors include quick messages such as `ON:50:L`, `ON:50:R`, `OFF`,
+  `SPEED:80`, `DIR:L`, and `DIR:R`.
+- Relays/lights include quick `ON` and `OFF`.
+- Audio items insert `PLAY:<file>:1.0`.
+- Video items insert `PLAY_VIDEO:<file>`.
+- Audio preview is available from the palette.
+- Palette items can be inserted into onEnter/onExit.
+- Palette items can be dragged into the visual timeline.
+
+### Visual Timeline
+
+Status: done
+
+Implemented in:
+
+- `museum-dashboard/src/components/SceneEditor/VisualTimeline.jsx`
+- `museum-dashboard/src/components/SceneEditor/TimelineTrack.jsx`
+- `museum-dashboard/src/components/SceneEditor/TimelineClip.jsx`
+- `museum-dashboard/src/components/SceneEditor/TimeRuler.jsx`
+- `museum-dashboard/src/components/SceneEditor/TimelineToolbar.jsx`
+- `museum-dashboard/src/components/SceneEditor/ClipPopover.jsx`
+
+What exists:
+
+- Three tracks: MQTT, audio, video.
+- Timeline clips are point events, matching backend scene schema semantics.
+- Time ruler.
+- Zoom control.
+- Snap toggle.
+- Drag/move timeline clips.
+- Delete timeline clips.
+- Drop palette items onto timeline tracks.
+- Popover editing for individual clips.
+
+### Dependencies
+
+Status: done
+
+Implemented in:
+
+- `museum-dashboard/package.json`
+
+What exists:
+
+- `@dnd-kit/core`
+- `@dnd-kit/sortable`
+- `react-hot-toast`
+- `lucide-react`
+- `reactflow`
+- Monaco editor remains available for the old JSON modal.
+
+## Partly Done
+
+### Replacement Of Old SceneEditorModal
+
+Status: partly done
+
+Current state:
+
+- V2 editor exists and is reachable.
+- New scenes navigate to V2 after creation.
+- Scene cards expose a V2 editor button.
+- The old JSON modal still exists and is still wired from `ScenesView` through
+  the regular JSON edit button.
+
+Why this matters:
+
+- Users currently have two editing paths.
+- That can be useful during transition, but it is not a clean final state.
+
+Recommended next step:
+
+- Keep the old JSON modal temporarily as "Advanced JSON".
+- Rename the buttons clearly:
+  - V2 visual editor: primary edit action.
+  - JSON modal: advanced/raw JSON action.
+- Later remove the old modal if V2 covers all required workflows.
+
+### Global Events
+
+Status: partly done
+
+Current state:
+
+- `useSceneEditor` stores `globalEvents`.
+- `internalToSchema` writes `globalEvents`.
+- `renameState` updates `globalEvents` goto references.
+- There is no visible full editor UI for global events in the V2 page.
+
+Recommended next step:
+
+- Add a small Global Events section to `SceneEditorView` or `StatePanel`.
+- Reuse the transition-row editing logic where possible.
+
+### Import / Export JSON
+
+Status: partly done
+
+Current state:
+
+- `useSceneEditor` exposes `exportJSON`.
+- `useSceneEditor` exposes `importFromJSON`.
+- The V2 page does not currently expose obvious Import/Export buttons.
+
+Recommended next step:
+
+- Add Export JSON button.
+- Add Import JSON button.
+- Keep save-to-Pi as the main persistence path.
+
+### Flow Graph / JSON Preview Tabs
+
+Status: not done in V2 page
+
+Current state:
+
+- `SceneVisualizer` exists elsewhere.
+- The V2 page does not currently include bottom tabs for editor, flow graph, and
+  JSON preview.
+
+Recommended next step:
+
+- Add tabs only if they are useful in daily editing.
+- A JSON preview panel would be useful for trust and debugging.
+- Flow graph can be deferred if it makes the editor too dense.
+
+## Missing
+
+### Frontend Schema Validation Before Save
+
+Priority: high
+
+Problem:
+
+- Backend schema validation exists in `raspberry_pi/utils/schema_validator.py`.
+- V2 currently converts editor state to JSON and saves it, but the frontend does
+  not provide a clear schema validation pass before save.
+
+Recommended fix:
+
+- Add a frontend validation function mirroring the backend schema.
+- Validate before save.
+- Show user-friendly errors before sending invalid data to the Pi.
+
+Acceptance:
+
+- Missing `sceneId`, missing `initialState`, invalid action type, invalid
+  timeline item, and broken transition shapes are caught before save.
+
+### Broken Transition Target Detection
+
+Priority: high
+
+Problem:
+
+- Rename propagation is implemented.
+- Delete-state cleanup removes transitions pointing at deleted states.
+- There should still be a final validation/warning pass for transitions whose
+  `goto` target does not exist.
+
+Recommended fix:
+
+- Add an editor validation panel or save-blocking warning for unknown `goto`
+  values.
+- Treat `END` and `__END__` deliberately and consistently.
+
+### Timeline Multi-Action Roundtrip
+
+Priority: medium
+
+Current state:
+
+- Import explodes schema timeline items with `actions[]` into separate clips at
+  the same timestamp.
+- Export writes separate timeline items, not grouped `actions[]`.
+
+Why this is acceptable:
+
+- Backend schema supports separate timeline items.
+- The editor model is simpler: one clip equals one action.
+
+Decision needed:
+
+- Keep this simplification permanently, or add grouping support later.
+
+### Clip Collision Display
+
+Priority: medium
+
+Problem:
+
+- Multiple clips at the same `at` value and same track can visually overlap.
+
+Recommended fix:
+
+- Add lane stacking or compact overlap indicators.
+- Do not block the data model; the schema allows same-time events.
+
+### Keyboard Shortcuts
+
+Priority: low / polish
+
+Missing:
+
+- Delete selected clip.
+- Duplicate selected clip/action.
+- Undo/redo.
+
+Recommended fix:
+
+- Add only after selection state is explicit and reliable.
+- Start with Delete and Duplicate before adding full undo/redo.
+
+### Undo / Redo
+
+Priority: low / polish
+
+Problem:
+
+- Editing complex scenes without undo is risky.
+
+Recommended fix:
+
+- Add a bounded history stack inside `useSceneEditor`.
+- Keep localStorage recovery separate from undo history.
+
+### Audio Duration Endpoint
+
+Priority: optional
+
+Current state:
+
+- Timeline events are point events, not duration clips.
+- Audio duration is not required for schema correctness.
+
+Possible future use:
+
+- Show media duration metadata in the palette.
+- Improve previews and editor hints.
+
+Recommended decision:
+
+- Skip for now unless real editing work needs it.
+
+### Standalone SceneGen Decision
+
+Priority: medium
+
+Current state:
+
+- Old standalone `SceneGen/` still exists.
+- V2 editor is inside `museum-dashboard`, which is architecturally better
+  because it has access to backend APIs, devices, media, and scene saving.
+
+Recommended decision:
+
+- Keep `SceneGen/` temporarily as an offline legacy/dev tool.
+- Mark it as legacy in its `readme.md`.
+- Remove it later if V2 fully replaces the workflow.
+
+### Text Encoding Cleanup
+
+Priority: low
+
+Problem:
+
+- Some existing frontend source files show mojibake in comments and UI strings
+  when read from PowerShell output.
+
+Recommended fix:
+
+- Audit file encoding before doing broad text cleanup.
+- Do not mix this with functional editor changes.
+
+## Recommended Next Work Order
+
+1. Make V2 the primary edit path in `ScenesView`.
+2. Rename the old modal path to "Advanced JSON" or remove it later.
+3. Add frontend schema validation before save.
+4. Add global events UI.
+5. Add JSON preview/export/import controls.
+6. Add transition-target validation warnings.
+7. Improve overlapping timeline clip display.
+8. Decide the future of standalone `SceneGen/`.
+
+## Do Not Reopen As Requirements Without A New Reason
+
+These are already implemented enough for the current editor version:
+
+- Full-page V2 route.
+- State CRUD.
+- State rename propagation.
+- onEnter/onExit editing.
+- onEnter/onExit reorder.
+- Transition editing.
+- Device palette.
+- Audio palette.
+- Video palette.
+- Palette drag/drop into action lists.
+- Palette drag/drop into timeline.
+- Visual timeline with zoom, snap, ruler, tracks, clips, and popover editing.
+- Save to backend.
+- LocalStorage recovery.
+
+## Final Note
+
+SceneGen V2 should continue as the dashboard-integrated editor. The standalone
+SceneGen app should not receive major new feature work unless there is a clear
+offline-only requirement.
