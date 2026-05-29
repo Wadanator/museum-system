@@ -86,6 +86,14 @@ export const api = {
     return res.json();
   },
 
+  validateScene: async (data) => {
+    const res = await authFetch(`${API_URL}/scene/validate`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
   runScene: async (sceneName) => {
     const res = await authFetch(`${API_URL}/run_scene/${sceneName}`, { method: 'POST' });
     return res.json();

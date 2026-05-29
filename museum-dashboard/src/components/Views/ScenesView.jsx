@@ -39,8 +39,7 @@ export default function ScenesView() {
     };
 
     const handleSave = async (filename, content) => {
-        await saveSceneContent(filename, content);
-        setEditorOpen(false);
+        return saveSceneContent(filename, content);
     };
 
     const handleCreate = () => {
@@ -63,7 +62,8 @@ export default function ScenesView() {
             },
         };
 
-        await saveSceneContent(filename, template);
+        const saved = await saveSceneContent(filename, template);
+        if (!saved) return;
         setNewSceneModal({ isOpen: false, name: '' });
         navigate(`/scene-editor/${filename}`);
     };

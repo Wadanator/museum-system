@@ -3,6 +3,7 @@ import { Save, X, AlertTriangle, Code, Workflow } from 'lucide-react';
 import Button from '../ui/Button';
 import JsonEditor from '../Shared/JsonEditor';
 import SceneVisualizer from './SceneVisualizer';
+import { api } from '../../services/api';
 
 import '../../styles/views/scene-editor.css';
 import '../../styles/views/scene-flow.css';
@@ -13,6 +14,8 @@ export default function SceneEditorModal({ isOpen, onClose, filename, initialCon
     ));
     const [jsonObj, setJsonObj] = useState(() => (initialContent ?? []));
     const [isValid, setIsValid] = useState(true);
+    const [isValidating, setIsValidating] = useState(false);
+    const [validationErrors, setValidationErrors] = useState([]);
     const [activeTab, setActiveTab] = useState('code');
 
     const handleCodeChange = (value) => {
@@ -21,18 +24,43 @@ export default function SceneEditorModal({ isOpen, onClose, filename, initialCon
             const parsed = JSON.parse(value);
             setJsonObj(parsed);
             setIsValid(true);
+            setValidationErrors([]);
         } catch {
             setIsValid(false);
+            setValidationErrors([]);
         }
     };
 
-    const handleSave = () => {
+    const formatValidationError = (error) => {
+        if (!error) return 'Scena nie je validna';
+        return `${error.path}: ${error.message}`;
+    };
+
+    const handleSave = async () => {
         if (!isValid) return;
+        let shouldClose = false;
         try {
             const parsed = JSON.parse(jsonString);
-            onSave(filename, parsed);
+            setIsValidating(true);
+            const validation = await api.validateScene(parsed);
+            if (!validation.valid) {
+                setValidationErrors(validation.errors || []);
+                return;
+            }
+            const saved = await onSave(filename, parsed);
+            if (saved === false) {
+                return;
+            }
+            shouldClose = true;
         } catch (e) {
             console.error(e);
+            setValidationErrors([{
+                path: '<root>',
+                message: e.message || 'Validacia zlyhala',
+            }]);
+        } finally {
+            setIsValidating(false);
+            if (shouldClose) onClose();
         }
     };
 
@@ -105,14 +133,24 @@ export default function SceneEditorModal({ isOpen, onClose, filename, initialCon
                                 <AlertTriangle size={16} /> Neplatný JSON
                             </span>
                         )}
+                        {isValid && validationErrors.length > 0 && (
+                            <span
+                                className="error-text"
+                                title={validationErrors.map(formatValidationError).join('\n')}
+                            >
+                                <AlertTriangle size={16} />
+                                {formatValidationError(validationErrors[0])}
+                            </span>
+                        )}
                     </div>
                     <div className="footer-buttons">
                         <Button variant="secondary" onClick={onClose}>Zrušiť</Button>
                         <Button
                             variant="primary"
                             onClick={handleSave}
-                            disabled={!isValid}
+                            disabled={!isValid || isValidating}
                             icon={Save}
+                            loading={isValidating}
                         >
                             Uložiť zmeny
                         </Button>

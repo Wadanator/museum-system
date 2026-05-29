@@ -178,6 +178,30 @@ What exists:
 - Overlapping clips on the same track are stacked into vertical lanes, and the
   track height grows with the lane count.
 
+### Backend-Backed Scene Validation Before Save
+
+Status: done
+
+Implemented in:
+
+- `raspberry_pi/utils/schema_validator.py`
+- `raspberry_pi/Web/routes/scenes.py`
+- `museum-dashboard/src/services/api.js`
+- `museum-dashboard/src/components/Scenes/SceneEditorModal.jsx`
+- `museum-dashboard/src/hooks/useSceneEditor.js`
+
+What exists:
+
+- Shared backend validation returns structured `valid/errors/warnings`.
+- `POST /api/scene/validate` validates a scene without saving it.
+- `POST /api/scene/<scene>` rejects invalid scenes before overwriting the file.
+- The JSON editor validates via backend before save and keeps the modal open on
+  validation errors.
+- SceneGenV2 validates via backend before save.
+- Missing top-level fields, unknown `initialState`, unknown transition targets,
+  incomplete runtime action fields, broken transition shapes, and empty timeline
+  items are caught before save.
+
 ### Dependencies
 
 Status: done
@@ -271,44 +295,6 @@ Recommended next step:
 - Flow graph can be deferred if it makes the editor too dense.
 
 ## Missing
-
-### Frontend Schema Validation Before Save
-
-Priority: high
-
-Problem:
-
-- Backend schema validation exists in `raspberry_pi/utils/schema_validator.py`.
-- V2 currently converts editor state to JSON and saves it, but the frontend does
-  not provide a clear schema validation pass before save.
-
-Recommended fix:
-
-- Add a frontend validation function mirroring the backend schema.
-- Validate before save.
-- Show user-friendly errors before sending invalid data to the Pi.
-
-Acceptance:
-
-- Missing `sceneId`, missing `initialState`, invalid action type, invalid
-  timeline item, and broken transition shapes are caught before save.
-
-### Broken Transition Target Detection
-
-Priority: high
-
-Problem:
-
-- Rename propagation is implemented.
-- Delete-state cleanup removes transitions pointing at deleted states.
-- There should still be a final validation/warning pass for transitions whose
-  `goto` target does not exist.
-
-Recommended fix:
-
-- Add an editor validation panel or save-blocking warning for unknown `goto`
-  values.
-- Treat `END` and `__END__` deliberately and consistently.
 
 ### Timeline Multi-Action Roundtrip
 
@@ -409,11 +395,9 @@ Recommended fix:
 
 1. Make V2 the primary edit path in `ScenesView`.
 2. Rename the old modal path to "Advanced JSON" or remove it later.
-3. Add frontend schema validation before save.
-4. Add global events UI.
-5. Add JSON preview/export/import controls.
-6. Add transition-target validation warnings.
-7. Decide the future of standalone `SceneGen/`.
+3. Add global events UI.
+4. Add JSON preview/export/import controls.
+5. Decide the future of standalone `SceneGen/`.
 
 ## Do Not Reopen As Requirements Without A New Reason
 
@@ -432,6 +416,7 @@ These are already implemented enough for the current editor version:
 - Palette drag/drop into timeline.
 - Visual timeline with zoom, snap, ruler, tracks, clips, and popover editing.
 - Timeline clip lane stacking for overlapping same-track events.
+- Backend-backed validation before save for JSON editor and SceneGenV2.
 - Save to backend.
 - LocalStorage recovery.
 

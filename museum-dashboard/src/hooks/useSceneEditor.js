@@ -117,6 +117,12 @@ export const internalToSchema = (editor) => {
 
 // ── LocalStorage recovery ─────────────────────────────────────────────────────
 
+const formatValidationError = (validation) => {
+  const first = validation?.errors?.[0];
+  if (!first) return 'Scena nie je validna';
+  return `Scena nie je validna (${first.path}): ${first.message}`;
+};
+
 const storageKey = (sceneName) => `scene_editor_v2_${sceneName}`;
 
 const saveToStorage = (sceneName, data) => {
@@ -421,9 +427,18 @@ export const useSceneEditor = ({ sceneName, initialData } = {}) => {
   const saveToBackend = useCallback(async (targetSceneName) => {
     const name = targetSceneName || sceneName;
     if (!name) throw new Error('Nie je zadané meno scény');
+    const scenePayload = internalToSchema(editor);
+
     setIsSaving(true);
     try {
-      await api.saveScene(name, internalToSchema(editor));
+      const validation = await api.validateScene(scenePayload);
+      if (!validation.valid) {
+        const error = new Error(formatValidationError(validation));
+        error.validation = validation;
+        throw error;
+      }
+
+      await api.saveScene(name, scenePayload);
       setIsDirty(false);
     } finally {
       setIsSaving(false);

@@ -6,7 +6,7 @@ State Machine - Finite state machine for scene execution.
 import json
 import time
 from utils.logging_setup import get_logger
-from utils.schema_validator import validate_scene_json
+from utils.schema_validator import validate_scene_payload
 
 
 class StateMachine:
@@ -65,40 +65,15 @@ class StateMachine:
             self.logger.error(f"Failed to load scene file: {exc}")
             return False
 
-        # 1. Schema structure validation
-        if not validate_scene_json(data, self.logger):
+        # Shared schema and logical validation
+        validation = validate_scene_payload(data, self.logger)
+        if not validation["valid"]:
             return False
 
-        # 2. Logical validation — verify all referenced states exist
         states = data["states"]
         initial_state = data["initialState"]
 
-        if initial_state not in states:
-            self.logger.error(
-                f"Initial state '{initial_state}' is not defined"
-            )
-            return False
-
-        for state_name, state_data in states.items():
-            for idx, transition in enumerate(
-                    state_data.get("transitions", [])):
-                goto = transition["goto"]
-                if goto != "END" and goto not in states:
-                    self.logger.error(
-                        f"State '{state_name}': Transition #{idx} targets "
-                        f"unknown state '{goto}'"
-                    )
-                    return False
-
-        # Validate globalEvents transition targets
         global_events = data.get("globalEvents", [])
-        for idx, event in enumerate(global_events):
-            goto = event["goto"]
-            if goto != "END" and goto not in states:
-                self.logger.error(
-                    f"GlobalEvent #{idx} targets unknown state '{goto}'"
-                )
-                return False
 
         # 3. Load validated data into state machine
         self.scene_id = data.get("sceneId", "unknown")
