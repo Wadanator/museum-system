@@ -327,7 +327,7 @@ Decision needed:
 
 - Keep this simplification permanently, or add grouping support later.
 
-### Clip Collision Display
+### Clip Collision Display CHECK THIS IF ITS IMPLEMENTED OR NOT
 
 Priority: medium
 
@@ -340,7 +340,7 @@ Recommended fix:
 - Add lane stacking or compact overlap indicators.
 - Do not block the data model; the schema allows same-time events.
 
-### Keyboard Shortcuts
+### Keyboard Shortcuts NOT NEEDED
 
 Priority: low / polish
 
@@ -386,7 +386,7 @@ Recommended decision:
 
 - Skip for now unless real editing work needs it.
 
-### Standalone SceneGen Decision
+### Standalone SceneGen Decision THIS WONT BE USED, BUT KEEP IT FOR NOW IN REPO
 
 Priority: medium
 
