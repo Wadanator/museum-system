@@ -1,6 +1,6 @@
 # SceneGen V2 Status
 
-Date: 2026-05-23
+Date: 2026-05-29
 
 Scope: visual scene editor inside `museum-dashboard`.
 
@@ -175,6 +175,8 @@ What exists:
 - Delete timeline clips.
 - Drop palette items onto timeline tracks.
 - Popover editing for individual clips.
+- Overlapping clips on the same track are stacked into vertical lanes, and the
+  track height grows with the lane count.
 
 ### Dependencies
 
@@ -327,19 +329,6 @@ Decision needed:
 
 - Keep this simplification permanently, or add grouping support later.
 
-### Clip Collision Display CHECK THIS IF ITS IMPLEMENTED OR NOT
-
-Priority: medium
-
-Problem:
-
-- Multiple clips at the same `at` value and same track can visually overlap.
-
-Recommended fix:
-
-- Add lane stacking or compact overlap indicators.
-- Do not block the data model; the schema allows same-time events.
-
 ### Keyboard Shortcuts NOT NEEDED
 
 Priority: low / polish
@@ -424,8 +413,7 @@ Recommended fix:
 4. Add global events UI.
 5. Add JSON preview/export/import controls.
 6. Add transition-target validation warnings.
-7. Improve overlapping timeline clip display.
-8. Decide the future of standalone `SceneGen/`.
+7. Decide the future of standalone `SceneGen/`.
 
 ## Do Not Reopen As Requirements Without A New Reason
 
@@ -443,11 +431,12 @@ These are already implemented enough for the current editor version:
 - Palette drag/drop into action lists.
 - Palette drag/drop into timeline.
 - Visual timeline with zoom, snap, ruler, tracks, clips, and popover editing.
+- Timeline clip lane stacking for overlapping same-track events.
 - Save to backend.
 - LocalStorage recovery.
 
 ## Final Note
 
 SceneGen V2 should continue as the dashboard-integrated editor. The standalone
-SceneGen app should not receive major new feature work unless there is a clear
+SceneGen app should not receive new feature work unless there is a clear
 offline-only requirement.
