@@ -3,10 +3,10 @@
 MQTT Message Handler - Routes incoming messages to appropriate handlers.
 
 Receives all incoming MQTT messages and routes them to the correct handlers:
-- Device status messages → device registry
-- Feedback messages → feedback tracker
-- Button commands → scene execution
-- MQTT transitions → scene parser (for interactive scenes)
+- Device status messages -> device registry
+- Feedback messages -> feedback tracker
+- Button commands -> scene execution
+- MQTT transitions -> scene parser (for interactive scenes)
 """
 
 from utils.logging_setup import get_logger

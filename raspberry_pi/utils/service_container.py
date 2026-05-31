@@ -17,7 +17,7 @@ try:
     from utils.system_monitor import SystemMonitor
     from utils.button_handler import ButtonHandler
 except ImportError as e:
-    # Logger may not be available yet at this point — use print
+    # Logger may not be available yet at this point - use print
     print(f"CRITICAL: Failed to import core modules in ServiceContainer: {e}")
     sys.exit(1)
 
@@ -43,7 +43,7 @@ class ServiceContainer:
         self.room_id = room_id
         self.log = logger or get_logger('ServiceContainer')
 
-        # Components — populated by init_all_services()
+        # Components - populated by init_all_services()
         self.audio_handler = None
         self.video_handler = None
         self.mqtt_client = None

@@ -44,7 +44,7 @@ class MQTTFeedbackTracker:
         self.pending_feedbacks = {}
         self.lock = threading.Lock()
 
-        # Optional state store — set via set_state_store()
+        # Optional state store - set via set_state_store()
         self._state_store = None
 
     # ==========================================================================

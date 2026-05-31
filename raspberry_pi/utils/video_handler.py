@@ -15,7 +15,7 @@ import time
 import psutil
 import signal
 from threading import RLock  # RLock prevents deadlock when _check_process_health
-from typing import Callable, Optional       # calls _restart_mpv → _start_mpv on same thread
+from typing import Callable, Optional       # calls _restart_mpv -> _start_mpv on same thread
 from utils.logging_setup import get_logger
 
 
@@ -56,8 +56,8 @@ class VideoHandler:
         self.process = None
         self.currently_playing: Optional[str] = None
 
-        # RLock instead of Lock — prevents deadlock when the same thread calls:
-        # _check_process_health (holds lock) → _restart_mpv → _start_mpv (needs lock)
+        # RLock instead of Lock - prevents deadlock when the same thread calls:
+        # _check_process_health (holds lock) -> _restart_mpv -> _start_mpv (needs lock)
         self.process_lock = RLock()
 
         self.health_check_interval = health_check_interval
@@ -92,8 +92,8 @@ class VideoHandler:
         Detect the correct hardware decoding backend for this OS.
 
         Uses /etc/debian_version to determine the OS generation:
-        - Bullseye = Debian 11 → rpi4-mmal (MMAL available)
-        - Bookworm = Debian 12+ → v4l2 (MMAL removed in 64-bit kernel)
+        - Bullseye = Debian 11 -> rpi4-mmal (MMAL available)
+        - Bookworm = Debian 12+ -> v4l2 (MMAL removed in 64-bit kernel)
 
         This is more reliable than testing mpv directly because mpv returns
         a non-zero exit code for invalid input regardless of hwdec support.
@@ -114,7 +114,7 @@ class VideoHandler:
         except Exception:
             pass
 
-        # Bullseye (Debian 11) or unknown — default to MMAL
+        # Bullseye (Debian 11) or unknown - default to MMAL
         self.logger.debug("Hardware decoding: rpi4-mmal (Bullseye / Debian 11)")
         return 'rpi4-mmal'
 
@@ -132,7 +132,7 @@ class VideoHandler:
         if not os.path.exists(self.iddle_image):
             try:
                 import pygame
-                # Only init display, not the full pygame stack — avoids
+                # Only init display, not the full pygame stack - avoids
                 # killing pygame.mixer if AudioHandler already started it
                 if not pygame.get_init():
                     pygame.init()
@@ -456,7 +456,7 @@ class VideoHandler:
                 'last_ipc_failure_log',
                 f"IPC command timed out: {command}"
             )
-            # Timeout likely means mpv has frozen — restart to recover
+            # Timeout likely means mpv has frozen - restart to recover
             self._restart_mpv()
             return False if not get_response else None
 
@@ -478,12 +478,12 @@ class VideoHandler:
         Parse and execute a video command string.
 
         Supported commands:
-        - PLAY_VIDEO:<filename> — play a video file
-        - STOP_VIDEO — stop playback and show idle image
-        - PAUSE — pause playback
-        - RESUME — resume playback
-        - SEEK:<seconds> — seek to an absolute position
-        - <filename> — treat as a plain filename and attempt playback
+        - PLAY_VIDEO:<filename> - play a video file
+        - STOP_VIDEO - stop playback and show idle image
+        - PAUSE - pause playback
+        - RESUME - resume playback
+        - SEEK:<seconds> - seek to an absolute position
+        - <filename> - treat as a plain filename and attempt playback
 
         Args:
             message: Command string to parse and execute.
@@ -518,7 +518,7 @@ class VideoHandler:
 
         Disables looping before loading so end-of-file detection works.
         Appends the idle image to the playlist so mpv transitions to it
-        instantly when the video ends — eliminates the console flicker
+        instantly when the video ends - eliminates the console flicker
         that occurs during the Python polling gap.
 
         Args:
@@ -544,7 +544,7 @@ class VideoHandler:
         if not self._send_ipc_command(["loadfile", full_path, "replace"]):
             return False
 
-        # Append black.png as the next playlist item — mpv transitions to it
+        # Append black.png as the next playlist item - mpv transitions to it
         # immediately when the video ends, before Python polling detects the change.
         # This prevents the ~20ms console flicker between video end and stop_video().
         self._send_ipc_command(["loadfile", self.iddle_image, "append"])

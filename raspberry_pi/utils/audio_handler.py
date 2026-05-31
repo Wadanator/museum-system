@@ -185,10 +185,10 @@ class AudioHandler:
         """
         Play an audio file using the appropriate playback path.
 
-        Path 1 — RAM cache (SFX): if the resolved filename is present in the
+        Path 1 - RAM cache (SFX): if the resolved filename is present in the
         sound cache, it is played on a mixer channel for polyphonic support.
 
-        Path 2 — Stream from disk (music): if not cached, the file is loaded
+        Path 2 - Stream from disk (music): if not cached, the file is loaded
         and streamed via pygame.mixer.music. Only one stream plays at a time.
 
         Args:
@@ -270,13 +270,13 @@ class AudioHandler:
         Parse and execute an audio command string received from MQTT or JSON.
 
         Supported commands:
-        - PLAY:<filename>[:<volume>] — play a file at optional volume
-        - STOP — stop all audio
-        - STOP:<filename> — stop a specific file
-        - PAUSE — pause all audio
-        - RESUME — resume all paused audio
-        - VOLUME:<value> — set global music volume (0.0–1.0)
-        - <filename> — treat as a plain filename and attempt playback
+        - PLAY:<filename>[:<volume>] - play a file at optional volume
+        - STOP - stop all audio
+        - STOP:<filename> - stop a specific file
+        - PAUSE - pause all audio
+        - RESUME - resume all paused audio
+        - VOLUME:<value> - set global music volume (0.0-1.0)
+        - <filename> - treat as a plain filename and attempt playback
 
         Args:
             message: Command string to parse and execute.
@@ -323,7 +323,7 @@ class AudioHandler:
                     return False
 
             else:
-                # Not a recognized command — attempt to play as a filename
+                # Not a recognized command - attempt to play as a filename
                 return self.play_audio_file(clean_message)
 
         except Exception as e:
@@ -500,7 +500,7 @@ class AudioHandler:
                 if os.path.exists(test_path):
                     return base + try_ext, test_path
 
-        # File not found — caller is responsible for handling None
+        # File not found - caller is responsible for handling None
         return None, None
 
     def _validate_audio_file(self, audio_file, full_path):
