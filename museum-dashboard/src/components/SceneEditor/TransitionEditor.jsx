@@ -3,11 +3,11 @@ import Button from '../ui/Button';
 import { createEmptyTransition } from '../../hooks/useSceneEditor';
 
 const TRANSITION_TYPES = [
-  { value: 'timeout',     label: '⏱ Timeout' },
-  { value: 'mqttMessage', label: '📡 MQTT správa' },
-  { value: 'audioEnd',    label: '🎵 Koniec audia' },
-  { value: 'videoEnd',    label: '🎬 Koniec videa' },
-  { value: 'always',      label: '→ Vždy' },
+  { value: 'timeout',     label: 'Timeout' },
+  { value: 'mqttMessage', label: 'MQTT správa' },
+  { value: 'audioEnd',    label: 'Koniec audia' },
+  { value: 'videoEnd',    label: 'Koniec videa' },
+  { value: 'always',      label: '-> Vždy' },
 ];
 
 function TransitionRow({ trans, allStates, onUpdate, onDelete }) {
@@ -39,7 +39,7 @@ function TransitionRow({ trans, allStates, onUpdate, onDelete }) {
           value={trans.goto || ''}
           onChange={(e) => onUpdate({ goto: e.target.value })}
         >
-          <option value="">— goto —</option>
+          <option value="">- goto -</option>
           {allStates.map((s) => (
             <option key={s.id} value={s.name}>{s.name}</option>
           ))}

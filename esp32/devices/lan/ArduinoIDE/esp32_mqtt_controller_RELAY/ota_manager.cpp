@@ -39,7 +39,7 @@ void initializeOTA() {
 
     // 3. Bezpečné vypnutie všetkých relé
     turnOffAllDevices(); 
-    Serial.println("✅ Hardware safely disabled");
+    Serial.println("[OK] Hardware safely disabled");
 
     String update_type = (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "filesystem";
     Serial.println("Updating: " + update_type);
@@ -50,7 +50,7 @@ void initializeOTA() {
     otaInProgress = false;
     setOtaLedState(false); // Vypnutie LED
     Serial.println("\n=== OTA UPDATE COMPLETE ===");
-    Serial.println("🔄 Rebooting...");
+    Serial.println(" Rebooting...");
     delay(1000);
   });
 
@@ -68,7 +68,7 @@ void initializeOTA() {
   ArduinoOTA.onError([](ota_error_t error) {
     otaInProgress = false;
     setOtaLedState(false);
-    Serial.printf("❌ OTA Error[%u]\n", error);
+    Serial.printf("[ERROR] OTA Error[%u]\n", error);
     
     // Obnova Watchdogu
     try {

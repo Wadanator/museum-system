@@ -20,7 +20,7 @@ bool initializeWiFi() {
   Serial.println();
 
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.print("✅ WiFi pripojené - IP: ");
+    Serial.print("[OK] WiFi pripojené - IP: ");
     Serial.println(WiFi.localIP());
     debugPrint("WiFi pripojené: " + WiFi.localIP().toString());
     wifiConnected = true;
@@ -28,7 +28,7 @@ bool initializeWiFi() {
     return true;
   }
 
-  Serial.println("❌ WiFi zlyhalo");
+  Serial.println("[ERROR] WiFi zlyhalo");
   wifiConnected = false;
   debugPrint("WiFi pripojenie zlyhalo");
   return false;
@@ -48,7 +48,7 @@ void reconnectWiFi() {
     delay(100);
 
     if (initializeWiFi()) {
-      Serial.println("✅ WiFi znovu pripojené");
+      Serial.println("[OK] WiFi znovu pripojené");
       debugPrint("WiFi znovu pripojené");
       wifiAttempts = 0;
       wifiRetryInterval = WIFI_RETRY_INTERVAL;
@@ -58,7 +58,7 @@ void reconnectWiFi() {
 
       if (wifiAttempts >= MAX_WIFI_ATTEMPTS) {
         debugPrint("Max WiFi pokusov dosiahnutý - reštartujem ESP32");
-        Serial.println("🔄 Reštartujem ESP32...");
+        Serial.println(" Reštartujem ESP32...");
         delay(1000);
         ESP.restart();
       }

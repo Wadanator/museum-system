@@ -28,9 +28,9 @@ function assignLanes(items, pixelsPerSecond) {
 }
 
 /**
- * TimelineTrack — one horizontal track (MQTT / Audio / Video).
+ * TimelineTrack - one horizontal track (MQTT / Audio / Video).
  *
- * - Acts as a dnd-kit droppable (palette → track drop).
+ * - Acts as a dnd-kit droppable (palette -> track drop).
  * - Computes lane stacking so clips never overlap visually.
  * - Track height grows automatically with lane count.
  * - Maintains `selectedId` state for the clip popover.

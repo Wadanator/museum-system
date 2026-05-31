@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
 
-// ── ID generation ────────────────────────────────────────────────────────────
+// -- ID generation ------------------------------------------------------------
 
 const generateId = () => `id_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-// ── Factory functions (exported for use in components) ────────────────────────
+// -- Factory functions (exported for use in components) ------------------------
 
 export const createEmptyAction = (type = 'mqtt') => ({
   id: generateId(),
@@ -39,7 +39,7 @@ export const createEmptyState = (name = 'NEW_STATE') => ({
   transitions: [],
 });
 
-// ── Schema ↔ internal format conversion ──────────────────────────────────────
+// -- Schema <-> internal format conversion --------------------------------------
 // Internal format attaches `id` to every element for stable React keys.
 // Schema format (what the Pi validates) has no `id` fields.
 
@@ -115,7 +115,7 @@ export const internalToSchema = (editor) => {
   };
 };
 
-// ── LocalStorage recovery ─────────────────────────────────────────────────────
+// -- LocalStorage recovery -----------------------------------------------------
 
 const formatValidationError = (validation) => {
   const first = validation?.errors?.[0];
@@ -129,7 +129,7 @@ const saveToStorage = (sceneName, data) => {
   try {
     localStorage.setItem(storageKey(sceneName), JSON.stringify(data));
   } catch {
-    // Quota exceeded — silently ignore
+    // Quota exceeded - silently ignore
   }
 };
 
@@ -142,7 +142,7 @@ const loadFromStorage = (sceneName) => {
   }
 };
 
-// ── Hook ─────────────────────────────────────────────────────────────────────
+// -- Hook ---------------------------------------------------------------------
 
 const buildInitialEditor = (sceneName, initialData) => {
   if (sceneName) {
@@ -174,24 +174,24 @@ export const useSceneEditor = ({ sceneName, initialData } = {}) => {
     setIsDirty(true);
   }, [editor, sceneName]);
 
-  // ── Internal updater ──────────────────────────────────────────────────────
+  // -- Internal updater ------------------------------------------------------
 
   const update = useCallback((fn) => setEditor((prev) => fn(prev)), []);
 
-  // ── Metadata ──────────────────────────────────────────────────────────────
+  // -- Metadata --------------------------------------------------------------
 
   const updateMetadata = useCallback(
     (partial) => update((prev) => ({ ...prev, ...partial })),
     [update]
   );
 
-  // ── State selection ───────────────────────────────────────────────────────
+  // -- State selection -------------------------------------------------------
 
   const selectState = useCallback((id) => setSelectedStateId(id), []);
 
   const selectedState = editor.states.find((s) => s.id === selectedStateId) ?? null;
 
-  // ── State CRUD ────────────────────────────────────────────────────────────
+  // -- State CRUD ------------------------------------------------------------
 
   const addState = useCallback(() => {
     const newState = createEmptyState(`STATE_${Date.now().toString(36).toUpperCase()}`);
@@ -267,7 +267,7 @@ export const useSceneEditor = ({ sceneName, initialData } = {}) => {
     });
   }, [update]);
 
-  // ── onEnter / onExit action lists ─────────────────────────────────────────
+  // -- onEnter / onExit action lists -----------------------------------------
 
   const addAction = useCallback((stateId, section, action = createEmptyAction()) => {
     update((prev) => ({
@@ -316,7 +316,7 @@ export const useSceneEditor = ({ sceneName, initialData } = {}) => {
     }));
   }, [update]);
 
-  // ── Timeline ──────────────────────────────────────────────────────────────
+  // -- Timeline --------------------------------------------------------------
 
   const addTimelineItem = useCallback((stateId, item = createEmptyTimelineItem()) => {
     update((prev) => ({
@@ -362,7 +362,7 @@ export const useSceneEditor = ({ sceneName, initialData } = {}) => {
     updateTimelineItem(stateId, itemId, partial);
   }, [updateTimelineItem]);
 
-  // ── Transitions ───────────────────────────────────────────────────────────
+  // -- Transitions -----------------------------------------------------------
 
   const addTransition = useCallback((stateId, transition = createEmptyTransition()) => {
     update((prev) => ({
@@ -400,14 +400,14 @@ export const useSceneEditor = ({ sceneName, initialData } = {}) => {
     }));
   }, [update]);
 
-  // ── Global events ─────────────────────────────────────────────────────────
+  // -- Global events ---------------------------------------------------------
 
   const setGlobalEvents = useCallback(
     (events) => update((prev) => ({ ...prev, globalEvents: events })),
     [update]
   );
 
-  // ── Import / Export ───────────────────────────────────────────────────────
+  // -- Import / Export -------------------------------------------------------
 
   const exportJSON = useCallback(
     () => JSON.stringify(internalToSchema(editor), null, 2),
@@ -422,7 +422,7 @@ export const useSceneEditor = ({ sceneName, initialData } = {}) => {
     setIsDirty(true);
   }, []);
 
-  // ── Backend persistence ───────────────────────────────────────────────────
+  // -- Backend persistence ---------------------------------------------------
 
   const saveToBackend = useCallback(async (targetSceneName) => {
     const name = targetSceneName || sceneName;

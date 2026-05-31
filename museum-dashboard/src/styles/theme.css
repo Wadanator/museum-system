@@ -252,7 +252,7 @@
     --shadow-mobile-sidebar: 0 10px 26px rgba(0, 0, 0, 0.5);
     --shadow-primary-glow: 0 0 18px rgba(99, 102, 241, 0.4);
 
-    /* Action type badge colors — slightly brighter bg for dark surfaces */
+    /* Action type badge colors - slightly brighter bg for dark surfaces */
     --badge-mqtt-bg: rgba(59, 130, 246, 0.15);
     --badge-audio-bg: rgba(34, 197, 94, 0.14);
     --badge-video-bg: rgba(168, 85, 247, 0.15);

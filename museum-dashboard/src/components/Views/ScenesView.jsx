@@ -29,7 +29,7 @@ export default function ScenesView() {
             setEditorContent(content);
             setEditorOpen(true);
         } catch {
-            // fall through — modal won't open
+            // fall through - modal won't open
         }
     };
 

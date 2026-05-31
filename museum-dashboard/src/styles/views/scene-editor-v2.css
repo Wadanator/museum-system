@@ -1,4 +1,4 @@
-/* Scene Editor V2 — natural-scroll 3-panel layout
+/* Scene Editor V2 - natural-scroll 3-panel layout
    Rendered inside .main-content (overflow-y: auto; height: 100vh).
    The view is a flex column that grows with content; sticky sidebars stay in view. */
 
@@ -8,7 +8,7 @@
   gap: var(--spacing-md);
 }
 
-/* ── Dirty badge (shown in PageHeader actions area) ──────────── */
+/* -- Dirty badge (shown in PageHeader actions area) ------------ */
 
 .se2-dirty-badge {
   font-size: 0.78rem;
@@ -18,9 +18,9 @@
   align-self: center;
 }
 
-/* ── Body — flex row of 3 panels ─────────────────────────────── */
+/* -- Body - flex row of 3 panels ------------------------------- */
 
-/* NOTE: NO overflow:hidden here — that would break position:sticky on sidebars */
+/* NOTE: NO overflow:hidden here - that would break position:sticky on sidebars */
 .se2-body {
   display: flex;
   align-items: flex-start;
@@ -32,7 +32,7 @@
   position: relative;
 }
 
-/* ── Shared panel chrome ─────────────────────────────────────── */
+/* -- Shared panel chrome --------------------------------------- */
 
 .se2-panel-header {
   flex-shrink: 0;
@@ -52,7 +52,7 @@
   color: var(--text-muted);
 }
 
-/* ── State List (left panel) ─────────────────────────────────── */
+/* -- State List (left panel) ----------------------------------- */
 
 .se2-state-list {
   width: 240px;
@@ -113,9 +113,12 @@
 }
 
 .se2-initial-dot {
-  color: var(--success);
-  font-size: 0.65rem;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--success);
   flex-shrink: 0;
+  display: inline-block;
 }
 
 .se2-state-actions {
@@ -136,7 +139,7 @@
   opacity: 1;
 }
 
-/* Play button — always visible, green */
+/* Play button - always visible, green */
 .se2-test-btn {
   flex-shrink: 0;
   color: var(--success, #22c55e) !important;
@@ -148,12 +151,12 @@
   opacity: 1;
 }
 
-/* Actively testing — full green, no fade */
+/* Actively testing - full green, no fade */
 .se2-test-btn--active {
   opacity: 1 !important;
 }
 
-/* ── Test-run banner ─────────────────────────────────────────── */
+/* -- Test-run banner ------------------------------------------- */
 
 .se2-test-banner {
   display: flex;
@@ -205,9 +208,9 @@
   border-color: var(--text-muted);
 }
 
-/* ── Main panel (center) ─────────────────────────────────────── */
+/* -- Main panel (center) --------------------------------------- */
 
-/* No overflow-y: auto here — the page itself scrolls via .main-content */
+/* No overflow-y: auto here - the page itself scrolls via .main-content */
 .se2-main {
   flex: 1;
   min-width: 0;
@@ -216,7 +219,7 @@
   background: var(--bg-main);
 }
 
-/* ── Palette (right panel) ───────────────────────────────────── */
+/* -- Palette (right panel) ------------------------------------- */
 
 .se2-palette {
   width: 280px;
@@ -233,7 +236,7 @@
   border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
 }
 
-/* ── Placeholder (center + palette empty states) ─────────────── */
+/* -- Placeholder (center + palette empty states) --------------- */
 
 .se2-placeholder {
   flex: 1;
@@ -273,7 +276,7 @@
   line-height: 1.5;
 }
 
-/* ── Loading overlay ─────────────────────────────────────────── */
+/* -- Loading overlay ------------------------------------------- */
 
 .se2-body--loading {
   position: relative;
@@ -309,7 +312,7 @@
   animation: se2-spin 0.8s linear infinite;
 }
 
-/* ── State Panel (center panel content) ─────────────────────── */
+/* -- State Panel (center panel content) ----------------------- */
 
 .se2-state-panel {
   display: flex;
@@ -318,7 +321,7 @@
   padding-bottom: var(--spacing-3xl);
 }
 
-/* ── Section accordion (onEnter / Timeline / onExit / Prechody) ─ */
+/* -- Section accordion (onEnter / Timeline / onExit / Prechody) - */
 
 .se2-section-accordion {
   border-top: 1px solid var(--border-color);
@@ -398,7 +401,7 @@
   background: var(--bg-main);
 }
 
-/* ── Metadata form ───────────────────────────────────────────── */
+/* -- Metadata form --------------------------------------------- */
 
 .se2-meta-form {
   display: flex;
@@ -464,7 +467,7 @@
   cursor: pointer;
 }
 
-/* ── Action list ─────────────────────────────────────────────── */
+/* -- Action list ----------------------------------------------- */
 
 .se2-action-list {
   display: flex;
@@ -488,7 +491,7 @@
   color: var(--text-muted) !important;
 }
 
-/* ── Action row ──────────────────────────────────────────────── */
+/* -- Action row ------------------------------------------------ */
 
 .se2-action-row {
   display: flex;
@@ -559,7 +562,7 @@
   opacity: 1;
 }
 
-/* ── Transition row ──────────────────────────────────────────── */
+/* -- Transition row -------------------------------------------- */
 
 .se2-transition-row {
   display: flex;
@@ -613,7 +616,7 @@
   font-weight: 600;
 }
 
-/* ── Drag handle (action row reorder) ───────────────────────── */
+/* -- Drag handle (action row reorder) ------------------------- */
 
 .se2-drag-handle {
   flex-shrink: 0;
@@ -644,14 +647,14 @@
   cursor: grabbing;
 }
 
-/* Row being dragged — ghost stays visible but dimmed */
+/* Row being dragged - ghost stays visible but dimmed */
 .se2-action-row--dragging {
   opacity: 0.45;
   border-color: var(--primary);
   background: var(--overlay-inverse-soft);
 }
 
-/* ── Editor Palette ──────────────────────────────────────────── */
+/* -- Editor Palette -------------------------------------------- */
 
 .se2-pal-root {
   display: flex;
@@ -928,7 +931,7 @@
   outline-offset: -2px;
 }
 
-/* ── Visual Timeline ─────────────────────────────────────────── */
+/* -- Visual Timeline ------------------------------------------- */
 
 .se2-tl-root {
   display: flex;
@@ -985,7 +988,7 @@
   padding: 0 0 var(--spacing-sm) 0;
 }
 
-/* Canvas — width set by JS */
+/* Canvas - width set by JS */
 .se2-tl-canvas {
   display: flex;
   flex-direction: column;
@@ -1076,7 +1079,7 @@
 .se2-tl-track-label--audio { color: var(--badge-audio-color); }
 .se2-tl-track-label--video { color: var(--badge-video-color); }
 
-/* Track content area — height grows with lane count */
+/* Track content area - height grows with lane count */
 .se2-tl-track {
   flex: 1;
   min-height: calc(var(--se2-tl-lane-count, 1) * 64px + 16px);
@@ -1178,7 +1181,7 @@
 .se2-tl-clip:hover .se2-tl-clip-delete { opacity: 1; }
 .se2-tl-clip-delete:hover               { color: var(--danger); }
 
-/* ── Clip popover (portal, position: fixed) ──────────────────── */
+/* -- Clip popover (portal, position: fixed) -------------------- */
 
 .se2-tl-popover {
   width: 230px;
@@ -1266,7 +1269,7 @@
   border-color: var(--primary);
 }
 
-/* ─────────────────────────────────────────────────────────────── */
+/* --------------------------------------------------------------- */
 
 /* Drag overlay pill */
 .se2-drag-overlay-pill {

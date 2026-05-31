@@ -81,7 +81,7 @@
     transform: translateY(-3px);
 }
 
-/* Emoji / Ikona vnútri karty */
+/* Ikona vnutri karty */
 .device-preview {
     flex: 1;
     display: flex;
@@ -91,14 +91,15 @@
     min-height: var(--device-preview-min-height);
 }
 
-.emoji-large {
+.device-large-icon {
     font-size: var(--font-size-display-lg);
     filter: var(--shadow-icon-filter);
     transition: transform var(--transition-slow);
     cursor: default;
+    color: var(--primary);
 }
 
-.device-card:hover .emoji-large {
+.device-card:hover .device-large-icon {
     transform: scale(1.1);
 }
 

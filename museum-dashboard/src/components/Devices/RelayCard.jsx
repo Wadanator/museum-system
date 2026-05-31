@@ -13,7 +13,7 @@ export default function RelayCard({ device }) {
   const HeaderIcon = device.id?.includes('light') ? Lightbulb : Zap;
   
   // Veľká ikona v strede (ak nie je definovaná v configu, dáme default)
-  const customIcon = device.icon || (device.id?.includes('light') ? '💡' : '⚡');
+  const customIcon = device.icon || null;
 
   const handleCommand = useCallback(async (command, displayText) => {
     setIsLoading(true);
@@ -32,7 +32,9 @@ export default function RelayCard({ device }) {
     >
         {/* Preview Sekcia - Veľká ikona */}
         <div className="device-preview">
-            <div className="emoji-large">{customIcon}</div>
+            <div className="device-large-icon">
+              {customIcon ? customIcon : <HeaderIcon size={64} strokeWidth={1.4} />}
+            </div>
         </div>
 
         {/* Tlačidlá naspodku */}

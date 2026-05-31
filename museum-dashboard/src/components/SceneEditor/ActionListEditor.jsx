@@ -51,7 +51,7 @@ function SortableActionRow({ action, stateId, section, onUpdate, onDelete }) {
         <GripVertical size={13} />
       </button>
 
-      {/* Type badge — click cycles mqtt→audio→video */}
+      {/* Type badge - click cycles mqtt->audio->video */}
       <button
         className={`se2-action-badge se2-action-badge--${type}`}
         onClick={() => onUpdate({ action: TYPE_CYCLE[type] })}
@@ -61,7 +61,7 @@ function SortableActionRow({ action, stateId, section, onUpdate, onDelete }) {
         {TYPE_LABELS[type]}
       </button>
 
-      {/* Topic — only for mqtt */}
+      {/* Topic - only for mqtt */}
       {type === 'mqtt' && (
         <input
           className="se2-action-input se2-action-input--topic"

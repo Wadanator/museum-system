@@ -3,16 +3,16 @@ import { Handle, Position } from 'reactflow';
 import { FiChevronDown, FiChevronUp, FiZap, FiClock, FiShare2, FiActivity, FiFlag, FiPlay, FiCode, FiLogOut } from 'react-icons/fi';
 import Button from '../ui/Button';
 
-// ─── ReactFlow magic class names ─────────────────────────────────────────────
-// nowheel  → wheel events on this element do NOT zoom/pan the canvas
-// nodrag   → this element cannot initiate a node drag
-// nopan    → this element cannot initiate canvas panning
+// --- ReactFlow magic class names ---------------------------------------------
+// nowheel  -> wheel events on this element do NOT zoom/pan the canvas
+// nodrag   -> this element cannot initiate a node drag
+// nopan    -> this element cannot initiate canvas panning
 //
 // Rule of thumb:
-//   • Any scrollable content area  → nowheel
-//   • Any clickable button/control → nodrag nopan
-//   • Both                         → nowheel nodrag nopan
-// ─────────────────────────────────────────────────────────────────────────────
+//   * Any scrollable content area  -> nowheel
+//   * Any clickable button/control -> nodrag nopan
+//   * Both                         -> nowheel nodrag nopan
+// -----------------------------------------------------------------------------
 
 const CustomFlowNode = ({ data, selected }) => {
     const [isExpanded, setIsExpanded] = useState(false);
@@ -36,7 +36,7 @@ const CustomFlowNode = ({ data, selected }) => {
         <div className={`custom-flow-node ${isStart ? 'start-node' : ''} ${isEnd ? 'end-node' : ''} ${selected ? 'selected' : ''}`}>
             {!isStart && <Handle type="target" position={Position.Top} className="node-handle target" />}
 
-            {/* ── Header — draggable area ──────────────────────────── */}
+            {/* -- Header - draggable area ---------------------------- */}
             <div className="node-header" onClick={handleExpandClick}>
                 <div className="node-title-group">
                     <div className={`node-icon-box ${isStart ? 'start' : isEnd ? 'end' : 'state'}`}>
@@ -53,7 +53,7 @@ const CustomFlowNode = ({ data, selected }) => {
                     </div>
                 </div>
                 {!isEnd && (
-                    // nodrag nopan → click on chevron never starts a drag
+                    // nodrag nopan -> click on chevron never starts a drag
                     <Button
                         variant="ghost"
                         size="small"
@@ -66,17 +66,17 @@ const CustomFlowNode = ({ data, selected }) => {
                 )}
             </div>
 
-            {/* ── Collapsed preview ────────────────────────────────── */}
+            {/* -- Collapsed preview ---------------------------------- */}
             {!isExpanded && !isEnd && data.description && (
-                // nowheel → scrolling over description text won't zoom canvas
+                // nowheel -> scrolling over description text won't zoom canvas
                 <div className="node-preview nowheel">
                     <div className="preview-text">{data.description}</div>
                 </div>
             )}
 
-            {/* ── Expanded content ─────────────────────────────────── */}
+            {/* -- Expanded content ----------------------------------- */}
             {isExpanded && (
-                // nowheel nodrag → user can scroll content without zooming canvas
+                // nowheel nodrag -> user can scroll content without zooming canvas
                 //                  and can't accidentally start a drag from content
                 <div className="node-content nowheel nodrag">
                     {data.description && (

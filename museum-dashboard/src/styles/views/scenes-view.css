@@ -259,7 +259,7 @@ button.play-fab.btn-unstyled svg {
     color: var(--text-white);
 }
 
-/* SceneEditor V2 shortcut — offset left of the JSON edit button */
+/* SceneEditor V2 shortcut - offset left of the JSON edit button */
 button.edit-btn-absolute--v2.btn-unstyled {
     right: var(--scene-card-editor-offset);
 }

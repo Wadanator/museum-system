@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import { X } from 'lucide-react';
 
 /**
- * ClipPopover — inline editor for a single timeline clip.
+ * ClipPopover - inline editor for a single timeline clip.
  * Rendered via a React portal so it escapes the overflow-hidden scroll container.
  * Positioned with `position: fixed` relative to the clip's screen rect.
  *
@@ -53,7 +53,7 @@ export default function ClipPopover({ item, anchorRect, onUpdate, onClose }) {
   }, [onClose]);
 
   function commit() {
-    if (committedRef.current) return; // already committed — ignore duplicate call
+    if (committedRef.current) return; // already committed - ignore duplicate call
     committedRef.current = true;
     const newAt = parseFloat(at);
     if (!isNaN(newAt) && newAt >= 0) {

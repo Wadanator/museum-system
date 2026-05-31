@@ -37,19 +37,19 @@ void initializeOTA() {
     // Step 1: Disable watchdog immediately
     try {
       esp_task_wdt_deinit();
-      Serial.println("✅ Watchdog disabled");
+      Serial.println("[OK] Watchdog disabled");
       debugPrint("OTA: Watchdog timer disabled");
     } catch (...) {
-      Serial.println("⚠️  Watchdog already disabled");
+      Serial.println("[WARN]  Watchdog already disabled");
     }
 
     // Step 2: Turn off all hardware
     turnOffHardware();
-    Serial.println("✅ All hardware turned OFF");
+    Serial.println("[OK] All hardware turned OFF");
     debugPrint("OTA: Hardware safely disabled");
 
     // Step 3: Stop all non-essential tasks
-    Serial.println("✅ System prepared for upload");
+    Serial.println("[OK] System prepared for upload");
 
     String update_type = (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "filesystem";
     Serial.println("Updating: " + update_type);
@@ -61,8 +61,8 @@ void initializeOTA() {
     otaInProgress = false;
     debugPrint("OTA: Update completed successfully");
     Serial.println("\n=== OTA UPDATE COMPLETE ===");
-    Serial.println("✅ Upload successful!");
-    Serial.println("🔄 Rebooting in 2 seconds...");
+    Serial.println("[OK] Upload successful!");
+    Serial.println(" Rebooting in 2 seconds...");
     delay(2000);
   });
 
@@ -84,7 +84,7 @@ void initializeOTA() {
     otaInProgress = false;
 
     Serial.println("\n=== OTA ERROR ===");
-    Serial.printf("❌ OTA Error[%u]: ", error);
+    Serial.printf("[ERROR] OTA Error[%u]: ", error);
 
     String errorMsg = "";
     switch (error) {
@@ -111,7 +111,7 @@ void initializeOTA() {
     Serial.println(errorMsg);
     debugPrint("OTA Error: " + errorMsg);
 
-    Serial.println("💡 Try again - make sure WiFi is stable");
+    Serial.println(" Try again - make sure WiFi is stable");
     Serial.println("=================");
 
     // Re-enable watchdog after failed upload
@@ -143,7 +143,7 @@ void initializeOTA() {
   Serial.println("IP: " + WiFi.localIP().toString());
   Serial.println("Port: 3232 (default)");
   Serial.println("Look for '" + String(OTA_HOSTNAME) + "' in Arduino IDE Network ports");
-  Serial.println("⚠️  During upload: Hardware will be disabled, watchdog stopped");
+  Serial.println("[WARN]  During upload: Hardware will be disabled, watchdog stopped");
   Serial.println("================");
 }
 

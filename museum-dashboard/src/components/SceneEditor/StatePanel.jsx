@@ -5,7 +5,7 @@ import TransitionEditor from './TransitionEditor';
 import VisualTimeline from './VisualTimeline';
 
 /**
- * SectionAccordion — collapsible section with a toggle header.
+ * SectionAccordion - collapsible section with a toggle header.
  * Header shows label, optional item count badge, and optional add button.
  */
 function SectionAccordion({ label, count, isOpen, onToggle, onAdd, children }) {
@@ -41,8 +41,8 @@ function SectionAccordion({ label, count, isOpen, onToggle, onAdd, children }) {
 }
 
 /**
- * StatePanel — center panel content for the selected state.
- * Section order: Metadata → onEnter → Timeline → onExit → Transitions
+ * StatePanel - center panel content for the selected state.
+ * Section order: Metadata -> onEnter -> Timeline -> onExit -> Transitions
  */
 export default function StatePanel({
   state,
@@ -61,10 +61,10 @@ export default function StatePanel({
   onUpdateTransition,
   onDeleteTransition,
 }) {
-  // Local name input — commit rename only on blur to avoid re-render on every keystroke
+  // Local name input - commit rename only on blur to avoid re-render on every keystroke
   const [nameInput, setNameInput] = useState(state.name);
 
-  // Accordion open state — onEnter + Timeline open by default
+  // Accordion open state - onEnter + Timeline open by default
   const [open, setOpen] = useState({ onEnter: true, timeline: true, onExit: false, transitions: false });
 
   useEffect(() => {
@@ -90,7 +90,7 @@ export default function StatePanel({
   return (
     <div className="se2-state-panel">
 
-      {/* ── Metadata ─────────────────────────────────────────── */}
+      {/* -- Metadata ------------------------------------------- */}
       <div className="se2-meta-form">
         <div className="se2-meta-row">
           <label className="se2-meta-label">Názov stavu</label>
@@ -123,7 +123,7 @@ export default function StatePanel({
         </div>
       </div>
 
-      {/* ── onEnter ──────────────────────────────────────────── */}
+      {/* -- onEnter -------------------------------------------- */}
       <SectionAccordion
         label="onEnter"
         count={state.onEnter.length}
@@ -141,7 +141,7 @@ export default function StatePanel({
         />
       </SectionAccordion>
 
-      {/* ── Timeline ─────────────────────────────────────────── */}
+      {/* -- Timeline ------------------------------------------- */}
       <SectionAccordion
         label="Timeline"
         count={state.timeline.length}
@@ -157,7 +157,7 @@ export default function StatePanel({
         />
       </SectionAccordion>
 
-      {/* ── onExit ───────────────────────────────────────────── */}
+      {/* -- onExit --------------------------------------------- */}
       <SectionAccordion
         label="onExit"
         count={state.onExit.length}
@@ -175,7 +175,7 @@ export default function StatePanel({
         />
       </SectionAccordion>
 
-      {/* ── Transitions ──────────────────────────────────────── */}
+      {/* -- Transitions ---------------------------------------- */}
       <SectionAccordion
         label="Prechody"
         count={state.transitions.length}

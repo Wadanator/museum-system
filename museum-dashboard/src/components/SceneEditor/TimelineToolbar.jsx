@@ -6,7 +6,7 @@ const MAX_PPS = 400;
 const STEP    = 20;
 
 /**
- * TimelineToolbar — zoom controls (px/s) and snap-to-grid toggle.
+ * TimelineToolbar - zoom controls (px/s) and snap-to-grid toggle.
  */
 export default function TimelineToolbar({
   pixelsPerSecond,

@@ -5,7 +5,7 @@
 }
 
 /* =======================================
-   HERO CARD – vertikálny layout
+   HERO CARD - vertikálny layout
    ======================================= */
 
 .hero-card {
@@ -17,7 +17,7 @@
   border: var(--border-width-sm) solid var(--border-color);
 }
 
-/* Stavový blok – ikona + texty */
+/* Stavový blok - ikona + texty */
 .main-status {
   text-align: center;
   padding: var(--dashboard-status-padding);
@@ -65,7 +65,7 @@
 }
 
 /* =======================================
-   TLAČIDLÁ – veľké a dominantné
+   TLAČIDLÁ - veľké a dominantné
    ======================================= */
 
 .main-controls {
@@ -193,7 +193,7 @@ button.stop-scene-button.btn-unstyled .button-subtext {
 }
 
 /* =======================================
-   STATS GRID – 3 ukazovatele
+   STATS GRID - 3 ukazovatele
    ======================================= */
 
 .status-overview {

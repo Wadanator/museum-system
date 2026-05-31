@@ -7,8 +7,8 @@ const CLIP_TOP_PX    = 6;
 
 /**
  * Build a compact readable label for the clip body.
- * MQTT: last 2 topic segments + message  →  "light/fire: ON"
- * Audio/Video: filename without extension  →  "sfx_alarm"
+ * MQTT: last 2 topic segments + message  ->  "light/fire: ON"
+ * Audio/Video: filename without extension  ->  "sfx_alarm"
  */
 function clipLabel(item) {
   if (item.action === 'mqtt') {
@@ -17,13 +17,13 @@ function clipLabel(item) {
       : '';
     return topicShort
       ? `${topicShort}: ${item.message || '?'}`
-      : (item.message || '—');
+      : (item.message || '-');
   }
-  return item.message ? item.message.replace(/\.[^.]+$/, '') : '—';
+  return item.message ? item.message.replace(/\.[^.]+$/, '') : '-';
 }
 
 /**
- * TimelineClip — a single draggable event marker on a timeline track.
+ * TimelineClip - a single draggable event marker on a timeline track.
  *
  * Drag is handled entirely via native pointer events in useClipDrag (useEffect).
  * The hook returns a ref that must be attached to the root div.
@@ -51,7 +51,7 @@ export default function TimelineClip({
   });
 
   const typeLabel = { mqtt: 'MQTT', audio: 'AUDIO', video: 'VIDEO' }[item.action] ?? item.action;
-  const tooltip   = `${typeLabel}  •  ${item.topic ? item.topic + ' → ' : ''}${item.message}  •  @${item.at}s`;
+  const tooltip   = `${typeLabel}  *  ${item.topic ? item.topic + ' -> ' : ''}${item.message}  *  @${item.at}s`;
   const topPx     = CLIP_TOP_PX + lane * LANE_HEIGHT_PX;
 
   return (

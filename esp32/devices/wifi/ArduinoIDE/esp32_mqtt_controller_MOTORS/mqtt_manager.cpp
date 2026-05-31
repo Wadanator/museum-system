@@ -21,12 +21,12 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     return;
   }
 
-  // Stack-allocated message buffer – no heap
+  // Stack-allocated message buffer - no heap
   char message[64];
   memcpy(message, payload, length);
   message[length] = '\0';
 
-  // Use Serial directly here – topic and message are already char*, no String needed
+  // Use Serial directly here - topic and message are already char*, no String needed
   if (DEBUG) {
     Serial.print("[DEBUG] "); Serial.print(millis()); Serial.print("ms - MQTT topic: ");   Serial.println(topic);
     Serial.print("[DEBUG] "); Serial.print(millis()); Serial.print("ms - MQTT message: "); Serial.println(message);
@@ -45,7 +45,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     return;
   }
 
-  // feedbackTopic = topic + "/feedback" – stack only
+  // feedbackTopic = topic + "/feedback" - stack only
   char feedbackTopic[128];
   snprintf(feedbackTopic, sizeof(feedbackTopic), "%s/feedback", topic);
 
@@ -108,7 +108,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
         else               controlMotor2("ON", speed, direction, rampTime);
         commandSuccessful = true;
       } else {
-        debugPrint("ERROR: Malformed ON command – missing speed/direction");
+        debugPrint("ERROR: Malformed ON command - missing speed/direction");
       }
     }
 
@@ -141,7 +141,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   }
 
   // -------------------------------------------------------------------------
-  // Unknown device – silently ignore, no feedback
+  // Unknown device - silently ignore, no feedback
   // -------------------------------------------------------------------------
   else {
     debugPrint("Ignoring non-motor command");

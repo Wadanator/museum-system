@@ -98,7 +98,7 @@ void stopAllEffects() {
 }
 
 // ---------------------------------------------------------------------------
-// handleEffects – called every loop iteration
+// handleEffects - called every loop iteration
 // ---------------------------------------------------------------------------
 void handleEffects() {
   unsigned long currentTime = millis();

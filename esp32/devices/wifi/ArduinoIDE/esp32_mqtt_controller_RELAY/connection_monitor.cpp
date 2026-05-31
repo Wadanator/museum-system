@@ -17,19 +17,19 @@ void monitorConnections() {
     String wifiStatus = WiFi.status() == WL_CONNECTED ? "OK" : "FAIL";
     String mqttStatus = client.connected() ? "OK" : "FAIL";
     
-    debugPrint("📊 Status - WiFi: " + wifiStatus + ", MQTT: " + mqttStatus);
+    debugPrint(" Status - WiFi: " + wifiStatus + ", MQTT: " + mqttStatus);
 
     // Detekcia straty WiFi spojenia
     if (WiFi.status() != WL_CONNECTED && wifiConnected) {
       wifiConnected = false;
       mqttConnected = false;
-      Serial.println("⚠️  WiFi spojenie stratené");
+      Serial.println("[WARN]  WiFi spojenie stratené");
       debugPrint("WiFi spojenie stratené");
     } 
     // Detekcia obnovy WiFi spojenia
     else if (WiFi.status() == WL_CONNECTED && !wifiConnected) {
       wifiConnected = true;
-      Serial.println("✅ WiFi spojenie obnovené");
+      Serial.println("[OK] WiFi spojenie obnovené");
       debugPrint("WiFi spojenie obnovené");
     }
   }

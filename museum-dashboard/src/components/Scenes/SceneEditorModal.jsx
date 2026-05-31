@@ -73,7 +73,7 @@ export default function SceneEditorModal({ isOpen, onClose, filename, initialCon
                 can correctly fill the remaining space. */}
             <div className="modal-content large-editor">
 
-                {/* ── Header ─────────────────────────────────────────── */}
+                {/* -- Header ------------------------------------------- */}
                 <div className="modal-header">
                     <div className="modal-title-group">
                         <h3>Úprava scény</h3>
@@ -91,7 +91,7 @@ export default function SceneEditorModal({ isOpen, onClose, filename, initialCon
                     />
                 </div>
 
-                {/* ── Tabs ───────────────────────────────────────────── */}
+                {/* -- Tabs --------------------------------------------- */}
                 <div className="editor-tabs">
                     <Button
                         variant="ghost"
@@ -114,7 +114,7 @@ export default function SceneEditorModal({ isOpen, onClose, filename, initialCon
                     </Button>
                 </div>
 
-                {/* ── Body — this is the flex-grow area ─────────────── */}
+                {/* -- Body - this is the flex-grow area --------------- */}
                 {/* min-height: 0 is the critical fix for flex children   */}
                 <div className="modal-body-editor">
                     {activeTab === 'code' ? (
@@ -125,7 +125,7 @@ export default function SceneEditorModal({ isOpen, onClose, filename, initialCon
                     )}
                 </div>
 
-                {/* ── Footer ─────────────────────────────────────────── */}
+                {/* -- Footer ------------------------------------------- */}
                 <div className="modal-footer">
                     <div className="validation-status">
                         {!isValid && (

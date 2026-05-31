@@ -1,9 +1,9 @@
 /**
- * TimeRuler — adaptive time axis.
+ * TimeRuler - adaptive time axis.
  *
  * Major interval: smallest of [0.5, 1, 2, 5, 10] where interval*pps >= 60px
  * Minor interval: finest of [0.1, 0.5] where interval*pps >= 12px AND < major
- * Minimum resolution: 0.1 s — never finer.
+ * Minimum resolution: 0.1 s - never finer.
  */
 
 const MAJOR_INTERVALS = [0.5, 1, 2, 5, 10];

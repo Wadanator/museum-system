@@ -8,23 +8,23 @@ const DEFAULT_PPS    = 80;  // pixels per second (zoom default)
 const MIN_DURATION_S = 12;  // minimum visible duration in seconds
 
 /**
- * VisualTimeline — FL Studio-style event timeline for one scene state.
+ * VisualTimeline - FL Studio-style event timeline for one scene state.
  *
  * Layout:
  *   [toolbar]
  *   [scroll container]
- *     [ruler row]   — 64 px label spacer + TimeRuler
- *     [MQTT  row]   — 64 px label        + TimelineTrack (droppable)
- *     [AUDIO row]   — 64 px label        + TimelineTrack (droppable)
- *     [VIDEO row]   — 64 px label        + TimelineTrack (droppable)
+ *     [ruler row]   - 64 px label spacer + TimeRuler
+ *     [MQTT  row]   - 64 px label        + TimelineTrack (droppable)
+ *     [AUDIO row]   - 64 px label        + TimelineTrack (droppable)
+ *     [VIDEO row]   - 64 px label        + TimelineTrack (droppable)
  *
  * Clips are events (points in time, not intervals).
- * Clip drag uses native pointer events via useClipDrag — zero re-renders during drag.
- * Palette → track drop uses dnd-kit useDroppable; the actual item creation
+ * Clip drag uses native pointer events via useClipDrag - zero re-renders during drag.
+ * Palette -> track drop uses dnd-kit useDroppable; the actual item creation
  * is handled one level up in SceneEditorView.handleDragEnd.
  *
  * Callbacks received from StatePanel/SceneEditorView use signature
- *   (stateId, itemId, partial) — so we bind stateId here before passing down.
+ *   (stateId, itemId, partial) - so we bind stateId here before passing down.
  */
 export default function VisualTimeline({
   stateId,

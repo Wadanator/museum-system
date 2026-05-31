@@ -58,7 +58,7 @@ export default function SceneEditorView() {
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } })
   );
 
-  // Palette items drag across panels — use pointer-based detection so distance
+  // Palette items drag across panels - use pointer-based detection so distance
   // between panels doesn't fool closestCenter. Sortable reorder keeps closestCenter.
   const collisionDetection = (args) => {
     if (args.active.data?.current?.type === 'palette') {
@@ -142,9 +142,9 @@ export default function SceneEditorView() {
 
   const setInitialState = (name) => updateMetadata({ initialState: name });
 
-  // ── State test-run ────────────────────────────────────────────
+  // -- State test-run --------------------------------------------
   // Builds a minimal 1-state scene, saves it as __test__ on the Pi, and runs it.
-  // Uses only existing api.saveScene + api.runScene — no Pi-side changes needed.
+  // Uses only existing api.saveScene + api.runScene - no Pi-side changes needed.
 
   const buildTestScene = (state) => {
     const stripId = ({ id, ...rest }) => rest;
@@ -178,7 +178,7 @@ export default function SceneEditorView() {
       // 3. Now run the freshly saved scene
       await api.runScene('sc_preview');
       setTestingState({ name: state.name });
-      toast.success(`▶ Testuje sa: ${state.name}`);
+      toast.success(`Testuje sa: ${state.name}`);
     } catch (err) {
       toast.error(err.message || 'Chyba pri spúšťaní testu');
     }
@@ -188,7 +188,7 @@ export default function SceneEditorView() {
     try {
       await api.stopScene();
     } catch {
-      // ignore — best-effort stop
+      // ignore - best-effort stop
     }
     setTestingState(null);
   };
@@ -205,13 +205,13 @@ export default function SceneEditorView() {
   return (
     <div className="se2-view">
 
-      {/* ── Header ─────────────────────────────────────────────── */}
+      {/* -- Header ----------------------------------------------- */}
       <PageHeader
         title="Editor scén"
         subtitle={sceneName}
         icon={Wand2}
       >
-        {isDirty && <span className="se2-dirty-badge">● neuložené</span>}
+        {isDirty && <span className="se2-dirty-badge">* neuložené</span>}
         <Button
           variant="toolbar-primary"
           icon={Save}
@@ -225,7 +225,7 @@ export default function SceneEditorView() {
         </Button>
       </PageHeader>
 
-      {/* ── Test-run banner ────────────────────────────────────── */}
+      {/* -- Test-run banner -------------------------------------- */}
       {testingState && (
         <div className="se2-test-banner">
           <span className="se2-test-banner-pulse" />
@@ -237,7 +237,7 @@ export default function SceneEditorView() {
         </div>
       )}
 
-      {/* ── 3-panel body ───────────────────────────────────────── */}
+      {/* -- 3-panel body ----------------------------------------- */}
       <DndContext
         sensors={sensors}
         collisionDetection={collisionDetection}
@@ -252,7 +252,7 @@ export default function SceneEditorView() {
           </div>
         )}
 
-        {/* Panel 1 — State List */}
+        {/* Panel 1 - State List */}
         <aside className="se2-state-list">
           <div className="se2-panel-header">
             <span className="se2-panel-label">Stavy</span>
@@ -274,7 +274,7 @@ export default function SceneEditorView() {
               >
                 <span className="se2-state-name">
                   {initialState === state.name && (
-                    <span className="se2-initial-dot" title="Počiatočný stav">▶</span>
+                    <span className="se2-initial-dot" title="Počiatočný stav"></span>
                   )}
                   {state.name}
                 </span>
@@ -309,7 +309,7 @@ export default function SceneEditorView() {
           </ul>
         </aside>
 
-        {/* Panel 2 — State detail */}
+        {/* Panel 2 - State detail */}
         <main className="se2-main">
           {selectedState ? (
             <StatePanel
@@ -336,7 +336,7 @@ export default function SceneEditorView() {
           )}
         </main>
 
-        {/* Panel 3 — Palette */}
+        {/* Panel 3 - Palette */}
         <aside className="se2-palette">
           <div className="se2-panel-header">
             <span className="se2-panel-label">Paleta</span>

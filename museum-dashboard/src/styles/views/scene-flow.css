@@ -1,16 +1,16 @@
 /* src/styles/views/scene-flow.css
-   ─────────────────────────────────────────────────────────────────
+   -----------------------------------------------------------------
    ReactFlow container chain:
      .modal-body-editor          (flex:1, min-height:0)
-       └── .flow-wrapper         (flex:1, height:100%, min-height:0)
-             └── ReactFlow root  (fills parent)
+       └-- .flow-wrapper         (flex:1, height:100%, min-height:0)
+             └-- ReactFlow root  (fills parent)
 
    NOTE: .editor-tabs / .editor-tab-btn live in scene-editor.css only.
          Do NOT duplicate them here.
-   ─────────────────────────────────────────────────────────────────
+   -----------------------------------------------------------------
 */
 
-/* ── FLOW WRAPPER ───────────────────────────────────────────────── */
+/* -- FLOW WRAPPER ------------------------------------------------- */
 .flow-wrapper {
     flex: 1 1 0;
     min-height: 0;
@@ -41,7 +41,7 @@
     min-height: 0;
 }
 
-/* ── TOP PANEL (fit + fullscreen buttons) ───────────────────────── */
+/* -- TOP PANEL (fit + fullscreen buttons) ------------------------- */
 .flow-top-panel {
     display: flex;
     gap: 6px;
@@ -89,7 +89,7 @@
     white-space: nowrap;
 }
 
-/* ── LEGEND PANEL ───────────────────────────────────────────────── */
+/* -- LEGEND PANEL ------------------------------------------------- */
 .flow-legend-panel {
     background: var(--bg-card);
     padding: 12px 16px;
@@ -133,7 +133,7 @@
 .dot-audio   { background-color: var(--info); }
 .dot-video   { background-color: var(--color-video); }
 
-/* ── CUSTOM FLOW NODE ───────────────────────────────────────────── */
+/* -- CUSTOM FLOW NODE --------------------------------------------- */
 .custom-flow-node {
     background: var(--bg-card);
     border: 1px solid var(--border-color);
@@ -156,7 +156,7 @@
 
 .custom-flow-node.selected {
     border-color: var(--primary);
-    /* Glow using primary color — no hardcoded rgba */
+    /* Glow using primary color - no hardcoded rgba */
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent);
 }
 
@@ -180,7 +180,7 @@
     z-index: 1000 !important;
 }
 
-/* ── NODE HEADER ────────────────────────────────────────────────── */
+/* -- NODE HEADER -------------------------------------------------- */
 .node-header {
     padding: 10px 14px;
     background: linear-gradient(to bottom, var(--bg-card), var(--bg-hover));
@@ -280,7 +280,7 @@
     color: var(--primary);
 }
 
-/* ── NODE PREVIEW (collapsed) ───────────────────────────────────── */
+/* -- NODE PREVIEW (collapsed) ------------------------------------- */
 .node-preview {
     padding: 9px 14px 12px;
 }
@@ -298,7 +298,7 @@
     text-overflow: ellipsis;
 }
 
-/* ── NODE CONTENT (expanded) ────────────────────────────────────── */
+/* -- NODE CONTENT (expanded) -------------------------------------- */
 .node-content {
     background: var(--bg-card);
     border-radius: 0 0 var(--radius-lg) var(--radius-lg);
@@ -327,7 +327,7 @@
     flex-shrink: 0;
 }
 
-/* ── SECTIONS ───────────────────────────────────────────────────── */
+/* -- SECTIONS ----------------------------------------------------- */
 .node-section {
     border-top: 1px solid var(--border-color);
 }
@@ -371,14 +371,14 @@
 
 /* section-body is the scrollable list inside each section.
    The nowheel class (added in JSX) tells ReactFlow to ignore
-   wheel events here — so scrolling the list won't zoom the canvas. */
+   wheel events here - so scrolling the list won't zoom the canvas. */
 .section-body {
     padding: 0;
     overflow-y: auto;
     max-height: 200px;
 }
 
-/* ── ACTION ITEMS ───────────────────────────────────────────────── */
+/* -- ACTION ITEMS ------------------------------------------------- */
 .action-item {
     display: flex;
     align-items: flex-start;
@@ -416,7 +416,7 @@
     word-break: break-all;
 }
 
-/* ── TIMELINE ───────────────────────────────────────────────────── */
+/* -- TIMELINE ----------------------------------------------------- */
 .section-timeline .section-icon  { color: var(--warning); }
 .section-timeline .section-count { background: var(--warning); }
 
@@ -451,7 +451,7 @@
     white-space: nowrap;
 }
 
-/* ── TRANSITIONS ────────────────────────────────────────────────── */
+/* -- TRANSITIONS -------------------------------------------------- */
 .section-transitions .section-icon  { color: var(--info); }
 .section-transitions .section-count { background: var(--info); }
 
@@ -482,11 +482,11 @@
     line-height: 1.4;
 }
 
-/* ── ON ENTER ───────────────────────────────────────────────────── */
+/* -- ON ENTER ----------------------------------------------------- */
 .section-onenter .section-icon { color: var(--primary); }
 .section-onenter .action-item  { border-left: 3px solid var(--primary); }
 
-/* ── ON EXIT ────────────────────────────────────────────────────── */
+/* -- ON EXIT ------------------------------------------------------ */
 .section-onexit .section-icon  { color: var(--danger); }
 .section-onexit .section-count { background: var(--danger); }
 
@@ -495,7 +495,7 @@
     border-left: 3px solid var(--danger);
 }
 
-/* ── REACT FLOW HANDLES ─────────────────────────────────────────── */
+/* -- REACT FLOW HANDLES ------------------------------------------- */
 .react-flow__handle {
     width: 10px;
     height: 10px;
@@ -536,11 +536,11 @@
     border: 2px solid var(--bg-card);
 }
 
-/* ── EDGE LABELS ────────────────────────────────────────────────── */
+/* -- EDGE LABELS -------------------------------------------------- */
 .react-flow__edge-textbg { fill: var(--bg-card); rx: 4; }
 .react-flow__edge-text   { fill: var(--text-primary); font-size: 11px; font-weight: 600; }
 
-/* ── MINIMAP ────────────────────────────────────────────────────── */
+/* -- MINIMAP ------------------------------------------------------ */
 /* className="flow-minimap" on the MiniMap component                 */
 .flow-minimap.react-flow__minimap {
     background: var(--bg-card) !important;
@@ -550,7 +550,7 @@
     box-shadow: var(--shadow-md) !important;
 }
 
-/* ── CONTROLS ───────────────────────────────────────────────────── */
+/* -- CONTROLS ----------------------------------------------------- */
 .react-flow__controls {
     border-radius: var(--radius-md) !important;
     overflow: hidden;
@@ -575,7 +575,7 @@
     border-bottom: none !important;
 }
 
-/* ── ATTRIBUTION ────────────────────────────────────────────────── */
+/* -- ATTRIBUTION -------------------------------------------------- */
 .react-flow__attribution {
     opacity: 0.3;
     font-size: 10px;

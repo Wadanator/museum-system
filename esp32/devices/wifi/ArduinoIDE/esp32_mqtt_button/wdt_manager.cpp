@@ -17,7 +17,7 @@ void initializeWatchdog() {
   esp_task_wdt_init(&wdt_config);
   esp_task_wdt_add(NULL);
   
-  debugPrint("✅ Watchdog Timer aktivny (" + String(WDT_TIMEOUT) + "s)");
+  debugPrint("[OK] Watchdog Timer aktivny (" + String(WDT_TIMEOUT) + "s)");
 }
 
 void resetWatchdog() {

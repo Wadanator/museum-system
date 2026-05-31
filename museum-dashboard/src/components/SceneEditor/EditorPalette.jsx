@@ -4,7 +4,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { useDevicePalette } from '../../hooks/useDevicePalette';
 import { createEmptyAction } from '../../hooks/useSceneEditor';
 
-// ── helpers ───────────────────────────────────────────────────────────────────
+// -- helpers -------------------------------------------------------------------
 
 const DEVICE_ICONS = { motor: Cpu, light: Lightbulb, relay: Zap };
 
@@ -13,7 +13,7 @@ function DeviceIcon({ deviceType }) {
   return <Icon size={12} />;
 }
 
-// ── sub-components ────────────────────────────────────────────────────────────
+// -- sub-components ------------------------------------------------------------
 
 function PalSection({ label, open, onToggle, children }) {
   const Chevron = open ? ChevronDown : ChevronRight;
@@ -53,7 +53,7 @@ function DeviceRow({ item, onInsert, disabled }) {
             className="se2-pal-quick-btn"
             onClick={() => onInsert(item.topic, msg, 'mqtt')}
             disabled={disabled}
-            title={`${item.topic} → ${msg}`}
+            title={`${item.topic} -> ${msg}`}
             type="button"
           >
             {msg}
@@ -126,7 +126,7 @@ function VideoRow({ item, onInsert, disabled }) {
   );
 }
 
-// ── main ──────────────────────────────────────────────────────────────────────
+// -- main ----------------------------------------------------------------------
 
 export default function EditorPalette({ selectedStateId, onAddAction }) {
   const { motorItems, relayItems, audioItems, videoItems, loading, playMediaFile } =

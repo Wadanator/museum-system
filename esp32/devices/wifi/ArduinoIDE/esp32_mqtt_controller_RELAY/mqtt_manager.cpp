@@ -22,12 +22,12 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     return;
   }
 
-  // Stack-allocated buffers – no heap involvement
+  // Stack-allocated buffers - no heap involvement
   char message[32];
   memcpy(message, payload, length);
   message[length] = '\0';
 
-  // Use Serial directly here – topic and message are already char*, no String needed
+  // Use Serial directly here - topic and message are already char*, no String needed
   if (DEBUG) {
     Serial.print("[DEBUG] "); Serial.print(millis()); Serial.print("ms - MQTT topic: ");  Serial.println(topic);
     Serial.print("[DEBUG] "); Serial.print(millis()); Serial.print("ms - MQTT sprava: "); Serial.println(message);
@@ -194,7 +194,7 @@ void connectToMqtt() {
       debugPrint("MQTT zlyhalo. RC=" + String(client.state()));
 
       if (mqttAttempts >= MAX_MQTT_ATTEMPTS) {
-        debugPrint("Max MQTT pokusov – restartujem");
+        debugPrint("Max MQTT pokusov - restartujem");
         delay(1000);
         ESP.restart();
       } else {

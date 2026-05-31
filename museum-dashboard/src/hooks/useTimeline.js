@@ -1,21 +1,21 @@
 import { useRef, useEffect } from 'react';
 
 /**
- * useClipDrag — native pointer-event drag for a single timeline clip.
+ * useClipDrag - native pointer-event drag for a single timeline clip.
  *
  * Strategy:
  *   - pointerdown: native listener on the element (fires before React synthetic events
  *     and before dnd-kit, because useEffect attaches it directly to the DOM node)
- *   - pointermove: move the clip visually via CSS transform ONLY — no React state update.
+ *   - pointermove: move the clip visually via CSS transform ONLY - no React state update.
  *     This prevents re-renders during drag, which would cause assignLanes to re-sort
  *     clips and make them "jump" to different lanes, appearing to switch clips.
  *   - pointerup: clear transform, call onCommit once with the final position.
  *
  * Elements with [data-no-drag] (e.g. delete button) skip drag activation.
  *
- * click vs drag: if pointer moved < DRAG_THRESHOLD_PX on up → onClick fires instead.
+ * click vs drag: if pointer moved < DRAG_THRESHOLD_PX on up -> onClick fires instead.
  *
- * Returns { ref } — attach to the clip root div.
+ * Returns { ref } - attach to the clip root div.
  */
 
 const DRAG_THRESHOLD_PX = 4;
@@ -45,7 +45,7 @@ export function useClipDrag({
     }
 
     // Capture-phase: fires before dnd-kit and React synthetic handlers.
-    // Only moves the element via transform — no state update → no re-render → no lane flicker.
+    // Only moves the element via transform - no state update -> no re-render -> no lane flicker.
     function handleMove(e) {
       if (!startRef.current) return;
       const dx = e.clientX - startRef.current.clientX;
@@ -97,7 +97,7 @@ export function useClipDrag({
       el.style.zIndex    = '';
       document.body.style.cursor = '';
     };
-  }, []); // empty — all values via liveRef
+  }, []); // empty - all values via liveRef
 
   return { ref };
 }
