@@ -83,7 +83,7 @@ const VideoControls = ({ action, onChange }) => {
     <div className="space-y-4">
       <div className="bg-pink-900 p-3 rounded border border-pink-600">
         <div className="text-sm text-pink-200 font-semibold">
-          🎬 Video Player - tlačidlá generujú MQTT príkazy kompatibilné s Raspberry Pi
+           Video Player - tlačidlá generujú MQTT príkazy kompatibilné s Raspberry Pi
         </div>
       </div>
 
@@ -99,7 +99,7 @@ const VideoControls = ({ action, onChange }) => {
                 : 'bg-gray-600 border-gray-500 hover:bg-gray-500'
             }`}
           >
-            ▶️ PLAY_VIDEO
+             PLAY_VIDEO
           </button>
           {SIMPLE_VIDEO_COMMANDS.map((cmd) => (
             <button
@@ -112,9 +112,9 @@ const VideoControls = ({ action, onChange }) => {
                   : 'bg-gray-600 border-gray-500 hover:bg-gray-500'
               }`}
             >
-              {cmd === 'STOP_VIDEO' && '⏹️ '}
-              {cmd === 'PAUSE' && '⏸️ '}
-              {cmd === 'RESUME' && '⏯️ '}
+              {cmd === 'STOP_VIDEO' && ' '}
+              {cmd === 'PAUSE' && ' '}
+              {cmd === 'RESUME' && ' '}
               {cmd}
             </button>
           ))}
@@ -127,7 +127,7 @@ const VideoControls = ({ action, onChange }) => {
                 : 'bg-gray-600 border-gray-500 hover:bg-gray-500'
             }`}
           >
-            ✏️ Manuálne
+             Manuálne
           </button>
         </div>
       </div>
@@ -144,7 +144,7 @@ const VideoControls = ({ action, onChange }) => {
               placeholder="scary.mp4"
             />
             <p className="text-xs text-gray-400 mt-1">
-              💡 Zadaj názov súboru presne tak, ako ho očakáva Raspberry Pi.
+               Zadaj názov súboru presne tak, ako ho očakáva Raspberry Pi.
             </p>
           </div>
         </div>

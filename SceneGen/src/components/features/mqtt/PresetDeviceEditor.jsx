@@ -128,7 +128,7 @@ const PresetDeviceEditor = ({ action, onChange, globalPrefix }) => {
       {!selectedDevice && (
         <div className="bg-yellow-900 p-3 rounded border border-yellow-600">
           <div className="text-sm text-yellow-200">
-            ⚠️ Najprv vyber zariadenie
+            [WARN] Najprv vyber zariadenie
           </div>
         </div>
       )}

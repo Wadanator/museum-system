@@ -105,7 +105,7 @@ const AudioControls = ({ action, onChange }) => {
     <div className="space-y-4">
       <div className="bg-purple-900 p-3 rounded border border-purple-600">
         <div className="text-sm text-purple-200 font-semibold">
-          🎵 Audio Player - tlačidlá generujú MQTT príkazy 100% kompatibilné s Raspberry Pi
+           Audio Player - tlačidlá generujú MQTT príkazy 100% kompatibilné s Raspberry Pi
         </div>
       </div>
 
@@ -121,7 +121,7 @@ const AudioControls = ({ action, onChange }) => {
                 : 'bg-gray-600 border-gray-500 hover:bg-gray-500'
             }`}
           >
-            ▶️ PLAY
+             PLAY
           </button>
           {SIMPLE_COMMANDS.map((cmd) => (
             <button
@@ -134,9 +134,9 @@ const AudioControls = ({ action, onChange }) => {
                   : 'bg-gray-600 border-gray-500 hover:bg-gray-500'
               }`}
             >
-              {cmd === 'STOP' && '⏹️ '}
-              {cmd === 'PAUSE' && '⏸️ '}
-              {cmd === 'RESUME' && '⏯️ '}
+              {cmd === 'STOP' && ' '}
+              {cmd === 'PAUSE' && ' '}
+              {cmd === 'RESUME' && ' '}
               {cmd}
             </button>
           ))}
@@ -149,7 +149,7 @@ const AudioControls = ({ action, onChange }) => {
                 : 'bg-gray-600 border-gray-500 hover:bg-gray-500'
             }`}
           >
-            ✏️ Manuálne
+             Manuálne
           </button>
         </div>
       </div>
@@ -166,7 +166,7 @@ const AudioControls = ({ action, onChange }) => {
               placeholder="intro.mp3"
             />
             <p className="text-xs text-gray-400 mt-1">
-              💡 Zadaj názov súboru tak, ako ho používa tvoj Raspberry Pi.
+               Zadaj názov súboru tak, ako ho používa tvoj Raspberry Pi.
             </p>
           </div>
 

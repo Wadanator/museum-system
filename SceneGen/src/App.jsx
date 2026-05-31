@@ -136,7 +136,7 @@ function App() {
                     <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
                         <div className="bg-gray-900/30 px-6 py-4 border-b border-gray-700">
                             <h2 className="text-lg font-bold text-yellow-400 flex items-center gap-2">
-                                🚨 Globálne Udalosti
+                                 Globálne Udalosti
                             </h2>
                             <p className="text-xs text-gray-400 mt-1">
                                 Pravidlá, ktoré platia neustále (Emergency Stop, Timeouty).
@@ -214,7 +214,7 @@ function App() {
             <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[100] p-4 lg:p-10 backdrop-blur-sm animate-fadeIn">
                 <div className="bg-gray-800 rounded-xl w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl border border-gray-700 overflow-hidden">
                     <div className="flex justify-between items-center px-6 py-4 border-b border-gray-700 bg-gray-900">
-                        <h2 className="text-lg font-bold text-white flex items-center gap-2">📄 JSON Výstup</h2>
+                        <h2 className="text-lg font-bold text-white flex items-center gap-2"> JSON Výstup</h2>
                         <button onClick={() => ui.setShowPreview(false)} className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm transition">Zavrieť</button>
                     </div>
                     <div className="flex-1 bg-[#1e1e1e] p-6 overflow-auto custom-scrollbar">

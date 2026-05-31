@@ -95,8 +95,8 @@ const getElementsFromStates = (states, initialState, nodePositions) => {
       let label = t.type;
       if (t.type === 'timeout') label = `Timeout: ${t.delay}s`;
       if (t.type === 'mqttMessage') label = `MQTT: ${t.topic} (${t.message})`;
-      if (t.type === 'audioEnd') label = `🎵 End: ${t.target}`;
-      if (t.type === 'videoEnd') label = `🎬 End: ${t.target}`;
+      if (t.type === 'audioEnd') label = `Audio End: ${t.target}`;
+      if (t.type === 'videoEnd') label = `Video End: ${t.target}`;
 
       groupedTransitions[key].push({
           id: `e-${state.id}-${targetId}-${groupedTransitions[key].length}`, 
@@ -147,7 +147,7 @@ const getElementsFromStates = (states, initialState, nodePositions) => {
   if (initialEdges.some((e) => e.target === 'END')) {
     initialNodes.push({
       id: 'END',
-      data: { label: '🏁 END' },
+      data: { label: 'END' },
       position: nodePositions['END'] || { x: 100, y: 50 },
       style: {
         background: '#be123c',
@@ -297,17 +297,17 @@ const GraphicPreviewContent = ({ states, initialState, globalEvents, onAddState,
   return (
     <div className="bg-gray-800 rounded-lg p-6" style={{ height: '1000px' }}>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-white">🗺️ State Machine Flow Editor</h2>
+        <h2 className="text-2xl font-bold text-white">State Machine Flow Editor</h2>
       </div>
 
       {globalEvents && globalEvents.length > 0 && (
         <div className="bg-yellow-900 border-2 border-yellow-600 rounded-lg p-4 mb-6">
-          <h3 className="text-lg font-bold text-yellow-400 mb-2">🚨 Global Events</h3>
+          <h3 className="text-lg font-bold text-yellow-400 mb-2">Global Events</h3>
           <div className="space-y-1 text-sm">
             {globalEvents.map((event, idx) => (
               <div key={idx} className="text-yellow-200">
                 {event.type === 'mqttMessage' && (
-                  <>📡 {event.topic}: {event.message} → <span className="font-bold">{event.goto}</span></>
+                  <>{event.topic}: {event.message} -> <span className="font-bold">{event.goto}</span></>
                 )}
               </div>
             ))}
