@@ -74,7 +74,7 @@ const SceneNode = ({ data, isConnectable, selected, updateNodeData }) => {
                             <div className="font-bold text-green-300 mb-1">onEnter:</div>
                             {state.onEnter.map((action, idx) => (
                                 <div key={idx} className="text-green-200 ml-2 truncate">
-                                    * {action.topic} -> {action.message}
+                                    * {action.topic} {'->'} {action.message}
                                 </div>
                             ))}
                         </div>
@@ -84,7 +84,7 @@ const SceneNode = ({ data, isConnectable, selected, updateNodeData }) => {
                             <div className="font-bold text-blue-300 mb-1">Timeline:</div>
                             {state.timeline.map((item, idx) => (
                                 <div key={idx} className="text-blue-200 ml-2 truncate">
-                                    * @{item.at}s: {item.topic} -> {item.message}
+                                    * @{item.at}s: {item.topic} {'->'} {item.message}
                                 </div>
                             ))}
                         </div>
@@ -94,7 +94,7 @@ const SceneNode = ({ data, isConnectable, selected, updateNodeData }) => {
                             <div className="font-bold text-orange-300 mb-1">onExit:</div>
                             {state.onExit.map((action, idx) => (
                                 <div key={idx} className="text-orange-200 ml-2 truncate">
-                                    * {action.topic} -> {action.message}
+                                    * {action.topic} {'->'} {action.message}
                                 </div>
                             ))}
                         </div>
@@ -104,7 +104,7 @@ const SceneNode = ({ data, isConnectable, selected, updateNodeData }) => {
                             <div className="font-bold text-purple-300 mb-1">Transitions:</div>
                             {state.transitions.map((trans, idx) => (
                                 <div key={idx} className="text-purple-200 ml-2 truncate">
-                                    * {trans.type}: {trans.target ? `'${trans.target}' ` : ''}-> <span className="font-bold">{trans.goto}</span>
+                                    * {trans.type}: {trans.target ? `'${trans.target}' ` : ''}{'->'} <span className="font-bold">{trans.goto}</span>
                                 </div>
                             ))}
                         </div>
