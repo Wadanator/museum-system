@@ -1,23 +1,18 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Loader2, RefreshCw, Activity, Drama } from 'lucide-react';
+import { Plus, Loader2, RefreshCw, Drama } from 'lucide-react';
 import { useScenes } from '../../hooks/useScenes';
 import SceneCard from '../Scenes/SceneCard';
 import SceneEditorModal from '../Scenes/SceneEditorModal';
 import Button from '../ui/Button';
 import PageHeader from '../ui/PageHeader';
 import Modal from '../ui/Modal';
-import LiveView from './LiveView';
-import Card from '../ui/Card';
 import StateNotice from '../ui/StateNotice';
 import '../../styles/views/scenes-view.css';
 
 export default function ScenesView() {
     const navigate = useNavigate();
     const { scenes, loading, fetchScenes, playScene, loadSceneContent, saveSceneContent } = useScenes();
-
-    const [liveSceneName, setLiveSceneName] = useState(null);
-    const [liveSceneData, setLiveSceneData] = useState(null);
 
     // JSON editor modal (gear button)
     const [editorOpen, setEditorOpen] = useState(false);
@@ -33,7 +28,7 @@ export default function ScenesView() {
             setEditingFile(filename);
             setEditorContent(content);
             setEditorOpen(true);
-        } catch (_err) {
+        } catch {
             // fall through — modal won't open
         }
     };
@@ -69,19 +64,10 @@ export default function ScenesView() {
     };
 
     const handlePlayFromCard = async (filename) => {
-        try {
-            const content = await loadSceneContent(filename);
-            setLiveSceneName(filename);
-            setLiveSceneData(content);
-            playScene(filename);
-        } catch (_err) {
-            // play failure is visible in LiveView
+        const started = await playScene(filename);
+        if (started) {
+            navigate('/live');
         }
-    };
-
-    const handleLiveSceneDataLoaded = (filename, content) => {
-        setLiveSceneName(filename);
-        setLiveSceneData(content);
     };
 
     return (
@@ -125,22 +111,6 @@ export default function ScenesView() {
                         <span className="create-scene-card__meta">Nový JSON scenár</span>
                     </button>
                 </div>
-            )}
-
-            {liveSceneName && (
-                <Card
-                    title="Live Monitor"
-                    icon={Activity}
-                    className="scenes-live-card"
-                >
-                    <LiveView
-                        embedded
-                        showSceneSelector={false}
-                        selectedScene={liveSceneName}
-                        sceneData={liveSceneData}
-                        onSceneDataLoaded={handleLiveSceneDataLoaded}
-                    />
-                </Card>
             )}
 
             <SceneEditorModal

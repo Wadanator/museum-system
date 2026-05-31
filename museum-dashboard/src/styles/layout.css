@@ -213,6 +213,94 @@
     padding-bottom: var(--spacing-4xl);
 }
 
+.runtime-status-bar {
+    max-width: var(--content-max-width);
+    margin: 0 auto var(--spacing-lg);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    padding: var(--spacing-sm-plus) var(--spacing-md);
+    border: var(--border-width-sm) solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--bg-card);
+    box-shadow: var(--shadow-sm);
+}
+
+.runtime-status-bar.is-running {
+    border-color: var(--primary);
+}
+
+.runtime-status-main {
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm-plus);
+    color: var(--text-primary);
+    text-decoration: none;
+    font-weight: 700;
+}
+
+.runtime-status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    background: var(--text-muted);
+    flex: 0 0 auto;
+}
+
+.runtime-status-dot.pulse {
+    background: var(--success);
+    box-shadow: var(--shadow-success-sm);
+}
+
+.runtime-status-title,
+.runtime-status-state,
+.runtime-metric {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    min-width: 0;
+}
+
+.runtime-status-title {
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.runtime-status-state {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.runtime-status-metrics {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.runtime-metric {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    background: var(--bg-main);
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+}
+
+.runtime-metric.is-on {
+    color: var(--success);
+}
+
+.runtime-metric.is-warning {
+    color: var(--warning);
+}
+
 .view-container {
     display: flex;
     flex-direction: column;
@@ -345,6 +433,22 @@
         padding-bottom: var(--spacing-xl);
         max-width: 100%;
         min-width: 0;
+    }
+
+    .runtime-status-bar {
+        max-width: 100%;
+        margin-bottom: var(--spacing-sm);
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .runtime-status-main,
+    .runtime-status-metrics {
+        justify-content: space-between;
+    }
+
+    .runtime-status-title {
+        max-width: 48vw;
     }
 
     .status-overview {

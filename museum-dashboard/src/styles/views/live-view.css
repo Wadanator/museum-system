@@ -99,6 +99,14 @@
     color: var(--text-primary);
 }
 
+.devices-header-summary {
+    margin-left: auto;
+    color: var(--text-secondary);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+}
+
 .devices-list {
     padding: var(--spacing-md);
     overflow-y: auto;
@@ -124,6 +132,14 @@
 .device-item.active {
     background: var(--overlay-success-soft);
     border-color: var(--success);
+}
+
+.device-item.pending {
+    border-color: var(--warning);
+}
+
+.device-item.stale {
+    opacity: 0.78;
 }
 
 .device-info {

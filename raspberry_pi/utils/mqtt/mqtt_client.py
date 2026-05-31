@@ -182,7 +182,7 @@ class MQTTClient:
     # MESSAGE PUBLISHING
     # ==========================================================================
 
-    def publish(self, topic, message, qos=0, retain=False):
+    def publish(self, topic, message, qos=0, retain=False, force_feedback=False):
         """
         Publish a message to an MQTT topic.
 
@@ -191,6 +191,7 @@ class MQTTClient:
             message: Message payload to send.
             qos: Quality of Service level (0, 1, or 2).
             retain: Whether to retain the message on the broker.
+            force_feedback: Wait for /feedback even outside scene execution.
 
         Returns:
             bool: True if the message was published successfully, False otherwise.
@@ -210,7 +211,11 @@ class MQTTClient:
 
                 # Track the message for feedback if feedback tracker is available
                 if self.feedback_tracker:
-                    self.feedback_tracker.track_published_message(topic, message)
+                    self.feedback_tracker.track_published_message(
+                        topic,
+                        message,
+                        force_feedback=force_feedback,
+                    )
 
                 return True
             else:

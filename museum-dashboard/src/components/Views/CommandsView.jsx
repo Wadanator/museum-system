@@ -22,27 +22,19 @@ export default function CommandsView() {
 
     const handleStopAll = async () => {
         const confirmed = await confirm({
-            title: 'Vypnúť všetky zariadenia?',
-            message: 'Naozaj chcete okamžite vypnúť všetky motory a relé?',
-            confirmText: 'Vypnúť všetko',
+            title: 'Zastaviť všetko?',
+            message: 'Naozaj chcete okamžite zastaviť scénu a vypnúť všetky motory a relé?',
+            confirmText: 'Zastaviť všetko',
             cancelText: 'Zrušiť',
             type: 'danger',
         });
         if (!confirmed) return;
 
-        const toastId = toast.loading("Vypínam všetky zariadenia...");
+        const toastId = toast.loading('Zastavujem scénu a zariadenia...');
 
         try {
-            const status = await api.getStatus(); 
-            const roomId = status.room_id;
-
-            if (!roomId) {
-                throw new Error("Nepodarilo sa zistiť Room ID zo servera.");
-            }
-
-            await api.sendMqtt(`${roomId}/STOP`, 'STOP');
-
-            toast.success(`Všetky zariadenia v ${roomId} boli vypnuté.`, { id: toastId });
+            await api.stopScene();
+            toast.success('Scéna aj všetky zariadenia boli zastavené.', { id: toastId });
         } catch (e) {
             console.error("Stop All Error:", e);
             toast.error("Chyba pri hromadnom vypínaní.", { id: toastId });
@@ -106,7 +98,7 @@ export default function CommandsView() {
                     onClick={handleStopAll} 
                     disabled={motors.length === 0 && relays.length === 0}
                 >
-                    Vypnúť všetko
+                    Zastaviť všetko
                 </Button>
 
                 <Button variant="toolbar" icon={RefreshCw} onClick={handleRefresh} size="small">

@@ -276,10 +276,3 @@ button.edit-btn-absolute--v2.btn-unstyled:hover svg {
     color: var(--text-white);
 }
 
-.scenes-live-card {
-    min-height: var(--scene-card-live-min-height);
-}
-
-.scenes-live-card .card-content {
-    padding: var(--spacing-lg);
-}

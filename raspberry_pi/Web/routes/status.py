@@ -15,6 +15,8 @@ def _get_current_status_data(controller):
     return {
         'room_id': getattr(controller, 'room_id', 'Unknown'),
         'scene_running': getattr(controller, 'scene_running', False),
+        'current_scene_name': getattr(controller, 'current_scene_name', None),
+        'active_state': getattr(controller, 'current_scene_state', None),
         'mqtt_connected': controller.mqtt_client.is_connected() if controller.mqtt_client else False,
     }
 
@@ -29,6 +31,12 @@ def setup_status_routes(dashboard):
         status_data['uptime'] = dashboard.get_uptime()
         status_data['log_count'] = len(dashboard.log_buffer)
         return jsonify(status_data)
+
+    @status_bp.route('/runtime')
+    @requires_auth
+    def get_runtime():
+        """Return a complete runtime snapshot for page load/reconnect recovery."""
+        return jsonify(dashboard.get_runtime_snapshot())
 
     @status_bp.route('/stats')
     @requires_auth

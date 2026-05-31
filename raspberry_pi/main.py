@@ -81,6 +81,7 @@ class MuseumController:
         # Scene execution state
         self.scene_running = False
         self.current_scene_name = None
+        self.current_scene_state = None
         self.scene_lock = threading.Lock()
         self.scene_thread = None
         self.scene_shutdown_join_timeout = max(
@@ -283,6 +284,8 @@ class MuseumController:
             log.info(f"Scene already running, ignoring request to start: {scene_filename}")
             return False
 
+        self.current_scene_name = scene_filename
+        self.current_scene_state = None
         log.info(log_message)
 
         if self.web_dashboard:
@@ -300,7 +303,6 @@ class MuseumController:
     def _run_scene_logic(self, scene_filename):
         """Worker thread function containing the core logic to load and run a scene."""
         scene_path = os.path.join(self.scenes_dir, self.room_id, scene_filename)
-        self.current_scene_name = scene_filename
 
         try:
             log.debug(f"Attempting to load scene from: {scene_path}")
@@ -308,6 +310,8 @@ class MuseumController:
             if not os.path.exists(scene_path):
                 log.critical(f"Scene file not found: {scene_path}")
                 self._set_scene_running(False, f"missing_scene_file:{scene_filename}")
+                self.current_scene_name = None
+                self.current_scene_state = None
                 if self.web_dashboard:
                     self.web_dashboard.broadcast_status()
                 return
@@ -315,6 +319,8 @@ class MuseumController:
             if not self.scene_parser:
                 log.error("Scene parser not available")
                 self._set_scene_running(False, "scene_parser_unavailable")
+                self.current_scene_name = None
+                self.current_scene_state = None
                 if self.web_dashboard:
                     self.web_dashboard.broadcast_status()
                 return
@@ -325,7 +331,14 @@ class MuseumController:
                 if self.web_dashboard:
                     def notify_web(state_name):
                         try:
-                            self.web_dashboard._broadcast_event('scene_progress', {'activeState': state_name})
+                            self.current_scene_state = state_name
+                            self.web_dashboard._broadcast_event(
+                                'scene_progress',
+                                {
+                                    'activeState': state_name,
+                                    'sceneName': self.current_scene_name,
+                                },
+                            )
                         except Exception as e:
                             log.error(f"Failed to emit socket event: {e}")
                     
@@ -334,6 +347,10 @@ class MuseumController:
 
                 if not self.scene_running or self.shutdown_requested:
                     log.info("Scene start cancelled before execution.")
+                    self.current_scene_name = None
+                    self.current_scene_state = None
+                    if self.web_dashboard:
+                        self.web_dashboard.broadcast_status()
                     return
 
                 try:
@@ -358,17 +375,23 @@ class MuseumController:
                             self.actuator_state_store.force_all_off(source='scene_end')
                         self.broadcast_stop()
 
+                    self.current_scene_name = None
+                    self.current_scene_state = None
                     if self.web_dashboard:
                         self.web_dashboard.broadcast_status()
             else:
                 log.error(f"Failed to load scene: {scene_filename}")
                 self._set_scene_running(False, f"scene_load_failed:{scene_filename}")
+                self.current_scene_name = None
+                self.current_scene_state = None
                 if self.web_dashboard:
                     self.web_dashboard.broadcast_status()
 
         except Exception as e:
             log.error(f"Critical error in scene thread: {e}")
             self._set_scene_running(False, f"scene_thread_exception:{scene_filename}")
+            self.current_scene_name = None
+            self.current_scene_state = None
             if self.web_dashboard:
                 self.web_dashboard.broadcast_status()
 
@@ -378,6 +401,11 @@ class MuseumController:
 
         transitioned = self._set_scene_running(False, "external_stop", expect_current=True)
         if not transitioned:
+            if self.actuator_state_store:
+                self.actuator_state_store.force_all_off(source='external_stop_idle')
+            self.broadcast_stop()
+            self.current_scene_name = None
+            self.current_scene_state = None
             if self.web_dashboard:
                 self.web_dashboard.broadcast_status()
             return True
@@ -404,6 +432,8 @@ class MuseumController:
             self.actuator_state_store.force_all_off(source='external_stop')
 
         self.broadcast_stop()
+        self.current_scene_name = None
+        self.current_scene_state = None
         if self.web_dashboard:
             self.web_dashboard.broadcast_status()
         return True
@@ -425,6 +455,7 @@ class MuseumController:
             self._set_scene_running(False, "missing_scene_data")
             return
 
+        stats_scene_name = self.current_scene_name
         log.debug("Starting state machine scene execution")
 
         # Enable MQTT feedback tracking for the duration of the scene
@@ -460,15 +491,16 @@ class MuseumController:
         if self.video_handler:
             self.video_handler.stop_video()
 
-        self._update_scene_statistics()
+        self._update_scene_statistics(stats_scene_name)
 
-    def _update_scene_statistics(self):
+    def _update_scene_statistics(self, scene_name=None):
         """Update scene play statistics for the web dashboard."""
         if not self.web_dashboard:
             return
         try:
-            if self.current_scene_name:
-                self.web_dashboard.update_scene_stats(self.current_scene_name)
+            name = scene_name or self.current_scene_name
+            if name:
+                self.web_dashboard.update_scene_stats(name)
             else:
                 log.warning("Cannot update scene stats: Unknown scene name")
                 self.web_dashboard.stats['total_scenes_played'] += 1

@@ -24,7 +24,7 @@ export function useScenes() {
         }
     }, []);
 
-    const saveSceneContent = async (filename, content) => {
+    const saveSceneContent = useCallback(async (filename, content) => {
         try {
             await api.saveScene(filename, content);
             toast.success("Scéna uložená");
@@ -34,25 +34,28 @@ export function useScenes() {
             toast.error("Chyba pri ukladaní: " + e.message);
             return false;
         }
-    };
+    }, [fetchScenes]);
 
-    const playScene = async (filename) => {
+    const playScene = useCallback(async (filename) => {
         try {
             await api.runScene(filename);
+            const started = true;
             toast.success(`Spúšťam scénu: ${filename}`);
+            return started;
         } catch (e) {
             toast.error("Chyba pri spustení: " + e.message);
+            return false;
         }
-    };
+    }, []);
 
-    const loadSceneContent = async (filename) => {
+    const loadSceneContent = useCallback(async (filename) => {
         try {
             return await api.getSceneContent(filename);
         } catch (e) {
             toast.error("Nedá sa načítať obsah scény");
             throw e;
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchScenes();

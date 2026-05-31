@@ -3,10 +3,12 @@ import { useScenes } from '../../hooks/useScenes';
 import { useDevices } from '../../hooks/useDevices';
 import { useDeviceRuntimeState } from '../../hooks/useDeviceRuntimeState';
 import { useSceneProgress } from '../../hooks/useSceneProgress';
+import { useRuntime } from '../../context/useRuntime';
 import SceneVisualizer from '../Scenes/SceneVisualizer';
 import PageHeader from '../ui/PageHeader';
 import Button from '../ui/Button';
 import StateNotice from '../ui/StateNotice';
+import RuntimeStatusBar from '../Runtime/RuntimeStatusBar';
 import { Activity, Play, Zap, Power, Cpu, RefreshCw } from 'lucide-react';
 import '../../styles/views/live-view.css';
 
@@ -19,13 +21,15 @@ export default function LiveView({
 }) {
     const { scenes, loadSceneContent, playScene, fetchScenes } = useScenes();
     const { devices } = useDevices();
-    const { getStateForDevice, getDisplayStateForDevice } = useDeviceRuntimeState();
+    const { deviceStates, getStateForDevice, getDisplayStateForDevice } = useDeviceRuntimeState();
     const { activeState, resetActiveState } = useSceneProgress();
+    const { sceneRunning, currentSceneName, runtimeSummary } = useRuntime();
 
     const [internalSelectedScene, setInternalSelectedScene] = useState(null);
     const [internalSceneData, setInternalSceneData] = useState(null);
 
-    const selectedScene = controlledSelectedScene ?? internalSelectedScene;
+    const runtimeSceneName = sceneRunning ? currentSceneName : null;
+    const selectedScene = controlledSelectedScene ?? runtimeSceneName ?? internalSelectedScene;
     const sceneData = controlledSceneData ?? internalSceneData;
 
     useEffect(() => {
@@ -33,6 +37,36 @@ export default function LiveView({
             fetchScenes();
         }
     }, [showSceneSelector, fetchScenes]);
+
+    useEffect(() => {
+        if (!runtimeSceneName || controlledSceneData) return;
+        if (runtimeSceneName === internalSelectedScene && internalSceneData) return;
+
+        let cancelled = false;
+        loadSceneContent(runtimeSceneName)
+            .then((content) => {
+                if (cancelled) return;
+                setInternalSelectedScene(runtimeSceneName);
+                setInternalSceneData(content);
+                onSceneDataLoaded?.(runtimeSceneName, content);
+            })
+            .catch(() => {
+                if (cancelled) return;
+                setInternalSelectedScene(runtimeSceneName);
+                setInternalSceneData(null);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        runtimeSceneName,
+        controlledSceneData,
+        internalSelectedScene,
+        internalSceneData,
+        loadSceneContent,
+        onSceneDataLoaded,
+    ]);
 
     const handleSelectScene = async (e) => {
         const filename = e.target.value;
@@ -98,13 +132,16 @@ export default function LiveView({
                     {liveControls}
                 </div>
             ) : (
-                <PageHeader
+                <>
+                    <PageHeader
                     title="Live Testovanie"
                     icon={Activity}
                     subtitle="Sledovanie priebehu scény a stavu zariadení"
-                >
-                    {liveControls}
-                </PageHeader>
+                    >
+                        {liveControls}
+                    </PageHeader>
+                    <RuntimeStatusBar />
+                </>
             )}
 
             <div className="live-grid">
@@ -132,6 +169,9 @@ export default function LiveView({
                     <div className="devices-header">
                         <Zap size={18} className="text-primary" />
                         Live Status
+                        <span className="devices-header-summary">
+                            ON {runtimeSummary.on} / UNKNOWN {runtimeSummary.unknown}
+                        </span>
                     </div>
 
                     <div className="devices-list">
@@ -144,15 +184,20 @@ export default function LiveView({
                             />
                         ) : (
                             devices.map((device) => {
+                                const entry = deviceStates[device.topic];
                                 const confirmedState = getStateForDevice(device);
                                 const stateLabel = getDisplayStateForDevice(device);
                                 const isOn = confirmedState === 'ON';
                                 const isRelay = device.type === 'relay';
+                                const isPending = entry?.desired_state
+                                    && entry.desired_state !== entry.confirmed_state
+                                    && !entry.stale;
+                                const isStale = Boolean(entry?.stale);
 
                                 return (
                                     <div
                                         key={device.id}
-                                        className={`device-item ${isOn ? 'active' : ''}`}
+                                        className={`device-item ${isOn ? 'active' : ''} ${isPending ? 'pending' : ''} ${isStale ? 'stale' : ''}`}
                                     >
                                         <div className="device-info">
                                             <div className="device-icon">
@@ -166,6 +211,8 @@ export default function LiveView({
                                                 </div>
                                                 <div className="device-id">
                                                     {device.id}
+                                                    {isPending ? ' / PENDING' : ''}
+                                                    {isStale ? ' / STALE' : ''}
                                                 </div>
                                             </div>
                                         </div>

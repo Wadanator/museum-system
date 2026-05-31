@@ -63,6 +63,11 @@ export const api = {
     return res.json();
   },
 
+  getRuntime: async () => {
+    const res = await authFetch(`${API_URL}/runtime`);
+    return res.json();
+  },
+
   getScenes: async () => {
     const res = await authFetch(`${API_URL}/scenes`);
     return res.json();

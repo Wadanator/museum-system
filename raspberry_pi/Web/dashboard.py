@@ -113,6 +113,7 @@ class WebDashboard:
                 self.update_stats()
                 self._emit_to_sid('stats_update', self.stats, flask_request.sid)
                 self._emit_to_sid('status_update', self._get_status_data(), flask_request.sid)
+                self._emit_to_sid('runtime_snapshot', self.get_runtime_snapshot(), flask_request.sid)
                 self.log.debug("SocketIO client connected")
             except Exception as e:
                 self.log.error(f"Error on connect: {e}")
@@ -154,6 +155,14 @@ class WebDashboard:
             except Exception as e:
                 self.log.error(f"Error handling stats request: {e}")
 
+        @self.socketio.on('request_runtime')
+        def handle_runtime_request():
+            """Send a complete runtime snapshot to requesting SocketIO client."""
+            try:
+                self._emit_to_sid('runtime_snapshot', self.get_runtime_snapshot(), flask_request.sid)
+            except Exception as e:
+                self.log.error(f"Error handling runtime request: {e}")
+
     def _emit_to_sid(self, event: str, payload, sid: str):
         """Emit an event to one connected client sid with a stable namespace."""
         self.socketio.emit(event, payload, to=sid, namespace='/')
@@ -175,9 +184,34 @@ class WebDashboard:
         return {
             'room_id': getattr(self.controller, 'room_id', 'Unknown'),
             'scene_running': getattr(self.controller, 'scene_running', False),
+            'current_scene_name': getattr(self.controller, 'current_scene_name', None),
+            'active_state': getattr(self.controller, 'current_scene_state', None),
             'mqtt_connected': self.controller.mqtt_client.is_connected() if self.controller.mqtt_client else False,
             'uptime': self.get_uptime(),
             'log_count': len(self.log_buffer)
+        }
+
+    def get_device_runtime_states(self) -> list:
+        """Return the current actuator runtime states without mutating dashboard stats."""
+        store = getattr(self.controller, 'actuator_state_store', None)
+        if store is None:
+            return []
+        return store.get_all_states()
+
+    def get_runtime_snapshot(self) -> dict:
+        """Return a complete runtime snapshot for page load/reconnect recovery."""
+        connected_devices = {}
+        registry = getattr(self.controller, 'mqtt_device_registry', None)
+        if registry is not None:
+            try:
+                connected_devices = registry.get_connected_devices(cleanup=False)
+            except Exception as exc:
+                self.log.error(f"Error reading connected devices for runtime snapshot: {exc}")
+
+        return {
+            'status': self._get_status_data(),
+            'device_states': self.get_device_runtime_states(),
+            'connected_devices': connected_devices,
         }
 
     def get_uptime(self):
