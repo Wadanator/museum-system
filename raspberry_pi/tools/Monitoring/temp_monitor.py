@@ -24,13 +24,13 @@ def temp_status(temp):
     if temp is None:
         return "Unable to read"
     elif temp >= 80:
-        return f"{temp:.1f}°C ⚠️  CRITICAL"
+        return f"{temp:.1f}°C [WARN]  CRITICAL"
     elif temp >= 70:
-        return f"{temp:.1f}°C ⚠️  HIGH"
+        return f"{temp:.1f}°C [WARN]  HIGH"
     elif temp >= 60:
-        return f"{temp:.1f}°C ⚠️  WARM"
+        return f"{temp:.1f}°C [WARN]  WARM"
     else:
-        return f"{temp:.1f}°C ✅ OK"
+        return f"{temp:.1f}°C [OK] OK"
 
 
 def monitor_once():
