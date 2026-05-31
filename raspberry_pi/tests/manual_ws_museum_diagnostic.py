@@ -9,8 +9,10 @@ Testuje presne tie scenáre ktoré používateľ popisuje:
   4. LiveView nereaguje
 
 Spustenie:
-  python3 test_ws_full.py
-  python3 test_ws_full.py --url http://192.168.1.x:5000 --user admin --pass admin
+  python3 tests/manual_ws_museum_diagnostic.py
+  python3 tests/manual_ws_museum_diagnostic.py --url http://192.168.1.x:5000
+
+Bez --user/--password pouzije default credentials z Web/config.py.
 """
 
 import argparse
@@ -21,21 +23,36 @@ import time
 import threading
 import urllib.request
 import urllib.error
+from pathlib import Path
+
+RPI_DIR = Path(__file__).resolve().parents[1]
+if str(RPI_DIR) not in sys.path:
+    sys.path.insert(0, str(RPI_DIR))
+
+try:
+    from Web.config import Config
+    DEFAULT_USER = Config.USERNAME
+    DEFAULT_PASSWORD = Config.PASSWORD
+except Exception:
+    DEFAULT_USER = "admin"
+    DEFAULT_PASSWORD = "admin"
 
 # ── Deps ──────────────────────────────────────────────────────────────────────
+socketio = None
+
+# ── Args ──────────────────────────────────────────────────────────────────────
+parser = argparse.ArgumentParser()
+parser.add_argument('--url',  default='http://localhost:5000')
+parser.add_argument('--user', default=DEFAULT_USER)
+parser.add_argument('--pass', '--password', default=DEFAULT_PASSWORD, dest='password')
+parser.add_argument('--scene', default=None)
+args = parser.parse_args()
+
 try:
     import socketio
 except ImportError:
     print("CHYBA: pip3 install python-socketio websocket-client --break-system-packages")
     sys.exit(1)
-
-# ── Args ──────────────────────────────────────────────────────────────────────
-parser = argparse.ArgumentParser()
-parser.add_argument('--url',  default='http://localhost:5000')
-parser.add_argument('--user', default='admin')
-parser.add_argument('--pass', default='admin', dest='password')
-parser.add_argument('--scene', default=None)
-args = parser.parse_args()
 
 BASE_URL  = args.url.rstrip('/')
 AUTH_HDR  = 'Basic ' + base64.b64encode(f'{args.user}:{args.password}'.encode()).decode()
@@ -201,6 +218,26 @@ header('FÁZA 0 │ Backend & Konfigurácia')
 
 r = http_get('/api/status')
 if not r['ok']:
+    if r['status'] == 401:
+        result(
+            'backend',
+            'Backend dostupny',
+            'FAIL',
+            (
+                f"HTTP 401 - zle meno/heslo pre Basic Auth. "
+                f"Pouzite --user/--password alebo upravte Web/config.py "
+                f"(skusany user: {args.user})"
+            ),
+        )
+        sys.exit(1)
+    if r['status'] == -1:
+        result(
+            'backend',
+            'Backend dostupny',
+            'FAIL',
+            f"Backend nie je dostupny: {r.get('err', 'unknown error')}",
+        )
+        sys.exit(1)
     result('backend', 'Backend dostupný', 'FAIL',
            f"HTTP {r['status']} – spusti backend pred testom")
     sys.exit(1)

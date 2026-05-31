@@ -26,6 +26,15 @@ class _Counter:
         self.calls += 1
 
 
+class _ActuatorStoreCounter:
+    def __init__(self):
+        self.sources = []
+
+    def force_all_off(self, source):
+        self.sources.append(source)
+        return 1
+
+
 class _WebDashboardStub:
     def __init__(self):
         self.status_calls = 0
@@ -47,10 +56,11 @@ def _build_controller(scene_running=False):
     controller.scene_heartbeat_interval = 0.05
     controller._heartbeat_stop_event = threading.Event()
     controller._heartbeat_thread = None
+    controller.shutdown_requested = False
     return controller
 
 
-def _manual_test_transition_updates_file_and_is_idempotent():
+def test_transition_updates_file_and_is_idempotent():
     with tempfile.TemporaryDirectory() as tmp_dir:
         state_file = Path(tmp_dir) / "museum_scene_state"
         original_state_file = main_module._SCENE_STATE_FILE
@@ -73,7 +83,7 @@ def _manual_test_transition_updates_file_and_is_idempotent():
             main_module._SCENE_STATE_FILE = original_state_file
 
 
-def _manual_test_stop_scene_is_idempotent():
+def test_stop_scene_is_idempotent():
     with tempfile.TemporaryDirectory() as tmp_dir:
         state_file = Path(tmp_dir) / "museum_scene_state"
         original_state_file = main_module._SCENE_STATE_FILE
@@ -89,6 +99,7 @@ def _manual_test_stop_scene_is_idempotent():
             controller.scene_parser = parser
             controller.audio_handler = audio
             controller.video_handler = video
+            controller.actuator_state_store = _ActuatorStoreCounter()
 
             def _broadcast_stop():
                 stop_calls["count"] += 1
@@ -105,12 +116,18 @@ def _manual_test_stop_scene_is_idempotent():
             assert parser.calls == 1
             assert audio.calls == 1
             assert video.calls == 1
-            assert stop_calls["count"] == 1
+            # First STOP handles the active scene, second STOP handles the
+            # already-idle "stop all devices" path.
+            assert stop_calls["count"] == 2
+            assert controller.actuator_state_store.sources == [
+                "external_stop",
+                "external_stop_idle",
+            ]
         finally:
             main_module._SCENE_STATE_FILE = original_state_file
 
 
-def _manual_test_start_scene_by_name_returns_real_start_result():
+def test_start_scene_by_name_returns_real_start_result():
     controller = _build_controller(scene_running=False)
 
     start_calls = {"count": 0}
@@ -128,7 +145,7 @@ def _manual_test_start_scene_by_name_returns_real_start_result():
     assert start_calls["count"] == 2
 
 
-def _manual_test_missing_scene_broadcasts_status_update():
+def test_missing_scene_broadcasts_status_update():
     with tempfile.TemporaryDirectory() as tmp_dir:
         state_file = Path(tmp_dir) / "museum_scene_state"
         original_state_file = main_module._SCENE_STATE_FILE
@@ -158,10 +175,10 @@ def _manual_test_missing_scene_broadcasts_status_update():
 if __name__ == "__main__":
     print("Running offline P0-2 checks (no pytest required)...")
     tests = [
-        ("transition_updates_file_and_is_idempotent", _manual_test_transition_updates_file_and_is_idempotent),
-        ("stop_scene_is_idempotent", _manual_test_stop_scene_is_idempotent),
-        ("start_scene_by_name_returns_real_start_result", _manual_test_start_scene_by_name_returns_real_start_result),
-        ("missing_scene_broadcasts_status_update", _manual_test_missing_scene_broadcasts_status_update),
+        ("transition_updates_file_and_is_idempotent", test_transition_updates_file_and_is_idempotent),
+        ("stop_scene_is_idempotent", test_stop_scene_is_idempotent),
+        ("start_scene_by_name_returns_real_start_result", test_start_scene_by_name_returns_real_start_result),
+        ("missing_scene_broadcasts_status_update", test_missing_scene_broadcasts_status_update),
     ]
 
     failed = 0
