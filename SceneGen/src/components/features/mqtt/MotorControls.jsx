@@ -150,7 +150,7 @@ const MotorControls = ({ action, onChange }) => {
                     : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
                 }`}
               >
-                <- L (Doľava)
+                {'<-'} L (Doľava)
               </button>
               <button
                 type="button"
@@ -161,7 +161,7 @@ const MotorControls = ({ action, onChange }) => {
                     : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
                 }`}
               >
-                R (Doprava) ->
+                R (Doprava) {'->'}
               </button>
             </div>
           </div>
