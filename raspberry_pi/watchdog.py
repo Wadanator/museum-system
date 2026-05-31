@@ -3,8 +3,8 @@
 System watchdog for the Museum System.
 
 Monitors the museum-system service and restarts it when health checks fail.
-Enhanced with scene-aware restart logic — never interrupts a running
-presentation — and audio-error tolerance to avoid false-positive restarts.
+Enhanced with scene-aware restart logic - never interrupts a running
+presentation - and audio-error tolerance to avoid false-positive restarts.
 """
 
 import os
@@ -27,7 +27,7 @@ _config_manager = ConfigManager()
 setup_logging_from_config(_config_manager.get_logging_config())
 log = get_logger('watchdog')
 
-# Resolve paths relative to this file — never hardcode absolute paths.
+# Resolve paths relative to this file - never hardcode absolute paths.
 # watchdog.py lives in raspberry_pi/, so parent == raspberry_pi/.
 _BASE_DIR = Path(__file__).resolve().parent
 _LOG_FILE = _BASE_DIR / 'logs' / 'museum.log'
@@ -61,18 +61,18 @@ class MuseumWatchdog:
         self.cpu_spike_tolerance: int = 3      # consecutive high-CPU readings before restart
         self.high_cpu_count: int = 0
 
-        # Restart rate limiting — sliding window keeps timestamps of recent restarts
+        # Restart rate limiting - sliding window keeps timestamps of recent restarts
         self.restart_count: int = 0            # total lifetime restarts (used in log messages)
         self._restart_times: list[float] = []  # timestamps driving the hourly rate limit
         self.max_restarts_per_hour: int = 5
         self.consecutive_failures: int = 0
         self.max_consecutive_failures: int = 3
 
-        # Audio-error grace period — high CPU right after an audio error is expected
+        # Audio-error grace period - high CPU right after an audio error is expected
         self.audio_error_restart_delay: int = 300   # seconds
         self.last_audio_error_time: float = 0.0
 
-        # Network check target — use the configured MQTT broker, not an internet host.
+        # Network check target - use the configured MQTT broker, not an internet host.
         # Pinging the broker works correctly in both LAN and offline (localhost) modes.
         self._network_check_target: str = _config_manager.config.get(
             'MQTT', 'broker_ip', fallback='localhost'
@@ -93,7 +93,7 @@ class MuseumWatchdog:
         Return True if a scene is currently active.
 
         Reads /tmp/museum_scene_state written by main.py.
-        A file older than two hours is treated as stale — main.py likely
+        A file older than two hours is treated as stale - main.py likely
         crashed without writing 'idle', so restarting is safe.
         """
         if not _SCENE_STATE_FILE.exists():
@@ -102,7 +102,7 @@ class MuseumWatchdog:
         try:
             age = time.time() - _SCENE_STATE_FILE.stat().st_mtime
             if age > _SCENE_STATE_STALE_SECONDS:
-                log.debug('Scene state file is %.0fs old — treating as idle', age)
+                log.debug('Scene state file is %.0fs old - treating as idle', age)
                 return False
 
             return _SCENE_STATE_FILE.read_text().strip() == 'running'
@@ -119,7 +119,7 @@ class MuseumWatchdog:
         in the watchdog log without being flooded with messages.
         """
         log.warning(
-            'Scene is running — waiting up to %ds before restart.',
+            'Scene is running - waiting up to %ds before restart.',
             self.scene_wait_max_seconds,
         )
         waited = 0
@@ -129,13 +129,13 @@ class MuseumWatchdog:
             waited += self.scene_wait_poll_interval
 
             if not self._is_scene_running():
-                log.info('Scene finished after %ds — proceeding with restart.', waited)
+                log.info('Scene finished after %ds - proceeding with restart.', waited)
                 return
 
-            log.info('Scene still running (%ds elapsed) — waiting...', waited)
+            log.info('Scene still running (%ds elapsed) - waiting...', waited)
 
         log.error(
-            'Scene still running after %ds hard timeout — forcing restart.',
+            'Scene still running after %ds hard timeout - forcing restart.',
             self.scene_wait_max_seconds,
         )
 
@@ -227,7 +227,7 @@ class MuseumWatchdog:
             if cpu_percent > self.max_cpu_percent:
                 self.high_cpu_count += 1
 
-                # Audio init can cause a temporary CPU spike — be tolerant
+                # Audio init can cause a temporary CPU spike - be tolerant
                 is_audio_error_period = (
                     (time.time() - self.last_audio_error_time) < 120
                 )
@@ -236,7 +236,7 @@ class MuseumWatchdog:
                     if is_audio_error_period or self.check_recent_logs_for_audio_errors():
                         if (time.time() - self.last_audio_error_time) < self.audio_error_restart_delay:
                             log.warning(
-                                'High CPU (%.1f%%) likely due to audio issues — delaying restart.',
+                                'High CPU (%.1f%%) likely due to audio issues - delaying restart.',
                                 cpu_percent,
                             )
                             return True, f'High CPU (audio-related): {cpu_percent:.1f}% - monitoring'
@@ -267,7 +267,7 @@ class MuseumWatchdog:
         self._restart_times = [t for t in self._restart_times if now - t < 3600]
         if len(self._restart_times) >= self.max_restarts_per_hour:
             log.error(
-                'Restart limit reached (%d/hour) — manual intervention required.',
+                'Restart limit reached (%d/hour) - manual intervention required.',
                 self.max_restarts_per_hour,
             )
             return False
@@ -275,7 +275,7 @@ class MuseumWatchdog:
         if 'Process not found' in reason:
             if self.consecutive_failures < self.max_consecutive_failures:
                 log.warning(
-                    'Process not found (%d/%d) — monitoring...',
+                    'Process not found (%d/%d) - monitoring...',
                     self.consecutive_failures,
                     self.max_consecutive_failures,
                 )
@@ -284,7 +284,7 @@ class MuseumWatchdog:
         if 'audio' in reason.lower() or self.check_recent_logs_for_audio_errors():
             if (time.time() - self.last_audio_error_time) < self.audio_error_restart_delay:
                 log.warning(
-                    'Audio-related issue — waiting %ds before restart.',
+                    'Audio-related issue - waiting %ds before restart.',
                     self.audio_error_restart_delay,
                 )
                 return False
@@ -307,7 +307,7 @@ class MuseumWatchdog:
 
         self.restart_count += 1
         self._restart_times.append(time.time())
-        log.warning('Restarting service (#%d) — Reason: %s', self.restart_count, reason)
+        log.warning('Restarting service (#%d) - Reason: %s', self.restart_count, reason)
 
         try:
             log.info('Attempting graceful service stop...')
@@ -320,7 +320,7 @@ class MuseumWatchdog:
             # Force-kill if the process is still alive
             proc = self.get_service_process()
             if proc:
-                log.warning('Process still running — forcing termination.')
+                log.warning('Process still running - forcing termination.')
                 try:
                     proc.terminate()
                     proc.wait(timeout=10)
@@ -343,7 +343,7 @@ class MuseumWatchdog:
             self.high_cpu_count = 0
             self.consecutive_failures = 0
 
-            # Clear stale state file — main.py will recreate it on next scene
+            # Clear stale state file - main.py will recreate it on next scene
             try:
                 _SCENE_STATE_FILE.unlink(missing_ok=True)
             except OSError:
@@ -400,7 +400,7 @@ class MuseumWatchdog:
 
                 # Ensure the service is active
                 if not self.is_service_running():
-                    log.warning('Service not running — attempting to start...')
+                    log.warning('Service not running - attempting to start...')
                     try:
                         subprocess.run(
                             ['sudo', 'systemctl', 'daemon-reload'],
@@ -426,7 +426,7 @@ class MuseumWatchdog:
                         if self.restart_service(status):
                             time.sleep(30)
                         else:
-                            log.warning('Restart conditions not met — continuing monitoring.')
+                            log.warning('Restart conditions not met - continuing monitoring.')
                     continue
 
                 # Periodic network check (every 5 loops ≈ every 5 minutes)
@@ -440,7 +440,7 @@ class MuseumWatchdog:
                         network_down_logged = False
 
                 if not startup_complete and healthy:
-                    log.info('Watchdog monitoring active — all systems nominal.')
+                    log.info('Watchdog monitoring active - all systems nominal.')
                     startup_complete = True
 
                 time.sleep(self.check_interval)
