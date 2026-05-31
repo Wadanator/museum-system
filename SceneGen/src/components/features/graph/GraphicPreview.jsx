@@ -307,7 +307,7 @@ const GraphicPreviewContent = ({ states, initialState, globalEvents, onAddState,
             {globalEvents.map((event, idx) => (
               <div key={idx} className="text-yellow-200">
                 {event.type === 'mqttMessage' && (
-                  <>{event.topic}: {event.message} -> <span className="font-bold">{event.goto}</span></>
+                  <>{event.topic}: {event.message} {'->'} <span className="font-bold">{event.goto}</span></>
                 )}
               </div>
             ))}
