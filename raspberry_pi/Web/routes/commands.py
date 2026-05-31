@@ -99,7 +99,7 @@ def setup_commands_routes(dashboard):
                     force_feedback=True,
                 )
                 if not success:
-                    return jsonify({'error': 'MQTT publish failed — broker may be disconnected'}), 503
+                    return jsonify({'error': 'MQTT publish failed - broker may be disconnected'}), 503
                 if _is_room_stop_command(topic, payload):
                     store = getattr(controller, 'actuator_state_store', None)
                     if store:
@@ -190,7 +190,7 @@ def setup_commands_routes(dashboard):
                         force_feedback=True,
                     )
                     if not success:
-                        return jsonify({'error': f'MQTT publish failed on action: {topic} — broker may be disconnected'}), 503
+                        return jsonify({'error': f'MQTT publish failed on action: {topic} - broker may be disconnected'}), 503
                     if _is_room_stop_command(topic, message):
                         store = getattr(controller, 'actuator_state_store', None)
                         if store:
