@@ -101,3 +101,6 @@ dist-ssr
 .esphome/
 /secrets.yaml
 raspberry_pi/Web/device_outages.json
+
+# Local thesis defense preparation notes
+/obhajoba_mqtt_qos_wifi.md
