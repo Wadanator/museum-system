@@ -1,4 +1,12 @@
 # Architektúra bežiaca na Pydantic a Transitions
+
+## Progress marking rule
+
+When any concrete item, phase, or section from this plan is implemented, mark
+that exact part with `DONE` in this file. Keep the original task text, add a
+short date or note if useful, and do not leave completed work only in chat or
+git history.
+
 Tento návrh ukazuje, ako v tvojom existujúcom kóde nahradiť tvoje vlastné knižnice (`schema_validator.py`, `state_machine.py`, `transition_manager.py`) za oveľa robustnejšie riešenie pomocou priemyselne overených knižníc `pydantic` a `transitions`.
 
 Dôležité: **Tvoj JSON formát scén (`scenes/*.json`) sa vôbec nezmení.** Tvoj Frontend (`SceneGen` a `museum-dashboard`) si ani nevšimne, že sa na pozadí niečo zmenilo. Zmení sa len to, ako tieto JSON súbory Raspberry Pi backend spracuje a ako medzi stavmi prepína.

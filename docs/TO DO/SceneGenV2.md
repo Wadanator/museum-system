@@ -2,6 +2,13 @@
 
 Date: 2026-05-29
 
+## Progress marking rule
+
+When any concrete item, phase, or section from this plan is implemented, mark
+that exact part with `DONE` in this file. Keep the original task text, add a
+short date or note if useful, and do not leave completed work only in chat or
+git history.
+
 Scope: visual scene editor inside `museum-dashboard`.
 
 This file replaces the older long-form SceneGen V2 specification. It tracks what

@@ -1,5 +1,12 @@
 # TODO: Ambient Loop Mode (24/7 Auto-Start Scene)
 
+## Progress marking rule
+
+When any concrete item, phase, or section from this plan is implemented, mark
+that exact part with `DONE` in this file. Keep the original task text, add a
+short date or note if useful, and do not leave completed work only in chat or
+git history.
+
 ## Čo chceme
 
 Dva prevádzkové módy systému:

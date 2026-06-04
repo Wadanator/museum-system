@@ -1,5 +1,12 @@
 # TODO: Autoritatívne MQTT stavové hlásenia pre Live view
 
+## Progress marking rule
+
+When any concrete item, phase, or section from this plan is implemented, mark
+that exact part with `DONE` in this file. Keep the original task text, add a
+short date or note if useful, and do not leave completed work only in chat or
+git history.
+
 ## Cieľ
 
 Live view má v budúcnosti zobrazovať stav podľa toho, čo hlási ESP32 po nastavení

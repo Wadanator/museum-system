@@ -2,6 +2,13 @@
 
 Date: 2026-05-02
 
+## Progress marking rule
+
+When any concrete item, phase, or section from this plan is implemented, mark
+that exact part with `DONE` in this file. Keep the original task text, add a
+short date or note if useful, and do not leave completed work only in chat or
+git history.
+
 Scope:
 - `raspberry_pi/` backend, services, scenes, dashboard backend
 - `museum-dashboard/src/` React dashboard source

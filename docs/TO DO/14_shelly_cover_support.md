@@ -1,5 +1,12 @@
 # Cover/Roleta Support Plan
 
+## Progress marking rule
+
+When any concrete item, phase, or section from this plan is implemented, mark
+that exact part with `DONE` in this file. Keep the original task text, add a
+short date or note if useful, and do not leave completed work only in chat or
+git history.
+
 Tento dokument popisuje navrhovanu podporu roliet, zaluzii a inych 230 V
 obojsmernych pohonov cez `cover` moduly v `museum-system`.
 

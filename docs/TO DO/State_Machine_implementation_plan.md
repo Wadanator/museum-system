@@ -1,5 +1,12 @@
 # Refactoring Core Logic to use Pydantic and Transitions
 
+## Progress marking rule
+
+When any concrete item, phase, or section from this plan is implemented, mark
+that exact part with `DONE` in this file. Keep the original task text, add a
+short date or note if useful, and do not leave completed work only in chat or
+git history.
+
 The objective is to replace custom state machine, validation, and transition logic with `pydantic` and `transitions`, ensuring 1:1 compatibility with existing JSON structures while gaining stability.
 
 ## User Review Required

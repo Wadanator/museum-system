@@ -2,6 +2,13 @@
 
 Updated: 2026-05-23
 
+## Progress marking rule
+
+When any concrete item, phase, or section from this plan is implemented, mark
+that exact part with `DONE` in this file. Keep the original task text, add a
+short date or note if useful, and do not leave completed work only in chat or
+git history.
+
 Source documents that this file replaces:
 
 - `RELIABILITY_CODE_REVIEW.md`

@@ -2,6 +2,13 @@
 
 Date: 2026-06-04
 
+## Progress marking rule
+
+When any concrete item, phase, or section from this plan is implemented, mark
+that exact part with `DONE` in this file. Keep the original task text, add a
+short date or note if useful, and do not leave completed work only in chat or
+git history.
+
 Tento dokument je implementacny navod pre zabezpecenie MQTT vrstvy bez zmeny
 topic kontraktu, scen, SceneGen palety alebo modularity ESP32 zariadeni.
 
@@ -372,6 +379,11 @@ Rozhodnutie pre implementaciu secret storage:
   gitom,
 - `ConfigManager` nacita najprv `config.ini` a potom volitelne
   `config.local.ini`, kde lokalny subor prepise iba nastavene hodnoty,
+- konflikt sa riesi tak, ze neprazdna hodnota v `config.local.ini` prepise base
+  hodnotu z `config.ini`; prazdna hodnota v `config.local.ini` base hodnotu
+  nevymaze,
+- ak bude niekedy treba hodnotu z base configu vedome vymazat, zaviest na to
+  explicitny sentinel alebo samostatny config flag, nie tichy prazdny string,
 - AI nesmie zapisat realne heslo do trackovaneho suboru.
 
 Overenie WebSocket listenera `9001`:
@@ -609,6 +621,19 @@ Poznamka:
   restart loopu,
 - do serial logu vypisat iba `rc`, nikdy nie heslo.
 
+Rozsah testu zleho hesla:
+
+- povinne otestovat aspon jeden reprezentativny build pre kazdy odlisny
+  `connectToMqtt()` flow,
+- minimalne pokryt WiFi relay, WiFi motors a LAN relay, pretoze tieto vetvy maju
+  alebo mali restart po MQTT zlyhaniach,
+- button firmware tiez otestovat, ak je dostupny, ale jeho riziko restart loopu
+  je nizsie ako pri relay/motor vetvach,
+- ak je konkretne fyzicke zariadenie nedostupne, otestovat rovnaky firmware na
+  nahradnom ESP32 alebo zapisat, ze tento build nie je overeny,
+- Faza 3 sa nema zapnut pre aktivnu miestnost, kym nie su aktivne buildy
+  overene alebo vedome vyradene z rollout-u.
+
 Manualne testy:
 
 1. Broker anonymous stale povoleny.
@@ -709,6 +734,34 @@ Deployment politika pred vypnutim anonymous:
 - nechat broker anonymous a zaroven tvrdit, ze v1 security je hotova, nie je
   akceptovatelne.
 
+Rollback musi byt fyzicky dostupny pred zmenou:
+
+- mat otvoreny SSH pristup na Raspberry Pi z tej istej LAN,
+- idealne mat pri produkcnom prepnuti dostupny aj monitor/klavesnicu alebo inu
+  lokalnu konzolu,
+- mat pripraveny backup povodneho Mosquitto configu,
+- vediet rychlo vratit `allow_anonymous true` a restartnut Mosquitto,
+- nerobit Fazu 3 pocas ostrej akcie alebo bez cloveka pri instalacii.
+
+Retained device status cleanup:
+
+- retained spravy sa daju cistit iba publishom na konkretny topic,
+- wildcard `devices/+/status` je platny pre subscribe, ale nie pre publish,
+- pred smoke testom najprv pozorovat aktualne retained statusy:
+
+```bash
+mosquitto_sub -h <broker_ip> -u museum_rpi -P '<password>' -t 'devices/+/status' -v
+```
+
+- ak dashboard ukazuje stare zariadenie ako online, vycistit presny retained
+  status topic:
+
+```bash
+mosquitto_pub -h <broker_ip> -u museum_rpi -P '<password>' -t 'devices/<CLIENT_ID>/status' -n -r
+```
+
+- po vycisteni nechat realne ESP32 znova publikovat `online`.
+
 Co ma poslat clovek AI pred Fazou 3:
 
 - potvrdenie, ze vsetky aktivne uzly su preflashovane alebo nakonfigurovane,
@@ -730,6 +783,15 @@ S heslom musi prejst:
 ```bash
 mosquitto_pub -h <broker_ip> -u museum_rpi -P '<password>' -t 'room1/light/1' -m 'ON'
 ```
+
+Monitorovaci smoke test v samostatnom terminali:
+
+```bash
+mosquitto_sub -h <broker_ip> -u museum_rpi -P '<password>' -t '#' -v
+```
+
+Pouzit iba ako kratky test a ukoncit cez `Ctrl+C`. Ak sa neskor zavedie ACL,
+nahradit `#` uzsim setom topicov, napriklad `room1/#` a `devices/+/status`.
 
 Overit backend:
 
@@ -999,6 +1061,7 @@ Ty robis:
 
 - vytvoris `/etc/mosquitto/passwd` priamo na Pi,
 - overis, ze vsetky aktivne uzly su ready,
+- pripravis SSH alebo lokalny rollback pristup k Raspberry Pi,
 - az potom dovolis vypnut `allow_anonymous`.
 
 Posli AI:
@@ -1006,6 +1069,9 @@ Posli AI:
 - `ls -l /etc/mosquitto/passwd`,
 - `sudo systemctl status mosquitto --no-pager`,
 - `sudo journalctl -u mosquitto -n 80 --no-pager`,
+- potvrdenie, ze mas dostupny rollback pristup,
+- zoznam presnych `devices/<CLIENT_ID>/status` topicov, ktore bolo treba
+  vycistit ako retained,
 - vysledok anonymneho `mosquitto_pub`, ktory ma zlyhat,
 - vysledok `mosquitto_pub -u museum_rpi ...`, ktory ma prejst.
 
