@@ -18,7 +18,7 @@ Source documents that this file replaces:
 This file is the practical consolidated TODO list for reliability and stability
 work that still looks relevant in the current repository state. Items that were
 already implemented or downgraded are tracked in
-`RELIABILITY_STABILITY_COMPLETED_WORK.md`.
+`99_reference_reliability_stability_completed_work.md`.
 
 ## Priority Meaning
 

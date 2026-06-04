@@ -42,8 +42,11 @@ museum-system/
 │   │   ├── system_topology.xml
 │   │   └── theme.py
 │   └── TO DO/
-│       ├── State_Machine_implementation_plan.md
-│       └── StateMachine_Plan.md
+│       ├── 00_READ_FIRST_todo_implementation_order.md
+│       ├── 01_reliability_stability_future_work.md
+│       ├── ...
+│       ├── 10_state_machine_refactor_implementation_plan.md
+│       └── 99_reference_reliability_stability_completed_work.md
 ├── esp32/
 │   ├── common/
 │   │   ├── WifiCheck.ino

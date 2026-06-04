@@ -221,7 +221,7 @@ Note:
 
 - The remaining config ambiguity around `device_timeout = 15` versus the
   180-second fallback is tracked in
-  `RELIABILITY_STABILITY_FUTURE_WORK.md`.
+  `01_reliability_stability_future_work.md`.
 
 ### Feedback State Store Confirmations
 

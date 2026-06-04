@@ -81,7 +81,7 @@ je: kto nema platnu MQTT identitu, nepripoji sa.
 
 ## Kompatibilita s existujucimi TODO planmi
 
-### `TODO_mqtt_state_reporting_rework.md`
+### `03_mqtt_state_reporting_rework.md`
 
 Kompatibilne, ak sa dodrzia tieto pravidla:
 
@@ -98,7 +98,7 @@ Riziko:
 - prilis uzke ACL by mohlo rozbit nove `/state` reporty alebo buduce cover topicy.
 - Preto ACL nie je prva produkcna faza. Najprv len username/password.
 
-### `docs/TO DO/14_shelly_cover_support.md`
+### `docs/TO DO/07_cover_roleta_support.md`
 
 Kompatibilne, ak buduce Shelly/Waveshare cover uzly dostanu MQTT credentials
 rovnako ako ESP32.
@@ -116,7 +116,7 @@ devices/Room1_Shelly_Covers/status
 ACL musi tieto topicy pustit, inak sa pokazi cover feedback/state alebo
 heartbeat fail-safe.
 
-### `docs/TO DO/CEC_DISPLAY_POWER_PLAN.md`
+### `docs/TO DO/05_cec_display_power_control.md`
 
 Kompatibilne. Ak sa prida manualny topic:
 
@@ -127,7 +127,7 @@ room1/display
 tak ACL musi povolit jeho publish/subscribe pre Raspberry Pi controller. CEC logika
 nie je zavisla od MQTT TLS, iba od toho, ci sa controller vie pripojit na broker.
 
-### `docs/TO DO/RELIABILITY_STABILITY_FUTURE_WORK.md`
+### `docs/TO DO/01_reliability_stability_future_work.md`
 
 S tymto planom suvisia hlavne dve veci:
 
