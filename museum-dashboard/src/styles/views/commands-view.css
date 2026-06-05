@@ -1,6 +1,5 @@
 /* src/styles/views/commands-view.css */
 
-/* --- HLAVNÝ KONTAJNER --- */
 .commands-view {
     display: flex;
     flex-direction: column;
@@ -9,11 +8,10 @@
     height: 100%;
 }
 
-/* --- SEKCIE --- */
 .devices-content {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-4xl);
+    gap: var(--spacing-3xl);
     overflow-y: auto;
     padding-right: var(--spacing-xs);
 }
@@ -21,7 +19,7 @@
 .device-section {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-lg);
+    gap: var(--spacing-md);
 }
 
 .section-header {
@@ -34,7 +32,7 @@
 }
 
 .section-header h3 {
-    font-size: var(--font-size-xl);
+    font-size: var(--font-size-lg);
     font-weight: 700;
     margin: 0;
 }
@@ -53,145 +51,253 @@
     border: var(--border-width-sm) solid var(--border-color);
 }
 
-/* --- GRID SYSTÉM --- */
 .devices-grid {
     display: grid;
-    gap: var(--spacing-2xl);
-    /* UPRAVENÉ: Zväčšené na 380px pre viac miesta */
-    grid-template-columns: repeat(auto-fill, minmax(var(--device-grid-min-width), 1fr));
+    gap: var(--spacing-md);
+    grid-template-columns: repeat(
+        auto-fit,
+        minmax(min(100%, var(--device-command-row-min-width)), 1fr)
+    );
 }
 
-.motors-grid {
-    /* UPRAVENÉ: Zväčšené na 380px (zjednotené) */
-    grid-template-columns: repeat(auto-fill, minmax(var(--device-grid-min-width), 1fr)); 
+.section-divider {
+    height: var(--border-width-sm);
+    background: var(--border-color);
+    opacity: 0.7;
 }
 
-/* --- UPDATE DEVICE CARD (Overrides) --- */
-.device-card {
-    height: 100%;
+.device-control-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-md-plus) var(--spacing-lg);
+    background: var(--bg-card);
+    border: var(--border-width-sm) solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    transition:
+        border-color var(--transition-base),
+        box-shadow var(--transition-base),
+        transform var(--transition-base);
+}
+
+.device-control-row:hover {
+    border-color: color-mix(in srgb, var(--primary) 34%, var(--border-color));
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+.device-control-main {
     display: flex;
-    flex-direction: column;
-    transition: all var(--transition-base);
+    align-items: center;
+    gap: var(--spacing-md);
+    min-width: 0;
+}
+
+.device-control-icon {
+    --device-state-glow-color: var(--text-muted);
+    --device-state-ring-strength: 42%;
+    --device-state-ring-fill: 34%;
+    --device-state-ring-size: 6px;
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    width: var(--size-icon-lg);
+    height: var(--size-icon-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    border-radius: var(--radius-md);
+    color: var(--primary);
+    background: color-mix(
+        in srgb,
+        var(--device-state-glow-color) var(--device-state-ring-fill),
+        var(--bg-hover)
+    );
+    border: var(--border-width-sm) solid color-mix(
+        in srgb,
+        var(--device-state-glow-color) var(--device-state-ring-strength),
+        var(--border-color)
+    );
+    box-shadow:
+        inset 0 0 0 var(--border-width-sm) color-mix(in srgb, var(--text-white) 28%, transparent),
+        var(--shadow-sm);
+    transition:
+        border-color var(--transition-base),
+        box-shadow var(--transition-base);
+}
+
+.device-control-icon::before {
+    content: "";
+    position: absolute;
+    inset: var(--device-state-ring-size);
+    z-index: 0;
+    border-radius: calc(var(--radius-md) - 2px);
+    background: var(--bg-hover);
+    box-shadow: inset 0 0 0 var(--border-width-sm) color-mix(in srgb, var(--text-white) 26%, transparent);
+}
+
+.device-control-icon::after {
+    content: "";
+    position: absolute;
+    inset: var(--device-state-ring-size);
+    z-index: 0;
+    border-radius: calc(var(--radius-md) - 2px);
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--text-white) 22%, transparent),
+        transparent 58%
+    );
+}
+
+.device-control-icon > svg {
+    position: relative;
+    z-index: 1;
+}
+
+.device-control-icon--on {
+    --device-state-glow-color: var(--success);
+    --device-state-ring-strength: 78%;
+    --device-state-ring-fill: 70%;
+}
+
+.device-control-icon--off {
+    --device-state-glow-color: var(--danger);
+    --device-state-ring-strength: 82%;
+    --device-state-ring-fill: 70%;
+}
+
+.device-control-icon--pending {
+    --device-state-glow-color: var(--warning);
+    --device-state-ring-strength: 84%;
+    --device-state-ring-fill: 72%;
+}
+
+.device-control-icon--unknown {
+    --device-state-glow-color: var(--text-muted);
+    --device-state-ring-strength: 36%;
+    --device-state-ring-fill: 26%;
+}
+
+.device-control-text {
+    min-width: 0;
+}
+
+.device-control-title {
+    margin: 0;
+    color: var(--text-primary);
+    font-size: var(--font-size-md-plus);
+    font-weight: 700;
+    line-height: var(--line-height-snug);
+}
+
+.device-control-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs-plus);
+    flex-wrap: wrap;
+    margin-top: var(--spacing-xs-plus);
+}
+
+.device-control-topic {
+    max-width: var(--device-command-topic-max-width);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+    font-family: monospace;
+    line-height: 1;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    background: var(--bg-hover);
     border: var(--border-width-sm) solid var(--border-color);
 }
 
-.device-card:hover {
-    border-color: var(--primary);
-    box-shadow: var(--shadow-md);
-    transform: translateY(-3px);
-}
-
-.device-card-actions {
+.device-control-actions {
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: var(--spacing-xs-plus);
-    flex-wrap: wrap;
+    min-width: 0;
 }
 
-.device-runtime-indicator {
-    display: inline-flex;
-    align-items: center;
+.device-control-actions .button-group {
+    width: auto;
+    margin-top: 0;
     gap: var(--spacing-xs-plus);
-    min-height: 28px;
-    padding: var(--spacing-xs) var(--spacing-sm-plus);
-    border-radius: var(--radius-2xl);
-    border: var(--border-width-sm) solid var(--border-color);
-    background: var(--bg-hover);
-    color: var(--text-muted);
-    font-size: var(--font-size-xs);
-    font-weight: 700;
-    line-height: 1;
-    white-space: nowrap;
 }
 
-.device-runtime-dot {
-    width: 9px;
-    height: 9px;
-    border-radius: 999px;
-    background: currentColor;
-    box-shadow: 0 0 8px currentColor;
+.device-control-actions .button-group > .btn {
     flex: 0 0 auto;
 }
 
-.device-runtime-label {
-    max-width: 74px;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.device-control-actions .button-group > .btn.device-command-button {
+    width: var(--device-command-button-size);
+    height: var(--device-command-button-size);
+    min-width: var(--device-command-button-size);
+    flex: 0 0 var(--device-command-button-size);
+    padding: 0;
 }
 
-.device-runtime-indicator--on {
+.device-control-actions .btn.device-command-button svg {
+    width: var(--spacing-lg-plus);
+    height: var(--spacing-lg-plus);
+}
+
+.device-control-actions .btn.device-command-button.btn-success {
     color: var(--success);
     background: var(--success-bg);
-    border-color: color-mix(in srgb, var(--success) 24%, var(--border-color));
+    border: var(--border-width-sm) solid color-mix(in srgb, var(--success) 32%, var(--border-color));
+    box-shadow: none;
 }
 
-.device-runtime-indicator--off {
+.device-control-actions .btn.device-command-button.btn-success:hover {
+    color: var(--text-white);
+    background: var(--success);
+    border-color: var(--success);
+    box-shadow: var(--shadow-success-sm);
+}
+
+.device-control-actions .btn.device-command-button.btn-danger {
     color: var(--danger);
     background: var(--danger-bg);
-    border-color: color-mix(in srgb, var(--danger) 24%, var(--border-color));
+    border: var(--border-width-sm) solid color-mix(in srgb, var(--danger) 32%, var(--border-color));
+    box-shadow: none;
 }
 
-.device-runtime-indicator--pending {
-    color: var(--warning);
-    background: var(--warning-bg);
-    border-color: color-mix(in srgb, var(--warning) 28%, var(--border-color));
+.device-control-actions .btn.device-command-button.btn-danger:hover {
+    color: var(--text-white);
+    background: var(--danger);
+    border-color: var(--danger);
+    box-shadow: var(--shadow-sm);
 }
 
-.device-runtime-indicator--unknown {
-    color: var(--text-muted);
-    background: var(--bg-hover);
-}
+@media (max-width: 720px) {
+    .devices-content {
+        gap: var(--spacing-2xl);
+    }
 
-/* Ikona vnutri karty */
-.device-preview {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: var(--spacing-xl) 0;
-    min-height: var(--device-preview-min-height);
-}
+    .device-control-row {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-md);
+        padding: var(--spacing-md);
+    }
 
-.device-large-icon {
-    font-size: var(--font-size-display-lg);
-    filter: var(--shadow-icon-filter);
-    transition: transform var(--transition-slow);
-    cursor: default;
-    color: var(--primary);
-}
+    .device-control-actions {
+        width: 100%;
+    }
 
-.device-card:hover .device-large-icon {
-    transform: scale(1.1);
-}
+    .device-control-actions .button-group {
+        width: auto;
+    }
 
-/* Kontrolky naspodku */
-.card-controls-footer {
-    margin-top: auto;
-    padding-top: var(--spacing-lg);
-    border-top: var(--border-width-sm) solid var(--bg-main); /* Jemná čiara oddelujúca tlačidlá */
-}
+    .device-control-actions .button-group > .btn {
+        flex: 0 0 auto;
+    }
 
-/* Empty State */
-.empty-state {
-    text-align: center;
-    padding: var(--spacing-6xl);
-    background: var(--bg-card);
-    border: var(--border-width-sm) dashed var(--border-color);
-    border-radius: var(--radius-lg);
-    color: var(--text-muted);
-}
-
-.loading-state, .error-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: var(--spacing-md-loose);
-    height: var(--loading-state-height);
-    color: var(--text-muted);
-}
-
-.error-state p {
-    color: var(--danger);
+    .device-control-topic {
+        max-width: 100%;
+    }
 }

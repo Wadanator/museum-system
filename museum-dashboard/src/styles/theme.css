@@ -145,6 +145,9 @@
 
     /* View layout sizing */
     --device-grid-min-width: 380px;
+    --device-command-row-min-width: 460px;
+    --device-command-button-size: 38px;
+    --device-command-topic-max-width: 220px;
     --media-grid-min-width: 450px;
     --stats-card-min-width: 300px;
     --stats-content-min-width: 400px;

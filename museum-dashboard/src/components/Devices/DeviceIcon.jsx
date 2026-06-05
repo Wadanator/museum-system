@@ -11,22 +11,6 @@ import {
   Zap,
 } from 'lucide-react';
 
-const DEVICE_ICONS = {
-  effect: Sparkles,
-  effects: Sparkles,
-  fan: Fan,
-  fire: Flame,
-  fog: CloudFog,
-  group: Layers,
-  lamp: Lamp,
-  light: Lightbulb,
-  motor: Gauge,
-  relay: Zap,
-  smoke: CloudFog,
-  vent: Wind,
-  wind: Wind,
-};
-
 const normalize = (value) => (
   String(value || '')
     .trim()
@@ -37,7 +21,23 @@ const normalize = (value) => (
 
 const inferIconKey = (device = {}) => {
   const explicitIcon = normalize(device.icon);
-  if (DEVICE_ICONS[explicitIcon]) return explicitIcon;
+  if ([
+    'effect',
+    'effects',
+    'fan',
+    'fire',
+    'fog',
+    'group',
+    'lamp',
+    'light',
+    'motor',
+    'relay',
+    'smoke',
+    'vent',
+    'wind',
+  ].includes(explicitIcon)) {
+    return explicitIcon;
+  }
 
   const lookupText = normalize([
     device.id,
@@ -65,11 +65,33 @@ const inferIconKey = (device = {}) => {
   return 'relay';
 };
 
-export const getDeviceIconComponent = (device) => (
-  DEVICE_ICONS[inferIconKey(device)] || Zap
-);
-
 export default function DeviceIcon({ device, size = 64, strokeWidth = 1.4, ...props }) {
-  const Icon = getDeviceIconComponent(device);
-  return <Icon size={size} strokeWidth={strokeWidth} {...props} />;
+  const iconProps = { size, strokeWidth, ...props };
+
+  switch (inferIconKey(device)) {
+    case 'effect':
+    case 'effects':
+      return <Sparkles {...iconProps} />;
+    case 'fan':
+      return <Fan {...iconProps} />;
+    case 'fire':
+      return <Flame {...iconProps} />;
+    case 'fog':
+    case 'smoke':
+      return <CloudFog {...iconProps} />;
+    case 'group':
+      return <Layers {...iconProps} />;
+    case 'lamp':
+      return <Lamp {...iconProps} />;
+    case 'light':
+      return <Lightbulb {...iconProps} />;
+    case 'motor':
+      return <Gauge {...iconProps} />;
+    case 'vent':
+    case 'wind':
+      return <Wind {...iconProps} />;
+    case 'relay':
+    default:
+      return <Zap {...iconProps} />;
+  }
 }
