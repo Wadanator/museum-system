@@ -1,13 +1,16 @@
 import { useState } from 'react'; // Pridaný useState
-import { Rewind, FastForward, Square, Gauge } from 'lucide-react';
+import { Rewind, FastForward, Square } from 'lucide-react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import ButtonGroup from '../ui/ButtonGroup';
 import StatusBadge from '../ui/StatusBadge';
+import DeviceIcon, { getDeviceIconComponent } from './DeviceIcon';
+import DeviceRuntimeIndicator from './DeviceRuntimeIndicator';
 import { useDeviceControl } from '../../hooks/useDeviceControl';
 
-export default function MotorCard({ device }) {
+export default function MotorCard({ device, runtimeState }) {
   const speed = device.speed || 100;
+  const HeaderIcon = getDeviceIconComponent(device);
   const { sendCommand } = useDeviceControl(device.topic, device.name);
   const [loading, setLoading] = useState(false);
 
@@ -30,8 +33,13 @@ export default function MotorCard({ device }) {
   return (
     <Card 
         title={device.name} 
-        icon={Gauge} 
-        actions={<StatusBadge status="info" label={`${speed}%`} />}
+        icon={HeaderIcon} 
+        actions={(
+          <div className="device-card-actions">
+            <StatusBadge status="info" label={`${speed}%`} />
+            <DeviceRuntimeIndicator runtimeState={runtimeState} />
+          </div>
+        )}
         className="device-card motor-card"
     >
         <div className="card-description">
@@ -39,7 +47,7 @@ export default function MotorCard({ device }) {
         </div>
 
            <div className="device-preview device-preview--faded">
-             <Gauge size={64} color="var(--text-primary)" />
+             <DeviceIcon device={device} size={64} color="var(--text-primary)" />
         </div>
 
         <div className="card-controls-footer">

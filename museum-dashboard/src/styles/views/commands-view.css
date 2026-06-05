@@ -81,6 +81,68 @@
     transform: translateY(-3px);
 }
 
+.device-card-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing-xs-plus);
+    flex-wrap: wrap;
+}
+
+.device-runtime-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs-plus);
+    min-height: 28px;
+    padding: var(--spacing-xs) var(--spacing-sm-plus);
+    border-radius: var(--radius-2xl);
+    border: var(--border-width-sm) solid var(--border-color);
+    background: var(--bg-hover);
+    color: var(--text-muted);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.device-runtime-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 999px;
+    background: currentColor;
+    box-shadow: 0 0 8px currentColor;
+    flex: 0 0 auto;
+}
+
+.device-runtime-label {
+    max-width: 74px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.device-runtime-indicator--on {
+    color: var(--success);
+    background: var(--success-bg);
+    border-color: color-mix(in srgb, var(--success) 24%, var(--border-color));
+}
+
+.device-runtime-indicator--off {
+    color: var(--danger);
+    background: var(--danger-bg);
+    border-color: color-mix(in srgb, var(--danger) 24%, var(--border-color));
+}
+
+.device-runtime-indicator--pending {
+    color: var(--warning);
+    background: var(--warning-bg);
+    border-color: color-mix(in srgb, var(--warning) 28%, var(--border-color));
+}
+
+.device-runtime-indicator--unknown {
+    color: var(--text-muted);
+    background: var(--bg-hover);
+}
+
 /* Ikona vnutri karty */
 .device-preview {
     flex: 1;

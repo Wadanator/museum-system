@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Loader2, Zap, Settings2, RefreshCw, OctagonX, SlidersHorizontal } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useDevices } from '../../hooks/useDevices';
+import { useDeviceRuntimeState } from '../../hooks/useDeviceRuntimeState';
 import { api } from '../../services/api';
 import { useConfirm } from '../../context/useConfirm';
 import MotorCard from '../Devices/MotorCard';
@@ -14,9 +15,31 @@ import '../../styles/views/commands-view.css';
 
 export default function CommandsView() {
     const { motors, relays, loading, error } = useDevices();
+    const { deviceStates, getStateForDevice, getDisplayStateForDevice } = useDeviceRuntimeState();
     const [isDevicesEditorOpen, setIsDevicesEditorOpen] = useState(false);
     const [devicesConfig, setDevicesConfig] = useState({ relays: [], motors: [] });
     const { confirm } = useConfirm();
+
+    const getRuntimeState = (device) => {
+        const entry = deviceStates[device.topic] || null;
+        const confirmedState = getStateForDevice(device);
+        const displayState = getDisplayStateForDevice(device);
+        const isPending = Boolean(
+            entry?.desired_state
+            && entry.desired_state !== entry.confirmed_state
+            && !entry.stale
+        );
+        const isStale = Boolean(entry?.stale);
+
+        return {
+            topic: device.topic,
+            entry,
+            confirmedState,
+            displayState,
+            isPending,
+            isStale,
+        };
+    };
 
     const handleRefresh = () => window.location.reload();
 
@@ -126,7 +149,11 @@ export default function CommandsView() {
                         </div>
                         <div className="devices-grid motors-grid">
                             {motors.map((motor, idx) => (
-                                <MotorCard key={motor.id || idx} device={motor} />
+                                <MotorCard
+                                    key={motor.id || idx}
+                                    device={motor}
+                                    runtimeState={getRuntimeState(motor)}
+                                />
                             ))}
                         </div>
                     </section>
@@ -143,7 +170,11 @@ export default function CommandsView() {
                         </div>
                         <div className="devices-grid relays-grid">
                             {relays.map((relay, idx) => (
-                                <RelayCard key={relay.id || idx} device={relay} />
+                                <RelayCard
+                                    key={relay.id || idx}
+                                    device={relay}
+                                    runtimeState={getRuntimeState(relay)}
+                                />
                             ))}
                         </div>
                     </section>

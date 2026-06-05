@@ -15,6 +15,7 @@ export function useDevicePalette() {
       id: d.id,
       label: d.name,
       topic: d.topic,
+      icon: d.icon,
       deviceType: 'motor',
       // ON:<speed>:<dir>[:<rampMs>] | OFF | SPEED:<0-100> | DIR:L/R
       quickMessages: ['ON:50:L', 'ON:50:R', 'OFF', 'SPEED:80', 'DIR:L', 'DIR:R'],
@@ -27,6 +28,7 @@ export function useDevicePalette() {
       id: d.id,
       label: d.name,
       topic: d.topic,
+      icon: d.icon,
       deviceType: d.id?.includes('light') ? 'light' : 'relay',
       quickMessages: ['ON', 'OFF'],
     })),

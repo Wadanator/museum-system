@@ -1,19 +1,20 @@
 import { useState, useCallback } from 'react';
-import { Zap, Power, PowerOff, Lightbulb } from 'lucide-react';
+import { Power, PowerOff } from 'lucide-react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import ButtonGroup from '../ui/ButtonGroup';
+import DeviceIcon, { getDeviceIconComponent } from './DeviceIcon';
+import DeviceRuntimeIndicator from './DeviceRuntimeIndicator';
 import { useDeviceControl } from '../../hooks/useDeviceControl';
 
-export default function RelayCard({ device }) {
+export default function RelayCard({ device, runtimeState }) {
   const { sendCommand } = useDeviceControl(device.topic, device.name);
   const [isLoading, setIsLoading] = useState(false);
 
   // Ikona v hlavičke karty
-  const HeaderIcon = device.id?.includes('light') ? Lightbulb : Zap;
+  const HeaderIcon = getDeviceIconComponent(device);
   
   // Veľká ikona v strede (ak nie je definovaná v configu, dáme default)
-  const customIcon = device.icon || null;
 
   const handleCommand = useCallback(async (command, displayText) => {
     setIsLoading(true);
@@ -28,12 +29,13 @@ export default function RelayCard({ device }) {
     <Card 
       title={device.name} 
       icon={HeaderIcon} 
+      actions={<DeviceRuntimeIndicator runtimeState={runtimeState} />}
       className="device-card relay-card"
     >
         {/* Preview Sekcia - Veľká ikona */}
         <div className="device-preview">
             <div className="device-large-icon">
-              {customIcon ? customIcon : <HeaderIcon size={64} strokeWidth={1.4} />}
+              <DeviceIcon device={device} size={64} strokeWidth={1.4} />
             </div>
         </div>
 

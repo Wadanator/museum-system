@@ -1,17 +1,11 @@
 import { useState } from 'react';
-import { Cpu, Zap, Lightbulb, GripVertical, Play, Plus, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import { GripVertical, Play, Plus, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 import { useDevicePalette } from '../../hooks/useDevicePalette';
 import { createEmptyAction } from '../../hooks/useSceneEditor';
+import DeviceIcon from '../Devices/DeviceIcon';
 
 // -- helpers -------------------------------------------------------------------
-
-const DEVICE_ICONS = { motor: Cpu, light: Lightbulb, relay: Zap };
-
-function DeviceIcon({ deviceType }) {
-  const Icon = DEVICE_ICONS[deviceType] ?? Zap;
-  return <Icon size={12} />;
-}
 
 // -- sub-components ------------------------------------------------------------
 
@@ -44,7 +38,7 @@ function DeviceRow({ item, onInsert, disabled }) {
       <button className="se2-pal-grip" {...attributes} {...listeners} type="button" title="Potiahnuť">
         <GripVertical size={12} />
       </button>
-      <span className="se2-pal-device-icon"><DeviceIcon deviceType={item.deviceType} /></span>
+      <span className="se2-pal-device-icon"><DeviceIcon device={item} size={12} /></span>
       <span className="se2-pal-device-name" title={item.topic}>{item.label}</span>
       <div className="se2-pal-quick-btns">
         {item.quickMessages.map((msg) => (
