@@ -3,12 +3,12 @@
 
 #include <WiFi.h>
 
-// WiFi management functions
+// WiFi management interface.
 bool initializeWiFi();
 void reconnectWiFi();
 bool isWiFiConnected();
 
-// WiFi state
+// WiFi connection state.
 extern bool wifiConnected;
 extern unsigned long lastWifiAttempt;
 

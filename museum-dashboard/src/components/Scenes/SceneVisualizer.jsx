@@ -33,7 +33,7 @@ function getCSSVar(name) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
-// ─── Inner component (needs useReactFlow which requires a Provider above) ──
+// --- Inner component (needs useReactFlow which requires a Provider above) --
 function SceneVisualizerInner({ data, activeStateId }) {
     const [nodes, setNodes, onNodesChange] = useNodesState([]);
     const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -41,17 +41,17 @@ function SceneVisualizerInner({ data, activeStateId }) {
     const { fitView } = useReactFlow();
     const wrapperRef = useRef(null);
 
-    // ── Helpers ─────────────────────────────────────────────────────────────
+    // -- Helpers -------------------------------------------------------------
 
     const formatAnyAction = (a) => {
         if (!a) return 'Neznámy príkaz';
-        if (a.action === 'mqtt') return `${a.topic} ➔ ${a.message}`;
+        if (a.action === 'mqtt') return `${a.topic} -> ${a.message}`;
         if (a.action === 'audio' || a.action === 'video')
             return `${a.action.toUpperCase()}: ${a.message}`;
         return `${a.action || 'cmd'}: ${a.message || a.topic || JSON.stringify(a)}`;
     };
 
-    // ── Layout (BFS) ─────────────────────────────────────────────────────────
+    // -- Layout (BFS) ---------------------------------------------------------
 
     const calculateLayout = useCallback(() => {
         if (!data?.states) return;
@@ -65,8 +65,8 @@ function SceneVisualizerInner({ data, activeStateId }) {
                 actions.forEach(a => s.timeline.push({ time: t.at, text: formatAnyAction(a) }));
             });
             stateData.transitions?.forEach(tr => {
-                const desc = tr.type === 'timeout' ? `⏱️ Po ${tr.delay}s` : `📩 ${tr.type}`;
-                s.transitions.push(`${desc} ➔ GOTO: ${tr.goto}`);
+                const desc = tr.type === 'timeout' ? `Po ${tr.delay}s` : tr.type;
+                s.transitions.push(`${desc} -> GOTO: ${tr.goto}`);
             });
             return s;
         };
@@ -157,7 +157,7 @@ function SceneVisualizerInner({ data, activeStateId }) {
                     target: trans.goto,
                     sourceHandle: `handle-${idx}`,
                     type: 'smart',
-                    label: trans.type === 'timeout' ? `⏱️ ${trans.delay}s` : '',
+                    label: trans.type === 'timeout' ? `${trans.delay}s` : '',
                     style: { stroke: strokeColor, strokeWidth: 2 },
                     markerEnd: { type: MarkerType.ArrowClosed, color: strokeColor },
                     animated: false,
@@ -171,7 +171,7 @@ function SceneVisualizerInner({ data, activeStateId }) {
 
     useEffect(() => { calculateLayout(); }, [calculateLayout]);
 
-    // ── Active-state patch — only updates className/animated, no re-layout ───
+    // -- Active-state patch - only updates className/animated, no re-layout ---
     useEffect(() => {
         setNodes(nds => nds.map(n => ({
             ...n,
@@ -183,13 +183,13 @@ function SceneVisualizerInner({ data, activeStateId }) {
         })));
     }, [activeStateId, setNodes, setEdges]);
 
-    // ── fitView — fires only when scene changes (node count changes) ─────────
+    // -- fitView - fires only when scene changes (node count changes) ---------
     //
     // KEY FIX: dependency is [nodes] but we guard with prevNodeCountRef.
-    // - expand/collapse  → same node count → skipped ✓
-    // - drag             → same node count → skipped ✓
-    // - activeStateId    → same node count → skipped ✓
-    // - new scene loaded → count changes   → fitView fires ✓
+    // - expand/collapse  -> same node count -> skipped OK
+    // - drag             -> same node count -> skipped OK
+    // - activeStateId    -> same node count -> skipped OK
+    // - new scene loaded -> count changes   -> fitView fires OK
     const prevNodeCountRef = useRef(0);
     useEffect(() => {
         const count = nodes.length;
@@ -199,7 +199,7 @@ function SceneVisualizerInner({ data, activeStateId }) {
         return () => clearTimeout(t);
     }, [nodes, fitView]);
 
-    // ── Fullscreen ───────────────────────────────────────────────────────────
+    // -- Fullscreen -----------------------------------------------------------
     const fullscreenTimerRef = useRef(null);
 
     const toggleFullscreen = useCallback(() => {
@@ -218,7 +218,7 @@ function SceneVisualizerInner({ data, activeStateId }) {
         return () => window.removeEventListener('keydown', onKey);
     }, [isFullscreen]);
 
-    // ── Render ───────────────────────────────────────────────────────────────
+    // -- Render ---------------------------------------------------------------
     return (
         <div
             ref={wrapperRef}
@@ -289,7 +289,7 @@ function SceneVisualizerInner({ data, activeStateId }) {
     );
 }
 
-// ─── Public export ──────────────────────────────────────────────────────────
+// --- Public export ----------------------------------------------------------
 export default function SceneVisualizer({ data, activeStateId }) {
     return (
         <ReactFlowProvider>

@@ -63,6 +63,11 @@ export const api = {
     return res.json();
   },
 
+  getRuntime: async () => {
+    const res = await authFetch(`${API_URL}/runtime`);
+    return res.json();
+  },
+
   getScenes: async () => {
     const res = await authFetch(`${API_URL}/scenes`);
     return res.json();
@@ -80,6 +85,14 @@ export const api = {
 
   saveScene: async (sceneName, data) => {
     const res = await authFetch(`${API_URL}/scene/${sceneName}`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    });
+    return res.json();
+  },
+
+  validateScene: async (data) => {
+    const res = await authFetch(`${API_URL}/scene/validate`, {
       method: 'POST',
       body: JSON.stringify(data)
     });

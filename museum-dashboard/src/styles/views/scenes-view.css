@@ -4,15 +4,15 @@
 .scenes-view {
     display: flex;
     flex-direction: column;
-    gap: 32px;
+    gap: var(--spacing-3xl);
     height: 100%;
 }
 
 .scenes-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 24px;
-    padding-bottom: 40px;
+    grid-template-columns: repeat(auto-fill, minmax(var(--scene-grid-min-width), 1fr));
+    gap: var(--spacing-2xl);
+    padding-bottom: var(--spacing-4xl);
 }
 
 .loading-state, .empty-state {
@@ -21,27 +21,89 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 16px;
-    padding: 60px;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-6xl);
     color: var(--text-muted);
     background: var(--bg-card);
     border-radius: var(--radius-lg);
-    border: 1px dashed var(--border-color);
+    border: var(--border-width-sm) dashed var(--border-color);
 }
 
 /* --- SCENE CARD (CINEMATIC DESIGN) --- */
 
 .scene-card {
     position: relative;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    height: 220px;
-    border: 1px solid var(--border-color);
+    transition: all var(--transition-emphasized);
+    height: var(--scene-card-height);
+    border: var(--border-width-sm) solid var(--border-color);
 }
 
 .scene-card:hover {
     transform: translateY(-5px);
     box-shadow: var(--shadow-lg);
     border-color: var(--primary);
+}
+
+.create-scene-card {
+    height: var(--scene-card-outer-height);
+    min-height: var(--scene-card-outer-height);
+    border: var(--create-scene-card-border);
+    border-radius: var(--radius-lg);
+    background: var(--bg-card);
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    box-shadow: var(--shadow-sm);
+    transition: all var(--transition-emphasized);
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.create-scene-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--primary);
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 5%, var(--bg-card));
+    box-shadow: var(--shadow-lg);
+}
+
+.create-scene-card:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring-primary), var(--shadow-lg);
+    border-color: var(--primary);
+}
+
+.create-scene-card__icon {
+    width: var(--size-scene-icon);
+    height: var(--size-scene-icon);
+    border-radius: var(--scene-card-icon-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg-hover);
+    border: var(--border-width-sm) solid var(--border-color);
+    color: var(--primary);
+}
+
+.create-scene-card__title {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.create-scene-card__meta {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+.create-scene-card:hover .create-scene-card__icon {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: var(--text-white);
 }
 
 /* Reset paddingu z globálneho Card komponentu */
@@ -54,17 +116,17 @@
 
 /* Cover (Vrch) */
 .scene-cover {
-    height: 90px;
+    height: var(--scene-card-cover-height);
     background: linear-gradient(135deg, var(--bg-main) 0%, var(--border-color) 100%);
     position: relative;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: var(--border-width-sm) solid var(--border-color);
 }
 
 /* Telo (Spodok) */
 .scene-body {
     flex: 1;
     background: var(--bg-card);
-    padding: 40px 20px 20px 20px; 
+    padding: var(--spacing-4xl) var(--spacing-xl) var(--spacing-xl) var(--spacing-xl); 
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -73,18 +135,18 @@
 /* Plávajúca ikona */
 .scene-icon-float {
     position: absolute;
-    top: 60px;
-    left: 20px;
-    width: 54px;
-    height: 54px;
+    top: var(--scene-card-icon-offset);
+    left: var(--spacing-xl);
+    width: var(--size-scene-icon);
+    height: var(--size-scene-icon);
     background: var(--bg-card);
-    border-radius: 14px;
+    border-radius: var(--scene-card-icon-radius);
     display: flex;
     align-items: center;
     justify-content: center;
     box-shadow: var(--shadow-md);
     color: var(--text-secondary);
-    border: 1px solid var(--border-color);
+    border: var(--border-width-sm) solid var(--border-color);
     z-index: 2;
 }
 
@@ -96,46 +158,47 @@
 
 /* Texty */
 .scene-name {
-    font-size: 1.2rem;
+    font-size: var(--font-size-dashboard-status-value);
     font-weight: 700;
     color: var(--text-primary);
-    margin: 0 0 6px 0;
-    line-height: 1.2;
+    margin: 0 0 var(--spacing-xs-plus) 0;
+    line-height: var(--line-height-tight);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .scene-meta {
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
     color: var(--text-muted);
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--spacing-xs-plus);
 }
 
 /* Tlačidlá na karte */
 button.edit-btn-absolute.btn-unstyled {
     position: absolute;
-    top: 12px;
-    right: 12px;
-    width: 32px;
-    height: 32px;
+    top: var(--scene-card-action-offset);
+    right: var(--scene-card-action-offset);
+    width: var(--size-icon-sm);
+    height: var(--size-icon-sm);
     background: linear-gradient(135deg, var(--bg-card), var(--bg-hover));
     backdrop-filter: blur(4px);
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--text-secondary);
-    border: 1px solid transparent;
+    border: var(--border-width-sm) solid transparent;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--transition-base);
     z-index: 5;
     padding: 0;
-    min-width: 32px;
+    min-width: var(--size-icon-sm);
     appearance: none;
     -webkit-appearance: none;
+    opacity: 0.72;
 }
 
 button.edit-btn-absolute.btn-unstyled:hover {
@@ -143,27 +206,33 @@ button.edit-btn-absolute.btn-unstyled:hover {
     color: var(--text-white);
     box-shadow: var(--shadow-primary-glow);
     transform: none;
+    opacity: 1;
+}
+
+.scene-card:hover button.edit-btn-absolute.btn-unstyled,
+.scene-card:focus-within button.edit-btn-absolute.btn-unstyled {
+    opacity: 1;
 }
 
 button.play-fab.btn-unstyled {
     position: absolute;
-    bottom: 20px;
-    right: 20px;
-    width: 44px;
-    height: 44px;
+    bottom: var(--spacing-xl);
+    right: var(--spacing-xl);
+    width: var(--scene-card-play-size);
+    height: var(--scene-card-play-size);
     border-radius: 50%;
     background: linear-gradient(135deg, var(--success), var(--success-hover));
     color: var(--text-white);
-    border: 1px solid color-mix(in srgb, var(--success) 30%, transparent);
+    border: var(--border-width-sm) solid color-mix(in srgb, var(--success) 30%, transparent);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     box-shadow: var(--shadow-success-sm);
-    transition: all 0.2s ease;
+    transition: all var(--transition-base);
     z-index: 5;
     padding: 0;
-    min-width: 44px;
+    min-width: var(--scene-card-play-size);
     appearance: none;
     -webkit-appearance: none;
 }
@@ -190,10 +259,20 @@ button.play-fab.btn-unstyled svg {
     color: var(--text-white);
 }
 
-.scenes-live-card {
-    min-height: 560px;
+/* SceneEditor V2 shortcut - offset left of the JSON edit button */
+button.edit-btn-absolute--v2.btn-unstyled {
+    right: var(--scene-card-editor-offset);
 }
 
-.scenes-live-card .card-content {
-    padding: var(--spacing-lg);
+button.edit-btn-absolute--v2.btn-unstyled svg {
+    color: var(--primary);
 }
+
+button.edit-btn-absolute--v2.btn-unstyled:hover {
+    background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+}
+
+button.edit-btn-absolute--v2.btn-unstyled:hover svg {
+    color: var(--text-white);
+}
+

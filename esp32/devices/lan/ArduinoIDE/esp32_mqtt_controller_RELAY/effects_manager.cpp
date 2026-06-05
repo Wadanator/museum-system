@@ -4,21 +4,18 @@
 #include "hardware.h"
 #include "debug.h"
 
-// Active state per group
+// Active state is tracked independently for each effect group.
 bool groupActive[EFFECT_GROUP_COUNT];
 
-// Per-device runtime state for independent blinking
+// Each relay keeps its own effect timing to avoid synchronized switching.
 struct DeviceRuntimeState {
   unsigned long nextSwitchTime;
   bool isEffectOn;
-  int activeGroupIndex;   // -1 = not under effect control
+  int activeGroupIndex;   // -1 means the relay is not under effect control.
 };
 
 DeviceRuntimeState deviceRuntimes[20];
 
-// ---------------------------------------------------------------------------
-// initializeEffects
-// ---------------------------------------------------------------------------
 void initializeEffects() {
   for (int i = 0; i < EFFECT_GROUP_COUNT; i++) {
     groupActive[i] = false;
@@ -31,16 +28,13 @@ void initializeEffects() {
   debugPrint("Effects: Manager Ready");
 }
 
-// ---------------------------------------------------------------------------
-// startEffect
-// ---------------------------------------------------------------------------
 void startEffect(String groupName) {
   for (int i = 0; i < EFFECT_GROUP_COUNT; i++) {
     if (String(EFFECT_GROUPS[i].name) != groupName) continue;
 
     if (!groupActive[i]) {
       groupActive[i] = true;
-      debugPrint("Efekt START: " + groupName);
+      debugPrint("Effect START: " + groupName);
 
       for (int j = 0; j < MAX_DEVICES_PER_GROUP; j++) {
         int devIdx = EFFECT_GROUPS[i].deviceIndices[j];
@@ -51,24 +45,21 @@ void startEffect(String groupName) {
 
         effectControlled[devIdx] = true;
 
-        // Stagger start times so devices don't all fire simultaneously
+        // Staggered start times prevent simultaneous relay switching.
         deviceRuntimes[devIdx].nextSwitchTime = millis() + random(10, 500);
       }
     }
     return;
   }
-  debugPrint("Neznámy efekt: " + groupName);
+  debugPrint("Unknown effect: " + groupName);
 }
 
-// ---------------------------------------------------------------------------
-// stopEffect
-// ---------------------------------------------------------------------------
 void stopEffect(String groupName) {
   for (int i = 0; i < EFFECT_GROUP_COUNT; i++) {
     if (String(EFFECT_GROUPS[i].name) != groupName) continue;
 
     groupActive[i] = false;
-    debugPrint("Efekt STOP: " + groupName);
+    debugPrint("Effect STOP: " + groupName);
 
     for (int j = 0; j < MAX_DEVICES_PER_GROUP; j++) {
       int devIdx = EFFECT_GROUPS[i].deviceIndices[j];
@@ -86,9 +77,6 @@ void stopEffect(String groupName) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// stopAllEffects
-// ---------------------------------------------------------------------------
 void stopAllEffects() {
   for (int i = 0; i < EFFECT_GROUP_COUNT; i++) {
     if (groupActive[i]) {
@@ -97,26 +85,21 @@ void stopAllEffects() {
   }
 }
 
-// ---------------------------------------------------------------------------
-// handleEffects – called every loop iteration
-// ---------------------------------------------------------------------------
 void handleEffects() {
   unsigned long currentTime = millis();
 
   for (int i = 0; i < DEVICE_COUNT; i++) {
     int groupIdx = deviceRuntimes[i].activeGroupIndex;
 
-    // Skip devices not under effect control or whose group was stopped
+    // Relays outside an active effect group are left to normal control.
     if (groupIdx == -1 || !groupActive[groupIdx]) continue;
 
     if (currentTime >= deviceRuntimes[i].nextSwitchTime) {
       const EffectGroup& group = EFFECT_GROUPS[groupIdx];
 
-      // Toggle state
       deviceRuntimes[i].isEffectOn = !deviceRuntimes[i].isEffectOn;
       setDevice(i, deviceRuntimes[i].isEffectOn);
 
-      // Schedule next toggle using group timing config
       long nextInterval = deviceRuntimes[i].isEffectOn
         ? random(group.minOnMs,  group.maxOnMs)
         : random(group.minOffMs, group.maxOffMs);

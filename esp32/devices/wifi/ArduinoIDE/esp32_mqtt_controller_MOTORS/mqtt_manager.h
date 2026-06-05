@@ -4,16 +4,16 @@
 #include <PubSubClient.h>
 #include <WiFi.h>
 
-// MQTT management functions
+// MQTT management interface.
 void initializeMqtt();
 void connectToMqtt();
 void publishStatus();
-void publishStatusImmediate();  // NOVÁ: Okamžité publikovanie
+void publishStatusImmediate();
 void mqttCallback(char* topic, byte* payload, unsigned int length);
 bool isMqttConnected();
 void mqttLoop();
 
-// MQTT state
+// MQTT state.
 extern WiFiClient wifiClient;
 extern PubSubClient client;
 extern bool mqttConnected;

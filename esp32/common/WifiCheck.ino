@@ -78,10 +78,10 @@ void performScan() {
   scanCount++;
   scanning = true;
   
-  Serial.println("╔══════════════════════════════════════════════════════════════╗");
+  Serial.println("+==============================================================+");
   Serial.printf("║                    SCAN #%d - %s                    ║\n", 
                 scanCount, getTimeString().c_str());
-  Serial.println("╚══════════════════════════════════════════════════════════════╝");
+  Serial.println("+==============================================================+");
   
   // Start LED blinking
   digitalWrite(LED_PIN, HIGH);
@@ -107,9 +107,9 @@ void performScan() {
   }
   
   // Display header
-  Serial.println("┌─────┬──────────────────────────────────┬────────┬─────────┬─────────┬─────────┐");
-  Serial.println("│ No. │ SSID                             │ Signal │ Channel │ Encrypt │ BSSID   │");
-  Serial.println("├─────┼──────────────────────────────────┼────────┼─────────┼─────────┼─────────┤");
+  Serial.println("┌-----┬----------------------------------┬--------┬---------┬---------┬---------┐");
+  Serial.println("| No. | SSID                             | Signal | Channel | Encrypt | BSSID   |");
+  Serial.println("├-----┼----------------------------------┼--------┼---------┼---------┼---------┤");
   
   // Display each network
   for (int i = 0; i < networkCount; i++) {
@@ -132,7 +132,7 @@ void performScan() {
     String encryptionStr = getEncryptionString(WiFi.encryptionType(i));
     String bssid = WiFi.BSSIDstr(i);
     
-    Serial.printf("│ %2d  │ %-32s │ %6s │   %2d    │ %7s │ %s │\n",
+    Serial.printf("| %2d  | %-32s | %6s |   %2d    | %7s | %s |\n",
                   i + 1,
                   ssid.c_str(),
                   signalStr.c_str(),
@@ -141,14 +141,14 @@ void performScan() {
                   bssid.c_str());
   }
   
-  Serial.println("└─────┴──────────────────────────────────┴────────┴─────────┴─────────┴─────────┘");
+  Serial.println("└-----┴----------------------------------┴--------┴---------┴---------┴---------┘");
   
   // Display statistics
   displayStatistics(networkCount);
   
   Serial.println();
   Serial.printf("Next scan in %d seconds...\n", SCAN_INTERVAL / 1000);
-  Serial.println("════════════════════════════════════════════════════════════════");
+  Serial.println("================================================================");
   Serial.println();
 }
 
@@ -236,12 +236,12 @@ void displayStatistics(int networkCount) {
     }
   }
   
-  Serial.println("\n📊 Network Statistics:");
-  Serial.printf("   • Total networks: %d\n", networkCount);
-  Serial.printf("   • Open networks: %d\n", openNetworks);
-  Serial.printf("   • Strong signals: %d (≥-60dBm)\n", strongSignals);
-  Serial.printf("   • 2.4GHz networks: %d\n", channel24Count);
-  Serial.printf("   • 5GHz networks: %d\n", channel5Count);
+  Serial.println("\n Network Statistics:");
+  Serial.printf("   * Total networks: %d\n", networkCount);
+  Serial.printf("   * Open networks: %d\n", openNetworks);
+  Serial.printf("   * Strong signals: %d (≥-60dBm)\n", strongSignals);
+  Serial.printf("   * 2.4GHz networks: %d\n", channel24Count);
+  Serial.printf("   * 5GHz networks: %d\n", channel5Count);
   
   // Find strongest and weakest signals
   if (networkCount > 0) {
@@ -254,8 +254,8 @@ void displayStatistics(int networkCount) {
       if (rssi < weakest) weakest = rssi;
     }
     
-    Serial.printf("   • Strongest signal: %d dBm\n", strongest);
-    Serial.printf("   • Weakest signal: %d dBm\n", weakest);
+    Serial.printf("   * Strongest signal: %d dBm\n", strongest);
+    Serial.printf("   * Weakest signal: %d dBm\n", weakest);
   }
 }
 

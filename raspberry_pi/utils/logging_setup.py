@@ -373,9 +373,9 @@ def setup_logging(log_level=logging.INFO, log_dir=None, retention_days=30,
             sql_handler = AsyncSQLiteHandler(db_path, retention_days=retention_days)
             sql_handler.setLevel(logging.INFO)
             logger.addHandler(sql_handler)
-            print(f"✅ Async DB Logging: Active (History: {retention_days} days)")
+            print(f"[OK] Async DB Logging: Active (History: {retention_days} days)")
         except Exception as e:
-            print(f"❌ DB Logging Failed: {e}")
+            print(f"[ERROR] DB Logging Failed: {e}")
 
         # Rotating error-only file handler for persistent error tracking
         eh = logging.handlers.RotatingFileHandler(

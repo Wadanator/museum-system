@@ -44,7 +44,7 @@ class MQTTFeedbackTracker:
         self.pending_feedbacks = {}
         self.lock = threading.Lock()
 
-        # Optional state store — set via set_state_store()
+        # Optional state store - set via set_state_store()
         self._state_store = None
 
     # ==========================================================================
@@ -103,26 +103,33 @@ class MQTTFeedbackTracker:
                 self.pending_feedbacks.clear()
                 self.logger.debug("MQTT feedback tracking disabled")
 
-    def track_published_message(self, original_topic: str, message: str) -> None:
+    def track_published_message(
+        self,
+        original_topic: str,
+        message: str,
+        force_feedback: bool = False,
+    ) -> None:
         """
         Track an individual published command and start its feedback timer.
 
         Also records the desired state in MQTTActuatorStateStore (if wired)
         so the UI can show the intended state before feedback arrives.
 
-        Skips audio/video topics (handled locally) and topics for which no
-        feedback topic can be determined. If a timer already exists for the
-        same topic, it is cancelled and replaced.
+        Skips feedback waiting unless scene feedback tracking is enabled or
+        force_feedback is true. Manual dashboard controls use force_feedback so
+        Live can confirm actuator state outside scene execution. Audio/video
+        topics and topics with no feedback mapping still do not wait for ACK.
 
         Args:
             original_topic: The MQTT topic the command was published to.
             message: The command payload that was published.
+            force_feedback: Track this command even when scene tracking is off.
         """
         # Always record desired state regardless of feedback tracking mode
         if self._state_store:
             self._state_store.update_desired(original_topic, message)
 
-        if not self.feedback_enabled:
+        if not self.feedback_enabled and not force_feedback:
             return
 
         # Skip audio/video topics as they are handled locally

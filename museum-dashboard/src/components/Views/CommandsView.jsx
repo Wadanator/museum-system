@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Loader2, Zap, Settings2, RefreshCw, OctagonX, FileCode2 } from 'lucide-react';
+import { Loader2, Zap, Settings2, RefreshCw, OctagonX, SlidersHorizontal } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useDevices } from '../../hooks/useDevices';
+import { useDeviceRuntimeState } from '../../hooks/useDeviceRuntimeState';
 import { api } from '../../services/api';
 import { useConfirm } from '../../context/useConfirm';
 import MotorCard from '../Devices/MotorCard';
@@ -9,39 +10,54 @@ import RelayCard from '../Devices/RelayCard';
 import DevicesConfigModal from '../Devices/DevicesConfigModal';
 import Button from '../ui/Button';
 import PageHeader from '../ui/PageHeader';
+import StateNotice from '../ui/StateNotice';
 import '../../styles/views/commands-view.css';
 
 export default function CommandsView() {
     const { motors, relays, loading, error } = useDevices();
+    const { deviceStates, getStateForDevice, getDisplayStateForDevice } = useDeviceRuntimeState();
     const [isDevicesEditorOpen, setIsDevicesEditorOpen] = useState(false);
     const [devicesConfig, setDevicesConfig] = useState({ relays: [], motors: [] });
     const { confirm } = useConfirm();
+
+    const getRuntimeState = (device) => {
+        const entry = deviceStates[device.topic] || null;
+        const confirmedState = getStateForDevice(device);
+        const displayState = getDisplayStateForDevice(device);
+        const isPending = Boolean(
+            entry?.desired_state
+            && entry.desired_state !== entry.confirmed_state
+            && !entry.stale
+        );
+        const isStale = Boolean(entry?.stale);
+
+        return {
+            topic: device.topic,
+            entry,
+            confirmedState,
+            displayState,
+            isPending,
+            isStale,
+        };
+    };
 
     const handleRefresh = () => window.location.reload();
 
     const handleStopAll = async () => {
         const confirmed = await confirm({
-            title: 'Vypnúť všetky zariadenia?',
-            message: 'Naozaj chcete okamžite vypnúť všetky motory a relé?',
-            confirmText: 'Vypnúť všetko',
+            title: 'Zastaviť všetko?',
+            message: 'Naozaj chcete okamžite zastaviť scénu a vypnúť všetky motory a relé?',
+            confirmText: 'Zastaviť všetko',
             cancelText: 'Zrušiť',
             type: 'danger',
         });
         if (!confirmed) return;
 
-        const toastId = toast.loading("Vypínam všetky zariadenia...");
+        const toastId = toast.loading('Zastavujem scénu a zariadenia...');
 
         try {
-            const status = await api.getStatus(); 
-            const roomId = status.room_id;
-
-            if (!roomId) {
-                throw new Error("Nepodarilo sa zistiť Room ID zo servera.");
-            }
-
-            await api.sendMqtt(`${roomId}/STOP`, 'STOP');
-
-            toast.success(`Všetky zariadenia v ${roomId} boli vypnuté.`, { id: toastId });
+            await api.stopScene();
+            toast.success('Scéna aj všetky zariadenia boli zastavené.', { id: toastId });
         } catch (e) {
             console.error("Stop All Error:", e);
             toast.error("Chyba pri hromadnom vypínaní.", { id: toastId });
@@ -73,41 +89,53 @@ export default function CommandsView() {
     };
 
     if (loading) return (
-        <div className="loading-state">
-            <Loader2 className="animate-spin" size={40} />
-            <p>Načítavam zariadenia...</p>
-        </div>
+        <StateNotice
+            icon={Loader2}
+            title="Načítavam zariadenia"
+            message="Zoznam motorov, relé a efektov sa načítava z konfigurácie."
+            isLoading
+        />
     );
 
     if (error) return (
-        <div className="error-state">
-            <p>Chyba načítania: {error}</p>
-            <Button onClick={handleRefresh} variant="secondary">Skúsiť znova</Button>
-        </div>
+        <StateNotice
+            icon={OctagonX}
+            title="Zariadenia sa nepodarilo načítať"
+            message={error}
+            tone="danger"
+        >
+            <Button onClick={handleRefresh} variant="toolbar">Skúsiť znova</Button>
+        </StateNotice>
     );
 
     return (
         <div className="view-container commands-view">
             <PageHeader 
-                title="Ovládanie Zariadení" 
+                title="Ovládanie zariadení" 
                 subtitle="Manuálna kontrola motorov a efektov"
                 icon={Zap}
             >
                 <Button 
-                    variant="danger" 
+                    variant="toolbar-danger" 
                     icon={OctagonX} 
                     onClick={handleStopAll} 
                     disabled={motors.length === 0 && relays.length === 0}
                 >
-                    VYPNÚŤ VŠETKO
+                    Zastaviť všetko
                 </Button>
 
-                <Button variant="secondary" icon={RefreshCw} onClick={handleRefresh} size="small">
+                <Button variant="toolbar" icon={RefreshCw} onClick={handleRefresh} size="small">
                     Obnoviť
                 </Button>
 
-                <Button variant="secondary" icon={FileCode2} onClick={handleOpenDevicesEditor} size="small">
-                    Upraviť devices.json
+                <Button
+                    variant="toolbar"
+                    icon={SlidersHorizontal}
+                    onClick={handleOpenDevicesEditor}
+                    size="small"
+                    title="Upraviť devices.json"
+                >
+                    Konfigurácia zariadení
                 </Button>
             </PageHeader>
 
@@ -121,7 +149,11 @@ export default function CommandsView() {
                         </div>
                         <div className="devices-grid motors-grid">
                             {motors.map((motor, idx) => (
-                                <MotorCard key={motor.id || idx} device={motor} />
+                                <MotorCard
+                                    key={motor.id || idx}
+                                    device={motor}
+                                    runtimeState={getRuntimeState(motor)}
+                                />
                             ))}
                         </div>
                     </section>
@@ -138,16 +170,26 @@ export default function CommandsView() {
                         </div>
                         <div className="devices-grid relays-grid">
                             {relays.map((relay, idx) => (
-                                <RelayCard key={relay.id || idx} device={relay} />
+                                <RelayCard
+                                    key={relay.id || idx}
+                                    device={relay}
+                                    runtimeState={getRuntimeState(relay)}
+                                />
                             ))}
                         </div>
                     </section>
                 )}
 
                 {motors.length === 0 && relays.length === 0 && (
-                    <div className="empty-state">
-                        Nenašli sa žiadne zariadenia v konfigurácii.
-                    </div>
+                    <StateNotice
+                        icon={SlidersHorizontal}
+                        title="Žiadne zariadenia"
+                        message="V konfigurácii zatiaľ nie sú pridané motory, relé ani efekty."
+                    >
+                        <Button variant="toolbar-primary" icon={SlidersHorizontal} onClick={handleOpenDevicesEditor}>
+                            Otvoriť konfiguráciu
+                        </Button>
+                    </StateNotice>
                 )}
             </div>
 

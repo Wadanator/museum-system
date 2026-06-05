@@ -6,14 +6,27 @@ from flask import Blueprint, jsonify, request
 from werkzeug.utils import secure_filename
 from ..auth import requires_auth
 from ..utils.helpers import get_scenes_path, get_scene_path
+from utils.schema_validator import validate_scene_payload
 
 from .status import _get_current_status_data 
 
 scenes_bp = Blueprint('scenes', __name__)
 
+
+def _validation_error_message(validation):
+    """Build a concise message for API clients that only show one error."""
+    errors = validation.get('errors') or []
+    if not errors:
+        return 'Scene validation failed'
+    first = errors[0]
+    return (
+        f"Scene validation failed at {first.get('path', '<root>')}: "
+        f"{first.get('message', 'Invalid scene')}"
+    )
+
 def setup_scenes_routes(dashboard):
     controller = dashboard.controller
-    hidden_scene_files = {'devices.json'}
+    hidden_scene_files = {'devices.json', 'sc_preview.json'}
 
     @scenes_bp.route('/scenes')
     @requires_auth
@@ -46,15 +59,42 @@ def setup_scenes_routes(dashboard):
         except Exception as e:
             return jsonify({'error': f"Error loading scene {scene_name}: {e}"}), 500
 
+    @scenes_bp.route('/scene/validate', methods=['POST'])
+    @requires_auth
+    def validate_scene():
+        """Validate a scene payload without saving it."""
+        scene_data = request.get_json(silent=True)
+        if scene_data is None:
+            return jsonify({
+                'valid': False,
+                'errors': [{
+                    'path': '<root>',
+                    'message': 'No valid JSON scene data provided'
+                }],
+                'warnings': []
+            }), 400
+
+        validation = validate_scene_payload(scene_data, dashboard.log)
+        return jsonify(validation), 200
+
     @scenes_bp.route('/scene/<scene_name>', methods=['POST'])
     @requires_auth
     def save_scene(scene_name):
         """Save a new or updated scene file with validation."""
         try:
-            scene_data = request.json
+            scene_data = request.get_json(silent=True)
             
-            if not scene_data:
+            if scene_data is None:
                 return jsonify({'error': 'No scene data provided'}), 400
+
+            validation = validate_scene_payload(scene_data, dashboard.log)
+            if not validation['valid']:
+                return jsonify({
+                    'success': False,
+                    'error': _validation_error_message(validation),
+                    'validation': validation,
+                    'errors': validation['errors'],
+                }), 400
                 
             scenes_path = get_scenes_path(controller)
             scenes_path.mkdir(parents=True, exist_ok=True)

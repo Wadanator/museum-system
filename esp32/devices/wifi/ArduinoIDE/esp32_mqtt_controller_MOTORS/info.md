@@ -1,72 +1,60 @@
-# ESP32 MQTT Motors (`esp32_mqtt_controller_MOTORS`)
+# ESP32 WiFi MQTT Motor Controller
 
-Firmware pre riadenie dvoch motorov cez MQTT.
+Firmware for controlling two bidirectional DC motors over MQTT. Each motor is
+driven through independent left/right PWM outputs and a dedicated enable pin.
 
----
+## MQTT Interface
 
-## 1) Zodpovednosť modulu
+Subscribed command topics:
 
-- subscribe motor command topics,
-- parse motor command payload,
-- ovládanie motor driver pinov/PWM,
-- feedback publish na `<topic>/feedback`,
-- pravidelný status publish.
-
----
-
-## 2) MQTT topics
-
-Subscribe:
 - `room1/motor1`
 - `room1/motor2`
 - `room1/STOP`
 
-Status:
-- `devices/Room1_ESP_Motory/status` (`online` retained + LWT `offline`)
+Status topic:
 
-Feedback:
-- `<command_topic>/feedback` (`OK`/`ERROR`)
+- `devices/Room1_ESP_Motory/status`
 
----
+Feedback topic format:
 
-## 3) Podporované payloady
+- `<command_topic>/feedback`
 
-Parser podporuje:
+## Command Payloads
+
+Motor topics accept the following payloads:
+
 - `ON:<speed>:<direction>`
 - `ON:<speed>:<direction>:<rampTime>`
 - `OFF`
 - `SPEED:<value>`
 - `DIR:<value>`
 
-Príklady:
+Examples:
+
 - `room1/motor1` -> `ON:150:L`
 - `room1/motor2` -> `ON:90:R:4000`
 - `room1/motor1` -> `SPEED:200`
 - `room1/motor2` -> `OFF`
 
----
+The `direction` field uses `L` or `R`. The optional `rampTime` field is a
+duration in milliseconds.
 
-## 4) STOP command
+## Safety Behavior
 
-`room1/STOP` vyvolá okamžité vypnutie motorov (`turnOffHardware`).
-Používa sa pri ukončení scény alebo emergency stop.
+- `room1/STOP` immediately disables both motor drivers through
+  `turnOffHardware()`.
+- Direction changes while running are completed through zero speed before the
+  requested direction is applied.
+- Motors are de-energized when MQTT is unavailable.
+- `NO_COMMAND_TIMEOUT` provides the inactivity safety timeout.
 
----
+## Configuration
 
-## 5) Konfigurácia (`config.cpp`)
+The hardware and timing configuration is in `config.cpp`:
 
-Uprav minimálne:
-- WiFi/MQTT nastavenia,
-- `BASE_TOPIC_PREFIX`,
-- `CLIENT_ID`,
-- motor pin mapping,
-- PWM parametre,
-- OTA hostname/password.
-
----
-
-## 6) Prevádzkové poznámky
-
-- Pri zmene room prefixu musí sedieť s Pi backend `room_id`.
-- Feedback topic je odvodený z command topicu + `/feedback`.
-- Pri strate MQTT sa spoliehaš na reconnect mechanizmus firmvéru.
+- WiFi credentials.
+- MQTT broker and base topic.
+- Motor driver pin mapping.
+- PWM frequency and resolution.
+- Smooth speed step and update interval.
+- OTA hostname and password.

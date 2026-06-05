@@ -25,6 +25,6 @@ def setup_device_states_routes(dashboard):
         store = getattr(controller, 'actuator_state_store', None)
         if store is None:
             return jsonify([])
-        return jsonify(store.get_all_states())
+        return jsonify(dashboard.get_device_runtime_states())
 
     return device_states_bp

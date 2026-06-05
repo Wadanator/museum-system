@@ -18,4 +18,4 @@ class Config:
 
     # Authentication credentials (must be changed in production)
     USERNAME = 'admin'
-    PASSWORD = 'admin'
+    PASSWORD = 'admin12321'

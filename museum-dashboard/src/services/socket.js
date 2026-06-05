@@ -13,5 +13,5 @@ export const socket = io(SOCKET_URL, {
   reconnectionDelayMax: 5000,
   reconnectionAttempts: Infinity,
   path: '/socket.io',
-  transports: ['websocket', 'polling']
+  transports: ['polling', 'websocket']
 });

@@ -1,77 +1,95 @@
-import { useState } from 'react'; // Pridaný useState
-import { Rewind, FastForward, Square, Gauge } from 'lucide-react';
-import Card from '../ui/Card';
+import { useState } from 'react';
+import { Rewind, FastForward, Square } from 'lucide-react';
 import Button from '../ui/Button';
 import ButtonGroup from '../ui/ButtonGroup';
 import StatusBadge from '../ui/StatusBadge';
+import DeviceIcon from './DeviceIcon';
 import { useDeviceControl } from '../../hooks/useDeviceControl';
+import {
+  getDeviceRuntimeLabel,
+  getDeviceRuntimeTone,
+} from '../../utils/deviceRuntimePresentation';
 
-export default function MotorCard({ device }) {
+export default function MotorCard({ device, runtimeState }) {
   const speed = device.speed || 100;
   const { sendCommand } = useDeviceControl(device.topic, device.name);
   const [loading, setLoading] = useState(false);
+  const runtimeTone = getDeviceRuntimeTone(runtimeState);
+  const runtimeLabel = getDeviceRuntimeLabel(runtimeState);
+  const runtimeTopic = runtimeState?.entry?.topic || runtimeState?.topic || device.topic;
 
-  const handleAction = async (direction, label) => { 
-      if (loading) return;
+  const handleAction = async (direction, label) => {
+    if (loading) return;
 
-      setLoading(true);
-      
-      let payload = `OFF`;
-      if (direction === 'LEFT') payload = `ON:${speed}:L`;
-      else if (direction === 'RIGHT') payload = `ON:${speed}:R`;
+    setLoading(true);
 
-      try {
-        await sendCommand(payload, label);
-      } finally {
-        setLoading(false);
-      }
+    let payload = 'OFF';
+    if (direction === 'LEFT') payload = `ON:${speed}:L`;
+    else if (direction === 'RIGHT') payload = `ON:${speed}:R`;
+
+    try {
+      await sendCommand(payload, label);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <Card 
-        title={device.name} 
-        icon={Gauge} 
-        actions={<StatusBadge status="info" label={`${speed}%`} />}
-        className="device-card motor-card"
-    >
-        <div className="card-description">
-            Ovládanie smeru a rýchlosti motorickej jednotky.
+    <article className="device-control-row motor-card">
+      <div className="device-control-main">
+        <div
+          className={`device-control-icon device-control-icon--${runtimeTone}`}
+          title={`${runtimeTopic}: ${runtimeLabel}`}
+          aria-label={`Stav zariadenia ${runtimeLabel}`}
+        >
+          <DeviceIcon device={device} size={22} />
         </div>
 
-           <div className="device-preview device-preview--faded">
-             <Gauge size={64} color="var(--text-primary)" />
+        <div className="device-control-text">
+          <h4 className="device-control-title">{device.name}</h4>
+          <div className="device-control-meta">
+            <span className="device-control-topic">{device.topic}</span>
+            <StatusBadge status="info" label={`${speed}%`} />
+          </div>
         </div>
+      </div>
 
-        <div className="card-controls-footer">
-            <ButtonGroup>
-                <Button 
-                    variant="secondary" 
-                    onClick={() => handleAction('LEFT', 'Vzad')} 
-                    icon={Rewind}
-                    isLoading={loading}
-                >
-                    Vzad
-                </Button>
-                
-                <Button 
-                    variant="danger" 
-                    onClick={() => handleAction('STOP', 'Stop')}
-                    icon={Square}
-                    isLoading={loading}
-                >
-                    STOP
-                </Button>
-                
-                <Button 
-                    variant="secondary" 
-                    onClick={() => handleAction('RIGHT', 'Vpred')} 
-                    icon={FastForward}
-                    isLoading={loading}
-                >
-                    Vpred
-                </Button>
-            </ButtonGroup>
-        </div>
-    </Card>
+      <div className="device-control-actions">
+        <ButtonGroup>
+          <Button
+            variant="success"
+            onClick={() => handleAction('LEFT', 'Vzad')}
+            icon={Rewind}
+            isLoading={loading}
+            className="device-command-button"
+            aria-label={`Spustiť ${device.name} vzad`}
+            title="Vzad"
+            size="small"
+          />
+
+          <Button
+            variant="danger"
+            onClick={() => handleAction('STOP', 'Stop')}
+            icon={Square}
+            isLoading={loading}
+            className="device-command-button"
+            aria-label={`Zastaviť ${device.name}`}
+            title="STOP"
+            size="small"
+          />
+
+          <Button
+            variant="success"
+            onClick={() => handleAction('RIGHT', 'Vpred')}
+            icon={FastForward}
+            isLoading={loading}
+            className="device-command-button"
+            aria-label={`Spustiť ${device.name} vpred`}
+            title="Vpred"
+            size="small"
+          />
+        </ButtonGroup>
+      </div>
+    </article>
   );
 }

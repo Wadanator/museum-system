@@ -6,8 +6,8 @@
 #include <SPI.h>
 #include <WiFi.h>
 
-// Compatibility names retained so the rest of the firmware stays unchanged.
-// In this hybrid build they represent "some network is connected".
+// Network state shared with the rest of the firmware.
+// These values represent LAN or fallback WiFi availability.
 bool wifiConnected = false;
 unsigned long lastWifiAttempt = 0;
 

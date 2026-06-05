@@ -12,7 +12,7 @@ Web runtime sa spúšťa z `raspberry_pi/Web/app.py`. Samotný dashboard objekt 
 
 - vytvorí Flask aplikáciu,
 - nastaví `SECRET_KEY` z `raspberry_pi/Web/config.py`,
-- vytvorí `SocketIO` s `async_mode='threading'`, `ping_timeout=60`, `ping_interval=25` a `transports=['websocket']`,
+- vytvorí `SocketIO` s `async_mode='threading'`, `ping_timeout=60`, `ping_interval=25` a `transports=['polling', 'websocket']`,
 - zaregistruje `main_bp`, API blueprints a system blueprints,
 - spustí server v daemon threade na `0.0.0.0`.
 

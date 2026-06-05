@@ -1,21 +1,6 @@
-import { useState, useEffect } from 'react';
-import { socket } from '../services/socket';
+import { useRuntime } from '../context/useRuntime';
 
 export function useSceneProgress() {
-    const [activeState, setActiveState] = useState(null);
-
-    useEffect(() => {
-        const handleProgress = (data) => {
-            if (data?.activeState) {
-                setActiveState(data.activeState);
-            }
-        };
-
-        socket.on('scene_progress', handleProgress);
-        return () => socket.off('scene_progress', handleProgress);
-    }, []);
-
-    const resetActiveState = () => setActiveState(null);
-
+    const { activeState, resetActiveState } = useRuntime();
     return { activeState, resetActiveState };
 }

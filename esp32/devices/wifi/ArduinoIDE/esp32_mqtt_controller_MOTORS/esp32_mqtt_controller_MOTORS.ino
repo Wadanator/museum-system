@@ -14,22 +14,20 @@ void setup() {
   Serial.println("\n=== ESP32 MQTT Controller Starting ===");
   debugPrint("=== ESP32 MQTT Controller Starting ===");
 
-  // Initialize Watchdog Timer
+  // The watchdog is active before hardware and network initialization.
   initializeWatchdog();
 
-  // Initialize hardware and Wi-Fi
   initializeHardware();
   if (!initializeWiFi()) {
     Serial.println("WiFi failed, will retry...");
     debugPrint("Initial WiFi failed");
   }
 
-  // Initialize OTA ONLY after WiFi is connected
+  // OTA is enabled only after WiFi is connected.
   if (wifiConnected) {
     initializeOTA();
   }
 
-  // Initialize MQTT
   initializeMqtt();
 
   Serial.println("=== Setup Complete ===");
@@ -38,25 +36,23 @@ void setup() {
 }
 
 void loop() {
-  // Handle OTA first
+  // OTA handling runs before normal work so updates stay responsive.
   if (wifiConnected) {
     handleOTA();
-    // If OTA upload is happening, do nothing else
     if (isOTAInProgress()) {
       delay(10);
       return;
     }
   }
 
-  // MQTT loop must be first for fast feedback
+  // MQTT is serviced before motor smoothing to keep command feedback responsive.
   if (isMqttConnected()) {
     mqttLoop();
   }
 
-  // Smooth motor update
   updateMotorSmoothly();
 
-  // Watchdog reset (only if not doing an OTA update)
+  // Watchdog service is suspended while OTA owns the loop.
   if (!isOTAInProgress()) {
 
     resetWatchdog();
@@ -65,12 +61,11 @@ void loop() {
   static unsigned long lastQuickCheck = 0;
   unsigned long currentTime = millis();
 
-  // Handle Wi-Fi and MQTT reconnections more frequently
+  // WiFi and MQTT reconnects are checked frequently for fast recovery.
   if (currentTime - lastQuickCheck >= 100) {
     lastQuickCheck = currentTime;
     if (!isWiFiConnected()) {
       reconnectWiFi();
-      // Re-initialize OTA after Wi-Fi reconnect
       if (wifiConnected) {
         reinitializeOTAAfterWiFiReconnect();
       }
@@ -81,14 +76,14 @@ void loop() {
     }
   }
 
-  // Perform more detailed checks less frequently
+  // Connection diagnostics are rate-limited to keep serial output readable.
   static unsigned long lastDetailedCheck = 0;
   if (currentTime - lastDetailedCheck >= 10000) {
     lastDetailedCheck = currentTime;
     monitorConnections();
   }
 
-  // Hardware safety check
+  // Motors are de-energized immediately when MQTT is unavailable.
   if (!isMqttConnected() && !hardwareOff) {
     turnOffHardware();
   }

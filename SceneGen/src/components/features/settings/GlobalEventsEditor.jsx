@@ -31,7 +31,7 @@ const GlobalEventsEditor = ({ globalEvents, onChange, states, globalPrefix }) =>
   return (
     <div className="mt-6">
       <div className="flex justify-between items-center mb-3">
-        <h3 className="text-lg font-bold text-yellow-400">🚨 Global Events</h3>
+        <h3 className="text-lg font-bold text-yellow-400"> Global Events</h3>
         <button
           onClick={addGlobalEvent}
           className="px-3 py-1 bg-yellow-600 hover:bg-yellow-700 rounded text-sm flex items-center gap-1 transition"
@@ -66,8 +66,8 @@ const GlobalEventsEditor = ({ globalEvents, onChange, states, globalPrefix }) =>
                 }}
                 className="col-span-11 px-2 py-1 bg-gray-600 rounded text-sm"
               >
-                <option value={TRANSITION_TYPES.MQTT_MESSAGE}>📡 MQTT Message (Emergency)</option>
-                <option value={TRANSITION_TYPES.TIMEOUT}>⏱️ Global Timeout (Max Time)</option>
+                <option value={TRANSITION_TYPES.MQTT_MESSAGE}> MQTT Message (Emergency)</option>
+                <option value={TRANSITION_TYPES.TIMEOUT}> Global Timeout (Max Time)</option>
               </select>
 
               {/* Delete Button */}

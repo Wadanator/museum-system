@@ -45,7 +45,7 @@ const ActionEditor = ({ action, onChange, onDelete, globalPrefix }) => {
           )}
           
           {action.action !== 'audio' && action.action !== 'video' && (
-             <span className="text-gray-500 mx-1">→</span>
+             <span className="text-gray-500 mx-1">{'->'}</span>
           )}
 
           <span className="text-green-400">{action.message || '(no message)'}</span>

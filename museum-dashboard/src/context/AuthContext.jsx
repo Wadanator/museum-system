@@ -33,7 +33,7 @@ export function AuthProvider({ children }) {
   const logout = () => {
     localStorage.removeItem('auth_header');
     setIsAuthenticated(false);
-    toast('Boli ste odhlásený', { icon: '👋' });
+    toast('Boli ste odhlásený');
     // Na localhoste ťa to po refreshnutí znova prihlási, čo je pre dizajn žiadané
   };
 

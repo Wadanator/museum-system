@@ -1,28 +1,28 @@
-# OTA – `esp32_mqtt_controller_MOTORS`
+# OTA Update
 
----
+OTA updates are enabled when `OTA_ENABLED` is true and the device is connected
+to the same WiFi network as the development machine.
 
-## 1) Predpoklady
+## Arduino IDE Upload
 
-- firmware má zapnuté OTA (`OTA_ENABLED = true`),
-- zariadenie je online v rovnakej sieti ako vývojový stroj.
+1. Open the motor controller sketch in Arduino IDE.
+2. Select the network port for `ESP32-Museum-Room1`.
+3. Start the upload.
 
----
+Default OTA settings:
 
-## 2) Upload
-
-1. Otvor projekt v Arduino IDE.
-2. Vyber network port zariadenia (hostname).
-3. Upload (`Ctrl+U`).
-
-Aktuálne defaulty:
 - `OTA_HOSTNAME = "ESP32-Museum-Room1"`
 - `OTA_PASSWORD = "room1"`
 
----
+## Update Behavior
 
-## 3) Po update over
+- Motor outputs are disabled before the firmware upload starts.
+- The watchdog is disabled during flash writes.
+- A successful upload reboots the controller.
+- A failed upload restores watchdog protection.
 
-- zariadenie sa znovu pripojí do WiFi,
-- publikuje `online` na status topic,
-- reaguje na `room1/motor1` / `room1/motor2`.
+## Post-Update Checks
+
+- The controller reconnects to WiFi.
+- The status topic publishes `online`.
+- The controller responds to `room1/motor1` and `room1/motor2`.

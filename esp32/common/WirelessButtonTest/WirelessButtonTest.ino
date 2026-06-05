@@ -107,7 +107,7 @@ void connectWiFi() {
   if (WiFi.status() == WL_CONNECTED) {
     wifiConnected = true;
     Serial.println();
-    Serial.print("✅ WiFi connected! IP: ");
+    Serial.print("[OK] WiFi connected! IP: ");
     Serial.println(WiFi.localIP());
     Serial.print("Signal strength: ");
     Serial.print(WiFi.RSSI());
@@ -115,7 +115,7 @@ void connectWiFi() {
   } else {
     wifiConnected = false;
     Serial.println();
-    Serial.println("❌ WiFi connection failed!");
+    Serial.println("[ERROR] WiFi connection failed!");
   }
   Serial.println();
 }
@@ -129,7 +129,7 @@ void connectMQTT() {
   // Connect with Last Will Testament
   if (mqttClient.connect(CLIENT_ID, NULL, NULL, STATUS_TOPIC, 0, true, "offline")) {
     mqttConnected = true;
-    Serial.println("✅ MQTT connected!");
+    Serial.println("[OK] MQTT connected!");
     
     // Publish online status
     mqttClient.publish(STATUS_TOPIC, "online", true);
@@ -139,7 +139,7 @@ void connectMQTT() {
     Serial.println();
   } else {
     mqttConnected = false;
-    Serial.print("❌ MQTT connection failed! Error code: ");
+    Serial.print("[ERROR] MQTT connection failed! Error code: ");
     Serial.println(mqttClient.state());
     Serial.println();
   }
@@ -152,7 +152,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     message += (char)payload[i];
   }
   
-  Serial.print("📨 Received message on ");
+  Serial.print(" Received message on ");
   Serial.print(topic);
   Serial.print(": ");
   Serial.println(message);
@@ -173,33 +173,33 @@ void processCommand(String command) {
     showHelp();
   }
   else if (command == "RESTART") {
-    Serial.println("🔄 Restarting ESP32...");
+    Serial.println(" Restarting ESP32...");
     delay(1000);
     ESP.restart();
   }
   else if (command == "RECONNECT") {
-    Serial.println("🔄 Reconnecting to MQTT...");
+    Serial.println(" Reconnecting to MQTT...");
     mqttClient.disconnect();
     delay(1000);
     connectMQTT();
   }
   else {
-    Serial.println("❓ Unknown command. Type HELP for available commands.");
+    Serial.println(" Unknown command. Type HELP for available commands.");
   }
   
   Serial.println();
 }
 
 void sendButtonPress() {
-  Serial.println("🔘 Sending button press signal...");
+  Serial.println(" Sending button press signal...");
   
   if (!wifiConnected) {
-    Serial.println("❌ Cannot send - WiFi not connected!");
+    Serial.println("[ERROR] Cannot send - WiFi not connected!");
     return;
   }
   
   if (!mqttConnected) {
-    Serial.println("❌ Cannot send - MQTT not connected!");
+    Serial.println("[ERROR] Cannot send - MQTT not connected!");
     return;
   }
   
@@ -207,25 +207,25 @@ void sendButtonPress() {
   bool success = mqttClient.publish(BUTTON_TOPIC, "START", false);
   
   if (success) {
-    Serial.println("✅ Button press signal sent successfully!");
+    Serial.println("[OK] Button press signal sent successfully!");
     Serial.print("   Topic: ");
     Serial.println(BUTTON_TOPIC);
     Serial.print("   Message: START");
     Serial.println();
-    Serial.println("💡 Check your Raspberry Pi logs to see if scene started.");
+    Serial.println(" Check your Raspberry Pi logs to see if scene started.");
   } else {
-    Serial.println("❌ Failed to send button press signal!");
+    Serial.println("[ERROR] Failed to send button press signal!");
   }
 }
 
 void showStatus() {
-  Serial.println("📊 Current Status:");
+  Serial.println(" Current Status:");
   Serial.println("==================");
   
   // WiFi Status
   Serial.print("WiFi: ");
   if (wifiConnected) {
-    Serial.print("✅ Connected to ");
+    Serial.print("[OK] Connected to ");
     Serial.println(WIFI_SSID);
     Serial.print("      IP: ");
     Serial.println(WiFi.localIP());
@@ -233,20 +233,20 @@ void showStatus() {
     Serial.print(WiFi.RSSI());
     Serial.println(" dBm");
   } else {
-    Serial.println("❌ Disconnected");
+    Serial.println("[ERROR] Disconnected");
   }
   
   // MQTT Status
   Serial.print("MQTT: ");
   if (mqttConnected) {
-    Serial.print("✅ Connected to ");
+    Serial.print("[OK] Connected to ");
     Serial.print(MQTT_SERVER);
     Serial.print(":");
     Serial.println(MQTT_PORT);
     Serial.print("      Client ID: ");
     Serial.println(CLIENT_ID);
   } else {
-    Serial.println("❌ Disconnected");
+    Serial.println("[ERROR] Disconnected");
     if (wifiConnected) {
       Serial.print("      Error code: ");
       Serial.println(mqttClient.state());
@@ -266,7 +266,7 @@ void showStatus() {
 }
 
 void showHelp() {
-  Serial.println("📋 Available Commands:");
+  Serial.println(" Available Commands:");
   Serial.println("======================");
   Serial.println("START     - Send wireless button press signal");
   Serial.println("STATUS    - Show connection and system status");
@@ -274,7 +274,7 @@ void showHelp() {
   Serial.println("RESTART   - Restart ESP32");
   Serial.println("HELP      - Show this help message");
   Serial.println();
-  Serial.println("💡 Tips:");
+  Serial.println(" Tips:");
   Serial.println("- Make sure your Raspberry Pi is running");
   Serial.println("- Check that MQTT broker is accessible");
   Serial.println("- Verify WiFi and MQTT settings in code");

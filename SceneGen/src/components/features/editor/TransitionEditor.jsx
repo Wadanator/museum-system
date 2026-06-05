@@ -88,11 +88,11 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
                   }}
                   className="col-span-11 px-2 py-1 bg-gray-600 rounded text-sm"
                 >
-                  <option value={TRANSITION_TYPES.TIMEOUT}>⏱️ Timeout</option>
-                  <option value={TRANSITION_TYPES.BUTTON_PRESS}>🔘 Button Press</option>
-                  <option value={TRANSITION_TYPES.MQTT_MESSAGE}>📡 Generic MQTT Message</option>
-                  <option value={TRANSITION_TYPES.AUDIO_END}>🎵 Audio End</option>
-                  <option value={TRANSITION_TYPES.VIDEO_END}>🎬 Video End</option>
+                  <option value={TRANSITION_TYPES.TIMEOUT}>Timeout</option>
+                  <option value={TRANSITION_TYPES.BUTTON_PRESS}>Button Press</option>
+                  <option value={TRANSITION_TYPES.MQTT_MESSAGE}>Generic MQTT Message</option>
+                  <option value={TRANSITION_TYPES.AUDIO_END}>Audio End</option>
+                  <option value={TRANSITION_TYPES.VIDEO_END}>Video End</option>
                 </select>
 
                 {/* Delete Button */}
@@ -131,7 +131,7 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
               {trans.type === TRANSITION_TYPES.BUTTON_PRESS && (
                 <div className="bg-blue-900 p-3 rounded border border-blue-600 space-y-2">
                   <h5 className="text-xs text-blue-100 font-semibold">
-                    🔘 Button Press Configuration
+                    Button Press Configuration
                   </h5>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {/* Button Selector */}
@@ -184,7 +184,7 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
                     </div>
                   </div>
                   <p className="text-[11px] text-blue-200">
-                    💡 Topic is automatically set to <code className="font-mono">{`${globalPrefix}/buttonX`}</code>.
+                    Topic is automatically set to <code className="font-mono">{`${globalPrefix}/buttonX`}</code>.
                   </p>
                 </div>
               )}
@@ -204,7 +204,7 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
                       placeholder={`${globalPrefix}/sensor/status`}
                     />
                     <div className="text-xs text-gray-500 mt-1">
-                      💡 e.g., {globalPrefix}/sensor/status, {globalPrefix}/device/feedback
+                      e.g., {globalPrefix}/sensor/status, {globalPrefix}/device/feedback
                     </div>
                   </div>
                   <div>
@@ -217,7 +217,7 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
                       placeholder="TRIGGERED"
                     />
                     <div className="text-xs text-gray-500 mt-1">
-                      💡 The transition occurs when the topic receives this exact message.
+                      The transition occurs when the topic receives this exact message.
                     </div>
                   </div>
                 </div>
@@ -237,7 +237,7 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
                     placeholder="intro.mp3"
                   />
                   <div className="text-xs text-gray-500 mt-1">
-                    💡 The transition triggers when this audio file finishes.
+                    The transition triggers when this audio file finishes.
                   </div>
                 </div>
               )}
@@ -256,7 +256,7 @@ const TransitionEditor = ({ transitions, onChange, states, globalPrefix }) => {
                     placeholder="scary.mp4"
                   />
                   <div className="text-xs text-gray-500 mt-1">
-                    💡 The transition triggers when this video finishes.
+                    The transition triggers when this video finishes.
                   </div>
                 </div>
               )}

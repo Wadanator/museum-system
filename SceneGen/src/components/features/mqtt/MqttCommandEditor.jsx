@@ -32,7 +32,7 @@ const MqttCommandEditor = ({ action, onChange, globalPrefix }) => {
               : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
           }`}
         >
-          📋 Predvolené Zariadenia
+           Predvolené Zariadenia
         </button>
         <button
           type="button"
@@ -46,7 +46,7 @@ const MqttCommandEditor = ({ action, onChange, globalPrefix }) => {
               : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
           }`}
         >
-          ✏️ Vlastný Topic
+           Vlastný Topic
         </button>
       </div>
 

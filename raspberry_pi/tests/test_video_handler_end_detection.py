@@ -102,7 +102,7 @@ def _build_ipc_handler():
     return handler
 
 
-def _manual_test_confirmed_video_end_fires_once_with_original_file():
+def test_confirmed_video_end_fires_once_with_original_file():
     handler, callbacks, stops = _build_handler()
     handler._send_ipc_command = lambda *_args, **_kwargs: {
         "error": "success",
@@ -116,7 +116,7 @@ def _manual_test_confirmed_video_end_fires_once_with_original_file():
     assert handler.was_playing is False
 
 
-def _manual_test_transient_ipc_unknown_does_not_fire_or_clear_same_video():
+def test_transient_ipc_unknown_does_not_fire_or_clear_same_video():
     handler, callbacks, stops = _build_handler()
     handler._send_ipc_command = lambda *_args, **_kwargs: None
 
@@ -127,7 +127,7 @@ def _manual_test_transient_ipc_unknown_does_not_fire_or_clear_same_video():
     assert handler.was_playing is True
 
 
-def _manual_test_video_can_end_after_transient_ipc_unknown():
+def test_video_can_end_after_transient_ipc_unknown():
     handler, callbacks, stops = _build_handler()
     responses = [
         None,
@@ -143,7 +143,7 @@ def _manual_test_video_can_end_after_transient_ipc_unknown():
     assert handler.was_playing is False
 
 
-def _manual_test_restart_during_unknown_resets_without_callback():
+def test_restart_during_unknown_resets_without_callback():
     handler, callbacks, stops = _build_handler()
 
     def _unknown_after_restart(*_args, **_kwargs):
@@ -159,7 +159,7 @@ def _manual_test_restart_during_unknown_resets_without_callback():
     assert handler.was_playing is False
 
 
-def _manual_test_empty_success_response_is_unknown():
+def test_empty_success_response_is_unknown():
     handler, callbacks, stops = _build_handler()
     handler._send_ipc_command = lambda *_args, **_kwargs: {
         "error": "success",
@@ -173,7 +173,7 @@ def _manual_test_empty_success_response_is_unknown():
     assert handler.was_playing is True
 
 
-def _manual_test_confirmed_video_path_keeps_playing_state():
+def test_confirmed_video_path_keeps_playing_state():
     handler, callbacks, stops = _build_handler(was_playing=False)
     handler._send_ipc_command = lambda *_args, **_kwargs: {
         "error": "success",
@@ -187,7 +187,7 @@ def _manual_test_confirmed_video_path_keeps_playing_state():
     assert handler.was_playing is True
 
 
-def _manual_test_missing_socket_ipc_logs_once_for_repeated_stop_commands():
+def test_missing_socket_ipc_logs_once_for_repeated_stop_commands():
     handler = _build_ipc_handler()
     restart_calls = []
 
@@ -212,7 +212,7 @@ def _manual_test_missing_socket_ipc_logs_once_for_repeated_stop_commands():
     )
 
 
-def _manual_test_missing_socket_get_response_returns_none_without_log_storm():
+def test_missing_socket_get_response_returns_none_without_log_storm():
     handler = _build_ipc_handler()
     restart_calls = []
     handler._restart_mpv = lambda: restart_calls.append(True) or False
@@ -227,7 +227,7 @@ def _manual_test_missing_socket_get_response_returns_none_without_log_storm():
     assert handler.logger.count("debug") == 1
 
 
-def _manual_test_restart_block_log_is_throttled_during_cooldown():
+def test_restart_block_log_is_throttled_during_cooldown():
     handler = _build_ipc_handler()
     handler.restart_count = handler.max_restart_attempts
 
@@ -239,7 +239,7 @@ def _manual_test_restart_block_log_is_throttled_during_cooldown():
     assert "exceeded 3 attempts" in handler.logger.messages("critical")[0]
 
 
-def _manual_test_restart_attempts_reset_after_cooldown():
+def test_restart_attempts_reset_after_cooldown():
     handler = _build_ipc_handler()
     handler.restart_count = handler.max_restart_attempts
     handler.last_restart_time = time.time() - handler.restart_cooldown - 1
@@ -266,43 +266,43 @@ if __name__ == "__main__":
     tests = [
         (
             "confirmed_video_end_fires_once_with_original_file",
-            _manual_test_confirmed_video_end_fires_once_with_original_file,
+            test_confirmed_video_end_fires_once_with_original_file,
         ),
         (
             "transient_ipc_unknown_does_not_fire_or_clear_same_video",
-            _manual_test_transient_ipc_unknown_does_not_fire_or_clear_same_video,
+            test_transient_ipc_unknown_does_not_fire_or_clear_same_video,
         ),
         (
             "video_can_end_after_transient_ipc_unknown",
-            _manual_test_video_can_end_after_transient_ipc_unknown,
+            test_video_can_end_after_transient_ipc_unknown,
         ),
         (
             "restart_during_unknown_resets_without_callback",
-            _manual_test_restart_during_unknown_resets_without_callback,
+            test_restart_during_unknown_resets_without_callback,
         ),
         (
             "empty_success_response_is_unknown",
-            _manual_test_empty_success_response_is_unknown,
+            test_empty_success_response_is_unknown,
         ),
         (
             "confirmed_video_path_keeps_playing_state",
-            _manual_test_confirmed_video_path_keeps_playing_state,
+            test_confirmed_video_path_keeps_playing_state,
         ),
         (
             "missing_socket_ipc_logs_once_for_repeated_stop_commands",
-            _manual_test_missing_socket_ipc_logs_once_for_repeated_stop_commands,
+            test_missing_socket_ipc_logs_once_for_repeated_stop_commands,
         ),
         (
             "missing_socket_get_response_returns_none_without_log_storm",
-            _manual_test_missing_socket_get_response_returns_none_without_log_storm,
+            test_missing_socket_get_response_returns_none_without_log_storm,
         ),
         (
             "restart_block_log_is_throttled_during_cooldown",
-            _manual_test_restart_block_log_is_throttled_during_cooldown,
+            test_restart_block_log_is_throttled_during_cooldown,
         ),
         (
             "restart_attempts_reset_after_cooldown",
-            _manual_test_restart_attempts_reset_after_cooldown,
+            test_restart_attempts_reset_after_cooldown,
         ),
     ]
 

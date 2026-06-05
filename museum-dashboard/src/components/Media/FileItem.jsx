@@ -10,7 +10,7 @@ export default function FileItem({ file, type, isPlaying, onPlay, onDelete, isDi
       
       <div className="media-info">
         <div className="media-name" title={file.name}>{file.name}</div>
-        <div className="media-meta">{file.size} • {file.modified}</div>
+        <div className="media-meta">{file.size} * {file.modified}</div>
       </div>
       
       <div className="media-actions">

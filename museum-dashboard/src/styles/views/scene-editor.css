@@ -1,14 +1,14 @@
 /* src/styles/views/scene-editor.css
-   ─────────────────────────────────────────────────────────────────
+   -----------------------------------------------------------------
    KEY PRINCIPLE: Every element in the flex chain from .large-editor
    down to ReactFlow's root div must have:
      display: flex  +  flex-direction: column  +  min-height: 0
    Without min-height: 0 the browser ignores overflow:hidden on flex
    children and the ReactFlow canvas collapses to 0px.
-   ─────────────────────────────────────────────────────────────────
+   -----------------------------------------------------------------
 */
 
-/* ── Overlay ────────────────────────────────────────────────────── */
+/* -- Overlay ------------------------------------------------------ */
 .modal-overlay {
     background: var(--overlay-inverse);
     backdrop-filter: blur(6px);
@@ -26,7 +26,7 @@
     to   { opacity: 1; }
 }
 
-/* ── Modal window ───────────────────────────────────────────────── */
+/* -- Modal window ------------------------------------------------- */
 .modal-content.large-editor {
     width: 92vw;
     height: 90vh;            /* tall so the graph has room */
@@ -53,7 +53,7 @@
     to   { opacity: 1; transform: scale(1)    translateY(0); }
 }
 
-/* ── Header  (flex-shrink: 0 — never compress) ──────────────────── */
+/* -- Header  (flex-shrink: 0 - never compress) -------------------- */
 .large-editor .modal-header {
     flex-shrink: 0;
     padding: 16px 24px;
@@ -109,7 +109,7 @@
     transform: none;
 }
 
-/* ── Tabs  (flex-shrink: 0) ─────────────────────────────────────── */
+/* -- Tabs  (flex-shrink: 0) --------------------------------------- */
 .editor-tabs {
     flex-shrink: 0;
     display: flex;
@@ -154,7 +154,7 @@
     cursor: not-allowed;
 }
 
-/* ── Body  — THIS is the element that must grow ─────────────────── */
+/* -- Body  - THIS is the element that must grow ------------------- */
 .modal-body-editor {
     flex: 1 1 0;             /* grow + allow shrink below natural size */
     min-height: 0;           /* THE critical fix */
@@ -181,7 +181,7 @@
     z-index: 100;
 }
 
-/* ── Footer  (flex-shrink: 0) ───────────────────────────────────── */
+/* -- Footer  (flex-shrink: 0) ------------------------------------- */
 .modal-footer {
     flex-shrink: 0;
     padding: 14px 24px;
@@ -202,6 +202,10 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     color: var(--danger);
     font-size: 0.88rem;
     font-weight: 600;

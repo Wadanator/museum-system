@@ -4,10 +4,10 @@
 #include "config.h"
 #include "debug.h"
 #include "wifi_manager.h"
-#include "hardware.h"   // Pre funkciu turnOffAllDevices()
-#include "status_led.h" // Pre ovládanie LED počas update
+#include "hardware.h"
+#include "status_led.h"
 
-// OTA stav
+// OTA state.
 bool otaInProgress = false;
 bool otaInitialized = false;
 
@@ -24,37 +24,33 @@ void initializeOTA() {
     ArduinoOTA.setPassword(OTA_PASSWORD);
   }
 
-  // Callback pri štarte nahrávania
   ArduinoOTA.onStart([]() {
     otaInProgress = true;
     Serial.println("=== OTA UPDATE STARTING ===");
 
-    // 1. Zapnutie modrej LED (ak je podporovaná)
     setOtaLedState(true);
 
-    // 2. Vypnutie Watchdogu
+    // Flash writes may exceed the normal watchdog service interval.
     try {
       esp_task_wdt_deinit();
     } catch (...) {}
 
-    // 3. Bezpečné vypnutie všetkých relé
+    // All relays are de-energized before firmware replacement starts.
     turnOffAllDevices(); 
-    Serial.println("✅ Hardware safely disabled");
+    Serial.println("[OK] Hardware safely disabled");
 
     String update_type = (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "filesystem";
     Serial.println("Updating: " + update_type);
   });
 
-  // Callback pri ukončení
   ArduinoOTA.onEnd([]() {
     otaInProgress = false;
-    setOtaLedState(false); // Vypnutie LED
+    setOtaLedState(false);
     Serial.println("\n=== OTA UPDATE COMPLETE ===");
-    Serial.println("🔄 Rebooting...");
+    Serial.println(" Rebooting...");
     delay(1000);
   });
 
-  // Callback počas nahrávania
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
     static unsigned int lastPercent = 0;
     unsigned int percent = (progress * 100) / total;
@@ -64,13 +60,12 @@ void initializeOTA() {
     }
   });
 
-  // Callback pri chybe
   ArduinoOTA.onError([](ota_error_t error) {
     otaInProgress = false;
     setOtaLedState(false);
-    Serial.printf("❌ OTA Error[%u]\n", error);
+    Serial.printf("[ERROR] OTA Error[%u]\n", error);
     
-    // Obnova Watchdogu
+    // Restore normal watchdog protection after a failed update.
     try {
       esp_task_wdt_config_t wdt_config = {
         .timeout_ms = WDT_TIMEOUT * 1000,

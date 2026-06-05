@@ -1,8 +1,6 @@
 #include "config.h"
 
-// =============================================================================
-// HARDWARE CONFIGURATION
-// =============================================================================
+// Hardware configuration.
 
 bool USE_RELAY_MODULE = true;
 
@@ -28,12 +26,10 @@ int ETH_PHY_ADDR = 1;
 const char* WIFI_SSID = "Museum-Room1";
 const char* WIFI_PASSWORD = "88888888";
 
-// =============================================================================
-// DEVICE DEFINITIONS
-// =============================================================================
+// Device definitions.
 
 const Device DEVICES[] = {
-  // Topic name            Pin/Bit   Inverted  AutoOff(ms)
+  // Topic name            Pin/Bit   Inverted  Auto-off period in milliseconds.
   {"power/smoke_ON",       0,        false,    0},
   {"light/fire",           1,        false,    0},
   {"light/1",              2,        false,    0},
@@ -46,19 +42,17 @@ const Device DEVICES[] = {
 
 const int DEVICE_COUNT = sizeof(DEVICES) / sizeof(Device);
 
-// =============================================================================
-// SYSTEM CONFIGURATION
-// =============================================================================
+// System configuration.
 
 bool DEBUG = false;
 
-// MQTT
+// MQTT broker and topic configuration.
 const char* MQTT_SERVER = "192.168.0.127";
 int MQTT_PORT = 1883;
 const char* BASE_TOPIC_PREFIX = "room1/";
 const char* CLIENT_ID = "Room1_Relays_Ctrl";
 
-// Connection Management
+// Connection management.
 unsigned long NETWORK_CONNECT_TIMEOUT = 15000;
 unsigned long LAN_PRIMARY_CONNECT_GRACE = 3000;
 unsigned long NETWORK_FAILOVER_GRACE = 5000;
@@ -71,13 +65,13 @@ int MAX_NETWORK_ATTEMPTS = 10;
 int MAX_MQTT_ATTEMPTS = 10;
 int MQTT_KEEP_ALIVE = 5;
 
-// Inactivity timeout
+// Inactivity safety timeout.
 unsigned long NO_COMMAND_TIMEOUT = 180000;
 
-// Watchdog Timer
+// Watchdog timer.
 unsigned long WDT_TIMEOUT = 30;
 
-// OTA Configuration
+// OTA configuration.
 const char* OTA_HOSTNAME = "ESP32-RelayModule-Room1-LAN";
 const char* OTA_PASSWORD = "room1";
 bool OTA_ENABLED = true;

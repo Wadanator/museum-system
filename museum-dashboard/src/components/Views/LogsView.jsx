@@ -4,6 +4,7 @@ import { useLogs } from '../../hooks/useLogs';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import PageHeader from '../ui/PageHeader';
+import StateNotice from '../ui/StateNotice';
 import '../../styles/views/logs-view.css';
 
 export default function LogsView() {
@@ -39,7 +40,7 @@ export default function LogsView() {
                     <Button variant="unstyled" className={`filter-btn error ${filter === 'ERROR' ? 'active' : ''}`} onClick={() => setFilter('ERROR')}>Error</Button>
                 </div>
 
-                <Button onClick={clearLogs} variant="secondary" size="small" icon={Trash2}>
+                <Button onClick={clearLogs} variant="toolbar-danger" size="small" icon={Trash2}>
                     Vyčistiť
                 </Button>
             </PageHeader>
@@ -47,10 +48,13 @@ export default function LogsView() {
             <Card className="logs-console-card">
                 <div className="logs-console">
                     {filteredLogs.length === 0 ? (
-                        <div className="empty-logs">
-                            <Terminal size={48} opacity={0.2} />
-                            <span>Žiadne záznamy pre zobrazenie</span>
-                        </div>
+                        <StateNotice
+                            icon={Terminal}
+                            title="Žiadne záznamy"
+                            message={filter === 'ALL' ? 'Log konzola zatiaľ neobsahuje žiadne udalosti.' : 'Pre zvolený filter nie sú dostupné žiadne záznamy.'}
+                            compact
+                            className="logs-empty-notice"
+                        />
                     ) : (
                         filteredLogs.map((log, index) => (
                             <div key={index} className={`log-row ${log.level.toLowerCase()}`}>

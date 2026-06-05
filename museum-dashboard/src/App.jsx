@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { useSocket } from './context/useSocket';
 import { useAuth } from './context/useAuth';
+import { RuntimeProvider } from './context/RuntimeContext';
 import useTheme from './hooks/useTheme';
 import { AlertTriangle } from 'lucide-react';
 
@@ -17,6 +18,8 @@ import StatsView from './components/Views/StatsView';
 import SystemView from './components/Views/SystemView';
 import LoginView from './components/Views/LoginView';
 import MediaManager from './components/Views/MediaManager';
+import SceneEditorView from './components/SceneEditor/SceneEditorView';
+import LiveView from './components/Views/LiveView';
 
 import './styles/layout.css'; 
 
@@ -46,16 +49,19 @@ function App() {
     <>
       <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
 
+      <RuntimeProvider>
       <AppLayout theme={theme} onToggleTheme={toggleTheme}>
         <Routes>
           <Route path="/" element={<MainDashboard />} />
-          <Route path="/live" element={<Navigate to="/scenes" replace />} />
+          <Route path="/live" element={<LiveView />} />
           <Route path="/scenes" element={<ScenesView />} />
           <Route path="/media" element={<MediaManager />} />
           <Route path="/commands" element={<CommandsView />} />
           <Route path="/logs" element={<LogsView />} />
           <Route path="/stats" element={<StatsView />} />
           <Route path="/system" element={<SystemView />} />
+          <Route path="/scene-editor" element={<SceneEditorView />} />
+          <Route path="/scene-editor/:sceneName" element={<SceneEditorView />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppLayout>
@@ -65,6 +71,7 @@ function App() {
             <AlertTriangle size={24} /> Odpojené od servera
         </div>
       )}
+      </RuntimeProvider>
     </>
   );
 }

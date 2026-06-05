@@ -17,6 +17,14 @@ commands_bp = Blueprint('commands', __name__)
 def setup_commands_routes(dashboard):
     controller = dashboard.controller
 
+    def _is_room_stop_command(topic, payload):
+        room_id = getattr(controller, 'room_id', None)
+        return (
+            bool(room_id)
+            and topic == f'{room_id}/STOP'
+            and str(payload).strip().upper() == 'STOP'
+        )
+
     # --- 1. DEVICES CONFIG (config/rooms/<room_id>/devices.json) ---
     @commands_bp.route('/devices')
     @requires_auth
@@ -85,9 +93,17 @@ def setup_commands_routes(dashboard):
             payload = json.dumps(message) if isinstance(message, (dict, list)) else str(message)
 
             if hasattr(controller, 'mqtt_client') and controller.mqtt_client:
-                success = controller.mqtt_client.publish(topic, payload)
+                success = controller.mqtt_client.publish(
+                    topic,
+                    payload,
+                    force_feedback=True,
+                )
                 if not success:
-                    return jsonify({'error': 'MQTT publish failed — broker may be disconnected'}), 503
+                    return jsonify({'error': 'MQTT publish failed - broker may be disconnected'}), 503
+                if _is_room_stop_command(topic, payload):
+                    store = getattr(controller, 'actuator_state_store', None)
+                    if store:
+                        store.force_all_off(source='manual_mqtt_stop')
                 dashboard.log.info(f"[MANUAL] MQTT: {topic} = {payload}")
                 return jsonify({'success': True})
             else:
@@ -168,9 +184,17 @@ def setup_commands_routes(dashboard):
                 topic = action['topic']
                 message = action['message']
                 if hasattr(controller, 'mqtt_client') and controller.mqtt_client:
-                    success = controller.mqtt_client.publish(topic, message)
+                    success = controller.mqtt_client.publish(
+                        topic,
+                        message,
+                        force_feedback=True,
+                    )
                     if not success:
-                        return jsonify({'error': f'MQTT publish failed on action: {topic} — broker may be disconnected'}), 503
+                        return jsonify({'error': f'MQTT publish failed on action: {topic} - broker may be disconnected'}), 503
+                    if _is_room_stop_command(topic, message):
+                        store = getattr(controller, 'actuator_state_store', None)
+                        if store:
+                            store.force_all_off(source='manual_command_stop')
                 else:
                     return jsonify({'error': 'MQTT client not available'}), 503
                 dashboard.log.debug(f"  -> {topic} = {message}")

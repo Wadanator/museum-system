@@ -46,6 +46,12 @@ class AudioHandler:
         # File size threshold for automatic streaming (if no sfx_ prefix)
         self.STREAM_THRESHOLD = 5 * 1024 * 1024
 
+        # Smooth shutdown settings. Smaller mixer buffers and stepped fades
+        # avoid the zipper-like artifacts produced by abrupt channel stops.
+        self.STOP_FADE_MS = 800
+        self.STOP_FADE_STEPS = 32
+        self.SPECIFIC_STOP_FADE_MS = 350
+
         # State
         self.audio_available = False
         self.initialization_attempts = 0
@@ -79,9 +85,9 @@ class AudioHandler:
         self.last_init_attempt = time.time()
 
         audio_configs = [
-            {"freq": 48000, "size": -16, "channels": 2, "buffer": 4096,
+            {"freq": 48000, "size": -16, "channels": 2, "buffer": 1024,
              "env": "default"},
-            {"freq": 44100, "size": -16, "channels": 2, "buffer": 4096,
+            {"freq": 44100, "size": -16, "channels": 2, "buffer": 1024,
              "env": "hw:0,0"},
             {"freq": 22050, "size": -16, "channels": 1, "buffer": 2048,
              "env": None}
@@ -179,10 +185,10 @@ class AudioHandler:
         """
         Play an audio file using the appropriate playback path.
 
-        Path 1 — RAM cache (SFX): if the resolved filename is present in the
+        Path 1 - RAM cache (SFX): if the resolved filename is present in the
         sound cache, it is played on a mixer channel for polyphonic support.
 
-        Path 2 — Stream from disk (music): if not cached, the file is loaded
+        Path 2 - Stream from disk (music): if not cached, the file is loaded
         and streamed via pygame.mixer.music. Only one stream plays at a time.
 
         Args:
@@ -264,13 +270,13 @@ class AudioHandler:
         Parse and execute an audio command string received from MQTT or JSON.
 
         Supported commands:
-        - PLAY:<filename>[:<volume>] — play a file at optional volume
-        - STOP — stop all audio
-        - STOP:<filename> — stop a specific file
-        - PAUSE — pause all audio
-        - RESUME — resume all paused audio
-        - VOLUME:<value> — set global music volume (0.0–1.0)
-        - <filename> — treat as a plain filename and attempt playback
+        - PLAY:<filename>[:<volume>] - play a file at optional volume
+        - STOP - stop all audio
+        - STOP:<filename> - stop a specific file
+        - PAUSE - pause all audio
+        - RESUME - resume all paused audio
+        - VOLUME:<value> - set global music volume (0.0-1.0)
+        - <filename> - treat as a plain filename and attempt playback
 
         Args:
             message: Command string to parse and execute.
@@ -317,7 +323,7 @@ class AudioHandler:
                     return False
 
             else:
-                # Not a recognized command — attempt to play as a filename
+                # Not a recognized command - attempt to play as a filename
                 return self.play_audio_file(clean_message)
 
         except Exception as e:
@@ -330,8 +336,8 @@ class AudioHandler:
         """
         Stop all currently playing audio (music stream and all SFX channels).
 
-        Fades out the music stream before stopping it, then halts all SFX
-        mixer channels and clears the active effects tracker.
+        Fades out the music stream and SFX channels together before stopping
+        them, then clears the active effects tracker.
 
         Returns:
             bool: True if audio was stopped successfully, False on error.
@@ -340,10 +346,18 @@ class AudioHandler:
             return True
 
         try:
-            if pygame.mixer.music.get_busy():
-                self.logger.info("Stopping music stream...")
-                pygame.mixer.music.fadeout(500)
-                time.sleep(0.5)
+            music_busy = pygame.mixer.music.get_busy()
+            channels = self._get_busy_channels()
+
+            if music_busy or channels:
+                self.logger.info("Stopping audio with smooth fade...")
+                self._smooth_fade_out(
+                    include_music=music_busy,
+                    channels=channels,
+                    fade_ms=self.STOP_FADE_MS
+                )
+
+            if music_busy:
                 pygame.mixer.music.stop()
                 try:
                     pygame.mixer.music.unload()
@@ -352,7 +366,7 @@ class AudioHandler:
 
             self.current_music_file = None
 
-            # Stop all SFX mixer channels (RAM playback)
+            # Ensure no untracked mixer channel remains active.
             pygame.mixer.stop()
 
             # Clear the active effects tracker safely
@@ -384,17 +398,34 @@ class AudioHandler:
 
         # 1. Check if it is the current music stream
         if self.current_music_file == resolved_name:
+            self._smooth_fade_out(
+                include_music=pygame.mixer.music.get_busy(),
+                channels=[],
+                fade_ms=self.SPECIFIC_STOP_FADE_MS
+            )
             pygame.mixer.music.stop()
             self.current_music_file = None
             self.logger.info(f"Stopped specific MUSIC: {resolved_name}")
 
         # 2. Check if it is an active SFX effect
+        channels_to_stop = []
         with self.active_effects_lock:
             if resolved_name in self.active_effects:
-                for ch in self.active_effects[resolved_name]:
-                    ch.stop()
+                channels_to_stop = list(self.active_effects[resolved_name])
                 del self.active_effects[resolved_name]
-                self.logger.info(f"Stopped specific SFX: {resolved_name}")
+
+        if channels_to_stop:
+            self._smooth_fade_out(
+                include_music=False,
+                channels=channels_to_stop,
+                fade_ms=self.SPECIFIC_STOP_FADE_MS
+            )
+            for ch in channels_to_stop:
+                try:
+                    ch.stop()
+                except Exception as e:
+                    self.logger.debug(f"Specific SFX stop error: {e}")
+            self.logger.info(f"Stopped specific SFX: {resolved_name}")
 
         return True
 
@@ -469,7 +500,7 @@ class AudioHandler:
                 if os.path.exists(test_path):
                     return base + try_ext, test_path
 
-        # File not found — caller is responsible for handling None
+        # File not found - caller is responsible for handling None
         return None, None
 
     def _validate_audio_file(self, audio_file, full_path):
@@ -487,6 +518,97 @@ class AudioHandler:
             self.logger.warning(f"Audio file not found: {full_path}")
             return False
         return True
+
+    def _get_busy_channels(self):
+        """
+        Return all busy pygame mixer channels.
+
+        The active_effects tracker is filename-oriented and may be stale until
+        the next status tick. Polling the mixer directly lets STOP fade every
+        active SFX channel, including any channel not present in the tracker.
+        """
+        channels = []
+        try:
+            for channel_index in range(pygame.mixer.get_num_channels()):
+                channel = pygame.mixer.Channel(channel_index)
+                if channel.get_busy():
+                    channels.append(channel)
+        except Exception as e:
+            self.logger.debug(f"Busy channel scan failed: {e}")
+        return channels
+
+    def _smooth_fade_out(self, include_music=False, channels=None,
+                         fade_ms=None):
+        """
+        Fade music and mixer channels down in small steps before stopping.
+
+        Pygame's built-in fadeout can sound stepped on larger ALSA buffers.
+        This helper updates volumes at a tighter cadence and restores channel
+        volumes after stopping so later SFX are not accidentally muted.
+        """
+        fade_ms = self.STOP_FADE_MS if fade_ms is None else fade_ms
+        steps = max(1, int(self.STOP_FADE_STEPS))
+        interval = max(0.0, fade_ms / steps / 1000.0)
+
+        music_busy = False
+        music_start_volume = 1.0
+        if include_music:
+            try:
+                music_busy = pygame.mixer.music.get_busy()
+                if music_busy:
+                    music_start_volume = pygame.mixer.music.get_volume()
+            except Exception as e:
+                self.logger.debug(f"Music fade setup failed: {e}")
+
+        channel_volumes = []
+        seen_channels = set()
+        for channel in channels or []:
+            channel_key = id(channel)
+            if channel_key in seen_channels:
+                continue
+            seen_channels.add(channel_key)
+            try:
+                if channel.get_busy():
+                    channel_volumes.append((channel, channel.get_volume()))
+            except Exception as e:
+                self.logger.debug(f"SFX fade setup failed: {e}")
+
+        if not music_busy and not channel_volumes:
+            return
+
+        for step in range(steps, -1, -1):
+            scale = step / steps
+            if music_busy:
+                try:
+                    pygame.mixer.music.set_volume(
+                        music_start_volume * scale
+                    )
+                except Exception as e:
+                    self.logger.debug(f"Music fade step failed: {e}")
+                    music_busy = False
+
+            for channel, start_volume in channel_volumes:
+                try:
+                    channel.set_volume(start_volume * scale)
+                except Exception as e:
+                    self.logger.debug(f"SFX fade step failed: {e}")
+
+            if step:
+                time.sleep(interval)
+
+        if music_busy:
+            try:
+                pygame.mixer.music.stop()
+                pygame.mixer.music.set_volume(music_start_volume)
+            except Exception as e:
+                self.logger.debug(f"Music fade stop failed: {e}")
+
+        for channel, start_volume in channel_volumes:
+            try:
+                channel.stop()
+                channel.set_volume(start_volume)
+            except Exception as e:
+                self.logger.debug(f"SFX fade stop failed: {e}")
 
     def _can_retry_init(self):
         """

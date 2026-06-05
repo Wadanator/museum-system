@@ -9,7 +9,7 @@ const Header = ({ onNewScene, onSceneLoad, availableScenes }) => {
         {/* LOGO & TITLE */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-blue-900/20">
-            <span className="text-xl">🏛️</span>
+            <span className="text-xl"></span>
           </div>
           <div>
             <h1 className="text-xl font-bold text-white tracking-tight">Museum Scene Editor</h1>
@@ -24,7 +24,7 @@ const Header = ({ onNewScene, onSceneLoad, availableScenes }) => {
             onChange={(e) => onSceneLoad(e.target.value)}
             defaultValue=""
           >
-            <option value="" disabled>📂 Načítať scénu...</option>
+            <option value="" disabled> Načítať scénu...</option>
             {availableScenes.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
 

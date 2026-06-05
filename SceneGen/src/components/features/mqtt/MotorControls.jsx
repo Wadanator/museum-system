@@ -132,7 +132,7 @@ const MotorControls = ({ action, onChange }) => {
               placeholder="0 (okamžite)"
             />
             <div className="text-xs text-gray-500 mt-1">
-              💡 0 = Okamžitý štart. Napr. 2000 = Motor sa rozbehne na cieľovú rýchlosť za 2 sekundy.
+               0 = Okamžitý štart. Napr. 2000 = Motor sa rozbehne na cieľovú rýchlosť za 2 sekundy.
             </div>
           </div>
 
@@ -150,7 +150,7 @@ const MotorControls = ({ action, onChange }) => {
                     : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
                 }`}
               >
-                ⬅️ L (Doľava)
+                {'<-'} L (Doľava)
               </button>
               <button
                 type="button"
@@ -161,7 +161,7 @@ const MotorControls = ({ action, onChange }) => {
                     : 'bg-gray-600 text-gray-300 hover:bg-gray-500'
                 }`}
               >
-                R (Doprava) ➡️
+                R (Doprava) {'->'}
               </button>
             </div>
           </div>

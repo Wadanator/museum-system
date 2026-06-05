@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-// Device states
+// Relay state shared with MQTT, effects, and safety handling.
 extern bool deviceStates[];
 extern bool allDevicesOff;
 

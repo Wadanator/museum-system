@@ -3,29 +3,29 @@
 .media-manager-view {
     display: flex;
     flex-direction: column;
-    gap: 24px;
+    gap: var(--spacing-2xl);
 }
 
 /* Zoznam súborov v karte */
 .files-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    max-height: 600px;
+    gap: var(--spacing-sm-plus);
+    max-height: var(--media-list-max-height);
     overflow-y: auto;
-    padding-right: 5px;
+    padding-right: var(--spacing-xs);
 }
 
 /* Karta súboru */
 .media-card {
     background: var(--bg-card);
-    border: 1px solid var(--border-color);
+    border: var(--border-width-sm) solid var(--border-color);
     border-radius: var(--radius-md);
-    padding: 12px;
+    padding: var(--spacing-md);
     display: flex;
     align-items: center;
-    gap: 15px;
-    transition: all 0.2s ease;
+    gap: var(--spacing-md-loose);
+    transition: all var(--transition-base);
 }
 
 .media-card:hover {
@@ -40,8 +40,8 @@
 
 /* Ikona typu */
 .media-icon-box {
-    width: 40px;
-    height: 40px;
+    width: var(--size-icon-lg);
+    height: var(--size-icon-lg);
     border-radius: var(--radius-md);
     display: flex;
     align-items: center;
@@ -74,30 +74,30 @@
 }
 
 .media-meta {
-    font-size: 0.75rem;
+    font-size: var(--font-size-xs);
     color: var(--text-muted);
-    margin-top: 2px;
+    margin-top: var(--spacing-2xs);
 }
 
 /* Akcie (Tlačidlá) */
 .media-actions {
     display: flex;
-    gap: 8px;
+    gap: var(--spacing-sm);
 }
 
 .action-btn-icon {
-    width: 32px;
-    height: 32px;
-    border-radius: 6px;
+    width: var(--size-icon-sm);
+    height: var(--size-icon-sm);
+    border-radius: var(--radius-sm);
     border: none;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all var(--transition-base);
     background: transparent;
     padding: 0;
-    min-width: 32px;
+    min-width: var(--size-icon-sm);
 }
 
 .action-btn-icon:hover {
@@ -126,51 +126,51 @@
 
 /* Empty State */
 .empty-state {
-    padding: 30px;
+    padding: var(--spacing-2xl-plus);
     text-align: center;
     color: var(--text-muted);
     font-style: italic;
     background: var(--bg-hover);
     border-radius: var(--radius-md);
-    border: 1px dashed var(--border-color);
+    border: var(--border-width-sm) dashed var(--border-color);
 }
 
 /* Layout pre grid kariet */
 .media-grid-container {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
-    gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(var(--media-grid-min-width), 1fr));
+    gap: var(--spacing-2xl);
 }
 
 /* Štýly pre Modal a Loading */
 .loading-state {
-    padding: 32px;
+    padding: var(--spacing-3xl);
     text-align: center;
     color: var(--text-secondary);
 }
 
 .modal-text {
     color: var(--text-muted);
-    margin-bottom: 16px;
+    margin-bottom: var(--spacing-lg);
 }
 
 .highlight-text {
     color: var(--text-white);
     background-color: var(--text-secondary);
-    padding: 2px 6px;
-    border-radius: 4px;
+    padding: var(--spacing-2xs) var(--spacing-xs-plus);
+    border-radius: var(--spacing-xs);
 }
 
 .modal-input {
     width: 100%;
-    padding: 8px 12px;
+    padding: var(--spacing-sm) var(--spacing-md);
     background-color: var(--bg-dark);
-    border: 1px solid var(--text-secondary);
+    border: var(--border-width-sm) solid var(--text-secondary);
     border-radius: var(--radius-md);
     color: var(--text-white);
     font-family: monospace;
     outline: none;
-    transition: border-color 0.2s;
+    transition: border-color var(--transition-base);
 }
 
 .modal-input:focus {

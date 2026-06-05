@@ -64,7 +64,7 @@ export default function DevicesConfigModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Uprava devices konfiguracie"
+      title="Konfigurácia zariadení"
       className="large-editor"
       footer={(
         <>

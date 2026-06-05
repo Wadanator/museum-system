@@ -6,10 +6,13 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "postbuild": "node scripts/strip-emojis.cjs ../raspberry_pi/Web/dist",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
     "@monaco-editor/react": "^4.7.0",
     "lucide-react": "^0.562.0",
     "prismjs": "^1.30.0",

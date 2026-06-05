@@ -3,44 +3,42 @@
 
 #include <Arduino.h>
 
-// Maximálny počet zariadení v jednej skupine
+// Maximum number of device indexes assigned to a single effect group.
 #define MAX_DEVICES_PER_GROUP 5
 
 struct EffectGroup {
-  const char* name;          // Názov pre MQTT
-  int deviceIndices[MAX_DEVICES_PER_GROUP]; // Indexy z config.cpp
+  const char* name;          // Name used in the MQTT effect topic.
+  int deviceIndices[MAX_DEVICES_PER_GROUP]; // Device indexes reference DEVICES in config.cpp.
   
-  // Časy pre stav ZAPNUTÉ (ON)
+  // ON-state timing limits.
   unsigned long minOnMs;     
   unsigned long maxOnMs;
   
-  // Časy pre stav VYPNUTÉ (OFF - pauza)
+  // OFF-state timing limits.
   unsigned long minOffMs;
   unsigned long maxOffMs;
 };
 
-// =============================================================================
-// KONFIGURÁCIA TVOJICH SKUPÍN
-// =============================================================================
+// Effect group configuration.
 const EffectGroup EFFECT_GROUPS[] = {
   
-  // 1. Skupina: Svetlá 4 a 5 (Indexy 6, 7)
-  // Príkaz: room1/effects/group1 -> ON
+  // Group for lights 4 and 5.
+  // Command topic: room1/effects/group1.
   {
     "group1",               
-    {6, 7, -1},             // Indexy pre light/4 a light/5
-    75, 500,                // ON: 50ms až 0.25s (Blesky)
-    150, 1500               // OFF: Rýchlejšie opakovanie
+    {6, 7, -1},             // Indexes for light/4 and light/5.
+    75, 500,                // ON: short pulse window for lightning-style flashes.
+    150, 1500               // OFF: short random pause between flashes.
   },
 
-  // 2. Skupina: ALONE - Svetlo 1 (Index 2)
-  // Príkaz: room1/effects/alone -> ON
-  // Zadanie: "krátko, ale menej často"
+  // Group for light 1.
+  // Command topic: room1/effects/alone.
+  // Intended behavior: short pulse, less frequent.
   {
     "alone",               
-    {2, -1},                // Index pre light/1
-    60, 100,                // ON: Veľmi krátke (cca 0.05s) - POZOR, toto je limit relé!
-    2000, 5000              // OFF: Zriedkavé (pauza 2 až 5 sekúnd)
+    {2, -1},                // Index for light/1.
+    60, 100,                // ON: very short pulse; keep relay wear in mind.
+    2000, 5000              // OFF: sparse pause from 2 to 5 seconds.
   }
 };
 

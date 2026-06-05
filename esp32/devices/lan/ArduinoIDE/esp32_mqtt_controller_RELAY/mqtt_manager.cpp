@@ -5,7 +5,7 @@
 #include "wifi_manager.h"
 #include "effects_manager.h"
 
-// Global MQTT objects and state
+// MQTT state is kept module-wide because PubSubClient owns the network session.
 NetworkClient networkClient;
 PubSubClient client(networkClient);
 bool mqttConnected    = false;
@@ -49,59 +49,52 @@ static void handleNetworkTransportChange() {
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
-  // --- Guard: payload size limit ---
+  // Reject oversized payloads before storing them in a bounded buffer.
   if (length >= 32) {
     debugPrint("MQTT: Payload too long, ignoring");
     return;
   }
 
-  // Stack-allocated buffers – no heap involvement
   char message[32];
   memcpy(message, payload, length);
   message[length] = '\0';
 
-  // Use Serial directly here – topic and message are already char*, no String needed
   if (DEBUG) {
     Serial.print("[DEBUG] "); Serial.print(millis()); Serial.print("ms - MQTT topic: ");  Serial.println(topic);
-    Serial.print("[DEBUG] "); Serial.print(millis()); Serial.print("ms - MQTT sprava: "); Serial.println(message);
+    Serial.print("[DEBUG] "); Serial.print(millis()); Serial.print("ms - MQTT message: "); Serial.println(message);
   }
 
-  // --- Ignore feedback / status topics ---
+  // Feedback and status topics are not relay commands.
   if (strstr(topic, "/feedback") != nullptr || strstr(topic, "/status") != nullptr) {
     return;
   }
 
-  // --- Verify topic prefix ---
+  // Only room-scoped command topics are accepted.
   size_t prefixLen = strlen(BASE_TOPIC_PREFIX);
   if (strncmp(topic, BASE_TOPIC_PREFIX, prefixLen) != 0) {
     return;
   }
 
-  // Reset inactivity timer on every valid command
+  // Every valid command extends the inactivity safety window.
   lastCommandTime = millis();
 
-  // feedbackTopic built on stack
   char feedbackTopic[128];
   snprintf(feedbackTopic, sizeof(feedbackTopic), "%s/feedback", topic);
 
   bool commandSuccessful = false;
 
-  // deviceName = everything after the prefix  e.g. "light/4", "effects/group1", "STOP"
   const char* deviceName = topic + prefixLen;
 
-  // -------------------------------------------------------------------------
-  // Effects:  room1/effects/<groupName>
-  // -------------------------------------------------------------------------
+  // Effect commands use the room-scoped topic room1/effects/<groupName>.
   if (strncmp(deviceName, "effects/", 8) == 0) {
-    const char* effectName = deviceName + 8;   // pointer into original topic
+    const char* effectName = deviceName + 8;
 
-    // Uppercase the command in-place on our stack copy
     char cmd[32];
     strncpy(cmd, message, sizeof(cmd) - 1);
     cmd[sizeof(cmd) - 1] = '\0';
     for (int i = 0; cmd[i]; i++) cmd[i] = toupper(cmd[i]);
 
-    debugPrint("EFEKT Prikaz: " + String(effectName) + " -> " + String(cmd));
+    debugPrint("Effect command: " + String(effectName) + " -> " + String(cmd));
 
     if (strcmp(cmd, "ON") == 0 || strcmp(cmd, "1") == 0 || strcmp(cmd, "START") == 0) {
       startEffect(String(effectName));
@@ -110,26 +103,21 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       stopEffect(String(effectName));
       client.publish(feedbackTopic, "INACTIVE", false);
     } else {
-      debugPrint("Neznamy prikaz pre efekt");
+      debugPrint("Unknown effect command");
     }
     return;
   }
 
-  // -------------------------------------------------------------------------
-  // STOP
-  // -------------------------------------------------------------------------
+  // The room-level STOP command immediately clears all relay outputs.
   if (strcmp(deviceName, "STOP") == 0) {
     turnOffAllDevices();
     stopAllEffects();
     commandSuccessful = true;
-    debugPrint("STOP prikaz vykonany (vratane efektov)");
+    debugPrint("STOP command executed, including effects");
   }
 
-  // -------------------------------------------------------------------------
-  // Individual device:  room1/<device_name>
-  // -------------------------------------------------------------------------
+  // Individual relay commands use the room-scoped topic room1/<device_name>.
   else {
-    // Find matching device in DEVICES[]
     int deviceIndex = -1;
     for (int i = 0; i < DEVICE_COUNT; i++) {
       if (strcmp(DEVICES[i].name, deviceName) == 0) {
@@ -139,7 +127,6 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     }
 
     if (deviceIndex >= 0) {
-      // Uppercase command on stack copy
       char cmd[32];
       strncpy(cmd, message, sizeof(cmd) - 1);
       cmd[sizeof(cmd) - 1] = '\0';
@@ -152,14 +139,13 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
         setDevice(deviceIndex, false);
         commandSuccessful = true;
       } else {
-        debugPrint("Neznamy prikaz: " + String(cmd));
+        debugPrint("Unknown command: " + String(cmd));
       }
     } else {
-      debugPrint("Nezname zariadenie: " + String(deviceName));
+      debugPrint("Unknown device: " + String(deviceName));
     }
   }
 
-  // --- Publish feedback ---
   const char* feedback = commandSuccessful ? "OK" : "ERROR";
   if (client.publish(feedbackTopic, feedback, false)) {
     debugPrint("Feedback: " + String(feedback) + " -> " + String(feedbackTopic));
@@ -170,7 +156,7 @@ void initializeMqtt() {
   client.setServer(MQTT_SERVER, MQTT_PORT);
   client.setKeepAlive(MQTT_KEEP_ALIVE);
   client.setCallback(mqttCallback);
-  debugPrint("MQTT nakonfigurovane: " + String(MQTT_SERVER) + ":" + String(MQTT_PORT));
+  debugPrint("MQTT configured: " + String(MQTT_SERVER) + ":" + String(MQTT_PORT));
 }
 
 void connectToMqtt() {
@@ -186,17 +172,17 @@ void connectToMqtt() {
   static unsigned long mqttRetryInterval = MQTT_RETRY_INTERVAL;
 
   if (!client.connected() && (currentTime - lastMqttAttempt >= mqttRetryInterval)) {
-    debugPrint("Pripajam sa na MQTT broker...");
+    debugPrint("Connecting to MQTT broker...");
     String willTopic = "devices/" + String(CLIENT_ID) + "/status";
 
     if (client.connect(CLIENT_ID, willTopic.c_str(), 0, true, "offline")) {
-      Serial.println("MQTT pripojene");
-      debugPrint("MQTT uspesne pripojene");
+      Serial.println("MQTT connected");
+      debugPrint("MQTT connected successfully");
       mqttConnected = true;
       mqttAttempts  = 0;
       mqttRetryInterval = MQTT_RETRY_INTERVAL;
 
-      // Subscribe to all device topics
+      // Subscribe to every configured relay command topic.
       String basePrefix = String(BASE_TOPIC_PREFIX);
       for (int i = 0; i < DEVICE_COUNT; i++) {
         char topicBuf[64];
@@ -205,34 +191,34 @@ void connectToMqtt() {
         debugPrint("Subscribed: " + String(topicBuf));
       }
 
-      // Wildcard for all effect groups
+      // Subscribe to all configured and future effect group topics.
       char effectsTopic[64];
       snprintf(effectsTopic, sizeof(effectsTopic), "%seffects/#", BASE_TOPIC_PREFIX);
       client.subscribe(effectsTopic, 0);
       debugPrint("Subscribed: " + String(effectsTopic));
 
-      // STOP command
+      // Subscribe to the room-level safety stop command.
       char stopTopic[64];
       snprintf(stopTopic, sizeof(stopTopic), "%sSTOP", BASE_TOPIC_PREFIX);
       client.subscribe(stopTopic, 0);
       debugPrint("Subscribed: " + String(stopTopic));
 
-      // Publish online status
+      // Publish retained online status for the device registry.
       if (client.publish(STATUS_TOPIC.c_str(), "online", true)) {
         debugPrint("Status: online");
       }
 
-      // Reset lastStatusPublish to 0 so heartbeat publishes immediately in next mqttLoop()
+      // Force the next heartbeat to publish immediately after reconnect.
       lastStatusPublish = 0;
       lastCommandTime   = currentTime;
 
     } else {
       mqttAttempts++;
-      Serial.println("MQTT zlyhalo. Pokus: " + String(mqttAttempts));
-      debugPrint("MQTT zlyhalo. RC=" + String(client.state()));
+      Serial.println("MQTT connection failed. Attempt: " + String(mqttAttempts));
+      debugPrint("MQTT connection failed. RC=" + String(client.state()));
 
       if (mqttAttempts >= MAX_MQTT_ATTEMPTS) {
-        debugPrint("Max MQTT pokusov – restartujem");
+        debugPrint("Maximum MQTT retry count reached - restarting");
         delay(1000);
         ESP.restart();
       } else {
@@ -274,7 +260,7 @@ void publishStatus() {
   if (currentTime - lastStatusPublish < STATUS_PUBLISH_INTERVAL) return;
 
   if (client.publish(STATUS_TOPIC.c_str(), "online", true)) {
-    debugPrint("Status publikovany: online");
+    debugPrint("Status published: online");
     lastStatusPublish = currentTime;
   }
 }

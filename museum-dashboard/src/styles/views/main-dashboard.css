@@ -1,30 +1,30 @@
 /* HLAVNÝ DASHBOARD (MainDashboard.jsx) */
 
 .main-dashboard {
-  margin-bottom: 40px;
+  margin-bottom: var(--spacing-4xl);
 }
 
 /* =======================================
-   HERO CARD – vertikálny layout
+   HERO CARD - vertikálny layout
    ======================================= */
 
 .hero-card {
   background: var(--bg-card);
   border-radius: var(--radius-2xl);
-  padding: 30px;
-  margin-bottom: 30px;
+  padding: var(--spacing-2xl-plus);
+  margin-bottom: var(--spacing-2xl-plus);
   box-shadow: var(--shadow-md);
-  border: 1px solid var(--border-color);
+  border: var(--border-width-sm) solid var(--border-color);
 }
 
-/* Stavový blok – ikona + texty */
+/* Stavový blok - ikona + texty */
 .main-status {
   text-align: center;
-  padding: 25px;
+  padding: var(--dashboard-status-padding);
   border-radius: var(--radius-xl);
-  transition: all 0.3s ease;
-  border: 2px solid transparent;
-  margin-bottom: 24px;
+  transition: all var(--transition-slow);
+  border: var(--border-width-md) solid transparent;
+  margin-bottom: var(--spacing-2xl);
 }
 
 .main-status.ready {
@@ -46,26 +46,26 @@
 }
 
 .status-icon {
-  font-size: 3rem;
-  margin-bottom: 10px;
+  font-size: var(--font-size-display-md);
+  margin-bottom: var(--spacing-sm-plus);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .status-text {
-  font-size: 1.8rem;
+  font-size: var(--font-size-3xl);
   font-weight: 700;
-  margin-bottom: 5px;
+  margin-bottom: var(--spacing-xs);
 }
 
 .status-description {
-  font-size: 1rem;
+  font-size: var(--font-size-base);
   opacity: 0.8;
 }
 
 /* =======================================
-   TLAČIDLÁ – veľké a dominantné
+   TLAČIDLÁ - veľké a dominantné
    ======================================= */
 
 .main-controls {
@@ -75,14 +75,14 @@
 .main-scene-button,
 .stop-scene-button {
   width: 100%;
-  min-height: 168px;
-  padding: 30px 28px 32px;
-  border: 1px solid transparent;
+  min-height: var(--dashboard-control-min-height);
+  padding: var(--spacing-2xl-plus) var(--dashboard-control-padding-x) var(--spacing-3xl);
+  border: var(--border-width-sm) solid transparent;
   border-radius: calc(var(--radius-xl) + 4px);
-  font-size: 1.05rem;
+  font-size: var(--font-size-dashboard-control);
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--transition-slow);
   text-align: center;
   box-shadow: var(--shadow-lg);
   display: flex;
@@ -90,10 +90,10 @@
   align-items: center;
   justify-content: center;
   color: var(--text-white);
-  gap: 10px;
+  gap: var(--spacing-sm-plus);
   position: relative;
   overflow: hidden;
-  line-height: 1.2;
+  line-height: var(--line-height-tight);
 }
 
 button.main-scene-button.btn-unstyled {
@@ -142,13 +142,13 @@ button.stop-scene-button.btn-unstyled:hover {
 
 .main-scene-button .button-icon,
 .stop-scene-button .button-icon {
-  font-size: 2rem;
-  margin-bottom: 2px;
+  font-size: var(--font-size-4xl);
+  margin-bottom: var(--spacing-2xs);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 72px;
-  height: 72px;
+  width: var(--size-control-icon);
+  height: var(--size-control-icon);
   border-radius: 50%;
   background: var(--overlay-medium);
   box-shadow: inset 0 0 0 1px var(--overlay-soft);
@@ -156,16 +156,16 @@ button.stop-scene-button.btn-unstyled:hover {
 
 .main-scene-button .button-text,
 .stop-scene-button .button-text {
-  font-size: 1.65rem;
-  line-height: 1.2;
+  font-size: var(--font-size-dashboard-control-title);
+  line-height: var(--line-height-tight);
   margin: 0;
   max-width: 100%;
 }
 
 .main-scene-button .button-subtext,
 .stop-scene-button .button-subtext {
-  font-size: 1.05rem;
-  line-height: 1.35;
+  font-size: var(--font-size-dashboard-control);
+  line-height: var(--line-height-comfy);
   opacity: 0.85;
   font-weight: 400;
   margin: 0;
@@ -193,23 +193,23 @@ button.stop-scene-button.btn-unstyled .button-subtext {
 }
 
 /* =======================================
-   STATS GRID – 3 ukazovatele
+   STATS GRID - 3 ukazovatele
    ======================================= */
 
 .status-overview {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  margin-bottom: 30px;
+  gap: var(--spacing-xl);
+  margin-bottom: var(--spacing-2xl-plus);
 }
 
 .status-item {
   background: var(--bg-card);
-  padding: 20px;
+  padding: var(--spacing-xl);
   border-radius: var(--radius-lg);
   text-align: center;
-  border: 2px solid var(--border-color);
-  transition: all 0.3s ease;
+  border: var(--border-width-md) solid var(--border-color);
+  transition: all var(--transition-slow);
 }
 
 .status-item.good {
@@ -228,16 +228,16 @@ button.stop-scene-button.btn-unstyled .button-subtext {
 }
 
 .status-header {
-  font-size: 0.85rem;
+  font-size: var(--font-size-sm);
   color: var(--text-secondary);
-  margin-bottom: 8px;
+  margin-bottom: var(--spacing-sm);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .status-value {
-  font-size: 1.2rem;
+  font-size: var(--font-size-dashboard-status-value);
   font-weight: 700;
   color: var(--text-primary);
 }
@@ -245,7 +245,7 @@ button.stop-scene-button.btn-unstyled .button-subtext {
 .status-value-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
   justify-content: center;
 }
 
@@ -256,41 +256,41 @@ button.stop-scene-button.btn-unstyled .button-subtext {
 @media (max-width: 768px) {
   .status-overview {
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: var(--spacing-md);
   }
 
   .main-status {
-    padding: 20px;
+    padding: var(--spacing-xl);
   }
 
   .status-text {
-    font-size: 1.5rem;
+    font-size: var(--font-size-2xl);
   }
 
   .main-scene-button,
   .stop-scene-button {
-    min-height: 148px;
-    padding: 24px 18px 26px;
-    gap: 8px;
+    min-height: var(--dashboard-control-min-height-mobile);
+    padding: var(--spacing-2xl) var(--spacing-lg-plus) var(--dashboard-control-padding-bottom-mobile);
+    gap: var(--spacing-sm);
   }
 
   .main-scene-button .button-icon,
   .stop-scene-button .button-icon {
-    width: 60px;
-    height: 60px;
-    font-size: 1.5rem;
+    width: var(--size-control-icon-mobile);
+    height: var(--size-control-icon-mobile);
+    font-size: var(--font-size-2xl);
     margin-bottom: 0;
   }
 
   .main-scene-button .button-text,
   .stop-scene-button .button-text {
-    font-size: 1.35rem;
-    line-height: 1.2;
+    font-size: var(--font-size-dashboard-control-title-mobile);
+    line-height: var(--line-height-tight);
   }
 
   .main-scene-button .button-subtext,
   .stop-scene-button .button-subtext {
-    font-size: 0.95rem;
-    line-height: 1.35;
+    font-size: var(--font-size-md-plus);
+    line-height: var(--line-height-comfy);
   }
 }

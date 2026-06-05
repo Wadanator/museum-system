@@ -3,10 +3,10 @@
 #include "debug.h"
 #include <Arduino.h>
 
-// Global hardware state
+// Motor driver output state.
 bool hardwareOff = false;
 
-// Motor state tracking
+// Runtime state for each motor.
 MotorState motor1State = {false, 0, 0, 0, 'S', 0, false, 0, 0, false, 0, 0, 0};
 MotorState motor2State = {false, 0, 0, 0, 'S', 0, false, 0, 0, false, 0, 0, 0};
 
@@ -55,14 +55,12 @@ void updateMotorPWM(int motorNum, int speed, char direction) {
   }
 }
 
-// Function: Smooth motor update with custom ramp and direction change support
 void updateMotorSmoothly() {
   unsigned long currentTime = millis();
 
-  // ----- MOTOR 1 LOGIKA -----
   if (currentTime - motor1State.lastUpdate >= SMOOTH_DELAY) {
     
-    // 1. LOGIKA ZMENY SMERU (Čaká na nulovú rýchlosť)
+    // Direction reversal is staged through zero speed before applying the requested direction.
     if (motor1State.pendingDirectionChange) {
        if (motor1State.currentSpeed == 0) {
           motor1State.direction = motor1State.newDirection;
@@ -72,11 +70,11 @@ void updateMotorSmoothly() {
        } 
        else {
           motor1State.targetSpeed = 0;
-          motor1State.rampActive = false; // Pri otáčaní nepoužívame custom rampu, ale štandardný dobeh
+          motor1State.rampActive = false;
        }
     }
 
-    // 2. LOGIKA CUSTOM RAMPY (Iba ak nemeníme smer)
+    // Command-defined ramps are used only while the direction is stable.
     if (motor1State.rampActive && !motor1State.pendingDirectionChange) {
       if (currentTime >= motor1State.rampStartTime + motor1State.rampDurationMs) {
         motor1State.currentSpeed = motor1State.targetSpeed;
@@ -88,11 +86,10 @@ void updateMotorSmoothly() {
         motor1State.currentSpeed = motor1State.rampStartSpeed + (int)((deltaSpeed * elapsedTime) / motor1State.rampDurationMs);
         updateMotorPWM(1, motor1State.currentSpeed, motor1State.direction);
         motor1State.lastUpdate = currentTime;
-        return; // Pri rampe neriešime štandardný krok nižšie
+        return;
       }
     }
     
-    // 3. ŠTANDARDNÁ Plynulá zmena rýchlosti
     if (motor1State.currentSpeed != motor1State.targetSpeed) {
       if (motor1State.currentSpeed < motor1State.targetSpeed) {
         motor1State.currentSpeed = min(motor1State.currentSpeed + SMOOTH_STEP, motor1State.targetSpeed);
@@ -104,10 +101,9 @@ void updateMotorSmoothly() {
     }
   }
 
-  // ----- MOTOR 2 LOGIKA -----
   if (currentTime - motor2State.lastUpdate >= SMOOTH_DELAY) {
 
-    // 1. LOGIKA ZMENY SMERU
+    // Direction reversal is staged through zero speed before applying the requested direction.
     if (motor2State.pendingDirectionChange) {
        if (motor2State.currentSpeed == 0) {
           motor2State.direction = motor2State.newDirection;
@@ -120,7 +116,7 @@ void updateMotorSmoothly() {
        }
     }
 
-    // 2. LOGIKA CUSTOM RAMPY
+    // Command-defined ramps are used only while the direction is stable.
     if (motor2State.rampActive && !motor2State.pendingDirectionChange) {
       if (currentTime >= motor2State.rampStartTime + motor2State.rampDurationMs) {
         motor2State.currentSpeed = motor2State.targetSpeed;
@@ -136,7 +132,6 @@ void updateMotorSmoothly() {
       }
     }
     
-    // 3. ŠTANDARDNÁ Plynulá zmena
     if (motor2State.currentSpeed != motor2State.targetSpeed) {
       if (motor2State.currentSpeed < motor2State.targetSpeed) {
         motor2State.currentSpeed = min(motor2State.currentSpeed + SMOOTH_STEP, motor2State.targetSpeed);
@@ -149,7 +144,6 @@ void updateMotorSmoothly() {
   }
 }
 
-// controlMotor1
 void controlMotor1(const char* command, const char* speed, const char* direction, const char* rampTime) {
   debugPrint("Motor1 CMD: " + String(command) + " Spd:" + String(speed) + " Dir:" + String(direction));
 
@@ -161,18 +155,17 @@ void controlMotor1(const char* command, const char* speed, const char* direction
     char targetDir = direction[0];
     unsigned long rampDuration = atol(rampTime);
 
-    // --- FIX: Detekcia zmeny smeru za behu ---
+    // A running motor must decelerate to zero before reversing direction.
     if (motor1State.currentSpeed > 0 && motor1State.direction != targetDir) {
-        debugPrint("Motor1 changing direction while running! Initiating smooth reversal.");
+        debugPrint("Motor1 changing direction while running. Initiating smooth reversal.");
         motor1State.pendingDirectionChange = true;
         motor1State.newDirection = targetDir;
         motor1State.savedSpeed = targetSpd;
         motor1State.targetSpeed = 0;
-        motor1State.rampActive = false; // Vypneme rampu pre spomalenie
+        motor1State.rampActive = false;
         hardwareOff = false;
-        return; // DÔLEŽITÉ: Nespustiť kód nižšie, kým sa motor neotočí
+        return;
     }
-    // -----------------------------------------
     
     motor1State.direction = targetDir;
     motor1State.speed = targetSpd;
@@ -192,13 +185,12 @@ void controlMotor1(const char* command, const char* speed, const char* direction
     hardwareOff = false;
 
   } else if (strcmp(command, "OFF") == 0) {
-    // --- FIX: PLYNULÉ ZASTAVENIE ---
+    // OFF requests a controlled stop through the smooth updater.
     if (motor1State.enabled) {
         motor1State.targetSpeed = 0;
         motor1State.speed = 0;
-        motor1State.rampActive = false; // Použije sa štandardný SMOOTH_STEP
+        motor1State.rampActive = false;
         debugPrint("Motor1 stopping smoothly (OFF command)");
-        // Nechávame enabled = true, kým nedobehne, resp. kým sa nezavolá turnOffHardware
     }
 
   } else if (strcmp(command, "SPEED") == 0) {
@@ -227,7 +219,6 @@ void controlMotor1(const char* command, const char* speed, const char* direction
   }
 }
 
-// controlMotor2
 void controlMotor2(const char* command, const char* speed, const char* direction, const char* rampTime) {
   debugPrint("Motor2 CMD: " + String(command) + " Spd:" + String(speed) + " Dir:" + String(direction));
 
@@ -239,9 +230,9 @@ void controlMotor2(const char* command, const char* speed, const char* direction
     char targetDir = direction[0];
     unsigned long rampDuration = atol(rampTime);
 
-    // --- FIX: Detekcia zmeny smeru za behu ---
+    // A running motor must decelerate to zero before reversing direction.
     if (motor2State.currentSpeed > 0 && motor2State.direction != targetDir) {
-        debugPrint("Motor2 changing direction while running! Initiating smooth reversal.");
+        debugPrint("Motor2 changing direction while running. Initiating smooth reversal.");
         motor2State.pendingDirectionChange = true;
         motor2State.newDirection = targetDir;
         motor2State.savedSpeed = targetSpd;
@@ -250,7 +241,6 @@ void controlMotor2(const char* command, const char* speed, const char* direction
         hardwareOff = false;
         return; 
     }
-    // -----------------------------------------
 
     motor2State.direction = targetDir;
     motor2State.speed = targetSpd;
@@ -270,7 +260,7 @@ void controlMotor2(const char* command, const char* speed, const char* direction
     hardwareOff = false;
 
   } else if (strcmp(command, "OFF") == 0) {
-    // --- FIX: PLYNULÉ ZASTAVENIE ---
+    // OFF requests a controlled stop through the smooth updater.
     if (motor2State.enabled) {
         motor2State.targetSpeed = 0;
         motor2State.speed = 0;
@@ -315,6 +305,6 @@ void turnOffHardware() {
   motor1State = {false, 0, 0, 0, 'S', 0, false, 0, 0, false, 0, 0, 0};
   motor2State = {false, 0, 0, 0, 'S', 0, false, 0, 0, false, 0, 0, 0};
 
-  debugPrint("All motors turned OFF (Hard Reset)");
+  debugPrint("All motors turned OFF (hard reset)");
   hardwareOff = true;
 }

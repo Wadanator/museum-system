@@ -9,24 +9,24 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding-bottom: 24px;
-    margin-bottom: 24px;
-    border-bottom: 1px solid var(--border-color);
+    padding-bottom: var(--spacing-2xl);
+    margin-bottom: var(--spacing-2xl);
+    border-bottom: var(--border-width-sm) solid var(--border-color);
     flex-wrap: wrap;
-    gap: 16px;
+    gap: var(--spacing-lg);
 }
 
 .page-header-left {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: var(--spacing-lg);
 }
 
 .page-header-icon-box {
-    width: 48px;
-    height: 48px;
+    width: var(--size-header-icon);
+    height: var(--size-header-icon);
     background: var(--bg-card);
-    border: 1px solid var(--border-color);
+    border: var(--border-width-sm) solid var(--border-color);
     border-radius: var(--radius-lg);
     display: flex;
     align-items: center;
@@ -38,20 +38,20 @@
 .page-header-titles {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--spacing-2xs);
 }
 
 .page-title {
     margin: 0;
-    font-size: 1.5rem;
+    font-size: var(--font-size-2xl);
     font-weight: 700;
     color: var(--text-primary);
-    line-height: 1.2;
+    line-height: var(--line-height-tight);
 }
 
 .page-subtitle {
     margin: 0;
-    font-size: 0.9rem;
+    font-size: var(--font-size-md);
     color: var(--text-secondary);
     font-weight: 500;
 }
@@ -59,14 +59,14 @@
 .page-header-actions {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--spacing-sm-plus);
 }
 
 .button-group {
     display: flex;
     align-items: stretch;
-    gap: 10px;
-    margin-top: 10px;
+    gap: var(--spacing-sm-plus);
+    margin-top: var(--spacing-sm-plus);
     width: 100%;
     min-width: 0;
 }
@@ -81,34 +81,34 @@
     background: var(--bg-card);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-md);
-    padding: 24px;
+    padding: var(--spacing-2xl);
     height: 100%;
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--border-color);
-    transition: box-shadow 0.2s ease;
+    border: var(--border-width-sm) solid var(--border-color);
+    transition: box-shadow var(--transition-base);
 }
 
 .card-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 16px;
-    gap: 12px;
+    margin-bottom: var(--spacing-lg);
+    gap: var(--spacing-md);
 }
 
 .card-title {
     margin: 0;
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 1.1rem;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-lg);
     color: var(--text-secondary);
     font-weight: 700;
     flex: 1;
     min-width: 0;
     word-break: break-all;
-    line-height: 1.3;
+    line-height: var(--line-height-snug);
 }
 
 .card-content {
@@ -121,19 +121,19 @@
 .status-badge {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 12px;
-    border-radius: 20px;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs-plus) var(--spacing-md);
+    border-radius: var(--radius-2xl);
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: var(--font-size-sm);
     line-height: 1;
     white-space: nowrap;
-    border: 1px solid transparent;
+    border: var(--border-width-sm) solid transparent;
 }
 
 .status-dot {
-    width: 8px; 
-    height: 8px; 
+    width: var(--spacing-sm); 
+    height: var(--spacing-sm); 
     border-radius: 50%;
     box-shadow: 0 0 8px currentColor;
 }
@@ -177,12 +177,12 @@
 
 .modal-content {
     background: var(--bg-card);
-    padding: 24px;
+    padding: var(--spacing-2xl);
     border-radius: var(--radius-xl);
     width: 90%;
-    max-width: 500px;
+    max-width: var(--modal-max-width);
     box-shadow: var(--shadow-lg);
-    border: 1px solid var(--border-color);
+    border: var(--border-width-sm) solid var(--border-color);
     display: flex; 
     flex-direction: column;
 }
@@ -190,7 +190,7 @@
 .modal-content.large-editor {
     width: 90vw;
     height: 85vh;
-    max-width: 1200px;
+    max-width: var(--modal-large-max-width);
     padding: 0;
     overflow: hidden;
 }
@@ -199,18 +199,18 @@
     display: flex; 
     justify-content: space-between; 
     align-items: center; 
-    margin-bottom: 20px;
+    margin-bottom: var(--spacing-xl);
 }
 
 .large-editor .modal-header {
-    padding: 16px 24px;
+    padding: var(--spacing-lg) var(--spacing-2xl);
     margin-bottom: 0;
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: var(--border-width-sm) solid var(--border-color);
 }
 
 .modal-title {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: var(--font-size-xl);
     font-weight: 600;
     color: var(--text-primary);
 }
@@ -222,9 +222,9 @@
     border: none;
     cursor: pointer;
     color: var(--text-muted);
-    padding: 6px;
+    padding: var(--spacing-xs-plus);
     border-radius: var(--radius-md);
-    transition: all 0.2s;
+    transition: all var(--transition-base);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -238,14 +238,14 @@
 .modal-actions {
     display: flex; 
     justify-content: flex-end; 
-    gap: 12px;
-    margin-top: 24px;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-2xl);
 }
 
 /* Nová trieda nahrádzajúca inline štýl v Modal.jsx */
 .modal-body-text {
     color: var(--text-secondary);
-    line-height: 1.5;
+    line-height: var(--line-height-normal);
 }
 
 .modal-content.large-editor .modal-body-text {
@@ -257,7 +257,7 @@
 
 .modal-error-text {
     color: var(--danger);
-    margin-top: 10px;
+    margin-top: var(--spacing-sm-plus);
 }
 
 /* --- CONFIRM MODAL (New) --- */
@@ -275,18 +275,18 @@
 
 .confirm-box {
     background-color: var(--bg-card);
-    padding: 24px;
+    padding: var(--spacing-2xl);
     border-radius: var(--radius-xl);
-    max-width: 400px;
+    max-width: var(--confirm-modal-max-width);
     width: 90%;
     box-shadow: var(--shadow-lg);
-    border: 1px solid var(--border-color);
+    border: var(--border-width-sm) solid var(--border-color);
 }
 
 .confirm-title {
     margin-top: 0;
-    margin-bottom: 12px;
-    font-size: 1.25rem;
+    margin-bottom: var(--spacing-md);
+    font-size: var(--font-size-xl);
     font-weight: 600;
     color: var(--text-primary);
 }
@@ -297,15 +297,15 @@
 
 .confirm-message {
     color: var(--text-secondary);
-    margin-bottom: 24px;
-    line-height: 1.5;
-    font-size: 0.95rem;
+    margin-bottom: var(--spacing-2xl);
+    line-height: var(--line-height-normal);
+    font-size: var(--font-size-md-plus);
 }
 
 .confirm-actions {
     display: flex;
     justify-content: flex-end;
-    gap: 12px;
+    gap: var(--spacing-md);
 }
 
 /* --- BUTTON EXTENSIONS --- */
@@ -314,10 +314,10 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px; /* Default gap */
+    gap: var(--spacing-sm); /* Default gap */
 }
 
-.btn.btn-small { gap: 6px; }
+.btn.btn-small { gap: var(--spacing-xs-plus); }
 
 .btn-unstyled {
     display: inline-flex;
@@ -352,13 +352,72 @@
     color: var(--text-muted);
 }
 
+/* --- STATE NOTICE --- */
+.state-notice {
+    min-height: var(--loading-state-height);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-3xl);
+    text-align: center;
+    color: var(--text-secondary);
+    background: var(--bg-card);
+    border: var(--border-width-sm) dashed var(--border-color);
+    border-radius: var(--radius-lg);
+}
+
+.state-notice--compact {
+    min-height: 120px;
+    padding: var(--spacing-xl);
+}
+
+.state-notice__icon {
+    width: var(--size-scene-icon);
+    height: var(--size-scene-icon);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--scene-card-icon-radius);
+    background: var(--bg-hover);
+    color: var(--primary);
+    border: var(--border-width-sm) solid var(--border-color);
+}
+
+.state-notice--danger .state-notice__icon {
+    color: var(--danger);
+    background: var(--danger-bg);
+    border-color: color-mix(in srgb, var(--danger) 28%, var(--border-color));
+}
+
+.state-notice__title {
+    color: var(--text-primary);
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+}
+
+.state-notice__message {
+    max-width: 34rem;
+    color: var(--text-muted);
+    font-size: var(--font-size-md);
+    line-height: var(--line-height-normal);
+}
+
+.state-notice__actions {
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+}
+
 /* --- UTILITIES --- */
 .app-loading-screen {
     height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.1rem;
+    font-size: var(--font-size-lg);
     color: var(--text-secondary);
     background: var(--bg-main);
 }
@@ -372,36 +431,36 @@
     .page-header-container {
         flex-direction: column;
         align-items: flex-start;
-        padding-bottom: 18px;
-        margin-bottom: 18px;
-        gap: 12px;
+        padding-bottom: var(--spacing-lg-plus);
+        margin-bottom: var(--spacing-lg-plus);
+        gap: var(--spacing-md);
     }
 
     .page-header-left {
         width: 100%;
         align-items: flex-start;
-        gap: 12px;
+        gap: var(--spacing-md);
     }
 
     .page-header-icon-box {
-        width: 42px;
-        height: 42px;
+        width: var(--size-header-icon-mobile);
+        height: var(--size-header-icon-mobile);
         flex-shrink: 0;
     }
 
     .page-title {
-        font-size: 1.3rem;
+        font-size: var(--font-size-xl-plus);
     }
 
     .page-subtitle {
-        font-size: 0.85rem;
+        font-size: var(--font-size-sm);
     }
 
     .page-header-actions {
         width: 100%;
         justify-content: flex-start;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: var(--spacing-sm);
     }
 
     .page-header-actions > * {
@@ -415,7 +474,7 @@
     .filters {
         flex-wrap: wrap;
         width: 100%;
-        gap: 6px;
+        gap: var(--spacing-xs-plus);
     }
 
     .filter-btn {
@@ -425,7 +484,7 @@
 
     .modal-content {
         width: min(94vw, 500px);
-        padding: 20px;
+        padding: var(--spacing-xl);
     }
 
     .notification.connection-notification {
@@ -454,5 +513,5 @@
     z-index: 9999;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--spacing-sm-plus);
 }

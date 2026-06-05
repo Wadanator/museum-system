@@ -28,7 +28,7 @@ class TransitionManager:
         self.logger = logger or get_logger("TransitionManager")
         self.lock = Lock()
 
-        # Event queues — deque with maxlen automatically discards oldest entries
+        # Event queues - deque with maxlen automatically discards oldest entries
         self.mqtt_events = deque(maxlen=50)
         self.audio_end_events = deque(maxlen=50)
         self.video_end_events = deque(maxlen=50)

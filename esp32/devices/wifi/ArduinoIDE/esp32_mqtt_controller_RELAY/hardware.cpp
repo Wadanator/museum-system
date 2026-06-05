@@ -41,7 +41,7 @@ void initializeHardware() {
     debugPrint("Rezim: Waveshare Relay Module (I2C)");
     Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
 
-    // Set I2C timeout – prevents bus hang from blocking the main loop
+    // Set I2C timeout - prevents bus hang from blocking the main loop
     Wire.setTimeOut(50);
 
     Wire.beginTransmission(I2C_EXPANDER_ADDR);
@@ -54,7 +54,7 @@ void initializeHardware() {
       debugPrint("I2C Expander inicializovany OK");
     }
 
-    // Set initial expander state – handle inverted channels
+    // Set initial expander state - handle inverted channels
     expanderState = 0x00;
     for (int i = 0; i < DEVICE_COUNT; i++) {
       if (DEVICES[i].inverted) {

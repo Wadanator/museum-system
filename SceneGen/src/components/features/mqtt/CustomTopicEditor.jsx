@@ -18,7 +18,7 @@ const CustomTopicEditor = ({ action, onChange, customTopic, setCustomTopic, glob
           placeholder={`${globalPrefix}/custom_device`}
         />
         <div className="text-xs text-gray-500 mt-1">
-          💡 Zadaj ľubovoľný topic, napr. {globalPrefix}/my_device
+           Zadaj ľubovoľný topic, napr. {globalPrefix}/my_device
         </div>
       </div>
 
@@ -37,7 +37,7 @@ const CustomTopicEditor = ({ action, onChange, customTopic, setCustomTopic, glob
 
       {/* Preview */}
       <div className="bg-gray-800 p-3 rounded border border-blue-600">
-        <div className="text-xs text-gray-400 mb-1">📡 Náhľad MQTT:</div>
+        <div className="text-xs text-gray-400 mb-1"> Náhľad MQTT:</div>
         <div className="text-sm">
           <span className="text-blue-400">Topic:</span> 
           <span className="text-white ml-2 font-mono">{action.topic || '(žiadny)'}</span>

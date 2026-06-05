@@ -1,43 +1,40 @@
 import { useState } from 'react';
-import { Plus, Loader2, RefreshCw, Sparkles, Activity } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Loader2, RefreshCw, Drama } from 'lucide-react';
 import { useScenes } from '../../hooks/useScenes';
 import SceneCard from '../Scenes/SceneCard';
 import SceneEditorModal from '../Scenes/SceneEditorModal';
 import Button from '../ui/Button';
 import PageHeader from '../ui/PageHeader';
 import Modal from '../ui/Modal';
-import LiveView from './LiveView';
-import Card from '../ui/Card';
+import StateNotice from '../ui/StateNotice';
 import '../../styles/views/scenes-view.css';
 
 export default function ScenesView() {
+    const navigate = useNavigate();
     const { scenes, loading, fetchScenes, playScene, loadSceneContent, saveSceneContent } = useScenes();
 
+    // JSON editor modal (gear button)
     const [editorOpen, setEditorOpen] = useState(false);
     const [editingFile, setEditingFile] = useState(null);
     const [editorContent, setEditorContent] = useState(null);
 
-    const [liveSceneName, setLiveSceneName] = useState(null);
-    const [liveSceneData, setLiveSceneData] = useState(null);
-
     const [newSceneModal, setNewSceneModal] = useState({ isOpen: false, name: '' });
 
+    // Open scene in JSON editor modal (gear button)
     const handleEdit = async (filename) => {
         try {
             const content = await loadSceneContent(filename);
             setEditingFile(filename);
             setEditorContent(content);
             setEditorOpen(true);
-        } catch (error) {
-            console.error(error);
+        } catch {
+            // fall through - modal won't open
         }
     };
 
     const handleSave = async (filename, content) => {
-        const success = await saveSceneContent(filename, content);
-        if (success) {
-            setEditorOpen(false);
-        }
+        return saveSceneContent(filename, content);
     };
 
     const handleCreate = () => {
@@ -48,88 +45,76 @@ export default function ScenesView() {
         const name = newSceneModal.name.trim();
         if (!name) return;
         const filename = name.endsWith('.json') ? name : `${name}.json`;
-        const template = [
-            { type: 'log', message: `Začiatok scény ${name}` },
-            { type: 'delay', value: 1 },
-        ];
-        await saveSceneContent(filename, template);
+        const sceneId = filename.replace('.json', '');
+
+        // Minimal V2 state-machine template
+        const template = {
+            sceneId,
+            version: '2.0',
+            initialState: 'INTRO',
+            states: {
+                INTRO: { transitions: [{ type: 'always', goto: 'END' }] },
+            },
+        };
+
+        const saved = await saveSceneContent(filename, template);
+        if (!saved) return;
         setNewSceneModal({ isOpen: false, name: '' });
+        navigate(`/scene-editor/${filename}`);
     };
 
     const handlePlayFromCard = async (filename) => {
-        try {
-            const content = await loadSceneContent(filename);
-            setLiveSceneName(filename);
-            setLiveSceneData(content);
-            playScene(filename);
-        } catch (error) {
-            console.error(error);
+        const started = await playScene(filename);
+        if (started) {
+            navigate('/live');
         }
-    };
-
-    const handleLiveSceneDataLoaded = (filename, content) => {
-        setLiveSceneName(filename);
-        setLiveSceneData(content);
     };
 
     return (
         <div className="view-container scenes-view">
             <PageHeader
-                title="Knižnica Scén"
+                title="Knižnica scén"
                 subtitle="Dostupné show súbory"
-                icon={Sparkles}
+                icon={Drama}
             >
-                <Button variant="secondary" icon={RefreshCw} onClick={fetchScenes} disabled={loading} size="small">
+                <Button variant="toolbar" icon={RefreshCw} onClick={fetchScenes} disabled={loading} size="small">
                     Obnoviť
-                </Button>
-                <Button variant="primary" icon={Plus} onClick={handleCreate}>
-                    Nová scéna
                 </Button>
             </PageHeader>
 
             {loading ? (
-                <div className="loading-state">
-                    <Loader2 className="animate-spin" size={40} strokeWidth={1.5} />
-                    <span>Načítavam scenáre...</span>
-                </div>
+                <StateNotice
+                    icon={Loader2}
+                    title="Načítavam scény"
+                    message="Zoznam dostupných scenárov sa obnovuje zo servera."
+                    isLoading
+                />
             ) : (
                 <div className="scenes-grid">
-                    {scenes.length === 0 ? (
-                        <div className="empty-state">
-                            <Sparkles size={48} opacity={0.2} />
-                            Žiadne scény sa nenašli. Vytvorte novú.
-                        </div>
-                    ) : (
-                        scenes.map((scene) => (
-                            <SceneCard
-                                key={scene.name}
-                                scene={scene}
-                                onPlay={handlePlayFromCard}
-                                onEdit={handleEdit}
-                            />
-                        ))
-                    )}
+                    {scenes.map((scene) => (
+                        <SceneCard
+                            key={scene.name}
+                            scene={scene}
+                            onPlay={handlePlayFromCard}
+                            onEdit={handleEdit}
+                        />
+                    ))}
+                    <button
+                        type="button"
+                        className="create-scene-card"
+                        onClick={handleCreate}
+                    >
+                        <span className="create-scene-card__icon">
+                            <Plus size={28} />
+                        </span>
+                        <span className="create-scene-card__title">Vytvoriť scénu</span>
+                        <span className="create-scene-card__meta">Nový JSON scenár</span>
+                    </button>
                 </div>
-            )}
-
-            {liveSceneName && (
-                <Card
-                    title="Live Monitor"
-                    icon={Activity}
-                    className="scenes-live-card"
-                >
-                    <LiveView
-                        embedded
-                        showSceneSelector={false}
-                        selectedScene={liveSceneName}
-                        sceneData={liveSceneData}
-                        onSceneDataLoaded={handleLiveSceneDataLoaded}
-                    />
-                </Card>
             )}
 
             <SceneEditorModal
-                key={`${editingFile ?? 'new'}-${editorOpen ? 'open' : 'closed'}`}
+                key={editingFile}
                 isOpen={editorOpen}
                 onClose={() => setEditorOpen(false)}
                 filename={editingFile}
@@ -139,7 +124,7 @@ export default function ScenesView() {
 
             <Modal
                 isOpen={newSceneModal.isOpen}
-                title="Nová scéna"
+                title="Vytvoriť scénu"
                 onClose={() => setNewSceneModal({ isOpen: false, name: '' })}
                 footer={
                     <>

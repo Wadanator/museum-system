@@ -1,9 +1,9 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
 import Button from '../ui/Button';
-import { 
-  Home, Drama, FolderOpen, Zap, ClipboardList, 
-  BarChart3, Settings, LogOut, Landmark, Moon, Sun
+import {
+  Home, Drama, FolderOpen, Zap, ClipboardList,
+  BarChart3, Settings, LogOut, Landmark, Moon, Sun, Wand2, Activity
 } from 'lucide-react';
 
 export default function Sidebar({ theme, onToggleTheme }) {
@@ -11,7 +11,9 @@ export default function Sidebar({ theme, onToggleTheme }) {
 
   const navItems = [
     { to: "/", icon: Home, label: "Prehľad" },
+    { to: "/live", icon: Activity, label: "Live" },
     { to: "/scenes", icon: Drama, label: "Scény" },
+    { to: "/scene-editor", icon: Wand2, label: "Editor scén" },
     { to: "/media", icon: FolderOpen, label: "Médiá" },
     { to: "/commands", icon: Zap, label: "Ovládanie" },
     { to: "/logs", icon: ClipboardList, label: "Logy" },

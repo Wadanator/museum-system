@@ -1,43 +1,39 @@
 #ifndef HARDWARE_H
 #define HARDWARE_H
 
-// Hardware control functions
+// Hardware control interface.
 void initializeHardware();
 
-// ZMENENÉ: Pridanie voliteľného rampTime parametra
 void controlMotor1(const char* command, const char* speed = "50", const char* direction = "L", const char* rampTime = "0");
 void controlMotor2(const char* command, const char* speed = "50", const char* direction = "L", const char* rampTime = "0");
 
 void turnOffHardware();
 
-// Hardware state
+// Hardware state.
 extern bool hardwareOff;
 
-// Motor state tracking - ROZŠÍRENÉ pre správnu zmenu smeru
+// Runtime state for one bidirectional PWM motor.
 struct MotorState {
   bool enabled;
   int speed;
-  int currentSpeed;        // Aktuálna PWM rýchlosť (pre smooth transition)
-  int targetSpeed;         // Cieľová rýchlosť
-  char direction;          // Aktuálny smer ('L' alebo 'R')
-  unsigned long lastUpdate;  // Čas posledného update
+  int currentSpeed;        // Current PWM speed used by the smooth updater.
+  int targetSpeed;         // Requested final speed.
+  char direction;          // Current direction: 'L', 'R', or 'S'.
+  unsigned long lastUpdate;  // Timestamp of the last PWM update.
   
-  // NOVÉ polia pre zmenu smeru:
-  bool pendingDirectionChange;  // Či čaká na zmenu smeru
-  char newDirection;            // Nový smer na ktorý sa má zmeniť
-  int savedSpeed;              // Uložená rýchlosť pred zmenou smeru
+  bool pendingDirectionChange;  // Direction changes complete after speed reaches zero.
+  char newDirection;            // Direction requested for the next motion phase.
+  int savedSpeed;               // Speed restored after a controlled direction change.
 
-  // NOVÉ polia pre DEFINOVANÝ ROZBEH (RAMP UP):
-  bool rampActive;             // Či beží custom rozbeh/spomalenie
-  unsigned long rampStartTime;   // Čas spustenia rampy
-  unsigned long rampDurationMs;  // Požadovaný čas trvania rampy (5000 = 5s)
-  int rampStartSpeed;          // Rýchlosť, z ktorej sa rampa začala
+  bool rampActive;              // A command-defined ramp is in progress.
+  unsigned long rampStartTime;  // Timestamp when the ramp started.
+  unsigned long rampDurationMs; // Requested ramp duration in milliseconds.
+  int rampStartSpeed;           // Speed at the beginning of the ramp.
 };
 
 extern MotorState motor1State;
 extern MotorState motor2State;
 
-// Smooth control function - volaj v main loop
 void updateMotorSmoothly();
 
 #endif

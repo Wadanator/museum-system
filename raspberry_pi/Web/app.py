@@ -28,7 +28,10 @@ def create_app(controller):
         engineio_logger=False,
         ping_timeout=60,
         ping_interval=25,
-        transports=['websocket']
+        # Keep Socket.IO on the standard polling handshake with optional
+        # websocket upgrade. Forcing websocket-only under Werkzeug can produce
+        # noisy "write() before start_response" request errors during reconnects.
+        transports=['polling', 'websocket']
     )
     
     # Create dashboard instance

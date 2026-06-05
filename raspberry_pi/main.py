@@ -5,7 +5,6 @@ import sys
 import signal
 import time
 import threading
-import subprocess
 import logging
 from pathlib import Path
 
@@ -24,6 +23,11 @@ get_logger = None
 ServiceContainer = None
 SceneParser = None
 start_web_dashboard = None
+DashboardNotifier = None
+SceneLifecycle = None
+SceneRuntimeService = None
+SceneStopCoordinator = None
+SystemActions = None
 
 # State file read by watchdog.py before deciding to restart the service.
 # Written 'running' when a scene starts, 'idle' when it ends.
@@ -34,12 +38,21 @@ def _initialize_runtime():
     """Load runtime modules and switch from bootstrap logging to configured logging."""
     global config_manager, setup_logging_from_config, get_logger
     global ServiceContainer, SceneParser, start_web_dashboard, log
+    global DashboardNotifier, SceneLifecycle, SceneRuntimeService
+    global SceneStopCoordinator, SystemActions
 
     from utils.config_manager import ConfigManager
     from utils.logging_setup import setup_logging_from_config as setup_logging_from_config_impl, get_logger as get_logger_impl
     from utils.service_container import ServiceContainer as service_container_cls
     from utils.scene_parser import SceneParser as scene_parser_cls
     from Web import start_web_dashboard as start_web_dashboard_func
+    from utils.runtime import (
+        DashboardNotifier as dashboard_notifier_cls,
+        SceneLifecycle as scene_lifecycle_cls,
+        SceneRuntimeService as scene_runtime_service_cls,
+        SceneStopCoordinator as scene_stop_coordinator_cls,
+        SystemActions as system_actions_cls,
+    )
 
     config_manager = ConfigManager()
     setup_logging_from_config = setup_logging_from_config_impl
@@ -47,6 +60,11 @@ def _initialize_runtime():
     ServiceContainer = service_container_cls
     SceneParser = scene_parser_cls
     start_web_dashboard = start_web_dashboard_func
+    DashboardNotifier = dashboard_notifier_cls
+    SceneLifecycle = scene_lifecycle_cls
+    SceneRuntimeService = scene_runtime_service_cls
+    SceneStopCoordinator = scene_stop_coordinator_cls
+    SystemActions = system_actions_cls
 
     logging_config = config_manager.get_logging_config()
     setup_logging_from_config(logging_config)
@@ -81,6 +99,7 @@ class MuseumController:
         # Scene execution state
         self.scene_running = False
         self.current_scene_name = None
+        self.current_scene_state = None
         self.scene_lock = threading.Lock()
         self.scene_thread = None
         self.scene_shutdown_join_timeout = max(
@@ -91,6 +110,14 @@ class MuseumController:
         self.scene_heartbeat_interval: float = max(1.0, self.config['scene_heartbeat_interval'])
         self._heartbeat_stop_event: threading.Event = threading.Event()
         self._heartbeat_thread: threading.Thread | None = None
+
+        # Runtime helpers keep the public MuseumController API stable while
+        # moving scene lifecycle/stop/system responsibilities out of main.py.
+        self.dashboard_notifier = DashboardNotifier(self, log)
+        self.scene_lifecycle = SceneLifecycle(self, _SCENE_STATE_FILE, log)
+        self.stop_coordinator = SceneStopCoordinator(self, log)
+        self.system_actions = SystemActions(self, log)
+        self.scene_runtime = SceneRuntimeService(self, log)
         
         log.info(f"Initializing Museum Controller for {self.room_id}")
         
@@ -141,8 +168,7 @@ class MuseumController:
             self.mqtt_feedback_tracker.set_state_store(self.actuator_state_store)
 
         def _on_actuator_state_change(snapshot: dict) -> None:
-            if self.web_dashboard:
-                self.web_dashboard.broadcast_device_runtime_state(snapshot)
+            self._dashboard_notifier_service().broadcast_device_runtime_state(snapshot)
 
         self.actuator_state_store.set_update_callback(_on_actuator_state_change)
 
@@ -171,6 +197,65 @@ class MuseumController:
         if self.button_handler:
             self.button_handler.set_callback(self.on_button_press)
 
+    def _dashboard_notifier_service(self):
+        """Return the dashboard notifier, lazily creating it for lightweight tests."""
+        service = getattr(self, 'dashboard_notifier', None)
+        if service is None:
+            cls = globals().get('DashboardNotifier')
+            if cls is None:
+                from utils.runtime.dashboard_notifier import DashboardNotifier as cls
+            service = cls(self, log)
+            self.dashboard_notifier = service
+        return service
+
+    def _scene_lifecycle_service(self):
+        """Return the scene lifecycle helper, lazily creating it for tests."""
+        service = getattr(self, 'scene_lifecycle', None)
+        if service is None:
+            cls = globals().get('SceneLifecycle')
+            if cls is None:
+                from utils.runtime.scene_lifecycle import SceneLifecycle as cls
+            service = cls(self, _SCENE_STATE_FILE, log)
+            self.scene_lifecycle = service
+        return service
+
+    def _scene_state_file(self):
+        """Return the current watchdog scene-state file path."""
+        return _SCENE_STATE_FILE
+
+    def _scene_runtime_service(self):
+        """Return the scene runtime service, lazily creating it for tests."""
+        service = getattr(self, 'scene_runtime', None)
+        if service is None:
+            cls = globals().get('SceneRuntimeService')
+            if cls is None:
+                from utils.runtime.scene_runtime_service import SceneRuntimeService as cls
+            service = cls(self, log)
+            self.scene_runtime = service
+        return service
+
+    def _stop_coordinator_service(self):
+        """Return the stop coordinator, lazily creating it for tests."""
+        service = getattr(self, 'stop_coordinator', None)
+        if service is None:
+            cls = globals().get('SceneStopCoordinator')
+            if cls is None:
+                from utils.runtime.scene_stop_coordinator import SceneStopCoordinator as cls
+            service = cls(self, log)
+            self.stop_coordinator = service
+        return service
+
+    def _system_actions_service(self):
+        """Return system action helper, lazily creating it for tests."""
+        service = getattr(self, 'system_actions', None)
+        if service is None:
+            cls = globals().get('SystemActions')
+            if cls is None:
+                from utils.runtime.system_actions import SystemActions as cls
+            service = cls(self, log)
+            self.system_actions = service
+        return service
+
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals."""
         log.warning(f"Received signal {signum}, initiating shutdown...")
@@ -181,8 +266,9 @@ class MuseumController:
     def _on_device_status_change(self, device_id: str, status: str) -> None:
         """Handle MQTT device online/offline transitions."""
         # Track outages (short disconnections) to JSON
-        if self.outage_tracker:
-            self.outage_tracker.on_device_status_change(device_id, status)
+        outage_tracker = getattr(self, 'outage_tracker', None)
+        if outage_tracker:
+            outage_tracker.on_device_status_change(device_id, status)
         
         if status == 'offline' and self.actuator_state_store:
             self.actuator_state_store.mark_node_offline(device_id)
@@ -195,60 +281,24 @@ class MuseumController:
 
     def _set_scene_running(self, is_running, reason, expect_current=None):
         """Centralized scene lifecycle transition with synchronized file/state updates."""
-        state_value = 'running' if is_running else 'idle'
-
-        with self.scene_lock:
-            if expect_current is not None and self.scene_running != expect_current:
-                return False
-
-            if self.scene_running == is_running:
-                return False
-
-            self.scene_running = is_running
-            try:
-                _SCENE_STATE_FILE.write_text(state_value)
-            except OSError as exc:
-                log.error(f"Failed to persist scene state '{state_value}': {exc}")
-
-        if is_running:
-            self._start_heartbeat()
-        else:
-            self._stop_heartbeat()
-
-        log.info(f"Scene lifecycle transition -> {state_value} ({reason})")
-        return True
+        return self._scene_lifecycle_service().set_scene_running(
+            is_running,
+            reason,
+            expect_current=expect_current,
+        )
 
     def _heartbeat_loop(self) -> None:
         """Periodically rewrite the scene state file to 'running' so the watchdog
         does not mistake a long-running scene for a hung service."""
-        while not self._heartbeat_stop_event.wait(self.scene_heartbeat_interval):
-            with self.scene_lock:
-                if self._heartbeat_stop_event.is_set() or not self.scene_running:
-                    break
-                try:
-                    _SCENE_STATE_FILE.write_text('running')
-                except OSError as exc:
-                    log.warning(f"Scene heartbeat failed to update state file: {exc}")
+        self._scene_lifecycle_service().heartbeat_loop()
 
     def _start_heartbeat(self) -> None:
         """Start the heartbeat thread if it is not already running."""
-        if self._heartbeat_thread and self._heartbeat_thread.is_alive():
-            return
-        self._heartbeat_stop_event.clear()
-        self._heartbeat_thread = threading.Thread(
-            target=self._heartbeat_loop,
-            name='scene-heartbeat',
-            daemon=True,
-        )
-        self._heartbeat_thread.start()
+        self._scene_lifecycle_service().start_heartbeat()
 
     def _stop_heartbeat(self) -> None:
         """Signal the heartbeat thread to stop and wait for it to exit."""
-        self._heartbeat_stop_event.set()
-        thread = self._heartbeat_thread
-        if thread and thread.is_alive():
-            thread.join(timeout=2.0)
-        self._heartbeat_thread = None
+        self._scene_lifecycle_service().stop_heartbeat()
 
     def _on_mqtt_connection_lost(self):
         log.error("MQTT connection lost - system will continue with limited functionality")
@@ -275,232 +325,50 @@ class MuseumController:
 
     def _initiate_scene_start(self, scene_filename, log_message):
         """Common entry point for starting a scene."""
-        if not self.mqtt_client or not self.mqtt_client.is_connected():
-            log.warning("Starting scene without MQTT connection - external devices may not respond")
-
-        if not self._set_scene_running(True, f"start:{scene_filename}", expect_current=False):
-            log.info(f"Scene already running, ignoring request to start: {scene_filename}")
-            return False
-
-        log.info(log_message)
-
-        if self.web_dashboard:
-            self.web_dashboard.broadcast_status()
-
-        self.scene_thread = threading.Thread(
-            target=self._run_scene_logic, 
-            args=(scene_filename,), 
-            name=f"{self.room_id}-scene-runner",
-            daemon=True
+        return self._scene_runtime_service().initiate_scene_start(
+            scene_filename,
+            log_message,
         )
-        self.scene_thread.start()
-        return True
+
+    def build_scene_path(self, scene_filename):
+        """Build the absolute path to a scene file for the current room."""
+        return os.path.join(self.scenes_dir, self.room_id, scene_filename)
+
+    def _scene_file_exists(self, scene_path):
+        """Compatibility wrapper so tests can patch main.os.path.exists."""
+        return os.path.exists(scene_path)
 
     def _run_scene_logic(self, scene_filename):
         """Worker thread function containing the core logic to load and run a scene."""
-        scene_path = os.path.join(self.scenes_dir, self.room_id, scene_filename)
-        self.current_scene_name = scene_filename
-
-        try:
-            log.debug(f"Attempting to load scene from: {scene_path}")
-            
-            if not os.path.exists(scene_path):
-                log.critical(f"Scene file not found: {scene_path}")
-                self._set_scene_running(False, f"missing_scene_file:{scene_filename}")
-                if self.web_dashboard:
-                    self.web_dashboard.broadcast_status()
-                return
-
-            if not self.scene_parser:
-                log.error("Scene parser not available")
-                self._set_scene_running(False, "scene_parser_unavailable")
-                if self.web_dashboard:
-                    self.web_dashboard.broadcast_status()
-                return
-
-            log.debug(f"Loading scene: {scene_path}")
-            if self.scene_parser.load_scene(scene_path):
-                
-                if self.web_dashboard:
-                    def notify_web(state_name):
-                        try:
-                            self.web_dashboard._broadcast_event('scene_progress', {'activeState': state_name})
-                        except Exception as e:
-                            log.error(f"Failed to emit socket event: {e}")
-                    
-                    if hasattr(self.scene_parser, 'state_machine'):
-                        self.scene_parser.state_machine.on_state_change = notify_web
-
-                if not self.scene_running or self.shutdown_requested:
-                    log.info("Scene start cancelled before execution.")
-                    return
-
-                try:
-                    self.run_scene()
-                except Exception as e:
-                    log.error(f"An error occurred during scene execution: {e}")
-                finally:
-                    # Stop local media unconditionally — covers the exception path
-                    # where END.onEnter (which normally issues audio STOP) never ran.
-                    if self.audio_handler:
-                        try:
-                            self.audio_handler.stop_audio()
-                        except Exception as e:
-                            log.error(f"Error stopping audio in scene finally: {e}")
-
-                    if self.video_handler:
-                        self.video_handler.stop_video()
-
-                    transitioned = self._set_scene_running(False, f"scene_thread_finally:{scene_filename}")
-                    if transitioned:
-                        if self.actuator_state_store:
-                            self.actuator_state_store.force_all_off(source='scene_end')
-                        self.broadcast_stop()
-
-                    if self.web_dashboard:
-                        self.web_dashboard.broadcast_status()
-            else:
-                log.error(f"Failed to load scene: {scene_filename}")
-                self._set_scene_running(False, f"scene_load_failed:{scene_filename}")
-                if self.web_dashboard:
-                    self.web_dashboard.broadcast_status()
-
-        except Exception as e:
-            log.error(f"Critical error in scene thread: {e}")
-            self._set_scene_running(False, f"scene_thread_exception:{scene_filename}")
-            if self.web_dashboard:
-                self.web_dashboard.broadcast_status()
+        return self._scene_runtime_service().run_scene_logic(scene_filename)
 
     def stop_scene(self):
         """Stop the running scene and shut down all local and external devices."""
-        log.info(f"Initiating GLOBAL STOP for {self.room_id}")
-
-        transitioned = self._set_scene_running(False, "external_stop", expect_current=True)
-        if not transitioned:
-            if self.web_dashboard:
-                self.web_dashboard.broadcast_status()
-            return True
-        
-        if self.scene_parser:
-            try:
-                self.scene_parser.stop_scene()
-            except Exception as e:
-                log.error(f"Error stopping parser: {e}")
-
-        if self.audio_handler:
-            try:
-                self.audio_handler.stop_audio()
-            except Exception as e:
-                log.error(f"Error stopping audio: {e}")
-        
-        if self.video_handler:
-            try:
-                self.video_handler.stop_video()
-            except Exception as e:
-                log.error(f"Error stopping video: {e}")
-
-        if self.actuator_state_store:
-            self.actuator_state_store.force_all_off(source='external_stop')
-
-        self.broadcast_stop()
-        if self.web_dashboard:
-            self.web_dashboard.broadcast_status()
-        return True
+        return self._stop_coordinator_service().stop_scene()
 
     def broadcast_stop(self):
         """Publish a STOP command to all MQTT devices in the room."""
-        if self.mqtt_client and self.mqtt_client.is_connected():
-            stop_topic = f"{self.room_id}/STOP"
-            log.debug(f"Broadcasting STOP signal to MQTT: {stop_topic}")
-            try:
-                self.mqtt_client.publish(stop_topic, "STOP")
-            except Exception as e:
-                log.error(f"Failed to publish stop message: {e}")
+        self._stop_coordinator_service().broadcast_stop()
 
     def run_scene(self):
         """Execute the loaded state machine scene."""
-        if not self.scene_parser.scene_data:
-            log.error("No scene data available")
-            self._set_scene_running(False, "missing_scene_data")
-            return
+        self._scene_runtime_service().run_scene()
 
-        log.debug("Starting state machine scene execution")
-
-        # Enable MQTT feedback tracking for the duration of the scene
-        if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
-            if self.mqtt_client.feedback_tracker:
-                self.mqtt_client.feedback_tracker.enable_feedback_tracking()
-
-        if not self.scene_parser.start_scene():
-            log.error("Failed to start scene state machine")
-            if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
-                if self.mqtt_client.feedback_tracker:
-                    self.mqtt_client.feedback_tracker.disable_feedback_tracking()
-            return
-
-        while not self.shutdown_requested:
-            if not self.scene_running:
-                log.debug("Scene execution was stopped externally.")
-                break
-            
-            scene_continues = self.scene_parser.process_scene()
-            
-            if not scene_continues:
-                break
-            
-            time.sleep(self.scene_processing_sleep)
-
-        log.debug("Scene execution finished")
-
-        if self.mqtt_client and hasattr(self.mqtt_client, 'feedback_tracker'):
-            if self.mqtt_client.feedback_tracker:
-                self.mqtt_client.feedback_tracker.disable_feedback_tracking()
-
-        if self.video_handler:
-            self.video_handler.stop_video()
-
-        self._update_scene_statistics()
-
-    def _update_scene_statistics(self):
+    def _update_scene_statistics(self, scene_name=None):
         """Update scene play statistics for the web dashboard."""
-        if not self.web_dashboard:
-            return
-        try:
-            if self.current_scene_name:
-                self.web_dashboard.update_scene_stats(self.current_scene_name)
-            else:
-                log.warning("Cannot update scene stats: Unknown scene name")
-                self.web_dashboard.stats['total_scenes_played'] += 1
-                self.web_dashboard.save_stats()
-            self.web_dashboard.socketio.emit(
-                'stats_update',
-                self.web_dashboard.stats,
-                namespace='/'
-            )
-        except Exception as e:
-            log.error(f"Error updating stats: {e}")
+        self._dashboard_notifier_service().update_scene_statistics(scene_name)
 
     def system_restart(self):
         """Reboot the Raspberry Pi (triggered from the web dashboard)."""
-        log.warning("Initiating System Reboot...")
-        try:
-            subprocess.Popen(['sudo', 'reboot'], shell=False)
-        except Exception as e:
-            log.error(f"Failed to initiate reboot: {e}")
+        self._system_actions_service().system_restart()
 
     def system_shutdown(self):
         """Power off the Raspberry Pi (triggered from the web dashboard)."""
-        log.warning("Initiating System Shutdown...")
-        try:
-            subprocess.Popen(['sudo', 'shutdown', '-h', 'now'], shell=False)
-        except Exception as e:
-            log.error(f"Failed to initiate shutdown: {e}")
+        self._system_actions_service().system_shutdown()
 
     def service_restart(self):
         """Exit the process so systemd can restart the museum service."""
-        log.warning("Initiating Service Restart (Exit)...")
-        self.shutdown_requested = True
-        sys.exit(0) 
+        self._system_actions_service().service_restart()
 
     def run(self):
         """Run the main application loop."""
@@ -558,13 +426,7 @@ class MuseumController:
                 log.info("Active scene detected during cleanup; stopping it first.")
                 self.stop_scene()
             else:
-                if self.audio_handler:
-                    self.audio_handler.stop_audio()
-                if self.video_handler:
-                    self.video_handler.stop_video()
-                if self.actuator_state_store:
-                    self.actuator_state_store.force_all_off(source='service_cleanup')
-                self.broadcast_stop()
+                self._stop_coordinator_service().stop_idle_runtime()
         except Exception as e:
             log.error(f"Safe runtime stop during cleanup failed: {e}")
 
