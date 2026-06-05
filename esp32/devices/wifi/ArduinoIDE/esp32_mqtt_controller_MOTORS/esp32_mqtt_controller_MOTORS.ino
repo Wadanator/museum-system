@@ -1,0 +1,105 @@
+#include "config.h"
+#include "debug.h"
+#include "hardware.h"
+#include "wifi_manager.h"
+#include "mqtt_manager.h"
+#include "connection_monitor.h"
+#include "ota_manager.h"
+#include "wdt_manager.h"
+
+void setup() {
+  Serial.begin(115200);
+  delay(100);
+
+  Serial.println("\n=== ESP32 MQTT Controller Starting ===");
+  debugPrint("=== ESP32 MQTT Controller Starting ===");
+
+  // Initialize Watchdog Timer
+  initializeWatchdog();
+
+  // Initialize hardware and Wi-Fi
+  initializeHardware();
+  if (!initializeWiFi()) {
+    Serial.println("WiFi failed, will retry...");
+    debugPrint("Initial WiFi failed");
+  }
+
+  // Initialize OTA ONLY after WiFi is connected
+  if (wifiConnected) {
+    initializeOTA();
+  }
+
+  // Initialize MQTT
+  initializeMqtt();
+
+  Serial.println("=== Setup Complete ===");
+  Serial.println("Ready - Listening on: " + String(BASE_TOPIC_PREFIX) + "#");
+  debugPrint("=== Setup completed ===");
+}
+
+void loop() {
+  // Handle OTA first
+  if (wifiConnected) {
+    handleOTA();
+    // If OTA upload is happening, do nothing else
+    if (isOTAInProgress()) {
+      delay(10);
+      return;
+    }
+  }
+
+  // MQTT loop must be first for fast feedback
+  if (isMqttConnected()) {
+    mqttLoop();
+  }
+
+  // Smooth motor update
+  updateMotorSmoothly();
+
+  // Watchdog reset (only if not doing an OTA update)
+  if (!isOTAInProgress()) {
+
+    resetWatchdog();
+  }
+
+  static unsigned long lastQuickCheck = 0;
+  unsigned long currentTime = millis();
+
+  // Handle Wi-Fi and MQTT reconnections more frequently
+  if (currentTime - lastQuickCheck >= 100) {
+    lastQuickCheck = currentTime;
+    if (!isWiFiConnected()) {
+      reconnectWiFi();
+      // Re-initialize OTA after Wi-Fi reconnect
+      if (wifiConnected) {
+        reinitializeOTAAfterWiFiReconnect();
+      }
+    }
+
+    if (wifiConnected && !isMqttConnected()) {
+      connectToMqtt();
+    }
+  }
+
+  // Perform more detailed checks less frequently
+  static unsigned long lastDetailedCheck = 0;
+  if (currentTime - lastDetailedCheck >= 10000) {
+    lastDetailedCheck = currentTime;
+    monitorConnections();
+  }
+
+  // Hardware safety check
+  if (!isMqttConnected() && !hardwareOff) {
+    turnOffHardware();
+  }
+
+  // Deadman timeout: if no valid command arrives for too long, force motors off.
+  if (!hardwareOff && lastCommandTime > 0 &&
+      (currentTime - lastCommandTime > NO_COMMAND_TIMEOUT)) {
+    debugPrint("Command inactivity timeout -> turning motors OFF");
+    turnOffHardware();
+    lastCommandTime = currentTime;
+  }
+
+  delay(10);
+}
