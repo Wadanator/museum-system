@@ -3,10 +3,10 @@
 
 #include <Arduino.h>
 
-// String overload - for existing callers that build a String message
+// Diagnostic output for dynamically composed messages.
 void debugPrint(const String& message);
 
-// const char* overload - zero heap allocation, use this in hot paths
+// Diagnostic output for static messages.
 void debugPrint(const char* message);
 
 #endif

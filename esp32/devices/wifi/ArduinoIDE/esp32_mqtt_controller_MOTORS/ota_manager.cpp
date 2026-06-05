@@ -6,7 +6,7 @@
 #include "wifi_manager.h"
 #include "hardware.h"
 
-// OTA state
+// OTA state.
 bool otaInProgress = false;
 bool otaInitialized = false;
 
@@ -27,14 +27,13 @@ void initializeOTA() {
     ArduinoOTA.setPassword(OTA_PASSWORD);
   }
 
-  // OTA Start callback - prepare for upload
   ArduinoOTA.onStart([]() {
     otaInProgress = true;
     debugPrint("OTA: Update starting - preparing system...");
     Serial.println("=== OTA UPDATE STARTING ===");
     Serial.println("Preparing system for upload...");
 
-    // Step 1: Disable watchdog immediately
+    // Flash writes may exceed the normal watchdog service interval.
     try {
       esp_task_wdt_deinit();
       Serial.println("[OK] Watchdog disabled");
@@ -43,12 +42,11 @@ void initializeOTA() {
       Serial.println("[WARN]  Watchdog already disabled");
     }
 
-    // Step 2: Turn off all hardware
+    // Motor outputs are disabled before firmware replacement starts.
     turnOffHardware();
     Serial.println("[OK] All hardware turned OFF");
     debugPrint("OTA: Hardware safely disabled");
 
-    // Step 3: Stop all non-essential tasks
     Serial.println("[OK] System prepared for upload");
 
     String update_type = (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "filesystem";
@@ -56,7 +54,6 @@ void initializeOTA() {
     debugPrint("OTA: Starting " + update_type + " update");
   });
 
-  // OTA End callback - restore system
   ArduinoOTA.onEnd([]() {
     otaInProgress = false;
     debugPrint("OTA: Update completed successfully");
@@ -66,12 +63,11 @@ void initializeOTA() {
     delay(2000);
   });
 
-  // Progress callback
   ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
     static unsigned int lastPercent = 0;
     unsigned int percent = (progress * 100) / total;
 
-    // Only print every 5% to reduce serial traffic
+    // Progress output is rate-limited to reduce serial traffic.
     if (percent >= lastPercent + 5 || percent == 100) {
       Serial.printf("OTA Progress: %u%% (%u/%u bytes)\n", percent, progress, total);
       lastPercent = percent;
@@ -79,7 +75,6 @@ void initializeOTA() {
     }
   });
 
-  // Error handling with detailed messages
   ArduinoOTA.onError([](ota_error_t error) {
     otaInProgress = false;
 
@@ -114,7 +109,7 @@ void initializeOTA() {
     Serial.println(" Try again - make sure WiFi is stable");
     Serial.println("=================");
 
-    // Re-enable watchdog after failed upload
+    // Restore normal watchdog protection after a failed update.
     try {
       esp_task_wdt_config_t wdt_config = {
         .timeout_ms = WDT_TIMEOUT * 1000,
@@ -129,11 +124,9 @@ void initializeOTA() {
     }
   });
 
-  // Configure OTA settings
   ArduinoOTA.setTimeout(30000);
   ArduinoOTA.setMdnsEnabled(true);
 
-  // Start OTA service
   ArduinoOTA.begin();
   otaInitialized = true;
 

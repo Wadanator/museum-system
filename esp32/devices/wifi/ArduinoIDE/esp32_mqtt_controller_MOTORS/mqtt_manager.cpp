@@ -4,7 +4,7 @@
 #include "hardware.h"
 #include "wifi_manager.h"
 
-// Global MQTT objects and state
+// MQTT state is kept module-wide because PubSubClient owns the WiFi session.
 WiFiClient wifiClient;
 PubSubClient client(wifiClient);
 bool mqttConnected = false;
@@ -15,73 +15,63 @@ String STATUS_TOPIC = String("devices/") + CLIENT_ID + "/status";
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
-  // --- Guard: message size limit ---
+  // Reject payloads that cannot fit the bounded command buffer.
   if (length >= 64) {
     debugPrint("MQTT: Payload too long, ignoring");
     return;
   }
 
-  // Stack-allocated message buffer - no heap
   char message[64];
   memcpy(message, payload, length);
   message[length] = '\0';
 
-  // Use Serial directly here - topic and message are already char*, no String needed
   if (DEBUG) {
     Serial.print("[DEBUG] "); Serial.print(millis()); Serial.print("ms - MQTT topic: ");   Serial.println(topic);
     Serial.print("[DEBUG] "); Serial.print(millis()); Serial.print("ms - MQTT message: "); Serial.println(message);
   }
 
-  // --- Ignore feedback / status topics to prevent loops ---
+  // Feedback and status topics are ignored to prevent command loops.
   if (strstr(topic, "/feedback") != nullptr || strstr(topic, "/status") != nullptr) {
     debugPrint("Ignoring feedback/status topic");
     return;
   }
 
-  // --- Verify topic starts with BASE_TOPIC_PREFIX ---
+  // Only room-scoped motor command topics are accepted.
   size_t prefixLen = strlen(BASE_TOPIC_PREFIX);
   if (strncmp(topic, BASE_TOPIC_PREFIX, prefixLen) != 0) {
     debugPrint("Ignoring out-of-prefix topic");
     return;
   }
 
-  // feedbackTopic = topic + "/feedback" - stack only
   char feedbackTopic[128];
   snprintf(feedbackTopic, sizeof(feedbackTopic), "%s/feedback", topic);
 
-  // deviceType = everything after the prefix  e.g. "motor1", "STOP"
   const char* deviceType = topic + prefixLen;
 
   bool commandSuccessful = false;
 
-  // -------------------------------------------------------------------------
-  // STOP
-  // -------------------------------------------------------------------------
+  // The room-level STOP command immediately disables both motor drivers.
   if (strcmp(deviceType, "STOP") == 0) {
     turnOffHardware();
     commandSuccessful = true;
     debugPrint("STOP command executed");
   }
 
-  // -------------------------------------------------------------------------
-  // motor1 / motor2
-  // -------------------------------------------------------------------------
+  // Motor commands use room-scoped topics room1/motor1 and room1/motor2.
   else if (strcmp(deviceType, "motor1") == 0 || strcmp(deviceType, "motor2") == 0) {
 
     int motorNum = (strcmp(deviceType, "motor1") == 0) ? 1 : 2;
 
-    // --- ON:<speed>:<direction>[:<rampTime>] ---
+    // ON accepts an optional command-defined ramp time.
     if (strncmp(message, "ON:", 3) == 0) {
       char speed[8]     = "50";
       char direction[4] = "L";
       char rampTime[16] = "0";
 
-      // p points to first digit of speed
       char* p = message + 3;
       char* col1 = strchr(p, ':');
 
       if (col1 != nullptr) {
-        // Extract speed
         size_t speedLen = col1 - p;
         if (speedLen > 0 && speedLen < sizeof(speed)) {
           memcpy(speed, p, speedLen);
@@ -90,7 +80,6 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
         char* col2 = strchr(col1 + 1, ':');
         if (col2 != nullptr) {
-          // Format with rampTime: ON:<speed>:<dir>:<ramp>
           size_t dirLen = col2 - col1 - 1;
           if (dirLen > 0 && dirLen < sizeof(direction)) {
             memcpy(direction, col1 + 1, dirLen);
@@ -99,7 +88,6 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
           strncpy(rampTime, col2 + 1, sizeof(rampTime) - 1);
           rampTime[sizeof(rampTime) - 1] = '\0';
         } else {
-          // Format without rampTime: ON:<speed>:<dir>
           strncpy(direction, col1 + 1, sizeof(direction) - 1);
           direction[sizeof(direction) - 1] = '\0';
         }
@@ -112,14 +100,12 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       }
     }
 
-    // --- OFF ---
     else if (strcmp(message, "OFF") == 0) {
       if (motorNum == 1) controlMotor1("OFF", "0", "S", "0");
       else               controlMotor2("OFF", "0", "S", "0");
       commandSuccessful = true;
     }
 
-    // --- SPEED:<value> ---
     else if (strncmp(message, "SPEED:", 6) == 0) {
       const char* speedVal = message + 6;
       if (motorNum == 1) controlMotor1("SPEED", speedVal, "", "0");
@@ -127,7 +113,6 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       commandSuccessful = true;
     }
 
-    // --- DIR:<value> ---
     else if (strncmp(message, "DIR:", 4) == 0) {
       const char* dirVal = message + 4;
       if (motorNum == 1) controlMotor1("DIR", "", dirVal, "0");
@@ -140,17 +125,15 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     }
   }
 
-  // -------------------------------------------------------------------------
-  // Unknown device - silently ignore, no feedback
-  // -------------------------------------------------------------------------
+  // Unknown room topics are ignored without feedback.
   else {
     debugPrint("Ignoring non-motor command");
     return;
   }
 
-  // --- Publish feedback (stack string, no heap) ---
   const char* feedback = commandSuccessful ? "OK" : "ERROR";
   if (commandSuccessful) {
+    // Successful commands refresh the inactivity safety window.
     lastCommandTime = millis();
   }
   if (client.publish(feedbackTopic, feedback, false)) {
@@ -192,7 +175,7 @@ void connectToMqtt() {
       debugPrint("Subscribed to motor topics");
 
       publishStatusImmediate();
-      lastStatusPublish = 0; // Reset so next heartbeat interval starts fresh
+      lastStatusPublish = 0;
       lastCommandTime = currentTime;
 
     } else {

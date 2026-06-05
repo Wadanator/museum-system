@@ -2,7 +2,7 @@
 #include "config.h"
 #include "debug.h"
 
-// Global WiFi state
+// WiFi connection state shared with MQTT and OTA handling.
 bool wifiConnected = false;
 unsigned long lastWifiAttempt = 0;
 
