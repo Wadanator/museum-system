@@ -20,11 +20,11 @@ potvrdeny finalny hardware a bezpecnostne spravanie.
 
 Do systemu sa ma pridat novy typ zariadenia:
 
-- existujuce typy: `motor`, `relay`, `light`
+- existujuce typy: `motor`, `relay`
 - novy typ: `cover`
 
 `cover` znamena motoricky prvok typu roleta, zaluziovy pohon, opona, dvierka
-alebo podobny AC pohon s dvoma smermi. V Shelly terminologii sa tato trieda
+alebo podobny AC/Servo pohon s dvoma smermi. V Shelly terminologii sa tato trieda
 zariadeni vola `Cover`.
 
 Hlavny ciel je, aby sa novy cover uzol z pohladu Raspberry Pi spraval rovnako
@@ -106,12 +106,12 @@ Pre poziadavku "bez Wi-Fi, cez LAN kabel" je vhodnejsi Pro rad s Ethernetom.
 
 ## 2.4 Porovnanie moznosti
 
-| Moznost | Vyhody | Nevyhody | Odporucanie |
-|---|---|---|---|
-| Shelly Pro Dual Cover | Hotovy cover modul, LAN, DIN, 2 pohony | drahsi, dalsi hardware | najlepsie pre rychlu produkcnu instalaciu |
-| Waveshare Arduino firmware | uz ho mas, zapada do aktualneho ESP32 kodu | treba doplnit cover interlock logiku | dobre, ak chces ostat pri vlastnom firmware |
-| Waveshare ESPHome | hotovy ESPHome pinout, cover komponent, LAN | iny firmware stack ako zvysok repo Arduino kodu | dobre pre rychle prototypovanie alebo samostatny cover node |
-| Shelly 2PM Gen4 | lacnejsie pre 1 pohon | bez LAN, lokalna montaz/Wi-Fi | pouzit iba ak LAN nie je poziadavka |
+| Moznost                    | Vyhody                                      | Nevyhody                                        | Odporucanie                                                 |
+| -------------------------- | ------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------- |
+| Shelly Pro Dual Cover      | Hotovy cover modul, LAN, DIN, 2 pohony      | drahsi, dalsi hardware                          | najlepsie pre rychlu produkcnu instalaciu                   |
+| Waveshare Arduino firmware | uz ho mas, zapada do aktualneho ESP32 kodu  | treba doplnit cover interlock logiku            | dobre, ak chces ostat pri vlastnom firmware                 |
+| Waveshare ESPHome          | hotovy ESPHome pinout, cover komponent, LAN | iny firmware stack ako zvysok repo Arduino kodu | dobre pre rychle prototypovanie alebo samostatny cover node |
+| Shelly 2PM Gen4            | lacnejsie pre 1 pohon                       | bez LAN, lokalna montaz/Wi-Fi                   | pouzit iba ak LAN nie je poziadavka                         |
 
 ## 2.5 Co nekupovat alebo nepouzit naivne
 
@@ -262,12 +262,12 @@ BASE_TOPIC_PREFIX = room1/
 
 Navrhovane mapovanie 8 rele na 4 cover pohony:
 
-| Cover topic | Open relay bit | Close relay bit |
-|---|---:|---:|
-| `room1/cover/1` | 0 | 1 |
-| `room1/cover/2` | 2 | 3 |
-| `room1/cover/3` | 4 | 5 |
-| `room1/cover/4` | 6 | 7 |
+| Cover topic       | Open relay bit | Close relay bit |
+| ----------------- | -------------: | --------------: |
+| `room1/cover/1` |              0 |               1 |
+| `room1/cover/2` |              2 |               3 |
+| `room1/cover/3` |              4 |               5 |
+| `room1/cover/4` |              6 |               7 |
 
 Pozor: toto plati iba pre dedikovanu Waveshare dosku na rolety. Ak aktualna
 Waveshare doska uz ovlada dymostroj, svetla a efekty, nema volnych 8 rele pre
@@ -685,20 +685,20 @@ sceny. Inak by Shelly zatvaral rolety pocas idle stavu.
 
 Tieto payloady ma podporovat kazdy cover:
 
-| Payload | Vyznam | Shelly RPC metoda |
-|---|---|---|
-| `OPEN` | otvorit | `Cover.Open` |
-| `CLOSE` | zatvorit | `Cover.Close` |
-| `STOP` | okamzite zastavit pohyb | `Cover.Stop` |
+| Payload   | Vyznam                  | Shelly RPC metoda |
+| --------- | ----------------------- | ----------------- |
+| `OPEN`  | otvorit                 | `Cover.Open`    |
+| `CLOSE` | zatvorit                | `Cover.Close`   |
+| `STOP`  | okamzite zastavit pohyb | `Cover.Stop`    |
 
 ## 5.2 Pozicne payloady
 
 Pozicne payloady pouzit iba po kalibracii:
 
-| Payload | Vyznam | Shelly RPC metoda |
-|---|---|---|
-| `POS:0` | zatvorit na 0 percent | `Cover.GoToPosition` |
-| `POS:50` | ist na 50 percent | `Cover.GoToPosition` |
+| Payload     | Vyznam                 | Shelly RPC metoda      |
+| ----------- | ---------------------- | ---------------------- |
+| `POS:0`   | zatvorit na 0 percent  | `Cover.GoToPosition` |
+| `POS:50`  | ist na 50 percent      | `Cover.GoToPosition` |
 | `POS:100` | otvorit na 100 percent | `Cover.GoToPosition` |
 
 `POS:<n>` musi validovat rozsah `0..100`.
@@ -714,10 +714,10 @@ room1/cover/1/feedback -> ERROR
 Tieto payloady neodporucam davat do beznej palety Scene Editora, ale mozu byt
 uzitocne pre servis:
 
-| Payload | Vyznam |
-|---|---|
-| `STATUS` | adapter publikuje aktualny stav na `room1/cover/1/state` |
-| `CALIBRATE` | spusti kalibraciu, iba servisne |
+| Payload       | Vyznam                                                     |
+| ------------- | ---------------------------------------------------------- |
+| `STATUS`    | adapter publikuje aktualny stav na `room1/cover/1/state` |
+| `CALIBRATE` | spusti kalibraciu, iba servisne                            |
 
 `CALIBRATE` moze byt rizikovy prikaz, preto ho nepouzivat v beznych scenach.
 
@@ -985,11 +985,11 @@ Pre cover treba pridat:
 
 Odporucane mapovanie prikazov:
 
-| Command | Desired cover state |
-|---|---|
-| `OPEN` | `OPENING` |
-| `CLOSE` | `CLOSING` |
-| `STOP` | `STOPPED` |
+| Command     | Desired cover state                     |
+| ----------- | --------------------------------------- |
+| `OPEN`    | `OPENING`                             |
+| `CLOSE`   | `CLOSING`                             |
+| `STOP`    | `STOPPED`                             |
 | `POS:<n>` | `MOVING_TO_POSITION` + target `<n>` |
 
 Feedback `OK` sam o sebe neznamena, ze roleta uz dosla. Znamena iba, ze cover
