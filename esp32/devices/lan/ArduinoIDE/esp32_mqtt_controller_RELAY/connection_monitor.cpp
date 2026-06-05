@@ -4,7 +4,7 @@
 #include "wifi_manager.h"
 #include "mqtt_manager.h"
 
-// Global monitoring state
+// Connection diagnostics are rate-limited by this timestamp.
 unsigned long lastConnectionCheck = 0;
 
 void monitorConnections() {

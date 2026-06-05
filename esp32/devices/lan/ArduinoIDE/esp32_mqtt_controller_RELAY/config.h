@@ -3,9 +3,7 @@
 
 #include <Arduino.h>
 
-// =============================================================================
-// HARDWARE CONFIGURATION
-// =============================================================================
+// Hardware configuration.
 extern bool USE_RELAY_MODULE;
 
 extern int I2C_SDA_PIN;
@@ -14,7 +12,7 @@ extern int I2C_EXPANDER_ADDR;
 
 extern int RGB_LED_PIN;
 
-// Waveshare W5500 Ethernet over SPI
+// Waveshare W5500 Ethernet over SPI.
 extern int ETH_SPI_SCK_PIN;
 extern int ETH_SPI_MISO_PIN;
 extern int ETH_SPI_MOSI_PIN;
@@ -23,13 +21,11 @@ extern int ETH_PHY_IRQ_PIN;
 extern int ETH_PHY_RST_PIN;
 extern int ETH_PHY_ADDR;
 
-// WiFi fallback
+// WiFi fallback.
 extern const char* WIFI_SSID;
 extern const char* WIFI_PASSWORD;
 
-// =============================================================================
-// DEVICE DEFINITIONS
-// =============================================================================
+// Device definitions.
 struct Device {
   const char* name;
   int pin;
@@ -40,20 +36,18 @@ struct Device {
 extern const Device DEVICES[];
 extern const int DEVICE_COUNT;
 
-// =============================================================================
-// SYSTEM CONFIGURATION
-// =============================================================================
+// System configuration.
 
-// Debug
+// Diagnostic output.
 extern bool DEBUG;
 
-// MQTT
+// MQTT broker and topic configuration.
 extern const char* MQTT_SERVER;
 extern int MQTT_PORT;
 extern const char* BASE_TOPIC_PREFIX;
 extern const char* CLIENT_ID;
 
-// Connection Management
+// Connection management.
 extern unsigned long NETWORK_CONNECT_TIMEOUT;
 extern unsigned long LAN_PRIMARY_CONNECT_GRACE;
 extern unsigned long NETWORK_FAILOVER_GRACE;
@@ -66,13 +60,13 @@ extern int MAX_NETWORK_ATTEMPTS;
 extern int MAX_MQTT_ATTEMPTS;
 extern int MQTT_KEEP_ALIVE;
 
-// Timeout
+// Inactivity safety timeout.
 extern unsigned long NO_COMMAND_TIMEOUT;
 
-// Watchdog
+// Watchdog timer.
 extern unsigned long WDT_TIMEOUT;
 
-// OTA
+// OTA configuration.
 extern const char* OTA_HOSTNAME;
 extern const char* OTA_PASSWORD;
 extern bool OTA_ENABLED;

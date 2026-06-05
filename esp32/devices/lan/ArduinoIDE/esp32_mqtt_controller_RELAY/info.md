@@ -1,46 +1,23 @@
-# ESP32 LAN MQTT Relay Controller (`esp32_mqtt_controller_RELAY`)
+# ESP32 LAN MQTT Relay Controller
 
-LAN/W5500 verzia relay firmveru pre Waveshare ESP32-S3 PoE/LAN relay modul
-s WiFi fallbackom.
+Firmware for the Waveshare ESP32-S3 PoE/LAN relay module with W5500 Ethernet
+as the primary transport and WiFi as a fallback transport.
 
-Povodny WiFi projekt ostava v:
+## Network Behavior
 
-- `esp32/devices/wifi/ArduinoIDE/esp32_mqtt_controller_RELAY/`
+- LAN is the preferred transport.
+- WiFi fallback starts when LAN does not provide an active link/IP within the
+  configured grace period.
+- MQTT reconnects when the active transport changes.
+- The MQTT client ID is `Room1_Relays_Ctrl`.
+- Relay outputs are de-energized after sustained MQTT loss, using
+  `NETWORK_FAILOVER_GRACE` to tolerate short LAN/WiFi transitions.
 
-Tato LAN kopia je v:
+## Ethernet Hardware
 
-- `esp32/devices/lan/ArduinoIDE/esp32_mqtt_controller_RELAY/`
+The Waveshare module uses a W5500 Ethernet chip over SPI.
 
-## Hlavna zmena oproti WiFi verzii
-
-- `wifi_manager.cpp/.h` si nechava povodne nazvy funkcii kvoli kompatibilite so zvyskom kodu.
-- LAN cez `ETH.h` + W5500 je primarny transport.
-- WiFi sa pouzije ako fallback, ked LAN nema IP/link.
-- Ked LAN znova ziska IP, MQTT sa odpoji z fallback WiFi a pripoji naspat cez LAN.
-- MQTT, rele logika, efekty, OTA, status LED a device topics ostali z povodneho relay projektu.
-
-## Failover spravanie
-
-- Boot caka najprv na LAN.
-- Po `LAN_PRIMARY_CONNECT_GRACE` ms sa spusti WiFi fallback.
-- `wifiConnected`, `initializeWiFi()` a `isWiFiConnected()` znamenaju v tejto
-  kopii "aspon jeden network transport je pripojeny".
-- Aktivny transport je dostupny cez `getActiveNetworkName()`.
-- Pri zmene transportu sa MQTT socket zavrie a pripoji nanovo na rovnakom
-  client id `Room1_Relays_Ctrl`.
-- Safety vypnutie pri strate MQTT ma `NETWORK_FAILOVER_GRACE` ms toleranciu,
-  aby kratke prepnutie LAN/WiFi hned nevyplo rele.
-
-WiFi fallback udaje su v `config.cpp`:
-
-- SSID: `Museum-Room1`
-- password: `88888888`
-
-## Ethernet hardware
-
-Waveshare modul ma W5500 Ethernet chip cez SPI.
-
-Pouzite piny:
+Used pins:
 
 - `GPIO12` - ETH_INT
 - `GPIO13` - ETH_MOSI
@@ -49,41 +26,44 @@ Pouzite piny:
 - `GPIO16` - ETH_CS
 - `GPIO39` - ETH_RST
 
-Konfiguracia je v `config.cpp`.
+The hardware and timing configuration is in `config.cpp`.
 
-## Arduino IDE poziadavky
+## Arduino IDE Requirements
 
-Pouzi ESP32 Arduino core 3.x alebo novsi, pretoze W5500 cez `ETH.h`
-je v tejto podobe podporovany tam.
+- ESP32 Arduino core 3.x or newer.
+- Board: `ESP32S3 Dev Module`.
+- USB CDC setting according to the board upload/debug configuration.
 
-Board v Arduino IDE:
+## MQTT Interface
 
-- `ESP32S3 Dev Module`
-- USB CDC podla aktualneho upload/debug nastavenia dosky
-
-## MQTT
-
-Bez zmeny oproti WiFi relay verzii:
-
-- MQTT broker: `192.168.0.127`
+- broker: `192.168.0.127`
 - base topic: `room1/`
-- client id/status device: `Room1_Relays_Ctrl`
+- status topic: `devices/Room1_Relays_Ctrl/status`
+- feedback topic format: `<command_topic>/feedback`
 
-Subscribe:
+Subscribed command topics:
 
 - `room1/<device_name>`
 - `room1/effects/#`
 - `room1/STOP`
 
-Status:
+Device payloads:
 
-- `devices/Room1_Relays_Ctrl/status`
+- `ON`
+- `OFF`
+- `1`
+- `0`
 
-Feedback:
+Effect payloads:
 
-- `<command_topic>/feedback`
+- `ON`
+- `OFF`
+- `START`
+- `STOP`
+- `1`
+- `0`
 
-## Device names
+## Device Names
 
 - `power/smoke_ON`
 - `light/fire`
@@ -98,15 +78,3 @@ Feedback:
 
 - `room1/effects/group1`
 - `room1/effects/alone`
-
-Payloady:
-
-- zariadenia: `ON`, `OFF`, `1`, `0`
-- effects: `ON`, `OFF`, `START`, `STOP`, `1`, `0`
-
-## Poznamka k nazvom
-
-V kode ostavaju identifikatory ako `wifiConnected`, `initializeWiFi()`
-a `isWiFiConnected()`. V tejto LAN+WiFi kopii znamenaju "network connected",
-teda LAN alebo fallback WiFi. Je to zamerne, aby sa nemuseli prepisovat vsetky
-ostatne moduly.

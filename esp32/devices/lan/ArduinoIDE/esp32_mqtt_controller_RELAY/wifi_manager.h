@@ -9,8 +9,8 @@ enum NetworkTransport {
   NETWORK_WIFI
 };
 
-// Compatibility names retained so the rest of the firmware stays unchanged.
-// In this hybrid build they represent "some network is connected".
+// Network state shared with the rest of the firmware.
+// These values represent LAN or fallback WiFi availability.
 extern bool wifiConnected;
 extern unsigned long lastWifiAttempt;
 

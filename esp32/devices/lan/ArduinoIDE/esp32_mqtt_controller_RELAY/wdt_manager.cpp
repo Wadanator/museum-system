@@ -4,22 +4,19 @@
 #include <esp_task_wdt.h>
 
 void initializeWatchdog() {
-  // 1. Deinicializacia povodneho (fix pre Arduino 3.0+)
-  // Toto riesi ten error "TWDT already initialized"
+  // Reset the task watchdog service before applying this firmware's settings.
   esp_task_wdt_deinit();
 
-  // 2. Konfiguracia
   esp_task_wdt_config_t wdt_config = {
     .timeout_ms = WDT_TIMEOUT * 1000,
     .idle_core_mask = 0,
     .trigger_panic = true
   };
 
-  // 3. Inicializacia a pridanie tasku
   esp_task_wdt_init(&wdt_config);
   esp_task_wdt_add(NULL);
   
-  debugPrint("[OK] Watchdog Timer aktivny (" + String(WDT_TIMEOUT) + "s)");
+  debugPrint("[OK] Watchdog timer active (" + String(WDT_TIMEOUT) + "s)");
 }
 
 void resetWatchdog() {
