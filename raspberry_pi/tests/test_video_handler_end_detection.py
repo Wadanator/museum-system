@@ -1,4 +1,5 @@
 import sys
+import tempfile
 import time
 import types
 from pathlib import Path
@@ -11,9 +12,12 @@ if str(RPI_DIR) not in sys.path:
 try:
     import psutil  # noqa: F401
 except ModuleNotFoundError:
-    sys.modules["psutil"] = types.SimpleNamespace(process_iter=lambda *_args, **_kwargs: [])
+    sys.modules["psutil"] = types.SimpleNamespace(
+        process_iter=lambda *_args, **_kwargs: []
+    )
 
-from utils.video_handler import VideoHandler
+from utils.video import VideoHandler
+from utils.video_handler import VideoHandler as CompatVideoHandler
 
 
 class _Logger:
@@ -128,6 +132,53 @@ def test_mpv_command_uses_configured_playback_options():
     assert "--demuxer-readahead-secs=30" in cmd
     assert "--vd-lavc-threads=0" in cmd
     assert "--profile=fast" in cmd
+
+
+def test_legacy_video_handler_import_points_to_package_class():
+    assert CompatVideoHandler is VideoHandler
+
+
+def test_image_display_loads_without_idle_append_or_video_end_state():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        image_path = Path(tmp_dir) / "slide.jpg"
+        image_path.write_bytes(b"fake image bytes")
+
+        handler = VideoHandler.__new__(VideoHandler)
+        handler.video_dir = tmp_dir
+        handler.iddle_image = str(Path(tmp_dir) / "black.png")
+        handler.currently_playing = "previous.mp4"
+        handler.was_playing = True
+        handler.logger = _Logger()
+        commands = []
+
+        def _send_ipc_command(command, get_response=False):
+            commands.append(command)
+            return True
+
+        handler._send_ipc_command = _send_ipc_command
+
+        assert handler.play_video("slide.jpg") is True
+
+        assert commands == [
+            ["set_property", "loop-file", "inf"],
+            ["loadfile", str(image_path), "replace"],
+        ]
+        assert handler.currently_playing == "slide.jpg"
+        assert handler.was_playing is False
+        assert handler.logger.messages("info") == ["Displaying image: slide.jpg"]
+
+
+def test_displayed_image_does_not_fire_video_end_callback():
+    handler, callbacks, stops = _build_handler(
+        currently_playing="slide.png",
+        was_playing=False,
+    )
+
+    handler.check_if_ended()
+
+    assert callbacks == []
+    assert stops == []
+    assert handler.was_playing is False
 
 
 def test_confirmed_video_end_fires_once_with_original_file():
@@ -295,6 +346,18 @@ if __name__ == "__main__":
         (
             "mpv_command_uses_configured_playback_options",
             test_mpv_command_uses_configured_playback_options,
+        ),
+        (
+            "legacy_video_handler_import_points_to_package_class",
+            test_legacy_video_handler_import_points_to_package_class,
+        ),
+        (
+            "image_display_loads_without_idle_append_or_video_end_state",
+            test_image_display_loads_without_idle_append_or_video_end_state,
+        ),
+        (
+            "displayed_image_does_not_fire_video_end_callback",
+            test_displayed_image_does_not_fire_video_end_callback,
         ),
         (
             "confirmed_video_end_fires_once_with_original_file",

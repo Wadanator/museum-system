@@ -4,8 +4,8 @@ Use these from `raspberry_pi/` on the Raspberry Pi.
 
 ## Quick Offline
 
-Fast pytest checks only. No service, MQTT broker, GPIO, audio device, video
-player, or dashboard required.
+Fast pytest checks only, including offline runtime smoke checks. No service,
+MQTT broker, GPIO, audio device, video player, or dashboard required.
 
 ```bash
 source venv/bin/activate
@@ -21,13 +21,15 @@ pytest -q \
   tests/test_device_status_broadcast.py \
   tests/test_main_scene_state.py \
   tests/test_heartbeat.py \
-  tests/test_video_handler_end_detection.py
+  tests/test_video_handler_end_detection.py \
+  tests/test_runtime_smoke.py
 ```
 
 ## Safe Non-Stress
 
-Runs the quick suite plus the offline runtime smoke test. This is the best
-routine "did I break core code?" check.
+Runs the same unified pytest suite as Quick Offline. This is the best routine
+"did I break core code?" check, and can optionally include live service
+diagnostics with `--include-service`.
 
 ```bash
 source venv/bin/activate
@@ -52,6 +54,12 @@ python3 tests/run_safe_tests.py --include-service --user admin --password '...'
 ```
 
 The underlying script is `manual_ws_museum_diagnostic.py`.
+
+## Legacy Wrapper
+
+`manual_runtime_refactor_smoke.py` is kept as a compatibility wrapper, but the
+offline runtime smoke assertions now live in `test_runtime_smoke.py` and run
+through pytest.
 
 ## Stress / Disruptive
 

@@ -13,7 +13,7 @@ try:
     from utils.mqtt.mqtt_feedback_tracker import MQTTFeedbackTracker
     from utils.mqtt.mqtt_device_registry import MQTTDeviceRegistry
     from utils.audio_handler import AudioHandler
-    from utils.video_handler import VideoHandler
+    from utils.video import VideoHandler
     from utils.system_monitor import SystemMonitor
     from utils.button_handler import ButtonHandler
 except ImportError as e:

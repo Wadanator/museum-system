@@ -23,6 +23,7 @@ QUICK_TEST_FILES = [
     "tests/test_main_scene_state.py",
     "tests/test_heartbeat.py",
     "tests/test_video_handler_end_detection.py",
+    "tests/test_runtime_smoke.py",
 ]
 
 

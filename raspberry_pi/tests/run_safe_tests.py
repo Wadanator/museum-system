@@ -2,8 +2,7 @@
 """Run all non-stress checks that are safe for routine Raspberry Pi use.
 
 Default behavior:
-  - run the quick pytest suite
-  - run the offline runtime refactor smoke test
+  - run the quick pytest suite, including offline runtime smoke checks
 
 It deliberately does NOT run service/web diagnostics unless --include-service
 is provided, because those checks talk to the live dashboard and may start/stop
@@ -57,11 +56,7 @@ def main() -> int:
         (
             "quick pytest suite",
             [sys.executable, "tests/run_quick_tests.py"],
-        ),
-        (
-            "offline runtime smoke",
-            [sys.executable, "tests/manual_runtime_refactor_smoke.py"],
-        ),
+        )
     ]
 
     if args.include_service:

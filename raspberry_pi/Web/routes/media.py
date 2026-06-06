@@ -50,7 +50,10 @@ def get_media_path(media_type):
 
 def allowed_file(filename, media_type):
     return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS.get(media_type, set())
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS.get(
+               media_type,
+               set()
+           )
 
 def get_file_info(file_path):
     try:
@@ -183,12 +186,12 @@ def play_video():
         controller = current_app.config.get('CONTROLLER')
         
         if controller and controller.video_handler:
-            logger.info(f"[MANUAL] Video play: {filename}")
+            logger.info(f"[MANUAL] Video/image play: {filename}")
             success = controller.video_handler.play_video(filename)
             if success:
                 return jsonify({'status': 'playing', 'file': filename})
             else:
-                return jsonify({'error': 'Failed to play video'}), 500
+                return jsonify({'error': 'Failed to play video/image'}), 500
         else:
             return jsonify({'error': 'Video Handler not initialized'}), 500
 

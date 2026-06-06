@@ -44,12 +44,14 @@ This folder contains the core runtime modules for the backend.
   - Command parser (`PLAY`, `STOP`, `STOP:<file>`, `PAUSE`, `RESUME`, `VOLUME`)
   - End-of-track detection for `audioEnd` transitions
 
-- `video_handler.py`
-  - mpv process management with Unix IPC socket communication
-  - Displays a black idle image when no video is playing
-  - Process health monitoring at a configurable interval
-  - Automatic restart on process crash or IPC timeout (with attempt/cooldown limits)
-  - End-of-video detection for `videoEnd` transitions
+- `video/`
+  - `handler.py` exposes the public `VideoHandler` class
+  - `hardware.py` resolves the mpv hardware decoding backend
+  - `mpv_command.py` builds the mpv command line from configuration
+  - `process.py` manages the mpv process, health checks, and IPC socket
+  - `playback.py` handles scene/dashboard playback commands, static image
+    display, and `videoEnd`
+  - `video_handler.py` remains as a backward-compatible import shim
 
 ---
 
