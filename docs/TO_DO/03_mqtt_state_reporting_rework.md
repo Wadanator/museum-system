@@ -7,6 +7,28 @@ that exact part with `DONE` in this file. Keep the original task text, add a
 short date or note if useful, and do not leave completed work only in chat or
 git history.
 
+Whole-file completion rule: when every active item in this file is either
+`DONE`, `SKIPPED`, or `SUPERSEDED`, rename the file with `_DONE` before `.md`
+so the folder clearly shows that this plan is closed.
+
+## Scope decision - 2026-06-07
+
+External review accepted: for this museum-scale system, the high-value part is
+authoritative retained state reporting plus offline/stale handling. Implement
+only Phase 1 and Phase 2 for the current feature scope.
+
+Keep these as out of current scope unless production evidence proves they are
+needed:
+
+- Phase 3 `command_id` matching,
+- Phase 4 QoS 1 changes,
+- Phase 5 new `/set` / `/ack` topic schema,
+- `seq`, `boot_id`, or `session_id` in normal state payloads.
+
+The critical rule stays mandatory: retained state is only the last known output
+state. If the owning ESP32 node is offline, Live view must show the output as
+`STALE/UNKNOWN`, not as the retained `ON` / `OFF` value.
+
 ## Cieľ
 
 Live view má v budúcnosti zobrazovať stav podľa toho, čo hlási ESP32 po nastavení
@@ -96,10 +118,13 @@ Odporúčaný payload pre state:
   "state": "ON",
   "node_id": "Room1_Relays_Ctrl",
   "source": "command",
-  "seq": 42,
   "ts_ms": 123456
 }
 ```
+
+`seq`, `boot_id` a `session_id` nie sú súčasťou MVP. Doplniť ich až vtedy, ak sa v
+praxi ukáže reálny problém s duplicitnými správami alebo starým retained stavom po
+reštarte zariadení.
 
 Pre jednoduché výstupy je možné podporovať aj spätnú kompatibilitu s plain payloadom:
 
@@ -199,7 +224,6 @@ Doplniť stavový report pre motor:
   "speed": 70,
   "node_id": "Room1_ESP_Motory",
   "source": "command",
-  "seq": 18,
   "ts_ms": 123456
 }
 ```
@@ -250,9 +274,10 @@ State reporty musia byť odchytené pred tým, než sa pošlú do `scene_parser.
 - `state_source`,
 - `last_state_ts`,
 - `stale`,
-- voliteľne `seq`,
-- voliteľne `boot_id` alebo `session_id`, ak bude treba odlíšiť starý retained stav od
-  stavu po novom štarte ESP32.
+
+Nepridávať zatiaľ `seq`, `boot_id` ani `session_id`. Pre 10-20 zariadení je to
+zbytočná komplexita; nechať iba ako budúcu diagnostiku, ak sa objaví konkrétny
+problém so starými retained správami alebo s duplicitami.
 
 Kvôli kompatibilite s frontendom je možné ponechať názov `confirmed_state`, ale jeho
 autoritatívnym zdrojom by mali byť nové `state` topic-y. Feedback `OK` môže rušiť pending
@@ -405,7 +430,7 @@ node_id -> offline/stale väzba
 
 ## Migračné fázy
 
-### Fáza 1: State topic-y bez rozbitia existujúceho systému
+### Fáza 1: State topic-y bez rozbitia existujúceho systému - IMPLEMENT
 
 - Zachovať existujúce command a feedback topic-y.
 - Dopísať ESP32 publish state po každej reálnej logickej zmene.
@@ -414,15 +439,19 @@ node_id -> offline/stale väzba
 - Backend začne state topic-y počúvať a aktualizovať store.
 - Frontend bude stále kompatibilný s `confirmed_state`.
 
-### Fáza 2: `node_id` a offline/stale väzba
+### Fáza 2: `node_id` a offline/stale väzba - IMPLEMENT
 
 - Doplniť `node_id` do `devices.json`.
 - Backend pri štarte zaregistruje mapovanie `node_id -> topics`.
 - Offline status nastaví všetky výstupy uzla na `STALE/UNKNOWN`.
 
-### Fáza 3: Presnejšie párovanie príkazov
+### Fáza 3: Presnejšie párovanie príkazov - SUPERSEDED / DEFERRED
 
-- Voliteľne doplniť `command_id`.
+- Neimplementovať v aktuálnom scope. `command_id` je pre tento systém zatiaľ
+  viac komplexity než prínosu.
+- Ak sa v produkcii ukáže problém s rýchlym opakovaním príkazov na rovnaký topic,
+  dá sa táto fáza znovu otvoriť.
+- Pôvodný referenčný návrh:
 - Feedback payload môže byť JSON:
 
 ```json
@@ -434,15 +463,21 @@ node_id -> offline/stale väzba
 
 - Tým sa vyrieši rýchle opakovanie príkazov na rovnaký topic.
 
-### Fáza 4: Voliteľné QoS 1 pre kritické príkazy
+### Fáza 4: Voliteľné QoS 1 pre kritické príkazy - SUPERSEDED / DEFERRED
 
-- Pre `STOP`, `START` alebo kritické príkazy zvážiť QoS 1.
+- Neimplementovať v aktuálnom scope. QoS 1 mení správanie MQTT vrstvy a neprináša
+  dosť hodnoty, kým existuje ACK + state reporting.
+- Pre `STOP`, `START` alebo kritické príkazy zvážiť QoS 1 až po konkrétnom
+  výpadkovom scenári.
 - Feedback a state topic-y ponechať aj pri QoS 1.
 - QoS 1 nesmie byť náhrada za state reporting.
 
-### Fáza 5: Voliteľná nová topic schéma
+### Fáza 5: Voliteľná nová topic schéma - SUPERSEDED / DEFERRED
 
-Ak bude čas na väčší rework, zvážiť čistejšie názvy:
+Neimplementovať v aktuálnom scope. Existujúce topicy sú spätne kompatibilné a
+state topic sa dá jednoducho odvodiť pridaním `/state`.
+
+Ak bude raz čas na väčší rework, zvážiť čistejšie názvy:
 
 ```text
 room1/light/1/set
@@ -462,6 +497,10 @@ state:   room1/light/1/state
 
 Nerobiť iba quick fix vo feedback trackeri. Správny dlhodobý smer je ponechať feedback
 ako odpoveď na konkrétny príkaz a doplniť samostatné retained state topic-y z ESP32.
+
+Aktuálne odporúčanie je implementovať iba Fázu 1 a Fázu 2. To dáva väčšinu hodnoty:
+Live view dostane autoritatívny stav, backend po reštarte vie obnoviť posledné známe
+hodnoty a offline uzol sa nebude tváriť ako stále platný `ON`.
 
 Takýto model je škálovateľný, pretože pri novom zariadení stačí:
 

@@ -25,6 +25,21 @@ section inside the same TODO file. Cross-cutting reliability items can also be
 summarized in `99_reference_reliability_stability_completed_work.md`, but the
 primary record still belongs in the TODO file where the work was planned.
 
+Whole-file completion rule:
+
+- When every concrete item in an individual active TODO plan file is finished
+  or intentionally closed, first mark each relevant section as `DONE`,
+  `SKIPPED`, or `SUPERSEDED` inside that file.
+- Then rename that TODO file with a `_DONE` suffix before `.md`, so completion
+  is visible from the file list.
+- Example: `04a_static_image_scene_action.md` becomes
+  `04a_static_image_scene_action_DONE.md`.
+- Keep the completed file in `docs/TO_DO/` unless a separate cleanup task
+  explicitly moves archived plans elsewhere.
+- Do not rename this `00_READ_FIRST_todo_implementation_order.md` index file or
+  the `99_reference_reliability_stability_completed_work.md` reference file
+  just because other TODOs are completed.
+
 This file is the recommended order for working through the TODO plans in this
 directory. File names are prefixed with the recommended order number so they
 sort in the same order in file explorers.

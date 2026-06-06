@@ -20,6 +20,15 @@ stay useful as project history:
 - do not rely on chat history, memory files, or git history as the only record
   of completed TODO work.
 
+Whole-file completion rule:
+
+- When every phase in this file is finished or intentionally closed, mark each
+  phase as `DONE`, `SKIPPED`, or `SUPERSEDED` inside this file first.
+- Then rename this file to `04a_static_image_scene_action_DONE.md` so the file
+  list clearly shows that the whole image-action plan is complete.
+- Keep the renamed file in `docs/TO_DO/` unless a separate cleanup task moves
+  completed plans elsewhere.
+
 ## What we want
 
 Add a dedicated JSON scene action for showing a static image on the display.
