@@ -97,7 +97,7 @@ Important dependency:
   are used.
 - Retained state behavior must be tested with reconnects and broker restarts.
 
-### 4. SceneGen V2 remaining polish
+### 4. Dashboard scene editor remaining polish
 
 File:
 
@@ -105,7 +105,7 @@ File:
 
 Why here:
 
-- SceneGen V2 is already mostly implemented.
+- The dashboard-integrated scene editor is already mostly implemented.
 - Finishing remaining validation/polish before adding more device types makes
   later cover/display/ambient workflows easier to test from the dashboard.
 - This is lower infrastructure risk than MQTT auth or state reporting.
@@ -115,6 +115,30 @@ Recommended scope:
 - Finish medium-priority missing items first.
 - Do not reopen already completed SceneGen requirements unless a real regression
   or new workflow requires it.
+
+### 4a. Static image scene action
+
+File:
+
+- `04a_static_image_scene_action.md`
+
+Why here:
+
+- It adds a small but user-facing scene JSON feature before larger display mode
+  work.
+- It touches the current dashboard editor, so it fits naturally after dashboard
+  editor polish.
+- It reuses the existing video/mpv display backend and should be implemented
+  before ambient/display workflows rely on static images.
+
+Recommended scope:
+
+- Keep the action simple: show one image or clear back to the configured idle
+  image.
+- Preserve existing `video` action image compatibility.
+- Update backend schema/runtime, dashboard editor, docs, and tests together.
+- Do not modify `SceneGen_DO_NOT_UPDATE/`; the standalone SceneGen app is no
+  longer used.
 
 ### 5. CEC display power control
 

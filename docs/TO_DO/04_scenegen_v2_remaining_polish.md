@@ -368,21 +368,27 @@ Recommended decision:
 
 - Skip for now unless real editing work needs it.
 
-### Standalone SceneGen Decision THIS WONT BE USED, BUT KEEP IT FOR NOW IN REPO
+### Standalone SceneGen Decision - SKIPPED FOR NEW FEATURE WORK
 
-Priority: medium
+SKIPPED 2026-06-07: The standalone SceneGen app is no longer used for production
+editing. The user renamed it to `SceneGen_DO_NOT_UPDATE` to make this explicit.
+Do not add new feature work there unless a future offline-only workflow is
+explicitly requested.
+
+Priority: none for current roadmap
 
 Current state:
 
-- Old standalone `SceneGen/` still exists.
+- Old standalone SceneGen now exists as `SceneGen_DO_NOT_UPDATE/`.
 - V2 editor is inside `museum-dashboard`, which is architecturally better
   because it has access to backend APIs, devices, media, and scene saving.
 
-Recommended decision:
+Decision:
 
-- Keep `SceneGen/` temporarily as an offline legacy/dev tool.
-- Mark it as legacy in its `readme.md`.
-- Remove it later if V2 fully replaces the workflow.
+- Keep `SceneGen_DO_NOT_UPDATE/` only as a legacy reference if needed.
+- Do not modify it for new dashboard/RPi backend features.
+- Remove it later only in a separate cleanup task if the repository no longer
+  needs the reference.
 
 ### Text Encoding Cleanup
 
@@ -404,7 +410,8 @@ Recommended fix:
 2. Rename the old modal path to "Advanced JSON" or remove it later.
 3. Add global events UI.
 4. Add JSON preview/export/import controls.
-5. Decide the future of standalone `SceneGen/`.
+5. DONE 2026-06-07: Decide the future of standalone SceneGen. It is no longer
+   used for production editing and was renamed to `SceneGen_DO_NOT_UPDATE`.
 
 ## Do Not Reopen As Requirements Without A New Reason
 
@@ -429,6 +436,6 @@ These are already implemented enough for the current editor version:
 
 ## Final Note
 
-SceneGen V2 should continue as the dashboard-integrated editor. The standalone
-SceneGen app should not receive new feature work unless there is a clear
-offline-only requirement.
+The dashboard-integrated editor should continue as the active scene editor. The
+standalone SceneGen app should not receive new feature work unless there is a
+clear offline-only requirement.
