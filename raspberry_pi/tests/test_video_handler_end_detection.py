@@ -102,6 +102,34 @@ def _build_ipc_handler():
     return handler
 
 
+def _build_command_handler():
+    handler = VideoHandler.__new__(VideoHandler)
+    handler.iddle_image = "/videos/black.png"
+    handler.ipc_socket = "/tmp/mpv_socket"
+    handler.mpv_vo = "gpu"
+    handler.mpv_gpu_context = "drm"
+    handler._hwdec = "auto-safe"
+    handler.mpv_hwdec_codecs = "h264,hevc"
+    handler.mpv_framedrop = "vo"
+    handler.mpv_extra_args = ["--profile=fast"]
+    return handler
+
+
+def test_mpv_command_uses_configured_playback_options():
+    handler = _build_command_handler()
+
+    cmd = handler._build_mpv_command()
+
+    assert "--vo=gpu" in cmd
+    assert "--gpu-context=drm" in cmd
+    assert "--hwdec=auto-safe" in cmd
+    assert "--hwdec-codecs=h264,hevc" in cmd
+    assert "--framedrop=vo" in cmd
+    assert "--demuxer-readahead-secs=30" in cmd
+    assert "--vd-lavc-threads=0" in cmd
+    assert "--profile=fast" in cmd
+
+
 def test_confirmed_video_end_fires_once_with_original_file():
     handler, callbacks, stops = _build_handler()
     handler._send_ipc_command = lambda *_args, **_kwargs: {
@@ -264,6 +292,10 @@ def test_restart_attempts_reset_after_cooldown():
 if __name__ == "__main__":
     print("Running video end detection checks (no mpv required)...")
     tests = [
+        (
+            "mpv_command_uses_configured_playback_options",
+            test_mpv_command_uses_configured_playback_options,
+        ),
         (
             "confirmed_video_end_fires_once_with_original_file",
             test_confirmed_video_end_fires_once_with_original_file,

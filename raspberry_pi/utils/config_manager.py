@@ -10,6 +10,7 @@ import os
 import configparser
 import logging
 import shutil
+import shlex
 from pathlib import Path
 from utils.logging_setup import get_logger
 
@@ -159,6 +160,10 @@ class ConfigManager:
         # Path to the specific room's asset directory
         room_path = os.path.join(scenes_base_path, room_id)
 
+        mpv_extra_args_raw = self.config.get(
+            'Video', 'mpv_extra_args', fallback=''
+        ).strip()
+
         result = {
             # MQTT
             'broker_ip': self.config.get('MQTT', 'broker_ip', fallback='localhost'),
@@ -218,6 +223,19 @@ class ConfigManager:
                 'Video', 'max_restart_attempts', fallback=3),
             'video_restart_cooldown': self.config.getint(
                 'Video', 'restart_cooldown', fallback=60),
+            'video_hwdec': self.config.get(
+                'Video', 'hwdec', fallback='auto-safe'),
+            'video_output': self.config.get(
+                'Video', 'video_output', fallback='gpu'),
+            'video_gpu_context': self.config.get(
+                'Video', 'gpu_context', fallback='drm'),
+            'video_hwdec_codecs': self.config.get(
+                'Video', 'hwdec_codecs', fallback='h264,hevc'),
+            'video_framedrop': self.config.get(
+                'Video', 'framedrop', fallback='vo'),
+            'video_mpv_extra_args': (
+                shlex.split(mpv_extra_args_raw) if mpv_extra_args_raw else []
+            ),
 
             # Audio
             'audio_max_init_attempts': self.config.getint(

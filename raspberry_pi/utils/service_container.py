@@ -92,7 +92,13 @@ class ServiceContainer:
                 iddle_image=self.config['iddle_image'],
                 health_check_interval=self.config['video_health_check_interval'],
                 max_restart_attempts=self.config['video_max_restart_attempts'],
-                restart_cooldown=self.config['video_restart_cooldown']
+                restart_cooldown=self.config['video_restart_cooldown'],
+                mpv_hwdec=self.config.get('video_hwdec'),
+                mpv_vo=self.config.get('video_output'),
+                mpv_gpu_context=self.config.get('video_gpu_context'),
+                mpv_hwdec_codecs=self.config.get('video_hwdec_codecs'),
+                mpv_framedrop=self.config.get('video_framedrop'),
+                mpv_extra_args=self.config.get('video_mpv_extra_args')
             )
         except Exception as e:
             self.log.warning(f"Video handler initialization failed: {e}")

@@ -14,8 +14,9 @@ import socket
 import time
 import psutil
 import signal
+import shlex
 from threading import RLock  # RLock prevents deadlock when _check_process_health
-from typing import Callable, Optional       # calls _restart_mpv -> _start_mpv on same thread
+from typing import Callable, List, Optional  # calls _restart_mpv -> _start_mpv on same thread
 from utils.logging_setup import get_logger
 
 
@@ -33,7 +34,13 @@ class VideoHandler:
                  logger: Optional[logging.Logger] = None,
                  health_check_interval: int = 60,
                  max_restart_attempts: int = 3,
-                 restart_cooldown: int = 60) -> None:
+                 restart_cooldown: int = 60,
+                 mpv_hwdec: Optional[str] = None,
+                 mpv_vo: Optional[str] = None,
+                 mpv_gpu_context: Optional[str] = None,
+                 mpv_hwdec_codecs: Optional[str] = None,
+                 mpv_framedrop: Optional[str] = None,
+                 mpv_extra_args: Optional[List[str]] = None) -> None:
         """
         Initialize the video handler and start the mpv process.
 
@@ -45,6 +52,12 @@ class VideoHandler:
             health_check_interval: Seconds between mpv health checks.
             max_restart_attempts: Maximum number of mpv restart attempts.
             restart_cooldown: Seconds to wait between restart attempts.
+            mpv_hwdec: mpv --hwdec value. Use "detect" for OS-based fallback.
+            mpv_vo: mpv --vo value.
+            mpv_gpu_context: mpv --gpu-context value, useful for DRM/KMS output.
+            mpv_hwdec_codecs: mpv --hwdec-codecs value.
+            mpv_framedrop: mpv --framedrop value.
+            mpv_extra_args: Additional raw mpv arguments.
         """
         script_dir = os.path.dirname(os.path.abspath(__file__))
         self.video_dir = video_dir or os.path.join(script_dir, "..", "videos")
@@ -75,8 +88,19 @@ class VideoHandler:
         self.end_callback: Optional[Callable[[str], None]] = None
         self.was_playing = False
 
-        # Detect hardware decoding backend once at startup
-        self._hwdec: str = self._detect_hwdec()
+        self.mpv_vo = (mpv_vo or "gpu").strip()
+        self.mpv_gpu_context = (mpv_gpu_context or "drm").strip()
+        self.mpv_hwdec_codecs = (mpv_hwdec_codecs or "h264,hevc").strip()
+        self.mpv_framedrop = (mpv_framedrop or "vo").strip()
+        if isinstance(mpv_extra_args, str):
+            self.mpv_extra_args = shlex.split(mpv_extra_args)
+        else:
+            self.mpv_extra_args = mpv_extra_args or []
+
+        # Hardware decoding is configurable because Raspberry Pi OS/mpv builds
+        # differ. The default uses mpv's safe auto-probing instead of the old
+        # hard-coded backend, which could silently fall back to software decode.
+        self._hwdec: str = self._select_hwdec(mpv_hwdec)
 
         os.makedirs(self.video_dir, exist_ok=True)
         self._ensure_iddle_image()
@@ -87,13 +111,32 @@ class VideoHandler:
     # HARDWARE DETECTION
     # ==========================================================================
 
+    def _select_hwdec(self, configured_hwdec: Optional[str]) -> str:
+        """
+        Resolve the hardware decoding mode used for mpv startup.
+
+        Args:
+            configured_hwdec: Config value. Empty/None defaults to auto-safe;
+                "detect" uses the legacy OS-based Raspberry Pi heuristic.
+
+        Returns:
+            str: The --hwdec value to pass to mpv.
+        """
+        value = (configured_hwdec or "auto-safe").strip()
+        if not value:
+            return "auto-safe"
+        if value.lower() == "detect":
+            return self._detect_hwdec()
+        self.logger.debug(f"Hardware decoding configured: {value}")
+        return value
+
     def _detect_hwdec(self) -> str:
         """
         Detect the correct hardware decoding backend for this OS.
 
         Uses /etc/debian_version to determine the OS generation:
-        - Bullseye = Debian 11 -> rpi4-mmal (MMAL available)
-        - Bookworm = Debian 12+ -> v4l2 (MMAL removed in 64-bit kernel)
+        - Bullseye = Debian 11 -> rpi4-mmal (MMAL available on older builds)
+        - Bookworm = Debian 12+ -> v4l2m2m-copy (MMAL removed in 64-bit kernel)
 
         This is more reliable than testing mpv directly because mpv returns
         a non-zero exit code for invalid input regardless of hwdec support.
@@ -109,8 +152,11 @@ class VideoHandler:
             version_str = result.stdout.strip()
             major = int(version_str.split('.')[0])
             if major >= 12:
-                self.logger.debug("Hardware decoding: v4l2 (Bookworm / Debian 12+)")
-                return 'v4l2'
+                self.logger.debug(
+                    "Hardware decoding: v4l2m2m-copy "
+                    "(Bookworm / Debian 12+)"
+                )
+                return 'v4l2m2m-copy'
         except Exception:
             pass
 
@@ -208,6 +254,50 @@ class VideoHandler:
     # MPV LIFECYCLE
     # ==========================================================================
 
+    def _build_mpv_command(self) -> List[str]:
+        """
+        Build the mpv command line.
+
+        Kept as a helper so playback-critical defaults can be unit-tested
+        without launching mpv.
+        """
+        cmd = [
+            'mpv',
+            '--fs',
+            '--no-osc',
+            '--no-osd-bar',
+        ]
+
+        if self.mpv_vo:
+            cmd.append(f'--vo={self.mpv_vo}')
+        if self.mpv_gpu_context:
+            cmd.append(f'--gpu-context={self.mpv_gpu_context}')
+        if self._hwdec:
+            cmd.append(f'--hwdec={self._hwdec}')
+        if self.mpv_hwdec_codecs:
+            cmd.append(f'--hwdec-codecs={self.mpv_hwdec_codecs}')
+        if self.mpv_framedrop:
+            cmd.append(f'--framedrop={self.mpv_framedrop}')
+
+        cmd.extend([
+            '--image-display-duration=inf',
+            '--cache=yes',
+            '--demuxer-max-bytes=50M',
+            '--demuxer-readahead-secs=30',
+            '--loop-file=inf',
+            '--idle=yes',
+            '--vd-lavc-threads=0',
+            '--msg-level=all=info',
+            '--no-input-default-bindings',
+            '--input-conf=/dev/null',
+            '--no-terminal',
+            f'--input-ipc-server={self.ipc_socket}',
+        ])
+
+        cmd.extend(self.mpv_extra_args)
+        cmd.append(self.iddle_image)
+        return cmd
+
     def _start_mpv(self) -> bool:
         """
         Start the mpv process with IPC socket and hardware decoding options.
@@ -234,19 +324,7 @@ class VideoHandler:
             self._kill_existing_mpv_processes()
             time.sleep(0.5)
 
-            cmd = [
-                'mpv', '--fs', '--no-osc', '--no-osd-bar', '--vo=gpu',
-                f'--hwdec={self._hwdec}',
-                '--image-display-duration=inf',
-                '--cache=yes',
-                '--demuxer-max-bytes=50M',
-                '--loop-file=inf',
-                '--idle=yes',
-                '--no-input-default-bindings', '--input-conf=/dev/null', '--quiet',
-                '--no-terminal',
-                f'--input-ipc-server={self.ipc_socket}',
-                self.iddle_image
-            ]
+            cmd = self._build_mpv_command()
 
             try:
                 self.logger.debug(

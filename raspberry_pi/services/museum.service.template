@@ -22,8 +22,9 @@ Restart=always
 RestartSec=5
 RestartForceExitStatus=1 2 3 4 5 6 7 8 9 130 131 132 133 134 135 136 137 138 139 255
 
-MemoryMax=1024M
-CPUQuota=50%
+# Do not cap CPU/memory here: the mpv child process inherits this cgroup.
+# A 50% CPUQuota can make Full HD playback stutter when hardware decode falls
+# back or the renderer needs short bursts.
 
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONPATH={{PATH}}
