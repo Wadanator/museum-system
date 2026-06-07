@@ -266,3 +266,23 @@
     --shadow-icon-filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.35));
     --minimap-mask: rgba(2, 6, 23, 0.62);
 }
+
+@media (max-width: 1100px) {
+    :root {
+        --scene-grid-min-width: 260px;
+        --media-grid-min-width: 360px;
+        --stats-content-min-width: 340px;
+        --system-card-min-width: 320px;
+        --live-device-panel-width: 300px;
+    }
+}
+
+@media (max-width: 640px) {
+    :root {
+        --media-grid-min-width: 260px;
+        --stats-card-min-width: 240px;
+        --stats-content-min-width: 260px;
+        --system-card-min-width: 260px;
+        --status-grid-min-width: 240px;
+    }
+}

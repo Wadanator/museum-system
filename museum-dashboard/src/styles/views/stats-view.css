@@ -2,14 +2,14 @@
 
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(var(--stats-card-min-width), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--stats-card-min-width)), 1fr));
     gap: var(--spacing-xl);
     margin-bottom: var(--spacing-2xl-plus);
 }
 
 .stats-content-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(var(--stats-content-min-width), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--stats-content-min-width)), 1fr));
     gap: var(--spacing-2xl);
 }
 
@@ -64,7 +64,7 @@
 .device-grid { 
     display: grid; 
     /* UPRAVENÉ: Zväčšené z 140px na 260px, aby sa názov vošiel */
-    grid-template-columns: repeat(auto-fill, minmax(var(--stats-device-min-width), 1fr)); 
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--stats-device-min-width)), 1fr)); 
     gap: var(--spacing-md); 
 }
 
@@ -142,13 +142,19 @@
 .ranking-item:nth-child(2) .rank-number { color: var(--text-secondary); }
 .ranking-item:nth-child(3) .rank-number { color: var(--warning); opacity: 0.7; }
 
-.rank-info { flex: 1; margin: 0 var(--spacing-md); }
+.rank-info {
+    flex: 1;
+    min-width: 0;
+    margin: 0 var(--spacing-md);
+}
 
 .rank-name { 
     font-weight: 600; 
     color: var(--text-primary); 
     font-size: var(--font-size-md-plus); 
     margin-bottom: var(--spacing-xs-plus); 
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .rank-bar-container { 
@@ -181,8 +187,23 @@
     font-style: italic; 
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
     .stats-content-grid { grid-template-columns: 1fr; }
     .stats-card { padding: var(--spacing-xl); }
     .stat-value.white { font-size: var(--font-size-3xl); }
+}
+
+@media (max-width: 480px) {
+    .ranking-item {
+        align-items: flex-start;
+    }
+
+    .rank-info {
+        margin: 0 var(--spacing-sm);
+        min-width: 0;
+    }
+
+    .rank-count {
+        flex-shrink: 0;
+    }
 }

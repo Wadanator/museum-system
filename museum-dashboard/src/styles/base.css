@@ -24,7 +24,7 @@ p {
 }
 
 /* Mobile Responsive Design */
-@media (max-width: 768px) {
+@media (max-width: 900px) {
     body {
         padding: 0;
         font-size: var(--font-size-md);

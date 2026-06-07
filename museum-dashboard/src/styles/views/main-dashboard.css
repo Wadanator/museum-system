@@ -253,7 +253,7 @@ button.stop-scene-button.btn-unstyled .button-subtext {
    RESPONZIVITA
    ======================================= */
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
   .status-overview {
     grid-template-columns: 1fr;
     gap: var(--spacing-md);

@@ -580,3 +580,36 @@
     opacity: 0.3;
     font-size: 10px;
 }
+
+@media (max-width: 900px) {
+    .flow-legend-panel {
+        max-width: min(260px, calc(100vw - 32px));
+        min-width: 0;
+    }
+
+    .custom-flow-node {
+        width: min(340px, calc(100vw - 48px));
+    }
+}
+
+@media (max-width: 640px) {
+    .flow-top-panel {
+        gap: var(--spacing-xs);
+    }
+
+    .flow-legend-panel {
+        display: none;
+    }
+
+    .custom-flow-node {
+        width: min(300px, calc(100vw - 32px));
+    }
+
+    .node-header,
+    .node-preview,
+    .node-description,
+    .action-item {
+        padding-left: var(--spacing-sm-plus);
+        padding-right: var(--spacing-sm-plus);
+    }
+}

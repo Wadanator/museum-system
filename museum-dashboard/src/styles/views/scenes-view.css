@@ -10,7 +10,7 @@
 
 .scenes-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(var(--scene-grid-min-width), 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--scene-grid-min-width)), 1fr));
     gap: var(--spacing-2xl);
     padding-bottom: var(--spacing-4xl);
 }

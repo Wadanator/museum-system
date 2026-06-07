@@ -226,3 +226,82 @@
     color: var(--text-secondary);
     font-weight: 500;
 }
+
+@media (max-width: 1100px) {
+    .live-view-container {
+        height: auto;
+        overflow: visible;
+    }
+
+    .live-grid {
+        grid-template-columns: 1fr;
+        flex: initial;
+        min-height: 0;
+    }
+
+    .visualizer-panel {
+        min-height: clamp(360px, 56vh, 560px);
+    }
+
+    .devices-panel {
+        min-height: 0;
+    }
+
+    .devices-list {
+        max-height: 380px;
+    }
+}
+
+@media (max-width: 640px) {
+    .live-header-controls {
+        width: 100%;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .live-select {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .live-header-controls > .btn {
+        width: 100%;
+    }
+
+    .visualizer-panel {
+        min-height: 320px;
+    }
+
+    .visualizer-overlay {
+        top: var(--spacing-md);
+        left: var(--spacing-md);
+        right: var(--spacing-md);
+        text-align: center;
+        font-size: var(--font-size-xs);
+    }
+
+    .devices-header {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+    .devices-header-summary {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .device-item {
+        align-items: flex-start;
+        gap: var(--spacing-sm);
+        flex-direction: column;
+    }
+
+    .device-info {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .device-status {
+        align-self: flex-end;
+    }
+}

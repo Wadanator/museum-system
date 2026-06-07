@@ -327,7 +327,7 @@
 .status-grid,
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(var(--status-grid-min-width), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--status-grid-min-width)), 1fr));
     gap: var(--spacing-2xl);
     margin-bottom: var(--spacing-2xl-plus);
 }
@@ -340,7 +340,7 @@
 
 .status-overview {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(var(--status-overview-min-width), 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--status-overview-min-width)), 1fr));
     gap: var(--spacing-2xl);
 }
 
@@ -348,7 +348,49 @@
    RESPONZIVITA (Mobil)
    ======================================= */
 
-@media (max-width: 768px) {
+@media (max-width: 1100px) and (min-width: 901px) {
+    .app-layout {
+        grid-template-columns: 220px 1fr;
+    }
+
+    .sidebar-header {
+        padding: var(--spacing-xl) var(--spacing-lg);
+    }
+
+    .brand-text span {
+        display: none;
+    }
+
+    .sidebar-nav {
+        padding: var(--spacing-sm-plus);
+    }
+
+    .nav-item {
+        padding: var(--spacing-sm-plus) var(--spacing-md);
+    }
+
+    .nav-icon {
+        margin-right: var(--spacing-sm-plus);
+    }
+
+    .sidebar-footer {
+        padding: var(--spacing-lg);
+        align-items: flex-start;
+        flex-direction: column;
+        gap: var(--spacing-md);
+    }
+
+    .sidebar-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .main-content {
+        padding: var(--spacing-2xl) var(--spacing-2xl-plus);
+    }
+}
+
+@media (max-width: 900px) {
     .app-layout {
         grid-template-columns: 1fr;
         min-height: 100dvh;

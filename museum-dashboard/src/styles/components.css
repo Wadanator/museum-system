@@ -20,6 +20,7 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-lg);
+    min-width: 0;
 }
 
 .page-header-icon-box {
@@ -39,6 +40,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacing-2xs);
+    min-width: 0;
 }
 
 .page-title {
@@ -47,6 +49,7 @@
     font-weight: 700;
     color: var(--text-primary);
     line-height: var(--line-height-tight);
+    overflow-wrap: anywhere;
 }
 
 .page-subtitle {
@@ -54,12 +57,16 @@
     font-size: var(--font-size-md);
     color: var(--text-secondary);
     font-weight: 500;
+    overflow-wrap: anywhere;
 }
 
 .page-header-actions {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm-plus);
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    min-width: 0;
 }
 
 .button-group {
@@ -315,6 +322,7 @@
     align-items: center;
     justify-content: center;
     gap: var(--spacing-sm); /* Default gap */
+    min-width: 0;
 }
 
 .btn.btn-small { gap: var(--spacing-xs-plus); }
