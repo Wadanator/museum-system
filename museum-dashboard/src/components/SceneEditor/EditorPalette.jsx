@@ -26,9 +26,16 @@ function PalSection({ label, open, onToggle, children }) {
 }
 
 function DeviceRow({ item, onInsert, disabled }) {
+  const defaultMessage = item.defaultMessage || item.quickMessages?.[0] || 'ON';
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `pal:mqtt:${item.id}`,
-    data: { type: 'palette', actionType: 'mqtt', topic: item.topic, message: 'ON', label: item.label },
+    data: {
+      type: 'palette',
+      actionType: 'mqtt',
+      topic: item.topic,
+      message: defaultMessage,
+      label: item.label,
+    },
   });
   return (
     <div

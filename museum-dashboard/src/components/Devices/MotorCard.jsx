@@ -9,9 +9,10 @@ import {
   getDeviceRuntimeLabel,
   getDeviceRuntimeTone,
 } from '../../utils/deviceRuntimePresentation';
+import { buildMotorOnCommand, normalizeMotorSpeed } from '../../utils/deviceCommands';
 
 export default function MotorCard({ device, runtimeState }) {
-  const speed = device.speed || 100;
+  const speed = normalizeMotorSpeed(device.speed);
   const { sendCommand } = useDeviceControl(device.topic, device.name);
   const [loading, setLoading] = useState(false);
   const runtimeTone = getDeviceRuntimeTone(runtimeState);
@@ -24,8 +25,8 @@ export default function MotorCard({ device, runtimeState }) {
     setLoading(true);
 
     let payload = 'OFF';
-    if (direction === 'LEFT') payload = `ON:${speed}:L`;
-    else if (direction === 'RIGHT') payload = `ON:${speed}:R`;
+    if (direction === 'LEFT') payload = buildMotorOnCommand(speed, 'L');
+    else if (direction === 'RIGHT') payload = buildMotorOnCommand(speed, 'R');
 
     try {
       await sendCommand(payload, label);

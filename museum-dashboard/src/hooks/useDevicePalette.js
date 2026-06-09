@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useDevices } from './useDevices';
 import { useMedia } from './useMedia';
+import { buildMotorOnCommand, normalizeMotorSpeed } from '../utils/deviceCommands';
 
 /**
  * Transforms raw devices + media into flat, normalised palette items
@@ -11,15 +12,26 @@ export function useDevicePalette() {
   const { audios, videos, playMediaFile, isLoading: mediaLoading } = useMedia();
 
   const motorItems = useMemo(
-    () => motors.map((d) => ({
-      id: d.id,
-      label: d.name,
-      topic: d.topic,
-      icon: d.icon,
-      deviceType: 'motor',
-      // ON:<speed>:<dir>[:<rampMs>] | OFF | SPEED:<0-100> | DIR:L/R
-      quickMessages: ['ON:50:L', 'ON:50:R', 'OFF', 'SPEED:80', 'DIR:L', 'DIR:R'],
-    })),
+    () => motors.map((d) => {
+      const speed = normalizeMotorSpeed(d.speed);
+      return {
+        id: d.id,
+        label: d.name,
+        topic: d.topic,
+        icon: d.icon,
+        deviceType: 'motor',
+        defaultMessage: buildMotorOnCommand(speed, 'L'),
+        // ON:<speed>:<dir>[:<rampMs>] | OFF | SPEED:<0-100> | DIR:L/R
+        quickMessages: [
+          buildMotorOnCommand(speed, 'L'),
+          buildMotorOnCommand(speed, 'R'),
+          'OFF',
+          `SPEED:${speed}`,
+          'DIR:L',
+          'DIR:R',
+        ],
+      };
+    }),
     [motors]
   );
 
@@ -30,6 +42,7 @@ export function useDevicePalette() {
       topic: d.topic,
       icon: d.icon,
       deviceType: d.id?.includes('light') ? 'light' : 'relay',
+      defaultMessage: 'ON',
       quickMessages: ['ON', 'OFF'],
     })),
     [relays]
