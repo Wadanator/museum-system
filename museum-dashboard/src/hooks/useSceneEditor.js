@@ -7,19 +7,23 @@ const generateId = () => `id_${Date.now()}_${Math.random().toString(36).substr(2
 
 // -- Factory functions (exported for use in components) ------------------------
 
+const DEFAULT_ACTION_MESSAGES = {
+  image: 'SHOW:',
+};
+
 export const createEmptyAction = (type = 'mqtt') => ({
   id: generateId(),
   action: type,
   topic: '',
-  message: '',
+  message: DEFAULT_ACTION_MESSAGES[type] ?? '',
 });
 
-export const createEmptyTimelineItem = (at = 0) => ({
+export const createEmptyTimelineItem = (at = 0, type = 'mqtt') => ({
   id: generateId(),
   at,
-  action: 'mqtt',
+  action: type,
   topic: '',
-  message: '',
+  message: DEFAULT_ACTION_MESSAGES[type] ?? '',
 });
 
 export const createEmptyTransition = () => ({
@@ -71,7 +75,19 @@ export const schemaToInternal = (schemaJson) => {
   };
 };
 
-const stripId = ({ id, ...rest }) => rest;
+const cleanAction = (action) => {
+  const { id, topic, retain, message, ...rest } = action;
+  const actionType = rest.action || 'mqtt';
+  const cleaned = { action: actionType };
+
+  if (actionType === 'mqtt') {
+    cleaned.topic = topic || '';
+    if (retain !== undefined) cleaned.retain = retain;
+  }
+
+  if (message !== undefined) cleaned.message = message;
+  return cleaned;
+};
 
 const cleanTransition = (t) => {
   const { id, ...rest } = t;
@@ -94,13 +110,13 @@ export const internalToSchema = (editor) => {
   editor.states.forEach((state) => {
     const s = {};
     if (state.description) s.description = state.description;
-    if (state.onEnter?.length) s.onEnter = state.onEnter.map(stripId);
+    if (state.onEnter?.length) s.onEnter = state.onEnter.map(cleanAction);
     if (state.timeline?.length) {
       s.timeline = [...state.timeline]
         .sort((a, b) => a.at - b.at)
-        .map(({ id, ...rest }) => ({ ...rest, at: Number(rest.at) }));
+        .map((item) => ({ ...cleanAction(item), at: Number(item.at) }));
     }
-    if (state.onExit?.length) s.onExit = state.onExit.map(stripId);
+    if (state.onExit?.length) s.onExit = state.onExit.map(cleanAction);
     if (state.transitions?.length) s.transitions = state.transitions.map(cleanTransition);
     statesObj[state.name] = s;
   });

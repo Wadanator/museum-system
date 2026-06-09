@@ -112,6 +112,7 @@ Supported action types:
 | `mqtt` | `topic`, `message` | Publishes to MQTT broker |
 | `audio` | `message` | Local Raspberry Pi audio handler |
 | `video` | `message` | Local Raspberry Pi mpv video handler |
+| `image` | `message` | Local Raspberry Pi mpv static image display |
 
 MQTT action example:
 
@@ -139,6 +140,13 @@ Video/image action example:
   "action": "video",
   "message": "PLAY_VIDEO:intro.mp4"
 }
+```
+
+Dedicated static image action examples:
+
+```json
+{ "action": "image", "message": "SHOW:wallpaper.png" }
+{ "action": "image", "message": "CLEAR" }
 ```
 
 Timeline example:
@@ -287,6 +295,32 @@ Examples:
 { "action": "video", "message": "wallpaper.png" }
 { "action": "video", "message": "SEEK:10" }
 { "action": "video", "message": "STOP_VIDEO" }
+```
+
+Dedicated static image commands are local Raspberry Pi commands too, used in
+scenes with:
+
+```json
+{ "action": "image", "message": "<command>" }
+```
+
+Supported image action payloads:
+
+| Payload | Meaning |
+|---|---|
+| `SHOW:<filename>` | Display a static image indefinitely |
+| `CLEAR` | Return to the configured idle/default image |
+| `DEFAULT` | Alias for `CLEAR` |
+
+Image action filenames must be simple basenames such as `wallpaper.png`, not
+paths. The active room and media folder come from `[Room] room_id`,
+`[Scenes] directory`, and `[Video] directory` in `config.ini`.
+
+Examples:
+
+```json
+{ "action": "image", "message": "SHOW:wallpaper.png" }
+{ "action": "image", "message": "CLEAR" }
 ```
 
 ---

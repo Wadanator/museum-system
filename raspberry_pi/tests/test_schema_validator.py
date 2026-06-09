@@ -159,3 +159,101 @@ def test_validate_scene_payload_rejects_empty_timeline_item():
 
     assert result["valid"] is False
     assert result["errors"][0]["path"] == "states.START.timeline.0"
+
+
+def _scene_with_on_enter_action(action):
+    return {
+        "sceneId": "room1_intro",
+        "initialState": "START",
+        "states": {
+            "START": {
+                "onEnter": [action]
+            }
+        }
+    }
+
+
+def test_validate_scene_payload_accepts_image_show_action():
+    data = _scene_with_on_enter_action(
+        {"action": "image", "message": "SHOW:wallpaper.png"}
+    )
+
+    assert validate_scene_payload(data)["valid"] is True
+
+
+def test_validate_scene_payload_accepts_image_clear_action():
+    data = _scene_with_on_enter_action(
+        {"action": "image", "message": "CLEAR"}
+    )
+
+    assert validate_scene_payload(data)["valid"] is True
+
+
+def test_validate_scene_payload_accepts_image_default_action():
+    data = _scene_with_on_enter_action(
+        {"action": "image", "message": "DEFAULT"}
+    )
+
+    assert validate_scene_payload(data)["valid"] is True
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "SHOW:",
+        "wallpaper.png",
+        "SHOW:intro.mp4",
+        "SHOW:music.mp3",
+        "SHOW:sfx.wav",
+        "SHOW:clip.webm",
+        "SHOW:../wallpaper.png",
+        "SHOW:/tmp/wallpaper.png",
+        "SHOW:subdir/wallpaper.png",
+        "BLACK",
+        "",
+    ],
+)
+def test_validate_scene_payload_rejects_invalid_image_messages(message):
+    data = _scene_with_on_enter_action(
+        {"action": "image", "message": message}
+    )
+
+    result = validate_scene_payload(data)
+
+    assert result["valid"] is False
+    assert result["errors"][0]["path"] == "states.START.onEnter.0.message"
+
+
+def test_validate_scene_payload_rejects_non_string_image_message():
+    data = _scene_with_on_enter_action(
+        {"action": "image", "message": True}
+    )
+
+    result = validate_scene_payload(data)
+
+    assert result["valid"] is False
+    assert result["errors"][0]["path"] == "states.START.onEnter.0.message"
+
+
+def test_validate_scene_payload_rejects_photo_action_typo():
+    data = _scene_with_on_enter_action(
+        {"action": "photo", "message": "SHOW:wallpaper.png"}
+    )
+
+    assert validate_scene_payload(data)["valid"] is False
+
+
+def test_validate_scene_payload_accepts_image_timeline_action():
+    data = {
+        "sceneId": "room1_intro",
+        "initialState": "START",
+        "states": {
+            "START": {
+                "timeline": [
+                    {"at": 1.0, "action": "image", "message": "SHOW:slide.jpg"}
+                ]
+            }
+        }
+    }
+
+    assert validate_scene_payload(data)["valid"] is True

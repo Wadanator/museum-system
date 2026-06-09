@@ -3,6 +3,14 @@ import { useDevices } from './useDevices';
 import { useMedia } from './useMedia';
 import { buildMotorOnCommand, normalizeMotorSpeed } from '../utils/deviceCommands';
 
+const VIDEO_EXTENSIONS = new Set(['.mp4', '.avi', '.mkv', '.mov', '.webm']);
+const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg']);
+
+const extensionOf = (name = '') => {
+  const index = name.lastIndexOf('.');
+  return index === -1 ? '' : name.slice(index).toLowerCase();
+};
+
 /**
  * Transforms raw devices + media into flat, normalised palette items
  * ready for EditorPalette to render.
@@ -57,10 +65,22 @@ export function useDevicePalette() {
   );
 
   const videoItems = useMemo(
-    () => videos.map((f) => ({
-      name: f.name,
-      insertMessage: `PLAY_VIDEO:${f.name}`,
-    })),
+    () => videos
+      .filter((f) => VIDEO_EXTENSIONS.has(extensionOf(f.name)))
+      .map((f) => ({
+        name: f.name,
+        insertMessage: `PLAY_VIDEO:${f.name}`,
+      })),
+    [videos]
+  );
+
+  const imageItems = useMemo(
+    () => videos
+      .filter((f) => IMAGE_EXTENSIONS.has(extensionOf(f.name)))
+      .map((f) => ({
+        name: f.name,
+        insertMessage: `SHOW:${f.name}`,
+      })),
     [videos]
   );
 
@@ -69,6 +89,7 @@ export function useDevicePalette() {
     relayItems,
     audioItems,
     videoItems,
+    imageItems,
     loading: devLoading || mediaLoading,
     devError,
     playMediaFile,

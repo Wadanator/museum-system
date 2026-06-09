@@ -9,8 +9,39 @@ import { CSS } from '@dnd-kit/utilities';
 import Button from '../ui/Button';
 import { createEmptyAction } from '../../hooks/useSceneEditor';
 
-const TYPE_LABELS = { mqtt: 'MQTT', audio: 'AUDIO', video: 'VIDEO' };
-const TYPE_CYCLE  = { mqtt: 'audio', audio: 'video', video: 'mqtt' };
+const TYPE_LABELS = { mqtt: 'MQTT', audio: 'AUDIO', video: 'VIDEO', image: 'IMAGE' };
+const TYPE_CYCLE  = { mqtt: 'audio', audio: 'video', video: 'image', image: 'mqtt' };
+const IMAGE_EXTENSION_RE = /\.(png|jpe?g)$/i;
+
+function defaultMessageForType(action, nextType) {
+  const message = action.message || '';
+
+  if (nextType === 'image') {
+    if (message.startsWith('SHOW:') || ['CLEAR', 'DEFAULT'].includes(message.toUpperCase())) {
+      return message;
+    }
+    if (message.startsWith('PLAY_VIDEO:')) {
+      const filename = message.split(':', 2)[1] || '';
+      if (IMAGE_EXTENSION_RE.test(filename)) return `SHOW:${filename}`;
+    }
+    return 'SHOW:';
+  }
+
+  if (nextType === 'video' && action.action === 'image' && message.startsWith('SHOW:')) {
+    return `PLAY_VIDEO:${message.split(':', 2)[1] || ''}`;
+  }
+
+  return message;
+}
+
+function nextTypePatch(action) {
+  const nextType = TYPE_CYCLE[action.action || 'mqtt'] || 'mqtt';
+  return {
+    action: nextType,
+    ...(nextType !== 'mqtt' ? { topic: '' } : {}),
+    message: defaultMessageForType(action, nextType),
+  };
+}
 
 /** Single sortable action row with drag handle */
 function SortableActionRow({ action, stateId, section, onUpdate, onDelete }) {
@@ -51,14 +82,14 @@ function SortableActionRow({ action, stateId, section, onUpdate, onDelete }) {
         <GripVertical size={13} />
       </button>
 
-      {/* Type badge - click cycles mqtt->audio->video */}
+      {/* Type badge - click cycles mqtt->audio->video->image */}
       <button
         className={`se2-action-badge se2-action-badge--${type}`}
-        onClick={() => onUpdate({ action: TYPE_CYCLE[type] })}
+        onClick={() => onUpdate(nextTypePatch(action))}
         title="Klikni pre zmenu typu"
         type="button"
       >
-        {TYPE_LABELS[type]}
+        {TYPE_LABELS[type] ?? type.toUpperCase()}
       </button>
 
       {/* Topic - only for mqtt */}
@@ -80,6 +111,7 @@ function SortableActionRow({ action, stateId, section, onUpdate, onDelete }) {
         placeholder={
           type === 'audio' ? 'PLAY:file.wav:1.0' :
           type === 'video' ? 'PLAY_VIDEO:file.mp4' :
+          type === 'image' ? 'SHOW:wallpaper.png | CLEAR' :
           'ON:50:L | OFF | SPEED:80 | DIR:L'
         }
         spellCheck={false}

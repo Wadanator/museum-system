@@ -1,13 +1,17 @@
 import { useState } from 'react';
-import { GripVertical, Play, Plus, Loader2, ChevronDown, ChevronRight } from 'lucide-react';
+import {
+  GripVertical,
+  Play,
+  Plus,
+  Loader2,
+  ChevronDown,
+  ChevronRight,
+  Image as ImageIcon,
+} from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 import { useDevicePalette } from '../../hooks/useDevicePalette';
 import { createEmptyAction } from '../../hooks/useSceneEditor';
 import DeviceIcon from '../Devices/DeviceIcon';
-
-// -- helpers -------------------------------------------------------------------
-
-// -- sub-components ------------------------------------------------------------
 
 function PalSection({ label, open, onToggle, children }) {
   const Chevron = open ? ChevronDown : ChevronRight;
@@ -127,14 +131,54 @@ function VideoRow({ item, onInsert, disabled }) {
   );
 }
 
-// -- main ----------------------------------------------------------------------
+function ImageRow({ item, onInsert, onPreview, disabled }) {
+  const shortName = item.name.replace(/\.[^.]+$/, '');
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `pal:image:${item.name}`,
+    data: { type: 'palette', actionType: 'image', topic: null, message: item.insertMessage, label: shortName },
+  });
+  return (
+    <div ref={setNodeRef} className={`se2-pal-media-row${isDragging ? ' se2-pal-row--dragging' : ''}`}>
+      <button className="se2-pal-grip" {...attributes} {...listeners} type="button" title="Potiahnuť">
+        <GripVertical size={12} />
+      </button>
+      <span className="se2-pal-media-icon"><ImageIcon size={12} /></span>
+      <span className="se2-pal-media-name" title={item.name}>{shortName}</span>
+      <div className="se2-pal-media-btns">
+        <button
+          className="se2-pal-preview-btn"
+          onClick={() => onPreview(item.name)}
+          title={`Zobraziť ${item.name}`}
+          type="button"
+        >
+          <Play size={11} />
+        </button>
+        <button
+          className="se2-pal-insert-btn"
+          onClick={() => onInsert(null, item.insertMessage, 'image')}
+          disabled={disabled}
+          title={`Vložiť: ${item.insertMessage}`}
+          type="button"
+        >
+          <Plus size={11} />
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function EditorPalette({ selectedStateId, onAddAction }) {
-  const { motorItems, relayItems, audioItems, videoItems, loading, playMediaFile } =
+  const { motorItems, relayItems, audioItems, videoItems, imageItems, loading, playMediaFile } =
     useDevicePalette();
 
   const [targetSection, setTargetSection] = useState('onEnter');
-  const [openCats, setOpenCats] = useState({ motors: true, relays: false, audio: false, video: false });
+  const [openCats, setOpenCats] = useState({
+    motors: true,
+    relays: false,
+    audio: false,
+    video: false,
+    image: false,
+  });
   const toggleCat = (cat) => setOpenCats((prev) => ({ ...prev, [cat]: !prev[cat] }));
 
   const noState = !selectedStateId;
@@ -153,12 +197,11 @@ export default function EditorPalette({ selectedStateId, onAddAction }) {
     motorItems.length === 0 &&
     relayItems.length === 0 &&
     audioItems.length === 0 &&
-    videoItems.length === 0;
+    videoItems.length === 0 &&
+    imageItems.length === 0;
 
   return (
     <div className="se2-pal-root">
-
-      {/* Target section toggle */}
       <div className="se2-pal-target-row">
         <span className="se2-pal-target-label">Vložiť do:</span>
         <div className="se2-pal-target-toggle">
@@ -234,6 +277,20 @@ export default function EditorPalette({ selectedStateId, onAddAction }) {
                   key={item.name}
                   item={item}
                   onInsert={handleInsert}
+                  disabled={noState}
+                />
+              ))}
+            </PalSection>
+          )}
+
+          {imageItems.length > 0 && (
+            <PalSection label="Obrázky" open={openCats.image} onToggle={() => toggleCat('image')}>
+              {imageItems.map((item) => (
+                <ImageRow
+                  key={item.name}
+                  item={item}
+                  onInsert={handleInsert}
+                  onPreview={(name) => playMediaFile('video', name)}
                   disabled={noState}
                 />
               ))}

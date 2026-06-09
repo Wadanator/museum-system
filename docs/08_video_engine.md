@@ -8,6 +8,16 @@ Scéna používa akciu:
 { "action": "video", "message": "..." }
 ```
 
+Statické obrázky môžu použiť aj čistejší dedicated kontrakt:
+
+```json
+{ "action": "image", "message": "SHOW:wallpaper.png" }
+{ "action": "image", "message": "CLEAR" }
+```
+
+`image` stále používa ten istý `VideoHandler` a mpv proces. Nevytvára druhý
+display systém.
+
 ---
 
 ## 1) Podporované commandy (`handle_command`)
@@ -21,6 +31,7 @@ Scéna používa akciu:
 
 Podporované prípony:
 - `.mp4`, `.avi`, `.mkv`, `.mov`, `.webm`
+- `.png`, `.jpg`, `.jpeg` pre statické obrázky
 
 `handle_command()` najprv skúsi rozpoznať explicitný príkaz. Ak príkaz nezačne `PLAY_VIDEO:`, `STOP_VIDEO`, `PAUSE`, `RESUME` alebo `SEEK:`, handler ho berie ako názov súboru a skúsi ho prehrať priamo.
 
@@ -49,6 +60,13 @@ V runtime ho vytvára `ServiceContainer` z config hodnôt:
 `STOP_VIDEO` nahrá idle obrázok (`iddle_image` v confige). Pri prehrávaní videa handler do playlistu pridá idle obrázok ako ďalšiu položku, aby mpv po dohraní prepol obraz bez medzery.
 
 `play_video()` odmietne súbor, ak neexistuje v `video_dir` alebo nemá podporovanú príponu.
+
+Dedicated `image` akcia je prísnejšia ako legacy `video` akcia:
+- `SHOW:<filename>` zobrazí obrázok cez `show_image()`,
+- `CLEAR` a `DEFAULT` zavolajú `stop_video()` a vrátia idle/default obraz,
+- bare filename nie je platný pre `image` akciu,
+- filename musí byť jednoduchý názov súboru bez cesty; aktívna room/video
+  zložka sa berie z configu.
 
 `_detect_hwdec()` používa Debian verziu: Bookworm / Debian 12+ → `v4l2`, Bullseye / Debian 11 alebo neznáme → `rpi4-mmal`.
 

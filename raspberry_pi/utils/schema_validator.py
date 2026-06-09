@@ -4,6 +4,7 @@ Schema Validator - JSON structure validation for scene files.
 """
 
 from jsonschema import Draft7Validator
+from utils.image_command import parse_image_command
 
 VALID_TRANSITION_TYPES = {
     "timeout",
@@ -19,7 +20,7 @@ ACTION_SCHEMA = {
     "type": "object",
     "required": ["action"],
     "properties": {
-        "action": {"type": "string", "enum": ["mqtt", "audio", "video"]},
+        "action": {"type": "string", "enum": ["mqtt", "audio", "video", "image"]},
         "topic": {"type": "string"},
         "message": {"type": ["string", "number", "boolean"]},
         "retain": {"type": "boolean"}
@@ -78,7 +79,7 @@ SCENE_SCHEMA = {
                                     "at": {"type": "number"},
                                     "action": {
                                         "type": "string",
-                                        "enum": ["mqtt", "audio", "video"]
+                                        "enum": ["mqtt", "audio", "video", "image"]
                                     },
                                     "topic": {"type": "string"},
                                     "message": {
@@ -133,6 +134,17 @@ def _validate_action_runtime_shape(action, path, errors):
                     f"{action_type} action requires message",
                 )
             )
+    elif action_type == "image":
+        message = action.get("message")
+        if _is_blank(message):
+            errors.append(
+                _make_error(path + ["message"], "image action requires message")
+            )
+            return
+
+        parsed = parse_image_command(message)
+        if not parsed.valid:
+            errors.append(_make_error(path + ["message"], parsed.error))
 
 
 def _validate_transition_runtime_shape(transition, path, errors):

@@ -217,6 +217,8 @@
     --badge-audio-bg: rgba(34, 197, 94, 0.10);
     --badge-video-color: #a855f7;
     --badge-video-bg: rgba(168, 85, 247, 0.10);
+    --badge-image-color: #14b8a6;
+    --badge-image-bg: rgba(20, 184, 166, 0.11);
 
     /* Form / editor focus effects */
     --shadow-inset-sm: inset 0 2px 4px rgba(0, 0, 0, 0.05);
@@ -259,6 +261,7 @@
     --badge-mqtt-bg: rgba(59, 130, 246, 0.15);
     --badge-audio-bg: rgba(34, 197, 94, 0.14);
     --badge-video-bg: rgba(168, 85, 247, 0.15);
+    --badge-image-bg: rgba(20, 184, 166, 0.16);
     --shadow-success-glow: 0 8px 25px rgba(16, 185, 129, 0.35);
     --shadow-danger-glow: 0 8px 25px rgba(244, 63, 94, 0.35);
     --shadow-success-sm: 0 2px 8px rgba(16, 185, 129, 0.4);

@@ -13,6 +13,7 @@ already been invoked by the OS when cancel() is called.
 """
 
 import threading
+from utils.image_command import parse_image_command
 from utils.logging_setup import get_logger
 
 
@@ -55,7 +56,8 @@ class StateExecutor:
         self.action_handlers = {
             "mqtt": self._execute_mqtt,
             "audio": self._execute_audio,
-            "video": self._execute_video
+            "video": self._execute_video,
+            "image": self._execute_image,
         }
 
     def execute_onEnter(self, state_data):
@@ -308,3 +310,50 @@ class StateExecutor:
                 self.logger.error(f"Video command failed: {message}")
         else:
             self.logger.warning(f"No video handler (simulation): {message}")
+
+    def _execute_image(self, action):
+        """
+        Display or clear a static image via the existing video handler.
+
+        Dedicated image actions are stricter than legacy video actions:
+        scene JSON must use SHOW:<filename> or CLEAR/DEFAULT. File lookup
+        remains room-scoped through the configured VideoHandler video_dir.
+
+        Args:
+            action: Action dict with a 'message' key containing image command.
+
+        Returns:
+            bool: True when the command was handled successfully.
+        """
+        message = action.get("message")
+
+        if not message:
+            self.logger.error(f"Image action missing message: {action}")
+            return False
+
+        parsed = parse_image_command(message)
+        if not parsed.valid:
+            self.logger.error(f"Invalid image command '{message}': {parsed.error}")
+            return False
+
+        if not self.video_handler:
+            self.logger.warning(f"No video handler (simulation): {message}")
+            return False
+
+        try:
+            if parsed.kind == "show":
+                success = self.video_handler.show_image(parsed.filename)
+            else:
+                success = self.video_handler.stop_video()
+        except Exception as e:
+            self.logger.error(
+                f"Video handler raised exception for image '{message}': {e}"
+            )
+            return False
+
+        if success:
+            self.logger.debug(f"Image: {message}")
+            return True
+
+        self.logger.error(f"Image command failed: {message}")
+        return False

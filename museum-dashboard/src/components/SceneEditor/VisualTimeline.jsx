@@ -3,7 +3,7 @@ import TimeRuler from './TimeRuler';
 import TimelineTrack from './TimelineTrack';
 import TimelineToolbar from './TimelineToolbar';
 
-const TRACK_TYPES    = ['mqtt', 'audio', 'video'];
+const TRACK_TYPES    = ['mqtt', 'audio', 'video', 'image'];
 const DEFAULT_PPS    = 80;  // pixels per second (zoom default)
 const MIN_DURATION_S = 12;  // minimum visible duration in seconds
 
@@ -17,6 +17,7 @@ const MIN_DURATION_S = 12;  // minimum visible duration in seconds
  *     [MQTT  row]   - 64 px label        + TimelineTrack (droppable)
  *     [AUDIO row]   - 64 px label        + TimelineTrack (droppable)
  *     [VIDEO row]   - 64 px label        + TimelineTrack (droppable)
+ *     [IMAGE row]   - 64 px label        + TimelineTrack (droppable)
  *
  * Clips are events (points in time, not intervals).
  * Clip drag uses native pointer events via useClipDrag - zero re-renders during drag.
@@ -44,11 +45,12 @@ export default function VisualTimeline({
   const durationSeconds = Math.max(MIN_DURATION_S, Math.ceil(maxAt) + 5);
   const trackWidth      = durationSeconds * pixelsPerSecond;
 
-  // Split clips by action type for the three tracks
+  // Split clips by action type for the timeline tracks
   const byType = useMemo(() => ({
     mqtt:  timeline.filter((i) => i.action === 'mqtt'),
     audio: timeline.filter((i) => i.action === 'audio'),
     video: timeline.filter((i) => i.action === 'video'),
+    image: timeline.filter((i) => i.action === 'image'),
   }), [timeline]);
 
   // Bind stateId so child components only need (itemId, ...) args.

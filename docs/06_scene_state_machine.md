@@ -64,13 +64,14 @@ Akcie sa používajú v `onEnter`, `onExit` a v `timeline`.
 
 Povinné pole:
 
-* `action` - `mqtt`, `audio` alebo `video`.
+* `action` - `mqtt`, `audio`, `video` alebo `image`.
 
 Polia podľa typu:
 
 * `mqtt` - používa `topic` a `message`.
 * `audio` - používa `message`.
 * `video` - používa `message`.
+* `image` - používa `message`.
 
 Schema povoľuje aj `retain`, ale aktuálny `StateExecutor` publikuje MQTT akcie vždy s `retain=False`.
 
@@ -83,6 +84,20 @@ Príklad:
   "message": "ON"
 }
 ```
+
+Príklad statického obrázka:
+
+```json
+{
+  "action": "image",
+  "message": "SHOW:wallpaper.png"
+}
+```
+
+`image` akcia je lokálna Raspberry Pi akcia cez existujúci mpv/video handler.
+Podporuje `SHOW:<filename>`, `CLEAR` a alias `DEFAULT`. Názov súboru pri
+`SHOW:` musí byť jednoduchý basename, nie cesta. Aktívna room zložka sa vyberá
+z configu cez `[Room] room_id`, `[Scenes] directory` a `[Video] directory`.
 
 ---
 

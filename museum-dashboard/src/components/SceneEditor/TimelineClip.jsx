@@ -8,7 +8,7 @@ const CLIP_TOP_PX    = 6;
 /**
  * Build a compact readable label for the clip body.
  * MQTT: last 2 topic segments + message  ->  "light/fire: ON"
- * Audio/Video: filename without extension  ->  "sfx_alarm"
+ * Audio/Video/Image: compact command/file label  ->  "sfx_alarm"
  */
 function clipLabel(item) {
   if (item.action === 'mqtt') {
@@ -18,6 +18,9 @@ function clipLabel(item) {
     return topicShort
       ? `${topicShort}: ${item.message || '?'}`
       : (item.message || '-');
+  }
+  if (item.action === 'image') {
+    return item.message || '-';
   }
   return item.message ? item.message.replace(/\.[^.]+$/, '') : '-';
 }
@@ -50,7 +53,12 @@ export default function TimelineClip({
     onClick: onSelect,
   });
 
-  const typeLabel = { mqtt: 'MQTT', audio: 'AUDIO', video: 'VIDEO' }[item.action] ?? item.action;
+  const typeLabel = {
+    mqtt: 'MQTT',
+    audio: 'AUDIO',
+    video: 'VIDEO',
+    image: 'IMAGE',
+  }[item.action] ?? item.action;
   const tooltip   = `${typeLabel}  *  ${item.topic ? item.topic + ' -> ' : ''}${item.message}  *  @${item.at}s`;
   const topPx     = CLIP_TOP_PX + lane * LANE_HEIGHT_PX;
 

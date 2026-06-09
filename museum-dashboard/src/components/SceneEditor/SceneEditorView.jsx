@@ -81,6 +81,8 @@ export default function SceneEditorView() {
 
     if (activeData?.type === 'palette') {
       if (overData?.zone === 'timeline-track') {
+        if (activeData.actionType !== overData.trackType) return;
+
         // Compute drop time from actual pointer position relative to track's left edge.
         // over.rect is a MutableRefObject<ClientRect> in dnd-kit v6.
         const trackRect = over.rect?.current ?? over.rect;
@@ -147,7 +149,16 @@ export default function SceneEditorView() {
   // Uses only existing api.saveScene + api.runScene - no Pi-side changes needed.
 
   const buildTestScene = (state) => {
-    const stripId = ({ id, ...rest }) => rest;
+    const cleanAction = ({ id, topic, retain, message, ...rest }) => {
+      const actionType = rest.action || 'mqtt';
+      const cleaned = { action: actionType };
+      if (actionType === 'mqtt') {
+        cleaned.topic = topic || '';
+        if (retain !== undefined) cleaned.retain = retain;
+      }
+      if (message !== undefined) cleaned.message = message;
+      return cleaned;
+    };
     const maxAt = state.timeline.reduce((m, item) => Math.max(m, item.at), 0);
     const duration = Math.max(maxAt + 15, 30); // at least 30s, or timeline end + 15s buffer
 
@@ -157,11 +168,11 @@ export default function SceneEditorView() {
       initialState: state.name,
       states: {
         [state.name]: {
-          ...(state.onEnter?.length  ? { onEnter:   state.onEnter.map(stripId)  } : {}),
+          ...(state.onEnter?.length  ? { onEnter:   state.onEnter.map(cleanAction)  } : {}),
           ...(state.timeline?.length ? { timeline:  [...state.timeline]
             .sort((a, b) => a.at - b.at)
-            .map(({ id, ...r }) => ({ ...r, at: Number(r.at) })) } : {}),
-          ...(state.onExit?.length   ? { onExit:    state.onExit.map(stripId)   } : {}),
+            .map((item) => ({ ...cleanAction(item), at: Number(item.at) })) } : {}),
+          ...(state.onExit?.length   ? { onExit:    state.onExit.map(cleanAction)   } : {}),
           transitions: [{ type: 'timeout', delay: duration, goto: '__END__' }],
         },
         __END__: {},

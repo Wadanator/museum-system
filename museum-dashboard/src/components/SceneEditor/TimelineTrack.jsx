@@ -2,7 +2,12 @@ import { useState, useMemo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import TimelineClip from './TimelineClip';
 
-const TRACK_LABELS  = { mqtt: 'MQTT', audio: 'AUDIO', video: 'VIDEO' };
+const TRACK_LABELS  = {
+  mqtt: 'MQTT',
+  audio: 'AUDIO',
+  video: 'VIDEO',
+  image: 'IMAGE',
+};
 const CLIP_WIDTH_PX = 130; // must match CSS .se2-tl-clip width
 
 /**
@@ -28,7 +33,7 @@ function assignLanes(items, pixelsPerSecond) {
 }
 
 /**
- * TimelineTrack - one horizontal track (MQTT / Audio / Video).
+ * TimelineTrack - one horizontal track (MQTT / Audio / Video / Image).
  *
  * - Acts as a dnd-kit droppable (palette -> track drop).
  * - Computes lane stacking so clips never overlap visually.
@@ -67,7 +72,7 @@ export default function TimelineTrack({
   return (
     <div className="se2-tl-track-row">
       <div className={`se2-tl-track-label se2-tl-track-label--${type}`}>
-        {TRACK_LABELS[type]}
+        {TRACK_LABELS[type] ?? type.toUpperCase()}
       </div>
 
       <div

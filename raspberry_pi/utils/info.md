@@ -23,9 +23,10 @@ This folder contains the core runtime modules for the backend.
   - Handles state changes: onExit → goto → onEnter
 
 - `state_executor.py`
-  - Executes actions by type (`mqtt`, `audio`, `video`) via a dispatch table
+  - Executes actions by type (`mqtt`, `audio`, `video`, `image`) via a dispatch table
   - Handles `onEnter`, `onExit`, and `timeline` (time-triggered actions)
   - Tracks executed timeline actions per state to prevent re-firing
+  - Routes dedicated static image actions through the existing `VideoHandler`
 
 - `transition_manager.py`
   - Evaluates transitions within a state using thread-safe event queues
@@ -52,6 +53,12 @@ This folder contains the core runtime modules for the backend.
   - `playback.py` handles scene/dashboard playback commands, static image
     display, and `videoEnd`
   - `video_handler.py` remains as a backward-compatible import shim
+- `image_command.py`
+  - Parses strict scene image action commands shared by schema validation and
+    runtime execution
+  - Accepts `SHOW:<filename>`, `CLEAR`, and `DEFAULT`
+  - Rejects bare filenames, unsafe paths, unsupported extensions, and
+    non-string image messages
 
 ---
 

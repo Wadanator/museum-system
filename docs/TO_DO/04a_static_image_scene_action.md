@@ -63,11 +63,10 @@ Clear/default format:
 }
 ```
 
-Recommended compatibility aliases:
+Recommended compatibility alias:
 
 ```json
 { "action": "image", "message": "DEFAULT" }
-{ "action": "image", "message": "BLACK" }
 ```
 
 Rationale:
@@ -77,9 +76,16 @@ Rationale:
 - `SHOW:<filename>` mirrors the existing command style without adding duration,
   transition, fit, crop, or timing parameters.
 - `CLEAR` has no parameter and should always use the configured `iddle_image`.
+- `DEFAULT` is accepted as a harmless alias for `CLEAR`.
+- `BLACK` should not be accepted as a public alias. It becomes misleading when
+  the configured idle/default image is not actually black.
 - Bare filenames should not be accepted by the backend for `image` actions.
   If the editor lets a user pick `wallpaper.png`, it should normalize that
   selection to `SHOW:wallpaper.png` before saving the scene JSON.
+- Image filenames must be simple basenames, for example `wallpaper.png`, not
+  paths such as `room2/videos/wallpaper.png`, `/tmp/wallpaper.png`, or
+  `../wallpaper.png`. The active room and media directory are resolved from
+  `[Room] room_id`, `[Scenes] directory`, and `[Video] directory` in config.
 
 Naming note:
 
@@ -118,12 +124,30 @@ current Raspberry Pi dashboard editor, docs, and tests consistent.
 - Add runtime validation for image command shape:
   - `SHOW:<filename>` requires a filename.
   - `SHOW:` with an empty filename is invalid.
-  - `CLEAR`, `DEFAULT`, and `BLACK` are allowed clear/default aliases.
+  - `CLEAR` and `DEFAULT` are allowed clear/default aliases.
   - bare filenames are invalid in saved JSON and should be normalized by the
     editor before validation.
+  - filenames with path separators, parent-directory traversal, absolute paths,
+    or NUL bytes are invalid.
   - unsupported media extensions are invalid for `image` actions. Reject at
     least `.mp4`, `.avi`, `.mkv`, `.mov`, `.webm`, `.mp3`, `.wav`, and `.ogg`.
   - supported image extensions are `.png`, `.jpg`, and `.jpeg`.
+  - `message` must be a string for `image`, even though MQTT messages can still
+    be numbers or booleans.
+
+#### [ADD] `raspberry_pi/utils/image_command.py`
+
+- Keep dedicated image command parsing in a small shared helper so
+  `schema_validator.py` and `state_executor.py` enforce the same rules.
+- Accepted parse results:
+  - `SHOW:<safe_filename>` -> show image
+  - `CLEAR` / `DEFAULT` -> clear to idle/default image
+- Rejected parse inputs:
+  - bare filenames,
+  - empty `SHOW:`,
+  - unsupported extensions,
+  - unsafe paths,
+  - non-string messages.
 
 #### [MODIFY] `raspberry_pi/utils/state_executor.py`
 
@@ -142,11 +166,14 @@ self.action_handlers = {
 - Reuse `self.video_handler`; do not create a separate image handler.
 - Behavior:
   - `SHOW:<filename>` -> `video_handler.show_image(filename)`
-  - `CLEAR` / `DEFAULT` / `BLACK` -> `video_handler.stop_video()`
+  - `CLEAR` / `DEFAULT` -> `video_handler.stop_video()`
   - bare filename -> invalid for backend image actions; log an error and return
-    false if it reaches runtime despite validation.
+    false from `_execute_image()` if it reaches runtime despite validation.
 - If `video_handler` is missing, log the same kind of simulation warning used
   for audio/video.
+- `StateExecutor._execute_action()` currently does not propagate handler return
+  values to the scene loop. The boolean return from `_execute_image()` is for
+  local correctness and unit tests, not for controlling scene progression.
 
 #### [OPTIONAL MODIFY] `raspberry_pi/utils/video/playback.py`
 
@@ -183,6 +210,9 @@ Add tests that:
 - reject unknown action typo such as `"photo"` if only `"image"` is canonical,
 - reject non-image extensions in `image` action, for example `.mp4`, `.mp3`,
   `.wav`, and `.webm`.
+- reject unsafe filenames such as `SHOW:../wallpaper.png`,
+  `SHOW:/tmp/wallpaper.png`, and `SHOW:subdir/wallpaper.png`.
+- reject non-string messages such as `{"action": "image", "message": true}`.
 
 #### [MODIFY] `raspberry_pi/tests/test_video_handler_end_detection.py`
 
@@ -201,9 +231,10 @@ If there is no existing state executor test file, add a focused one with fake
 handlers:
 
 - `image SHOW:file.png` calls `show_image("file.png")`,
-- `image CLEAR` calls `stop_video()`,
+- `image CLEAR` and `image DEFAULT` call `stop_video()`,
 - `image SHOW:` returns false and does not call `show_image`,
 - `image file.png` returns false and does not call `show_image`,
+- unsafe image paths return false and do not call `show_image`,
 - unsupported command logs failure but does not crash.
 
 ### Current web dashboard editor
@@ -364,10 +395,11 @@ new dedicated TODO instead of reopening this image-action plan.
 | Unsupported extension | Validation should catch obvious cases or runtime rejects it |
 | `SHOW:` without filename | Validator rejects it explicitly before runtime |
 | Bare filename in `image` action | Validator rejects it; editor should save `SHOW:<filename>` instead |
+| `SHOW:../image.png` or subdirectory path | Validator rejects it; room/media folder comes from config |
 | `CLEAR` while a video is playing | Video is interrupted and default image is loaded; do not fire `videoEnd` for the interrupted video |
 | `SHOW` while a video is playing | Video is replaced by image; do not fire `videoEnd` for the interrupted video |
 | Video starts after image | Video plays normally, appends idle image, and can trigger `videoEnd` |
-| Scene ends while image is displayed | Existing scene cleanup calls `stop_video()`, returning to configured default image |
+| Scene ends while image is displayed | The outer runtime service / stop coordinator calls `stop_video()`, returning to configured default image |
 | `video_handler` failed to initialize | Image action logs simulation/no-handler warning; scene does not crash |
 | User sets default image to non-black | `CLEAR` uses configured `iddle_image`, not hardcoded `black.png` |
 | Existing scenes use `action: "video"` with `.png` | Keep working for backward compatibility |
@@ -378,14 +410,13 @@ new dedicated TODO instead of reopening this image-action plan.
 
 ## Implementation order
 
-### Phase 1 - Backend contract
+### Phase 1 - Backend contract - DONE 2026-06-09
 
 1. Update `schema_validator.py` to accept and validate `image`.
 2. Add `_execute_image()` to `state_executor.py`.
-3. Decide whether image command parsing belongs in `state_executor.py` or a new
-   `VideoHandler.handle_image_command()` helper.
+3. Add a shared `image_command.py` parser used by validation and runtime.
 4. Keep all existing `video` image behavior for compatibility.
-5. Keep `image` action strict: only `SHOW:<filename>` and clear aliases are
+5. Keep `image` action strict: only `SHOW:<filename>` and clear/default aliases are
    accepted in saved scene JSON.
 
 Acceptance:
@@ -394,7 +425,14 @@ Acceptance:
 - New scene with image actions validates.
 - No new dependency is introduced.
 
-### Phase 2 - Runtime tests
+Completion note 2026-06-09:
+
+- Added strict shared parser in `raspberry_pi/utils/image_command.py`.
+- Added `image` schema support in `schema_validator.py`.
+- Added runtime dispatch in `state_executor.py`.
+- Kept legacy `video` image behavior unchanged.
+
+### Phase 2 - Runtime tests - DONE 2026-06-09
 
 1. Add schema validation tests for image actions.
 2. Add state executor tests with a fake video handler.
@@ -413,7 +451,26 @@ Acceptance:
 - Image action show/clear is covered.
 - Existing video end detection tests still pass.
 
-### Phase 3 - Current dashboard editor
+Progress note 2026-06-09:
+
+- Added schema validator tests for valid/invalid image actions.
+- Added `raspberry_pi/tests/test_state_executor.py` for image show/clear/error
+  dispatch.
+- Did not add VideoHandler parser tests because parsing lives in
+  `image_command.py` and `StateExecutor`, not in `VideoHandler`.
+- Local `py_compile` passed for changed Python files.
+- Direct local execution of the new state executor test functions passed
+  (`9 passed`).
+- Added `raspberry_pi/tests/conftest.py` and `pythonpath = .` in
+  `raspberry_pi/pytest.ini` so Pi pytest runs can import `utils` reliably.
+- Raspberry Pi targeted pytest passed on 2026-06-09:
+  `pytest tests/test_schema_validator.py tests/test_state_executor.py`
+  collected 35 items and passed all 35.
+- Raspberry Pi safe runner passed on 2026-06-09:
+  `python tests/run_safe_tests.py` ran the quick pytest suite and passed
+  all 67 tests.
+
+### Phase 3 - Current dashboard editor - DONE 2026-06-09
 
 1. Add `image` action support to `useSceneEditor.js`.
 2. Add image badge/type cycle to action rows.
@@ -436,6 +493,16 @@ Acceptance:
 - Existing audio/video/MQTT editing still works.
 - Built assets can be copied/served as usual.
 
+Completion note 2026-06-09:
+
+- Added `image` action defaults and export cleanup in `useSceneEditor.js`.
+- Split video media from image media in `useDevicePalette.js`.
+- Added image palette section, image action rows, timeline track/clip/popover
+  support, and visualizer formatting.
+- Added image badge/track/clip CSS variables and classes.
+- Built dashboard with `npm run build`; generated `raspberry_pi/Web/dist`
+  assets were updated.
+
 ### Phase 4 - Standalone SceneGen compatibility - SKIPPED
 
 SKIPPED 2026-06-07: Standalone SceneGen is no longer used and is now named
@@ -447,7 +514,7 @@ Acceptance:
 - Image action support is implemented only in the Raspberry Pi backend and the
   dashboard-integrated editor.
 
-### Phase 5 - Documentation and manual verification
+### Phase 5 - Documentation and manual verification - PARTLY DONE 2026-06-09
 
 1. Update MQTT/scene/video docs listed above.
 2. Add a tiny manual scene file if useful, for example
@@ -466,6 +533,16 @@ Acceptance:
 - `CLEAR` returns to configured idle/default image.
 - Starting a normal video after image still works.
 - Stopping or ending a scene returns to default image.
+
+Progress note 2026-06-09:
+
+- Updated `docs/04_mqtt_protocol.md`, `docs/06_scene_state_machine.md`,
+  `docs/08_video_engine.md`, and `raspberry_pi/utils/info.md`.
+- Added `raspberry_pi/scenes/room1/Image_TEST.json` for manual display
+  verification on the default room.
+- Raspberry Pi safe tests passed on 2026-06-09:
+  `python tests/run_safe_tests.py` passed all 67 tests.
+- Manual Raspberry Pi display verification is still pending.
 
 ---
 
@@ -501,10 +578,10 @@ Acceptance:
 ## Open decisions before implementation
 
 1. Should clear aliases be kept?
-   - current recommendation: keep `CLEAR` canonical and accept `DEFAULT`/`BLACK`
-     as harmless aliases.
+   - decided: keep `CLEAR` canonical and accept `DEFAULT`; do not accept
+     `BLACK` because the configured idle image may not be black.
 2. Should image actions appear on their own timeline row?
-   - recommended: yes, because it keeps video and image intent visually clear.
+   - decided: yes, because it keeps video and image intent visually clear.
 3. Should standalone SceneGen be updated or skipped?
    - decided 2026-06-07: skipped. Standalone SceneGen is no longer used and was
      renamed to `SceneGen_DO_NOT_UPDATE`.

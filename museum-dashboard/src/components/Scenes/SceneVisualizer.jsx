@@ -46,7 +46,7 @@ function SceneVisualizerInner({ data, activeStateId }) {
     const formatAnyAction = (a) => {
         if (!a) return 'Neznámy príkaz';
         if (a.action === 'mqtt') return `${a.topic} -> ${a.message}`;
-        if (a.action === 'audio' || a.action === 'video')
+        if (a.action === 'audio' || a.action === 'video' || a.action === 'image')
             return `${a.action.toUpperCase()}: ${a.message}`;
         return `${a.action || 'cmd'}: ${a.message || a.topic || JSON.stringify(a)}`;
     };

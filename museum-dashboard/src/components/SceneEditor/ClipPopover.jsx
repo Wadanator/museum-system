@@ -19,6 +19,20 @@ export default function ClipPopover({ item, anchorRect, onUpdate, onClose }) {
   const [topic,   setTopic]   = useState(item.topic   ?? '');
   const [message, setMessage] = useState(item.message ?? '');
 
+  const messageLabel = item.action === 'mqtt'
+    ? 'Správa'
+    : item.action === 'image'
+      ? 'Obrázok'
+      : 'Súbor';
+
+  const messagePlaceholder = item.action === 'image'
+    ? 'SHOW:wallpaper.png | CLEAR'
+    : item.action === 'video'
+      ? 'PLAY_VIDEO:file.mp4'
+      : item.action === 'audio'
+        ? 'PLAY:file.wav:1.0'
+        : '';
+
   // Position: above the clip when there's room, else below
   const style = anchorRect ? (() => {
     const popH = 160;
@@ -117,13 +131,14 @@ export default function ClipPopover({ item, anchorRect, onUpdate, onClose }) {
         )}
 
         <label className="se2-tl-popover-label">
-          {item.action === 'mqtt' ? 'Správa' : 'Súbor'}
+          {messageLabel}
           <input
             className="se2-tl-popover-input"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onBlur={commit}
             onKeyDown={handleKeyDown}
+            placeholder={messagePlaceholder}
             spellCheck={false}
           />
         </label>

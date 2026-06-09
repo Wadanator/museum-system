@@ -1,0 +1,314 @@
+{
+  "sceneId": "bp_obhajoba_image_relay_sync_test",
+  "version": "1.0",
+  "description": "Obhajoba BP demo: sequential Obhajoba images, relay pulses, and a synchronized OHEN video/fire relay moment.",
+  "initialState": "INIT",
+  "globalPrefix": "room1",
+  "globalEvents": [
+    {
+      "type": "mqttMessage",
+      "topic": "room1/emergency",
+      "message": "STOP",
+      "goto": "END"
+    }
+  ],
+  "states": {
+    "INIT": {
+      "description": "Reset display and all relays before the demo starts.",
+      "onEnter": [
+        {
+          "action": "image",
+          "message": "DEFAULT"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/power/smoke_ON",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/fire",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/1",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/effect/smoke",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/2",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/3",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/4",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/5",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/effects/group1",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/effects/alone",
+          "message": "OFF"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 0.8,
+          "goto": "DEMO_SEQUENCE"
+        }
+      ]
+    },
+    "DEMO_SEQUENCE": {
+      "description": "Presentation rhythm: every slide change is paired with a relay pulse; OHEN video is synchronized with fire relay.",
+      "onEnter": [
+        {
+          "action": "image",
+          "message": "SHOW:Obhajoba_FSI_125_LET.jpg"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/power/smoke_ON",
+          "message": "ON"
+        }
+      ],
+      "timeline": [
+        {
+          "at": 0.8,
+          "action": "mqtt",
+          "topic": "room1/power/smoke_ON",
+          "message": "OFF"
+        },
+        {
+          "at": 2,
+          "action": "mqtt",
+          "topic": "room1/light/1",
+          "message": "ON"
+        },
+        {
+          "at": 2.8,
+          "action": "mqtt",
+          "topic": "room1/light/1",
+          "message": "OFF"
+        },
+        {
+          "at": 4,
+          "action": "mqtt",
+          "topic": "room1/effect/smoke",
+          "message": "ON"
+        },
+        {
+          "at": 4.8,
+          "action": "mqtt",
+          "topic": "room1/effect/smoke",
+          "message": "OFF"
+        },
+        {
+          "at": 6,
+          "action": "image",
+          "message": "SHOW:Obhajoba_FSI_LOGO.png"
+        },
+        {
+          "at": 6,
+          "action": "mqtt",
+          "topic": "room1/light/2",
+          "message": "ON"
+        },
+        {
+          "at": 6.8,
+          "action": "mqtt",
+          "topic": "room1/light/2",
+          "message": "OFF"
+        },
+        {
+          "at": 8,
+          "action": "mqtt",
+          "topic": "room1/light/3",
+          "message": "ON"
+        },
+        {
+          "at": 8.8,
+          "action": "mqtt",
+          "topic": "room1/light/3",
+          "message": "OFF"
+        },
+        {
+          "at": 10,
+          "action": "mqtt",
+          "topic": "room1/light/4",
+          "message": "ON"
+        },
+        {
+          "at": 10.8,
+          "action": "mqtt",
+          "topic": "room1/light/4",
+          "message": "OFF"
+        },
+        {
+          "at": 12,
+          "action": "image",
+          "message": "SHOW:Obhajoba_Mechlab_LOGO.png"
+        },
+        {
+          "at": 12,
+          "action": "mqtt",
+          "topic": "room1/light/5",
+          "message": "ON"
+        },
+        {
+          "at": 12.8,
+          "action": "mqtt",
+          "topic": "room1/light/5",
+          "message": "OFF"
+        },
+        {
+          "at": 14,
+          "action": "mqtt",
+          "topic": "room1/effects/group1",
+          "message": "ON"
+        },
+        {
+          "at": 14.8,
+          "action": "mqtt",
+          "topic": "room1/effects/group1",
+          "message": "OFF"
+        },
+        {
+          "at": 16,
+          "action": "mqtt",
+          "topic": "room1/effects/alone",
+          "message": "ON"
+        },
+        {
+          "at": 16.8,
+          "action": "mqtt",
+          "topic": "room1/effects/alone",
+          "message": "OFF"
+        },
+        {
+          "at": 18.2,
+          "action": "video",
+          "message": "PLAY_VIDEO:Obhajoba_OHEN.mp4"
+        },
+        {
+          "at": 18.2,
+          "action": "audio",
+          "message": "PLAY:sfx_Praskanie_Ohna1.wav:0.4"
+        },
+        {
+          "at": 18.2,
+          "action": "mqtt",
+          "topic": "room1/light/fire",
+          "message": "ON"
+        },
+        {
+          "at": 28.2,
+          "action": "mqtt",
+          "topic": "room1/light/fire",
+          "message": "OFF"
+        },
+        {
+          "at": 28.2,
+          "action": "audio",
+          "message": "STOP:sfx_Praskanie_Ohna1.wav"
+        },
+        {
+          "at": 31,
+          "action": "image",
+          "message": "DEFAULT"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 32,
+          "goto": "END"
+        }
+      ]
+    },
+    "END": {
+      "description": "Cleanup after the demo.",
+      "onEnter": [
+        {
+          "action": "audio",
+          "message": "STOP:sfx_Praskanie_Ohna1.wav"
+        },
+        {
+          "action": "image",
+          "message": "DEFAULT"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/power/smoke_ON",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/fire",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/1",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/effect/smoke",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/2",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/3",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/4",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/light/5",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/effects/group1",
+          "message": "OFF"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/effects/alone",
+          "message": "OFF"
+        }
+      ],
+      "transitions": []
+    }
+  }
+}
