@@ -8,5 +8,6 @@ void handleEffects();
 void startEffect(String groupName);
 void stopEffect(String groupName);
 void stopAllEffects();
+bool isEffectActive(String groupName);
 
 #endif

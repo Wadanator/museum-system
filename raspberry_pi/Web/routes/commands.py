@@ -71,6 +71,10 @@ def setup_commands_routes(dashboard):
             with open(devices_config_path, 'w', encoding='utf-8') as f:
                 json.dump(devices_data, f, indent=2)
 
+            store = getattr(controller, 'actuator_state_store', None)
+            if store:
+                store.initialize_from_devices_config(devices_data)
+
             dashboard.log.info(f"Devices config saved: {devices_config_path}")
             return jsonify({'success': True, 'path': str(devices_config_path)})
         except Exception as e:

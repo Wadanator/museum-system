@@ -9,6 +9,8 @@ void initializeMqtt();
 void connectToMqtt();
 void publishStatus();
 void publishStatusImmediate();
+void publishMotorState(int motorNum, const char* source = "command", bool force = false);
+void publishAllMotorStates(const char* source = "snapshot");
 void mqttCallback(char* topic, byte* payload, unsigned int length);
 bool isMqttConnected();
 void mqttLoop();

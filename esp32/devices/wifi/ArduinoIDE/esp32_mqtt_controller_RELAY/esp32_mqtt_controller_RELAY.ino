@@ -117,6 +117,8 @@ void loop() {
      debugPrint("TIMEOUT: Vypinam zariadenia z dovodu necinnosti");
      turnOffAllDevices();
      stopAllEffects();
+     publishAllDeviceStates("timeout");
+     publishAllEffectStates("timeout");
      lastCommandTime = currentTime;
   }
 

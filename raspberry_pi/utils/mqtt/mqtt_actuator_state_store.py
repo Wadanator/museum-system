@@ -7,6 +7,7 @@ commands and incoming feedback messages. Decouples UI state from scene
 timeline simulation by providing a real hardware truth source.
 """
 
+import json
 import time
 import threading
 from typing import Callable, Dict, Optional
@@ -100,12 +101,72 @@ def _extract_motor_fields(command: str) -> dict:
     return {'motor_direction': direction, 'motor_speed': speed}
 
 
+def _coerce_int(value) -> Optional[int]:
+    """Best-effort integer conversion for JSON state payload metadata."""
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_state_payload(payload: str) -> dict:
+    """
+    Parse a retained /state payload.
+
+    Supports both the MVP plain payloads (ON/OFF/ACTIVE/INACTIVE) and compact
+    JSON payloads such as {"state": "ON", "node_id": "..."}.
+    """
+    raw = '' if payload is None else str(payload).strip()
+    if not raw:
+        return {
+            'state_command': '',
+            'node_id': None,
+            'source': 'state',
+            'motor_direction': None,
+            'motor_speed': None,
+        }
+
+    if raw.startswith('{'):
+        try:
+            data = json.loads(raw)
+        except (TypeError, ValueError):
+            return {
+                'state_command': raw,
+                'node_id': None,
+                'source': 'state_invalid_json',
+                'motor_direction': None,
+                'motor_speed': None,
+            }
+
+        state = str(data.get('state', '')).strip()
+        direction = _normalize_direction(data.get('direction'))
+        speed = _coerce_int(data.get('speed'))
+        return {
+            'state_command': state,
+            'node_id': data.get('node_id'),
+            'source': str(data.get('source') or 'state'),
+            'motor_direction': direction,
+            'motor_speed': speed,
+        }
+
+    return {
+        'state_command': raw,
+        'node_id': None,
+        'source': 'state',
+        'motor_direction': None,
+        'motor_speed': None,
+    }
+
+
 class ActuatorState:
     """Immutable-by-convention record for a single endpoint's runtime state."""
 
     __slots__ = (
         'topic', 'desired_state', 'confirmed_state',
-        'state_source', 'last_update_ts', 'node_id', 'stale',
+        'reported_state', 'state_source', 'last_update_ts',
+        'last_state_ts', 'node_id', 'stale', 'state_retained',
         'motor_direction', 'motor_speed',
     )
 
@@ -113,10 +174,13 @@ class ActuatorState:
         self.topic: str = topic
         self.desired_state: Optional[str] = None
         self.confirmed_state: str = 'UNKNOWN'
+        self.reported_state: Optional[str] = None
         self.state_source: str = 'none'
         self.last_update_ts: float = time.time()
+        self.last_state_ts: Optional[float] = None
         self.node_id: Optional[str] = None
         self.stale: bool = False
+        self.state_retained: bool = False
         self.motor_direction: Optional[str] = None
         self.motor_speed: Optional[int] = None
 
@@ -125,10 +189,13 @@ class ActuatorState:
             'topic': self.topic,
             'desired_state': self.desired_state,
             'confirmed_state': self.confirmed_state,
+            'reported_state': self.reported_state,
             'state_source': self.state_source,
             'last_update_ts': self.last_update_ts,
+            'last_state_ts': self.last_state_ts,
             'node_id': self.node_id,
             'stale': self.stale,
+            'state_retained': self.state_retained,
             'motor_direction': self.motor_direction,
             'motor_speed': self.motor_speed,
         }
@@ -171,6 +238,56 @@ class MQTTActuatorStateStore:
         """
         self._update_callback = callback
 
+    def initialize_from_devices_config(self, devices_config: dict) -> int:
+        """
+        Create state entries for every configured actuator endpoint.
+
+        Configured devices start stale/unknown so retained /state replay cannot
+        accidentally look fresh before node availability is known.
+
+        Args:
+            devices_config: Parsed config/rooms/<room_id>/devices.json content.
+
+        Returns:
+            Number of configured MQTT topics registered in the store.
+        """
+        if not isinstance(devices_config, dict):
+            self.logger.warning("Devices config is not an object; skipping state bootstrap")
+            return 0
+
+        configured = []
+        for group_name in ('motors', 'relays', 'lights'):
+            group = devices_config.get(group_name) or []
+            if not isinstance(group, list):
+                self.logger.warning("Devices config group '%s' is not a list", group_name)
+                continue
+            configured.extend(item for item in group if isinstance(item, dict))
+
+        count = 0
+        with self._lock:
+            for item in configured:
+                topic = str(item.get('topic') or '').strip()
+                if not topic:
+                    continue
+
+                entry = self._get_or_create(topic)
+                entry.node_id = item.get('node_id') or entry.node_id
+                entry.confirmed_state = 'UNKNOWN'
+                entry.state_source = 'config'
+                entry.stale = True
+                entry.last_update_ts = time.time()
+                count += 1
+
+                if not entry.node_id:
+                    self.logger.warning(
+                        "Configured actuator %s has no node_id; offline/stale "
+                        "mapping will be incomplete",
+                        topic,
+                    )
+
+        self.logger.info("Bootstrapped %d actuator state entries from devices config", count)
+        return count
+
     # ==========================================================================
     # STATE UPDATES
     # ==========================================================================
@@ -210,7 +327,6 @@ class MQTTActuatorStateStore:
             if motor_fields['motor_speed'] is not None:
                 entry.motor_speed = motor_fields['motor_speed']
             entry.last_update_ts = time.time()
-            entry.stale = False
             if node_id:
                 entry.node_id = node_id
             snapshot = entry.to_dict()
@@ -248,13 +364,118 @@ class MQTTActuatorStateStore:
                 entry.motor_speed = motor_fields['motor_speed']
             entry.state_source = source
             entry.last_update_ts = time.time()
-            entry.stale = False
             snapshot = entry.to_dict()
 
         self.logger.debug(
             f"Confirmed: {topic} -> {entry.confirmed_state} ({source})"
         )
         self._notify(snapshot)
+
+    def update_reported_state(
+        self,
+        topic: str,
+        payload: str,
+        node_id: Optional[str] = None,
+        node_online: bool = False,
+        retained: bool = False,
+    ) -> None:
+        """
+        Record an authoritative /state report from an ESP32 node.
+
+        A state report is stored even if the node is not considered online yet,
+        but the Live view is marked fresh only when node_online is true.
+        """
+        parsed = _parse_state_payload(payload)
+        inferred = _infer_state_from_command(parsed['state_command'])
+        motor_fields = _extract_motor_fields(parsed['state_command'])
+        if parsed['motor_direction'] is not None:
+            motor_fields['motor_direction'] = parsed['motor_direction']
+        if parsed['motor_speed'] is not None:
+            motor_fields['motor_speed'] = parsed['motor_speed']
+
+        if inferred is None and not any(
+            value is not None for value in motor_fields.values()
+        ):
+            self.logger.warning(
+                "Ignoring state report with unmapped payload: %s -> %s",
+                topic,
+                payload,
+            )
+            return
+
+        payload_node_id = parsed.get('node_id')
+        effective_node_id = node_id or payload_node_id
+        now = time.time()
+
+        with self._lock:
+            entry = self._get_or_create(topic)
+            if entry.node_id and payload_node_id and entry.node_id != payload_node_id:
+                self.logger.warning(
+                    "State payload node_id mismatch for %s: payload=%s config=%s; "
+                    "using local mapping",
+                    topic,
+                    payload_node_id,
+                    entry.node_id,
+                )
+            if not entry.node_id and effective_node_id:
+                entry.node_id = effective_node_id
+
+            if inferred is not None:
+                entry.reported_state = inferred
+                if node_online:
+                    entry.confirmed_state = inferred
+                    entry.stale = False
+                else:
+                    entry.confirmed_state = 'UNKNOWN'
+                    entry.stale = True
+
+            if motor_fields['motor_direction'] is not None:
+                entry.motor_direction = motor_fields['motor_direction']
+            if motor_fields['motor_speed'] is not None:
+                entry.motor_speed = motor_fields['motor_speed']
+
+            entry.state_source = parsed.get('source') or 'state'
+            entry.last_state_ts = now
+            entry.last_update_ts = now
+            entry.state_retained = bool(retained)
+            snapshot = entry.to_dict()
+
+        self.logger.debug(
+            "Reported state: %s -> %s (online=%s retained=%s)",
+            topic,
+            snapshot['reported_state'],
+            node_online,
+            retained,
+        )
+        self._notify(snapshot)
+
+    def mark_node_online(self, node_id: str) -> None:
+        """
+        Mark endpoints fresh when their node is online and they have a state report.
+
+        Online alone is not enough to clear stale. The endpoint must already have
+        a reported_state from retained replay or a fresh /state message.
+        """
+        affected = []
+        with self._lock:
+            for entry in self._states.values():
+                if entry.node_id != node_id or entry.reported_state is None:
+                    continue
+                if not entry.stale and entry.confirmed_state == entry.reported_state:
+                    continue
+                entry.confirmed_state = entry.reported_state
+                entry.stale = False
+                entry.last_update_ts = time.time()
+                affected.append(entry.to_dict())
+
+        for snapshot in affected:
+            self.logger.info(
+                "Node '%s' online + state report -> %s = %s",
+                node_id,
+                snapshot['topic'],
+                snapshot['confirmed_state'],
+            )
+            self._notify(snapshot)
 
     def mark_node_offline(
         self,
@@ -275,9 +496,12 @@ class MQTTActuatorStateStore:
         affected = []
         with self._lock:
             for entry in self._states.values():
-                if entry.node_id == node_id and not entry.stale:
+                if entry.node_id == node_id and (
+                    not entry.stale or entry.confirmed_state != policy
+                ):
                     entry.confirmed_state = policy
                     entry.stale = True
+                    entry.state_source = 'offline'
                     entry.last_update_ts = time.time()
                     affected.append(entry.to_dict())
 
@@ -304,12 +528,16 @@ class MQTTActuatorStateStore:
         with self._lock:
             for entry in self._states.values():
                 entry.desired_state = 'OFF'
-                entry.confirmed_state = 'OFF'
                 entry.state_source = source
                 entry.last_update_ts = time.time()
-                entry.stale = False
-                entry.motor_direction = None
-                entry.motor_speed = 0
+                if entry.stale:
+                    entry.confirmed_state = 'UNKNOWN'
+                else:
+                    entry.confirmed_state = 'OFF'
+                    entry.reported_state = 'OFF'
+                    entry.last_state_ts = entry.last_update_ts
+                    entry.motor_direction = None
+                    entry.motor_speed = 0
                 snapshots.append(entry.to_dict())
 
         for snapshot in snapshots:
@@ -350,6 +578,12 @@ class MQTTActuatorStateStore:
         with self._lock:
             entry = self._states.get(topic)
             return entry.to_dict() if entry else None
+
+    def get_node_id_for_topic(self, topic: str) -> Optional[str]:
+        """Return the configured node_id for a command topic if known."""
+        with self._lock:
+            entry = self._states.get(topic)
+            return entry.node_id if entry else None
 
     # ==========================================================================
     # INTERNAL HELPERS

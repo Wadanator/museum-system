@@ -159,6 +159,9 @@ class ConfigManager:
 
         # Path to the specific room's asset directory
         room_path = os.path.join(scenes_base_path, room_id)
+        devices_config_path = os.path.join(
+            script_dir, 'config', 'rooms', room_id, 'devices.json'
+        )
 
         mpv_extra_args_raw = self.config.get(
             'Video', 'mpv_extra_args', fallback=''
@@ -183,6 +186,7 @@ class ConfigManager:
             # Room / JSON
             'room_id': room_id,
             'json_file_name': self.config.get('Json', 'json_file_name', fallback='default.json'),
+            'devices_config_path': devices_config_path,
 
             # System
             'health_check_interval': self.config.getint(

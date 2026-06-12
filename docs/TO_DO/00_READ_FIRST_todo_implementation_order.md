@@ -112,6 +112,13 @@ Important dependency:
   are used.
 - Retained state behavior must be tested with reconnects and broker restarts.
 
+Progress:
+
+- 2026-06-12: `03_mqtt_state_reporting_rework.md` phases 1 and 2 are marked
+  `DONE`; backend, room config, tests, and Arduino ESP32 state publishing were
+  implemented. Keep the plan active until Pi pytest and flashed ESP32 retained
+  state behavior are verified.
+
 ### 4. Dashboard scene editor remaining polish
 
 File:

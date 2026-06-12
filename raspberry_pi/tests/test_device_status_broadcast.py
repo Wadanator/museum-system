@@ -1,11 +1,19 @@
 import threading
 from pathlib import Path
 import sys
+import types
 
 # Ensure raspberry_pi/ is importable when tests are executed from repository root.
 RPI_DIR = Path(__file__).resolve().parents[1]
 if str(RPI_DIR) not in sys.path:
     sys.path.insert(0, str(RPI_DIR))
+
+try:
+    import paho.mqtt.client  # noqa: F401
+except ModuleNotFoundError:
+    sys.modules.setdefault("paho", types.ModuleType("paho"))
+    sys.modules.setdefault("paho.mqtt", types.ModuleType("paho.mqtt"))
+    sys.modules.setdefault("paho.mqtt.client", types.ModuleType("paho.mqtt.client"))
 
 from main import MuseumController
 from utils.mqtt.mqtt_device_registry import MQTTDeviceRegistry

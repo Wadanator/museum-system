@@ -4,6 +4,7 @@
 #include "hardware.h"
 #include "wifi_manager.h"
 #include "effects_manager.h"
+#include "effects_config.h"
 
 // MQTT state is kept module-wide because PubSubClient owns the network session.
 NetworkClient networkClient;
@@ -15,6 +16,61 @@ String STATUS_TOPIC = String("devices/") + CLIENT_ID + "/status";
 NetworkTransport mqttTransport = NETWORK_NONE;
 
 unsigned long lastCommandTime = 0;
+static bool lastPublishedDeviceStates[20] = {false};
+static bool lastPublishedDeviceStateValid[20] = {false};
+
+void publishDeviceState(int deviceIndex, const char* source, bool force) {
+  (void)source;
+  if (!mqttConnected || !client.connected()) return;
+  if (deviceIndex < 0 || deviceIndex >= DEVICE_COUNT) return;
+
+  bool state = deviceStates[deviceIndex];
+  if (!force && lastPublishedDeviceStateValid[deviceIndex] &&
+      lastPublishedDeviceStates[deviceIndex] == state) {
+    return;
+  }
+
+  char stateTopic[96];
+  snprintf(stateTopic, sizeof(stateTopic), "%s%s/state", BASE_TOPIC_PREFIX, DEVICES[deviceIndex].name);
+
+  const char* payload = state ? "ON" : "OFF";
+  if (client.publish(stateTopic, payload, true)) {
+    lastPublishedDeviceStates[deviceIndex] = state;
+    lastPublishedDeviceStateValid[deviceIndex] = true;
+    debugPrint("State: " + String(stateTopic) + " = " + String(payload));
+  } else {
+    debugPrint("Failed to publish state: " + String(stateTopic));
+  }
+}
+
+void publishAllDeviceStates(const char* source) {
+  for (int i = 0; i < DEVICE_COUNT; i++) {
+    publishDeviceState(i, source, true);
+  }
+}
+
+void publishEffectState(const char* groupName, const char* state, const char* source, bool force) {
+  (void)source;
+  (void)force;
+  if (!mqttConnected || !client.connected()) return;
+  if (groupName == nullptr || state == nullptr) return;
+
+  char stateTopic[96];
+  snprintf(stateTopic, sizeof(stateTopic), "%seffects/%s/state", BASE_TOPIC_PREFIX, groupName);
+
+  if (client.publish(stateTopic, state, true)) {
+    debugPrint("Effect state: " + String(stateTopic) + " = " + String(state));
+  } else {
+    debugPrint("Failed to publish effect state: " + String(stateTopic));
+  }
+}
+
+void publishAllEffectStates(const char* source) {
+  for (int i = 0; i < EFFECT_GROUP_COUNT; i++) {
+    const char* state = isEffectActive(String(EFFECT_GROUPS[i].name)) ? "ACTIVE" : "INACTIVE";
+    publishEffectState(EFFECT_GROUPS[i].name, state, source, true);
+  }
+}
 
 static const char* mqttTransportName(NetworkTransport transport) {
   switch (transport) {
@@ -49,6 +105,13 @@ static void handleNetworkTransportChange() {
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
+  // Feedback, status and state topics are not relay commands.
+  if (strstr(topic, "/feedback") != nullptr ||
+      strstr(topic, "/status") != nullptr ||
+      strstr(topic, "/state") != nullptr) {
+    return;
+  }
+
   // Reject oversized payloads before storing them in a bounded buffer.
   if (length >= 32) {
     debugPrint("MQTT: Payload too long, ignoring");
@@ -62,11 +125,6 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   if (DEBUG) {
     Serial.print("[DEBUG] "); Serial.print(millis()); Serial.print("ms - MQTT topic: ");  Serial.println(topic);
     Serial.print("[DEBUG] "); Serial.print(millis()); Serial.print("ms - MQTT message: "); Serial.println(message);
-  }
-
-  // Feedback and status topics are not relay commands.
-  if (strstr(topic, "/feedback") != nullptr || strstr(topic, "/status") != nullptr) {
-    return;
   }
 
   // Only room-scoped command topics are accepted.
@@ -99,9 +157,11 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     if (strcmp(cmd, "ON") == 0 || strcmp(cmd, "1") == 0 || strcmp(cmd, "START") == 0) {
       startEffect(String(effectName));
       client.publish(feedbackTopic, "ACTIVE", false);
+      publishEffectState(effectName, "ACTIVE", "command", true);
     } else if (strcmp(cmd, "OFF") == 0 || strcmp(cmd, "0") == 0 || strcmp(cmd, "STOP") == 0) {
       stopEffect(String(effectName));
       client.publish(feedbackTopic, "INACTIVE", false);
+      publishEffectState(effectName, "INACTIVE", "command", true);
     } else {
       debugPrint("Unknown effect command");
     }
@@ -112,6 +172,8 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   if (strcmp(deviceName, "STOP") == 0) {
     turnOffAllDevices();
     stopAllEffects();
+    publishAllDeviceStates("stop");
+    publishAllEffectStates("stop");
     commandSuccessful = true;
     debugPrint("STOP command executed, including effects");
   }
@@ -134,9 +196,11 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
       if (strcmp(cmd, "ON") == 0 || strcmp(cmd, "1") == 0) {
         setDevice(deviceIndex, true);
+        publishDeviceState(deviceIndex, "command", false);
         commandSuccessful = true;
       } else if (strcmp(cmd, "OFF") == 0 || strcmp(cmd, "0") == 0) {
         setDevice(deviceIndex, false);
+        publishDeviceState(deviceIndex, "command", false);
         commandSuccessful = true;
       } else {
         debugPrint("Unknown command: " + String(cmd));
@@ -203,7 +267,8 @@ void connectToMqtt() {
       client.subscribe(stopTopic, 0);
       debugPrint("Subscribed: " + String(stopTopic));
 
-      // Publish retained online status for the device registry.
+      publishAllDeviceStates("reconnect");
+      publishAllEffectStates("reconnect");
       if (client.publish(STATUS_TOPIC.c_str(), "online", true)) {
         debugPrint("Status: online");
       }

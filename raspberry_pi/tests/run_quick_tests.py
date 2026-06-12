@@ -19,6 +19,7 @@ RPI_DIR = Path(__file__).resolve().parents[1]
 QUICK_TEST_FILES = [
     "tests/test_schema_validator.py",
     "tests/test_mqtt_feedback_state.py",
+    "tests/test_mqtt_state_reporting.py",
     "tests/test_device_status_broadcast.py",
     "tests/test_main_scene_state.py",
     "tests/test_heartbeat.py",

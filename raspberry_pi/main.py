@@ -6,6 +6,7 @@ import signal
 import time
 import threading
 import logging
+import json
 from pathlib import Path
 
 # Configure Python path for module imports
@@ -126,6 +127,7 @@ class MuseumController:
 
         from utils.mqtt.mqtt_actuator_state_store import MQTTActuatorStateStore
         self.actuator_state_store = MQTTActuatorStateStore()
+        self._bootstrap_actuator_state_store()
         
         # Device outage tracker for ESP device statistics
         self.outage_tracker = DeviceOutageTracker()
@@ -159,6 +161,7 @@ class MuseumController:
             self.mqtt_message_handler.set_handlers(
                 device_registry=self.mqtt_device_registry,
                 feedback_tracker=self.mqtt_feedback_tracker,
+                actuator_state_store=self.actuator_state_store,
                 button_callback=self.on_button_press,
                 named_scene_callback=self.start_scene_by_name
             )
@@ -256,6 +259,37 @@ class MuseumController:
             self.system_actions = service
         return service
 
+    def _bootstrap_actuator_state_store(self):
+        """Initialize actuator runtime state entries from the room devices config."""
+        store = getattr(self, 'actuator_state_store', None)
+        if not store:
+            return
+
+        primary_path = Path(self.config.get('devices_config_path', ''))
+        candidate_paths = [primary_path] if primary_path else []
+        legacy_path = Path(self.scenes_dir) / self.room_id / 'devices.json'
+        if legacy_path not in candidate_paths:
+            candidate_paths.append(legacy_path)
+
+        for path in candidate_paths:
+            if not path or not path.exists():
+                continue
+            try:
+                with path.open('r', encoding='utf-8') as file_obj:
+                    devices_config = json.load(file_obj)
+                count = store.initialize_from_devices_config(devices_config)
+                log.info(
+                    "Actuator state store bootstrapped from %s (%d topics)",
+                    path,
+                    count,
+                )
+                return
+            except Exception as exc:
+                log.error(f"Failed to bootstrap actuator state store from {path}: {exc}")
+                return
+
+        log.warning("No devices.json found for actuator state bootstrap")
+
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals."""
         log.warning(f"Received signal {signum}, initiating shutdown...")
@@ -270,8 +304,11 @@ class MuseumController:
         if outage_tracker:
             outage_tracker.on_device_status_change(device_id, status)
         
-        if status == 'offline' and self.actuator_state_store:
-            self.actuator_state_store.mark_node_offline(device_id)
+        if self.actuator_state_store:
+            if status == 'offline':
+                self.actuator_state_store.mark_node_offline(device_id)
+            elif status == 'online':
+                self.actuator_state_store.mark_node_online(device_id)
 
         if self.web_dashboard:
             try:

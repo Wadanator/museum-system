@@ -13,7 +13,72 @@ unsigned long lastStatusPublish = 0;
 unsigned long lastCommandTime = 0;
 String STATUS_TOPIC = String("devices/") + CLIENT_ID + "/status";
 
+static MotorState* motorStateFor(int motorNum) {
+  if (motorNum == 1) return &motor1State;
+  if (motorNum == 2) return &motor2State;
+  return nullptr;
+}
+
+static const char* directionLabel(char direction) {
+  if (direction == 'L') return "LEFT";
+  if (direction == 'R') return "RIGHT";
+  return "STOP";
+}
+
+void publishMotorState(int motorNum, const char* source, bool force) {
+  (void)force;
+  if (!mqttConnected || !client.connected()) return;
+
+  MotorState* state = motorStateFor(motorNum);
+  if (state == nullptr) return;
+
+  bool pendingMotion = state->pendingDirectionChange && state->savedSpeed > 0;
+  bool isOn = state->enabled && (
+    state->speed > 0 ||
+    state->targetSpeed > 0 ||
+    pendingMotion
+  );
+  int speed = pendingMotion ? state->savedSpeed : max(state->speed, state->targetSpeed);
+  if (!isOn) speed = 0;
+  char direction = state->pendingDirectionChange ? state->newDirection : state->direction;
+
+  char stateTopic[64];
+  snprintf(stateTopic, sizeof(stateTopic), "%smotor%d/state", BASE_TOPIC_PREFIX, motorNum);
+
+  char payload[192];
+  snprintf(
+    payload,
+    sizeof(payload),
+    "{\"state\":\"%s\",\"direction\":\"%s\",\"speed\":%d,\"node_id\":\"%s\",\"source\":\"%s\",\"ts_ms\":%lu}",
+    isOn ? "ON" : "OFF",
+    directionLabel(direction),
+    speed,
+    CLIENT_ID,
+    source,
+    millis()
+  );
+
+  if (client.publish(stateTopic, payload, true)) {
+    debugPrint("Motor state: " + String(stateTopic) + " = " + String(payload));
+  } else {
+    debugPrint("Failed to publish motor state: " + String(stateTopic));
+  }
+}
+
+void publishAllMotorStates(const char* source) {
+  publishMotorState(1, source, true);
+  publishMotorState(2, source, true);
+}
+
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
+
+  // Feedback, status and state topics are ignored to prevent command loops.
+  if (strstr(topic, "/feedback") != nullptr ||
+      strstr(topic, "/status") != nullptr ||
+      strstr(topic, "/state") != nullptr) {
+    debugPrint("Ignoring feedback/status/state topic");
+    return;
+  }
 
   // Reject payloads that cannot fit the bounded command buffer.
   if (length >= 64) {
@@ -28,12 +93,6 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   if (DEBUG) {
     Serial.print("[DEBUG] "); Serial.print(millis()); Serial.print("ms - MQTT topic: ");   Serial.println(topic);
     Serial.print("[DEBUG] "); Serial.print(millis()); Serial.print("ms - MQTT message: "); Serial.println(message);
-  }
-
-  // Feedback and status topics are ignored to prevent command loops.
-  if (strstr(topic, "/feedback") != nullptr || strstr(topic, "/status") != nullptr) {
-    debugPrint("Ignoring feedback/status topic");
-    return;
   }
 
   // Only room-scoped motor command topics are accepted.
@@ -53,6 +112,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
   // The room-level STOP command immediately disables both motor drivers.
   if (strcmp(deviceType, "STOP") == 0) {
     turnOffHardware();
+    publishAllMotorStates("stop");
     commandSuccessful = true;
     debugPrint("STOP command executed");
   }
@@ -94,6 +154,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
         if (motorNum == 1) controlMotor1("ON", speed, direction, rampTime);
         else               controlMotor2("ON", speed, direction, rampTime);
+        publishMotorState(motorNum, "command", false);
         commandSuccessful = true;
       } else {
         debugPrint("ERROR: Malformed ON command - missing speed/direction");
@@ -103,6 +164,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     else if (strcmp(message, "OFF") == 0) {
       if (motorNum == 1) controlMotor1("OFF", "0", "S", "0");
       else               controlMotor2("OFF", "0", "S", "0");
+      publishMotorState(motorNum, "command", false);
       commandSuccessful = true;
     }
 
@@ -110,6 +172,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       const char* speedVal = message + 6;
       if (motorNum == 1) controlMotor1("SPEED", speedVal, "", "0");
       else               controlMotor2("SPEED", speedVal, "", "0");
+      publishMotorState(motorNum, "command", false);
       commandSuccessful = true;
     }
 
@@ -117,6 +180,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       const char* dirVal = message + 4;
       if (motorNum == 1) controlMotor1("DIR", "", dirVal, "0");
       else               controlMotor2("DIR", "", dirVal, "0");
+      publishMotorState(motorNum, "command", false);
       commandSuccessful = true;
     }
 
@@ -174,6 +238,7 @@ void connectToMqtt() {
       client.subscribe((basePrefix + "STOP").c_str(), 0);
       debugPrint("Subscribed to motor topics");
 
+      publishAllMotorStates("reconnect");
       publishStatusImmediate();
       lastStatusPublish = 0;
       lastCommandTime = currentTime;

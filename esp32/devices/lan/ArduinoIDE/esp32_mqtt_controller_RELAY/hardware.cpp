@@ -1,6 +1,7 @@
 #include "hardware.h"
 #include "config.h"
 #include "debug.h"
+#include "mqtt_manager.h"
 #include "status_led.h"
 #include <Wire.h>
 
@@ -120,6 +121,7 @@ void handleAutoOff() {
     if (currentTime - deviceStartTimes[i] >= DEVICES[i].autoOffMs) {
       debugPrint("AUTO-OFF: " + String(DEVICES[i].name) + " -> turning off.");
       setDevice(i, false);
+      publishDeviceState(i, "auto_off", false);
     }
   }
 }

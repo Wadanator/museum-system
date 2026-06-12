@@ -93,6 +93,7 @@ void loop() {
       (currentTime - lastCommandTime > NO_COMMAND_TIMEOUT)) {
     debugPrint("Command inactivity timeout -> turning motors OFF");
     turnOffHardware();
+    publishAllMotorStates("timeout");
     lastCommandTime = currentTime;
   }
 

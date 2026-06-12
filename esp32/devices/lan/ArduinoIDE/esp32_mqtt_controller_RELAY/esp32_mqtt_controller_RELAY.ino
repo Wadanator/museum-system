@@ -123,6 +123,8 @@ void loop() {
      debugPrint("TIMEOUT: turning devices off due to inactivity");
      turnOffAllDevices();
      stopAllEffects();
+     publishAllDeviceStates("timeout");
+     publishAllEffectStates("timeout");
      lastCommandTime = currentTime;
   }
 

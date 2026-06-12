@@ -625,7 +625,7 @@ Current frontend compatibility:
 
 ## Implementation phases
 
-### Fáza 1: State topic-y bez zmeny command API - IMPLEMENT
+### Fáza 1: State topic-y bez zmeny command API - IMPLEMENT - DONE 2026-06-12
 
 - Zachovať existujúce command a feedback topic-y.
 - Dopísať ESP32 publish state po každej reálnej logickej zmene.
@@ -635,7 +635,22 @@ Current frontend compatibility:
   netreba nový subscribe, pretože backend už subscribuje `room1/#`.
 - Frontend bude stále kompatibilný s `confirmed_state`.
 
-### Fáza 2: `node_id` a offline/stale väzba - IMPLEMENT
+Completion note:
+
+- Backend topic rules, message routing, state store reporting, and tests were
+  implemented.
+- Wi-Fi relay, LAN relay, and Wi-Fi motor Arduino firmware now publish retained
+  `/state` reports and ignore incoming `/state` topics.
+- Self-review follow-up: relay effect snapshots now publish the actual logical
+  effect active state on reconnect, motor `OFF` reports logical `OFF` during
+  smooth deceleration, and dashboard `devices.json` saves re-bootstrap the
+  runtime store.
+- Local verification: Python modules compile; new state-reporting tests passed
+  through a direct runner because local Windows Python has no pytest.
+- Remaining verification: run the quick pytest suite on the Pi and validate
+  real ESP32 retained state behavior after flashing firmware.
+
+### Fáza 2: `node_id` a offline/stale väzba - IMPLEMENT - DONE 2026-06-12
 
 - Doplniť explicitný `node_id` do `devices.json`; hodnota musí sedieť s ESP32
   MQTT client/status identifikátorom.
@@ -643,6 +658,14 @@ Current frontend compatibility:
 - Offline status nastaví všetky výstupy uzla na `STALE/UNKNOWN`.
 - Reconnect `online` sám o sebe nemá vyčistiť `stale`; stav sa stane aktuálnym
   až po novom `/state` reporte.
+
+Completion note:
+
+- `room1` devices config now includes explicit `node_id` values.
+- Backend bootstraps actuator state entries from `devices.json` as
+  `STALE/UNKNOWN`.
+- Offline status marks all configured node outputs stale; online only clears
+  stale for outputs that already have a state report.
 
 ### Fáza 3: Presnejšie párovanie príkazov - SUPERSEDED / DEFERRED
 

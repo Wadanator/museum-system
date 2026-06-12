@@ -35,6 +35,7 @@ class MQTTMessageHandler:
         # === Handler References ===
         self.device_registry = None
         self.feedback_tracker = None
+        self.actuator_state_store = None
         self.button_callback = None
         self.scene_parser = None
         self.named_scene_callback = None  # New handler for named scene start commands
@@ -44,20 +45,22 @@ class MQTTMessageHandler:
     # ==========================================================================
 
     def set_handlers(self, device_registry=None, feedback_tracker=None,
-                     button_callback=None, scene_parser=None,
-                     named_scene_callback=None):
+                     actuator_state_store=None, button_callback=None,
+                     scene_parser=None, named_scene_callback=None):
         """
         Set the handlers for different message types.
 
         Args:
             device_registry: Handler for ESP32 device status updates.
             feedback_tracker: Handler for scene command feedback.
+            actuator_state_store: Runtime actuator state store for /state reports.
             button_callback: Callback for button/scene commands (starts default scene).
             scene_parser: Scene parser for MQTT transition events.
             named_scene_callback: Callback for starting a scene by file name.
         """
         self.device_registry = device_registry
         self.feedback_tracker = feedback_tracker
+        self.actuator_state_store = actuator_state_store
         self.button_callback = button_callback
         self.scene_parser = scene_parser
         self.named_scene_callback = named_scene_callback  # New assignment
@@ -96,13 +99,18 @@ class MQTTMessageHandler:
                 self.feedback_tracker.handle_feedback_message(topic, payload)
                 return
 
-            # 3. Handle button commands (prefix/scene = START) -> starts the default scene
+            # 3. Handle retained actuator state reports before scene events
+            if self.actuator_state_store and self._is_state_report_message(topic):
+                self._handle_state_report(topic, payload, getattr(msg, 'retain', False))
+                return
+
+            # 4. Handle button commands (prefix/scene = START) -> starts the default scene
             if self.button_callback and self._is_button_command(topic, payload):
                 self.logger.info("Button command received. Starting default scene.")
                 self.button_callback()
                 return
 
-            # 4. Handle named scene start command (prefix/start_scene = scene_name.json)
+            # 5. Handle named scene start command (prefix/start_scene = scene_name.json)
             if self.named_scene_callback and self._is_named_scene_command(topic):
                 scene_name = payload.strip()
                 if scene_name:
@@ -118,7 +126,7 @@ class MQTTMessageHandler:
                     )
                     return
 
-            # 5. Route all other MQTT messages to scene parser for transitions
+            # 6. Route all other MQTT messages to scene parser for transitions
             if self.scene_parser:
                 self.scene_parser.register_mqtt_event(topic, payload)
                 self.logger.debug(
@@ -126,7 +134,7 @@ class MQTTMessageHandler:
                 )
                 return
 
-            # 6. Log any messages that do not match known patterns
+            # 7. Log any messages that do not match known patterns
             self.logger.debug(
                 f"Received unhandled message on topic {msg.topic}: {payload}"
             )
@@ -149,6 +157,40 @@ class MQTTMessageHandler:
             bool: True if the topic matches the feedback topic pattern.
         """
         return MQTTTopicRules.is_feedback_topic(topic)
+
+    def _is_state_report_message(self, topic):
+        """
+        Check if a message is an actuator state report.
+
+        Args:
+            topic: The MQTT topic string to evaluate.
+
+        Returns:
+            bool: True if the topic matches the /state report pattern.
+        """
+        return MQTTTopicRules.is_state_topic(topic)
+
+    def _handle_state_report(self, topic, payload, retained=False):
+        """Update the actuator store from a /state MQTT message."""
+        original_topic = MQTTTopicRules.original_topic_from_state(topic)
+        if not original_topic:
+            return
+
+        node_id = self.actuator_state_store.get_node_id_for_topic(original_topic)
+        node_online = False
+        if node_id and self.device_registry:
+            node_online = self.device_registry.is_device_online(
+                node_id,
+                cleanup=False,
+            )
+
+        self.actuator_state_store.update_reported_state(
+            original_topic,
+            payload,
+            node_id=node_id,
+            node_online=node_online,
+            retained=retained,
+        )
 
     def _is_device_status_message(self, topic_parts):
         """

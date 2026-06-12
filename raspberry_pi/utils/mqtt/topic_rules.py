@@ -8,6 +8,7 @@ while remaining easy to maintain.
 """
 
 FEEDBACK_SUFFIX = '/feedback'
+STATE_SUFFIX = '/state'
 
 
 class MQTTRoomTopics:
@@ -70,6 +71,19 @@ class MQTTTopicRules:
             bool: True if the topic ends with the feedback suffix.
         """
         return topic.endswith(FEEDBACK_SUFFIX)
+
+    @staticmethod
+    def is_state_topic(topic):
+        """
+        Check whether a topic is an actuator state report topic.
+
+        Args:
+            topic: The MQTT topic string to evaluate.
+
+        Returns:
+            bool: True if the topic ends with the state suffix.
+        """
+        return topic.endswith(STATE_SUFFIX)
 
     @staticmethod
     def is_device_status_parts(topic_parts):
@@ -162,3 +176,35 @@ class MQTTTopicRules:
         if feedback_topic.endswith(FEEDBACK_SUFFIX):
             return feedback_topic[:-len(FEEDBACK_SUFFIX)]
         return None
+
+    @staticmethod
+    def original_topic_from_state(state_topic):
+        """
+        Derive the original command topic from a retained state topic.
+
+        Args:
+            state_topic: MQTT topic ending in /state.
+
+        Returns:
+            str or None: Command topic without /state, or None if not a state topic.
+        """
+        if state_topic.endswith(STATE_SUFFIX):
+            return state_topic[:-len(STATE_SUFFIX)]
+        return None
+
+    @staticmethod
+    def state_topic_for_command(original_topic):
+        """
+        Derive the retained state topic for a command topic.
+
+        Args:
+            original_topic: MQTT command topic.
+
+        Returns:
+            str or None: State topic, or None if the input is not usable.
+        """
+        if not original_topic:
+            return None
+        if original_topic.endswith(STATE_SUFFIX):
+            return original_topic
+        return f'{original_topic}{STATE_SUFFIX}'

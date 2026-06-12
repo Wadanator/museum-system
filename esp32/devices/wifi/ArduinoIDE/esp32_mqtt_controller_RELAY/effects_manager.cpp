@@ -97,6 +97,15 @@ void stopAllEffects() {
   }
 }
 
+bool isEffectActive(String groupName) {
+  for (int i = 0; i < EFFECT_GROUP_COUNT; i++) {
+    if (String(EFFECT_GROUPS[i].name) == groupName) {
+      return groupActive[i];
+    }
+  }
+  return false;
+}
+
 // ---------------------------------------------------------------------------
 // handleEffects - called every loop iteration
 // ---------------------------------------------------------------------------

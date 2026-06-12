@@ -19,7 +19,7 @@ def setup_device_states_routes(dashboard):
         Return the runtime ON/OFF/UNKNOWN state for all tracked actuator endpoints.
 
         State is sourced from MQTTActuatorStateStore which aggregates desired
-        states (from outgoing commands) and confirmed states (from feedback).
+        states, retained /state reports, feedback, and stale/offline metadata.
         Returns an empty list if the store is not yet initialised.
         """
         store = getattr(controller, 'actuator_state_store', None)

@@ -143,6 +143,21 @@ class MQTTDeviceRegistry:
                 if info['status'] == 'online'
             }
 
+    def is_device_online(self, device_id, cleanup=False):
+        """
+        Return whether a device is currently considered online.
+
+        Args:
+            device_id: Device/node identifier from devices/<id>/status.
+            cleanup: Whether to run stale-device cleanup before checking.
+        """
+        if cleanup:
+            self.cleanup_stale_devices()
+
+        with self._lock:
+            info = self.connected_devices.get(device_id)
+            return bool(info and info.get('status') == 'online')
+
     def get_all_devices(self):
         """
         Return all devices with their current status.
