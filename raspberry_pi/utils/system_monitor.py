@@ -39,14 +39,15 @@ class SystemMonitor:
                 import psutil
                 mem = psutil.virtual_memory()
                 memory_mb = mem.used / 1024 / 1024
+                memory_percent = mem.percent
                 cpu_percent = psutil.cpu_percent(interval=None)
                 disk_usage = psutil.disk_usage('/')
                 disk_percent = (disk_usage.used / disk_usage.total) * 100
                 
-                if memory_mb > 1024:
-                    issues.append(f"High mem ({memory_mb:.1f}MB)")
-                elif memory_mb > 900:
-                    self.logger.warning(f"Memory usage: {memory_mb:.1f}MB")
+                if memory_percent > 90:
+                    issues.append(
+                        f"High mem ({memory_percent:.1f}%, {memory_mb:.1f}MB)"
+                    )
                 
                 if cpu_percent > 45:
                     issues.append(f"High CPU ({cpu_percent:.1f}%)")

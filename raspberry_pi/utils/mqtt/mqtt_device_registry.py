@@ -71,7 +71,7 @@ class MQTTDeviceRegistry:
 
             if ((previous_status is None or previous_status == 'offline') and
                     status == 'online'):
-                self.logger.warning(f"Device {device_id} connected")
+                self.logger.info(f"Device {device_id} connected")
             elif previous_status == 'online' and status == 'offline':
                 self.logger.warning(f"Device {device_id} disconnected")
 

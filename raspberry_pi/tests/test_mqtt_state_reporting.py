@@ -170,3 +170,42 @@ def test_message_handler_routes_state_report_before_scene_parser():
     assert state["topic"] == "room1/light/1"
     assert state["confirmed_state"] == "ON"
     assert state["stale"] is False
+
+
+def test_online_state_report_clears_stale_desired_state():
+    store = _store()
+    store.mark_node_online("Room1_Relays_Ctrl")
+
+    store.update_desired("room1/light/1", "ON")
+    store.update_reported_state(
+        "room1/light/1",
+        "OFF",
+        node_id="Room1_Relays_Ctrl",
+        node_online=True,
+    )
+    state = store.get_state("room1/light/1")
+
+    assert state["desired_state"] is None
+    assert state["confirmed_state"] == "OFF"
+    assert state["reported_state"] == "OFF"
+    assert state["stale"] is False
+
+
+def test_online_after_retained_state_report_clears_stale_desired_state():
+    store = _store()
+
+    store.update_desired("room1/light/1", "ON")
+    store.update_reported_state(
+        "room1/light/1",
+        "OFF",
+        node_id="Room1_Relays_Ctrl",
+        node_online=False,
+        retained=True,
+    )
+    store.mark_node_online("Room1_Relays_Ctrl")
+    state = store.get_state("room1/light/1")
+
+    assert state["desired_state"] is None
+    assert state["confirmed_state"] == "OFF"
+    assert state["reported_state"] == "OFF"
+    assert state["stale"] is False

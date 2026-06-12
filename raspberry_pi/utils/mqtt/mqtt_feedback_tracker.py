@@ -77,7 +77,7 @@ class MQTTFeedbackTracker:
             if not self.feedback_enabled:
                 self.feedback_enabled = True
                 self.pending_feedbacks.clear()
-                self.logger.info("MQTT feedback tracking enabled")
+                self.logger.debug("MQTT feedback tracking enabled")
 
     def disable_feedback_tracking(self) -> None:
         """
@@ -96,7 +96,7 @@ class MQTTFeedbackTracker:
                 for data in self.pending_feedbacks.values():
                     data['timer'].cancel()
                 if pending_count:
-                    self.logger.info(
+                    self.logger.debug(
                         "Scene finished; cleared %d pending feedback entries",
                         pending_count,
                     )

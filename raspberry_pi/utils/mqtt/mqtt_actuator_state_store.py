@@ -424,6 +424,7 @@ class MQTTActuatorStateStore:
                 entry.reported_state = inferred
                 if node_online:
                     entry.confirmed_state = inferred
+                    entry.desired_state = None
                     entry.stale = False
                 else:
                     entry.confirmed_state = 'UNKNOWN'
@@ -464,6 +465,7 @@ class MQTTActuatorStateStore:
                 if not entry.stale and entry.confirmed_state == entry.reported_state:
                     continue
                 entry.confirmed_state = entry.reported_state
+                entry.desired_state = None
                 entry.stale = False
                 entry.last_update_ts = time.time()
                 affected.append(entry.to_dict())
@@ -506,7 +508,7 @@ class MQTTActuatorStateStore:
                     affected.append(entry.to_dict())
 
         for snapshot in affected:
-            self.logger.warning(
+            self.logger.debug(
                 f"Node '{node_id}' offline -> {snapshot['topic']} = {policy}"
             )
             self._notify(snapshot)

@@ -11,6 +11,15 @@ Whole-file completion rule: when every active item in this file is either
 `DONE`, `SKIPPED`, or `SUPERSEDED`, rename the file with `_DONE` before `.md`
 so the folder clearly shows that this plan is closed.
 
+Whole-file status - DONE 2026-06-12:
+
+- Phase 1 and Phase 2 are implemented and verified on the Raspberry Pi.
+- Retained relay/effect `/state` behavior is verified on available Room1
+  hardware.
+- Motor hardware validation is intentionally deferred until `Room1_ESP_Motory`
+  is physically available.
+- Phases 3, 4, and 5 remain out of current scope as `SUPERSEDED / DEFERRED`.
+
 ## Scope decision - 2026-06-07
 
 External review accepted: for this museum-scale system, the high-value part is
@@ -647,8 +656,15 @@ Completion note:
   runtime store.
 - Local verification: Python modules compile; new state-reporting tests passed
   through a direct runner because local Windows Python has no pytest.
-- Remaining verification: run the quick pytest suite on the Pi and validate
-  real ESP32 retained state behavior after flashing firmware.
+- Raspberry Pi verification passed on 2026-06-12:
+  - `pytest tests/test_mqtt_state_reporting.py tests/test_mqtt_feedback_state.py tests/test_device_status_broadcast.py` -> 15 passed.
+  - `python tests/run_safe_tests.py` -> 74 passed.
+- Retained relay/effect `/state` verification passed on `Room1_Relays_Ctrl`:
+  10 retained state messages were observed for configured relay/effect topics.
+- Motor hardware verification is deferred because `Room1_ESP_Motory` is not
+  currently connected/available. Backend tests and Arduino firmware support are
+  implemented, but live `room1/motor1/state` and `room1/motor2/state` still need
+  to be verified when the motor ESP32 is available.
 
 ### Fáza 2: `node_id` a offline/stale väzba - IMPLEMENT - DONE 2026-06-12
 
@@ -666,6 +682,41 @@ Completion note:
   `STALE/UNKNOWN`.
 - Offline status marks all configured node outputs stale; online only clears
   stale for outputs that already have a state report.
+
+### Pi validation log - DONE / MOTOR HARDWARE DEFERRED 2026-06-12
+
+Commands run on the Raspberry Pi from `raspberry_pi/`:
+
+```bash
+pytest tests/test_mqtt_state_reporting.py tests/test_mqtt_feedback_state.py tests/test_device_status_broadcast.py
+python tests/run_safe_tests.py
+mosquitto_sub -h localhost -v -C 12 -t 'room1/+/state' -t 'room1/+/+/state'
+```
+
+Observed results:
+
+- Focused MQTT/state pytest suite: 15 passed.
+- Safe runtime suite: 74 passed.
+- Retained relay/effect state topics observed:
+  - `room1/power/smoke_ON/state OFF`
+  - `room1/light/fire/state OFF`
+  - `room1/light/1/state OFF`
+  - `room1/light/2/state OFF`
+  - `room1/light/3/state OFF`
+  - `room1/light/4/state OFF`
+  - `room1/light/5/state OFF`
+  - `room1/effect/smoke/state OFF`
+  - `room1/effects/group1/state INACTIVE`
+  - `room1/effects/alone/state INACTIVE`
+
+Closure note:
+
+- For the currently available Room1 relay/effect hardware, the implementation is
+  verified and can be treated as closed.
+- Motor `/state` behavior is intentionally deferred until `Room1_ESP_Motory` is
+  physically available. To close motor hardware validation later, capture
+  retained output for `room1/motor1/state` and `room1/motor2/state` after the
+  motor ESP32 boots/reconnects.
 
 ### Fáza 3: Presnejšie párovanie príkazov - SUPERSEDED / DEFERRED
 

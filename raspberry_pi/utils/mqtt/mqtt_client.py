@@ -117,7 +117,7 @@ class MQTTClient:
         if rc == 0:
             was_connected = self.connected
             self.connected = True
-            self.logger.info(
+            self.logger.debug(
                 f"MQTT connected to {self.broker_host}:{self.broker_port}"
             )
 
@@ -149,9 +149,15 @@ class MQTTClient:
 
         # Only log disconnection if we were actually connected before
         if was_connected:
-            self.logger.warning(
-                f"Disconnected from MQTT broker. Return code: {rc}"
-            )
+            if self.shutdown_requested:
+                self.logger.debug(
+                    "Disconnected from MQTT broker during planned shutdown. "
+                    f"Return code: {rc}"
+                )
+            else:
+                self.logger.warning(
+                    f"Disconnected from MQTT broker. Return code: {rc}"
+                )
             if self.connection_lost_callback:
                 self.connection_lost_callback()
 
@@ -273,7 +279,7 @@ class MQTTClient:
             if self.shutdown_requested:
                 return False
 
-            self.logger.info(
+            self.logger.debug(
                 f"MQTT connection attempt {attempt + 1}/{self.retry_attempts}"
             )
 
@@ -378,7 +384,7 @@ class MQTTClient:
         if self.connected:
             self.client.loop_stop()
             self.client.disconnect()
-            self.logger.warning("MQTT disconnected")
+            self.logger.debug("MQTT disconnected")
 
     def cleanup(self):
         """Clean up MQTT client resources and signal shutdown."""

@@ -68,7 +68,7 @@ class ServiceContainer:
         self._init_system_monitor()
         self._init_button_handler()
 
-        self.log.info("All services initialized.")
+        self.log.debug("All services initialized.")
         return self
 
     def _init_audio(self):
@@ -184,7 +184,7 @@ class ServiceContainer:
         Cleans up the MQTT client first, then attempts cleanup on all
         remaining components, logging any errors without raising exceptions.
         """
-        self.log.info("Cleaning up services...")
+        self.log.debug("Cleaning up services...")
 
         if self.mqtt_client:
             self.mqtt_client.cleanup()

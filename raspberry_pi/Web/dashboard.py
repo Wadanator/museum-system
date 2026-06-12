@@ -222,7 +222,7 @@ class WebDashboard:
         """Efektívne načíta len posledných 64KB logu namiesto celého súboru (zrýchľuje štart)."""
         try:
             if not Config.LOG_DIR.exists():
-                self.log.info(f"Log directory does not exist: {Config.LOG_DIR}")
+                self.log.debug(f"Log directory does not exist: {Config.LOG_DIR}")
                 return
             main_log = Config.LOG_DIR / 'museum.log'
             if main_log.exists():
@@ -249,9 +249,9 @@ class WebDashboard:
                             })
                         except ValueError:
                             continue
-                self.log.info(f"Loaded {len([log for log in self.log_buffer if log.get('from_file')])} log entries efficiently")
+                self.log.debug(f"Loaded {len([log for log in self.log_buffer if log.get('from_file')])} log entries efficiently")
             else:
-                self.log.warning(f"Main log file does not exist: {main_log}")
+                self.log.debug(f"Main log file does not exist: {main_log}")
         except Exception as e:
             self.log.error(f"Error loading existing logs: {e}")
 
@@ -259,7 +259,7 @@ class WebDashboard:
         """Load recent persistent logs into the in-memory dashboard buffer."""
         try:
             if not Config.LOG_DIR.exists():
-                self.log.info(f"Log directory does not exist: {Config.LOG_DIR}")
+                self.log.debug(f"Log directory does not exist: {Config.LOG_DIR}")
                 return
 
             log_db = Config.LOG_DIR / 'museum_logs.db'
@@ -271,10 +271,10 @@ class WebDashboard:
             main_log = Config.LOG_DIR / 'museum.log'
             if main_log.exists():
                 loaded = self._load_existing_logs_from_text_file(main_log)
-                self.log.info(f"Loaded {loaded} log entries from text history")
+                self.log.debug(f"Loaded {loaded} log entries from text history")
                 return
 
-            self.log.info(f"No persistent log history found in {Config.LOG_DIR}")
+            self.log.debug(f"No persistent log history found in {Config.LOG_DIR}")
         except Exception as e:
             self.log.error(f"Error loading existing logs: {e}")
 
@@ -346,7 +346,7 @@ class WebDashboard:
                     })
                     self.log.debug(f"Loaded stats from: {Config.STATS_FILE}")
             else:
-                self.log.info(f"Stats file does not exist, using defaults: {Config.STATS_FILE}")
+                self.log.debug(f"Stats file does not exist, using defaults: {Config.STATS_FILE}")
         except Exception as e:
             self.log.error(f"Error loading stats: {e}")
 

@@ -97,7 +97,7 @@ Important dependency:
 
 File:
 
-- `03_mqtt_state_reporting_rework.md`
+- `03_mqtt_state_reporting_rework_DONE.md`
 
 Why after MQTT auth:
 
@@ -114,10 +114,13 @@ Important dependency:
 
 Progress:
 
-- 2026-06-12: `03_mqtt_state_reporting_rework.md` phases 1 and 2 are marked
+- 2026-06-12: `03_mqtt_state_reporting_rework_DONE.md` phases 1 and 2 are marked
   `DONE`; backend, room config, tests, and Arduino ESP32 state publishing were
-  implemented. Keep the plan active until Pi pytest and flashed ESP32 retained
-  state behavior are verified.
+  implemented. Pi pytest validation passed, and retained relay/effect `/state`
+  behavior was verified on `Room1_Relays_Ctrl`. Motor hardware validation is
+  intentionally deferred because `Room1_ESP_Motory` is not currently available;
+  verify `room1/motor1/state` and `room1/motor2/state` later when the motor ESP32
+  can be connected.
 
 ### 4. Dashboard scene editor remaining polish
 

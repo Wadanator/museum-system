@@ -51,7 +51,7 @@ def start_web_dashboard(controller, port: int = Config.DEFAULT_PORT):
     def run_dashboard():
         """Thread function to run the dashboard."""
         logger = logging.getLogger('museum.web')
-        logger.info(f"Starting web dashboard on 0.0.0.0:{port}")
+        logger.debug(f"Starting web dashboard on 0.0.0.0:{port}")
         
         while True: 
             try:

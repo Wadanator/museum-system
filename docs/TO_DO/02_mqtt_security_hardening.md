@@ -81,7 +81,7 @@ je: kto nema platnu MQTT identitu, nepripoji sa.
 
 ## Kompatibilita s existujucimi TODO planmi
 
-### `03_mqtt_state_reporting_rework.md`
+### `03_mqtt_state_reporting_rework_DONE.md`
 
 Kompatibilne, ak sa dodrzia tieto pravidla:
 

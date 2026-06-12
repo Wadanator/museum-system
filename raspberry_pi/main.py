@@ -120,7 +120,7 @@ class MuseumController:
         self.system_actions = SystemActions(self, log)
         self.scene_runtime = SceneRuntimeService(self, log)
         
-        log.info(f"Initializing Museum Controller for {self.room_id}")
+        log.debug(f"Initializing Museum Controller for {self.room_id}")
         
         self.services = ServiceContainer(self.config, self.room_id, log)
         self.services.init_all_services()
@@ -278,7 +278,7 @@ class MuseumController:
                 with path.open('r', encoding='utf-8') as file_obj:
                     devices_config = json.load(file_obj)
                 count = store.initialize_from_devices_config(devices_config)
-                log.info(
+                log.debug(
                     "Actuator state store bootstrapped from %s (%d topics)",
                     path,
                     count,
@@ -338,7 +338,10 @@ class MuseumController:
         self._scene_lifecycle_service().stop_heartbeat()
 
     def _on_mqtt_connection_lost(self):
-        log.error("MQTT connection lost - system will continue with limited functionality")
+        if self.shutdown_requested or self._cleaned_up:
+            log.debug("MQTT connection closed during planned shutdown")
+        else:
+            log.warning("MQTT connection lost - system will continue with limited functionality")
 
     def _on_mqtt_connection_restored(self):
         if self.system_monitor:
@@ -409,7 +412,7 @@ class MuseumController:
 
     def run(self):
         """Run the main application loop."""
-        log.info("Starting Museum Controller")
+        log.debug("Starting Museum Controller")
         
         # Check MQTT Connection
         if self.mqtt_client:
@@ -443,7 +446,7 @@ class MuseumController:
                 time.sleep(sleep_time)
                 
         except KeyboardInterrupt:
-            log.info("Received keyboard interrupt")
+            log.debug("Received keyboard interrupt")
         except Exception as e:
             log.error(f"Unexpected error in main loop: {e}")
             raise
@@ -455,12 +458,12 @@ class MuseumController:
         if self._cleaned_up:
             return
 
-        log.info("Initiating cleanup...")
+        log.debug("Initiating cleanup...")
         self._cleaned_up = True
 
         try:
             if self.scene_running:
-                log.info("Active scene detected during cleanup; stopping it first.")
+                log.debug("Active scene detected during cleanup; stopping it first.")
                 self.stop_scene()
             else:
                 self._stop_coordinator_service().stop_idle_runtime()
@@ -481,7 +484,7 @@ class MuseumController:
             try:
                 self.web_dashboard.update_stats()
                 self.web_dashboard.save_stats()
-                log.info("Dashboard stats saved.")
+                log.debug("Dashboard stats saved.")
             except Exception as e:
                 log.error(f"Failed to save stats during cleanup: {e}")
 
@@ -491,7 +494,7 @@ class MuseumController:
         if self.scene_parser:
              self.scene_parser.cleanup()
 
-        log.info("Museum Controller stopped cleanly")
+        log.debug("Museum Controller stopped cleanly")
 
 def main():
     setup_bootstrap_logging()
