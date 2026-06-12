@@ -29,6 +29,97 @@ The critical rule stays mandatory: retained state is only the last known output
 state. If the owning ESP32 node is offline, Live view must show the output as
 `STALE/UNKNOWN`, not as the retained `ON` / `OFF` value.
 
+## Final implementation decision - 2026-06-12
+
+The system is still in development, so this does not need a production-style
+live migration path. Even so, do not redesign the whole MQTT namespace. The
+ideal low-complexity solution is:
+
+- keep the existing command topics, for example `room1/light/1 = ON`,
+- keep `<command_topic>/feedback` as command ACK/logging,
+- add retained `<command_topic>/state` as the authoritative Live view source,
+- implement Phase 1 and Phase 2 as one clean development rework if convenient,
+- keep Phase 3-5 deferred unless real production evidence proves they are
+  needed.
+
+Keeping the current command topics is not mainly about live compatibility; it
+is about avoiding churn with no useful payoff. Scenes, dashboard controls, and
+ESP32 firmware already understand those topics. Adding `/state` gives the
+missing truth channel without introducing `/set`, `/ack`, `command_id`, QoS 1,
+`seq`, `boot_id`, or `session_id`.
+
+`node_id` must be explicit. Use the same stable identifier the ESP32 publishes
+in `devices/<node_id>/status`, for example:
+
+```cpp
+#define CLIENT_ID "Room1_Relays_Ctrl"
+```
+
+That same value belongs in `devices.json` and, when JSON payloads are used, in
+the state payload. If a state payload is plain text (`ON`, `OFF`, `ACTIVE`,
+`INACTIVE`) or omits `node_id`, the backend should derive `node_id` from the
+`topic -> node_id` mapping loaded from `devices.json`.
+
+For Live view simplicity, keep the frontend-facing `confirmed_state` field, but
+make state reports its authoritative source. Backend should accept
+`ACTIVE`/`INACTIVE` for effect state topics and normalize them to ON-like /
+OFF-like values for the existing dashboard state model. Feedback `OK` can clear
+or explain pending command status, but it should not be the final truth after
+state reporting exists.
+
+Config timeout mapping:
+
+- `command_ack_timeout_ms` is the feedback/ACK budget after a backend command.
+  Current code wires this into `MQTTFeedbackTracker` by converting milliseconds
+  to seconds. It controls how long a command can stay pending before the backend
+  logs a feedback timeout.
+- Legacy `feedback_timeout` may still exist in example docs/configs, but the
+  current `ServiceContainer` uses `command_ack_timeout_ms` for feedback
+  tracking. Do not build the new state-reporting logic around
+  `feedback_timeout`.
+- `device_timeout` is the current runtime threshold used by
+  `MQTTDeviceRegistry` to mark `devices/<node_id>/status` offline when a device
+  has not refreshed status recently.
+- `node_offline_timeout_s` is currently parsed from config but is not wired into
+  runtime behavior. For this rework, prefer one node-availability source unless
+  there is a real need for a separate, faster actuator-stale threshold. If kept,
+  document and wire it explicitly; otherwise treat `device_timeout` as the
+  source that drives offline -> `STALE/UNKNOWN`.
+
+## Current code compatibility guardrails - 2026-06-12
+
+These points are mandatory for compatibility with the current backend and
+dashboard code:
+
+- Frontend device lookup is keyed by the original command topic from
+  `devices.json`, for example `room1/light/1`. Backend must strip `/state` and
+  emit/store the snapshot under `topic = "room1/light/1"`, not under
+  `topic = "room1/light/1/state"`.
+- `MQTTMessageHandler` must route `/state` reports before forwarding unmatched
+  MQTT messages to `scene_parser.register_mqtt_event(...)`. State reports are
+  runtime telemetry, not scene transition events.
+- `MQTTActuatorStateStore` must be bootstrapped from
+  `config/rooms/<room_id>/devices.json` before retained MQTT replay is trusted.
+  Runtime snapshot and `runtimeSummary` only know about entries that exist in
+  the store.
+- Every configured actuator should start as `stale=true`,
+  `confirmed_state=UNKNOWN`, with `node_id` loaded from `devices.json`.
+- `update_desired(...)` must not clear `stale`. A backend command only means
+  "wanted state", not "hardware is fresh/online".
+- Feedback `OK` / `ACTIVE` / `INACTIVE` must not be allowed to clear `stale`
+  once retained `/state` reporting exists. Feedback may resolve pending/logging;
+  only a valid state report from an online node should make the Live view fresh.
+- `force_all_off(...)` must not mark offline nodes as fresh. For an offline
+  node it may set `desired_state=OFF`, but the displayed state should stay
+  `STALE/UNKNOWN` until the node returns online and reports state.
+- Current React code already handles `entry.stale` as `UNKNOWN`/`STALE`. Do not
+  redesign the frontend state model unless there is a concrete UI bug. The main
+  frontend requirement is receiving snapshots under the original device topics.
+- The dashboard devices config editor is raw JSON and will preserve added
+  `node_id` fields. If a device has no `node_id`, backend may still update that
+  topic from `/state`, but offline-to-stale mapping for that device is not
+  reliable and should log a warning.
+
 ## Cieľ
 
 Live view má v budúcnosti zobrazovať stav podľa toho, čo hlási ESP32 po nastavení
@@ -181,6 +272,9 @@ Pri efektoch:
 - `room1/effects/group1/state = INACTIVE` po zastavení efektu,
 - ak Live view nemá zobrazovať každý interný blink, nepulzovať state pre každý toggle,
   ale ukazovať logický stav efektu ako `ACTIVE`.
+- Backend má pre existujúci dashboard model interpretovať `ACTIVE` ako ON-like
+  a `INACTIVE` ako OFF-like. Netreba kvôli tomu zavádzať nový frontend stavový
+  model; dôležitý je logický stav efektu, nie fyzický blink každého relé.
 
 ### Ochrana pred zahltením systému
 
@@ -252,7 +346,36 @@ room1/light/1/state -> room1/light/1
 room1/light/1       -> room1/light/1/state
 ```
 
+### Subscribe behavior
+
+Current backend subscriptions already include the room wildcard:
+
+```python
+f'{room_id}/#'
+```
+
+Therefore the backend does not need a new MQTT subscription for `/state` topics
+in the current codebase. The implementation task is to extend routing in
+`MQTTMessageHandler`, not to add another subscribe call.
+
+If the wildcard subscription is removed in a future cleanup, then state topics
+must be subscribed dynamically from `devices.json` by deriving
+`<topic>/state` for each configured actuator.
+
 ### Message handler
+
+Implementation detail for the current codebase:
+
+- Add a topic helper such as `MQTTTopicRules.is_state_topic(topic)`.
+- Add a topic helper such as
+  `MQTTTopicRules.original_topic_from_state("room1/light/1/state")`.
+- Add a dedicated state handler dependency to `MQTTMessageHandler`, or pass in
+  the actuator state store through a small runtime service. Keep the routing
+  centralized in `mqtt_message_handler.py`.
+- State routing must receive `msg.retain` so the store can preserve the
+  difference between retained replay and a fresh report if that is useful for
+  logging/diagnostics. The freshness decision still depends on
+  `online + state report`, not on `retain`.
 
 V `MQTTMessageHandler` pridať prioritu:
 
@@ -283,9 +406,30 @@ Kvôli kompatibilite s frontendom je možné ponechať názov `confirmed_state`,
 autoritatívnym zdrojom by mali byť nové `state` topic-y. Feedback `OK` môže rušiť pending
 stav, ale fyzický/live stav by mal potvrdiť až `state` report.
 
+Current-code changes needed in `mqtt_actuator_state_store.py`:
+
+- Add an initialization method that accepts configured devices and creates all
+  configured topics before any command is sent.
+- Add a state-report method separate from feedback confirmation, for example
+  `update_reported_state(topic, payload, node_id=None, node_online=False,
+  retained=False)`.
+- `update_reported_state(...)` may update the stored last reported value even
+  while the node is not online, but it must only set `stale=false` when the
+  owning node is online.
+- Keep `desired_state` from outgoing commands independent from reported state.
+  If the new reported state equals `desired_state`, pending is resolved.
+- `mark_node_offline(node_id)` must work for topics created from `devices.json`,
+  not only for topics that previously received a command.
+- When `mark_node_offline(...)` runs, set `confirmed_state=UNKNOWN` and
+  `stale=true`, but keep enough last-report metadata for diagnostics if useful.
+
 ### Device config mapping
 
 Rozšíriť `raspberry_pi/config/rooms/<room_id>/devices.json` o `node_id`.
+
+Rozhodnutie 2026-06-12: `node_id` je explicitný stabilný ESP32 client/status
+identifier, nie dynamicky odvodený názov. Musí sa zhodovať s MQTT status
+topicom `devices/<node_id>/status`, napríklad `Room1_Relays_Ctrl`.
 
 Príklad:
 
@@ -303,6 +447,20 @@ Príklad:
 Backend má pri štarte načítať `devices.json` a zaregistrovať, ktoré topicy patria ku
 ktorému `node_id`. Potom pri `devices/<node_id>/status = offline` vie označiť všetky
 výstupy daného uzla ako `UNKNOWN` alebo `STALE`.
+
+Ak príde JSON state payload s `node_id`, backend môže overiť, že sedí s mappingom.
+Ak príde plain payload bez `node_id`, backend používa mapping podľa command topicu.
+Nesúlad `node_id` v payloade s `devices.json` má byť logovaný ako warning a stav sa
+má radšej priradiť podľa lokálnej konfigurácie.
+
+Compatibility note:
+
+- Existing frontend `useDevices()` passes through unknown fields from
+  `/api/devices`, so adding `node_id` to each device object is compatible.
+- Backend save/load routes for `/api/devices` operate on raw JSON and do not
+  reject extra fields, so `node_id` can be added without a form rewrite.
+- Do not require `state_topic` in config unless a real non-standard topic is
+  needed. Derive it from `topic + "/state"` for normal devices.
 
 ### Offline správanie
 
@@ -350,6 +508,18 @@ Ak snapshot príde skôr ako `online`, backend ho nemá zahodiť. Má ho uloži�
 reportovaný stav, ale frontend ho má stále zobrazovať ako `STALE`, kým availability stav
 uzla nepotvrdí `online`. Tým sa predíde race condition pri reconnecte.
 
+Backend startup / retained replay rule:
+
+- MQTT broker môže po subscribe doručiť retained `<topic>/state` a retained
+  `devices/<node_id>/status` v poradí, na ktoré sa backend nesmie spoliehať.
+- Pri štarte backendu preto najprv všetky výstupy z `devices.json` založiť ako
+  `stale=true`, `confirmed_state=UNKNOWN`.
+- Retained `/state` správa môže uložiť posledný reportovaný stav, ale nesmie sama
+  odblokovať Live view na aktuálny `ON` / `OFF`.
+- Výstup sa považuje za aktuálny až keď backend vie, že jeho `node_id` je online
+  a má pre daný topic state report. Prakticky: `online + state report` odblokuje
+  `stale=false`; `offline` vždy vráti výstupy daného uzla na `STALE/UNKNOWN`.
+
 ### Poradie feedback vs state
 
 Feedback a state môžu prísť v rôznom poradí:
@@ -385,16 +555,41 @@ topic -> state_topic = topic + "/state"
 node_id -> offline/stale väzba
 ```
 
+Current frontend compatibility:
+
+- `RuntimeContext` uses `deviceStates[device.topic]`, so backend snapshots must
+  keep `topic` equal to the command topic from `devices.json`.
+- `getStateForDevice(...)` already returns `UNKNOWN` when `entry.stale` is
+  true. Keep `STALE` higher priority than `PENDING`.
+- `runtimeSummary` counts only entries returned by `/api/runtime` /
+  `/api/device_states`. If the backend does not bootstrap all configured
+  devices into the store, Live view can under-count `UNKNOWN` and `STALE`.
+- A frontend rebuild is only needed if source files in `museum-dashboard/src`
+  change. This rework should be mostly backend/ESP32/config unless UI labels or
+  diagnostics are improved.
+
 ## Testovací plán
 
 ### Backend unit testy
 
+- Store bootstrap z `devices.json` vytvori zaznamy pre vsetky rele/svetla/motory
+  este pred prvym command feedbackom.
 - `room1/light/1/state` sa rozpozná ako state topic.
+- `room1/light/1/state` sa ulozi/emituje ako `topic = room1/light/1`, nie ako
+  `topic = room1/light/1/state`.
+- Incoming `/state` report sa nezaregistruje ako scene MQTT transition event.
 - JSON payload `{"state":"ON","node_id":"Room1_Relays_Ctrl"}` nastaví stav na `ON`.
 - Plain payload `OFF` nastaví stav na `OFF`.
-- Retained state po štarte obnoví stav.
+- Retained state po starte ulozi posledny report, ale bez `online` statusu
+  necha vystup `STALE/UNKNOWN`.
+- `online + state report` nastavi `stale=false`.
+- `update_desired(...)` pri offline/stale node nevycisti `stale`.
+- Feedback `OK` pri offline/stale node nevycisti `stale`.
 - `devices/<node_id>/status = offline` označí všetky mapované topicy ako `STALE`.
+- `force_all_off(...)` neoznaci offline node ako fresh `OFF`.
 - `ERROR` feedback nezmení stav na úspešne potvrdený.
+- State report prepise stary feedback-derived stav.
+- Efekt `ACTIVE` / `INACTIVE` nemeni stav pri kazdom internom bliku.
 
 ### ESP32 manuálne testy
 
@@ -428,22 +623,26 @@ node_id -> offline/stale väzba
 - Backend sa reštartuje, retained state je `ON`, ale node je offline -> frontend ukáže
   `STALE/UNKNOWN`.
 
-## Migračné fázy
+## Implementation phases
 
-### Fáza 1: State topic-y bez rozbitia existujúceho systému - IMPLEMENT
+### Fáza 1: State topic-y bez zmeny command API - IMPLEMENT
 
 - Zachovať existujúce command a feedback topic-y.
 - Dopísať ESP32 publish state po každej reálnej logickej zmene.
 - V ESP32 callbacku ignorovať `/state`, aby nevznikli slučky pri wildcard subscribe.
 - Pri efektoch nepublikovať každý interný toggle, iba logický stav efektu.
-- Backend začne state topic-y počúvať a aktualizovať store.
+- Backend začne state topic-y routovať a aktualizovať store. V aktuálnom kóde
+  netreba nový subscribe, pretože backend už subscribuje `room1/#`.
 - Frontend bude stále kompatibilný s `confirmed_state`.
 
 ### Fáza 2: `node_id` a offline/stale väzba - IMPLEMENT
 
-- Doplniť `node_id` do `devices.json`.
+- Doplniť explicitný `node_id` do `devices.json`; hodnota musí sedieť s ESP32
+  MQTT client/status identifikátorom.
 - Backend pri štarte zaregistruje mapovanie `node_id -> topics`.
 - Offline status nastaví všetky výstupy uzla na `STALE/UNKNOWN`.
+- Reconnect `online` sám o sebe nemá vyčistiť `stale`; stav sa stane aktuálnym
+  až po novom `/state` reporte.
 
 ### Fáza 3: Presnejšie párovanie príkazov - SUPERSEDED / DEFERRED
 
@@ -501,6 +700,11 @@ ako odpoveď na konkrétny príkaz a doplniť samostatné retained state topic-y
 Aktuálne odporúčanie je implementovať iba Fázu 1 a Fázu 2. To dáva väčšinu hodnoty:
 Live view dostane autoritatívny stav, backend po reštarte vie obnoviť posledné známe
 hodnoty a offline uzol sa nebude tváriť ako stále platný `ON`.
+
+Keďže systém ešte nie je v ostrej prevádzke, nie je potrebné navrhovať postupnú
+live migráciu. Stále však netreba meniť command topic-y ani zavádzať `/set` a
+`/ack`, pretože by to zvýšilo rozsah práce bez praktického prínosu pre tento
+počet zariadení.
 
 Takýto model je škálovateľný, pretože pri novom zariadení stačí:
 

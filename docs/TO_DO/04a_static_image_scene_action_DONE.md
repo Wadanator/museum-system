@@ -34,10 +34,10 @@ Whole-file completion rule:
 Add a dedicated JSON scene action for showing a static image on the display.
 The behavior should be simple and explicit:
 
-| Intent | Scene action | Meaning |
-|---|---|---|
-| Show a specific image | `image` action with image filename | Replace the display with that image and keep it there |
-| Clear the image | `image` action with clear/default command | Return to the configured default/idle image, usually `black.png` |
+| Intent                | Scene action                                | Meaning                                                            |
+| --------------------- | ------------------------------------------- | ------------------------------------------------------------------ |
+| Show a specific image | `image` action with image filename        | Replace the display with that image and keep it there              |
+| Clear the image       | `image` action with clear/default command | Return to the configured default/idle image, usually `black.png` |
 
 The feature should not create a second display system. It should reuse the
 existing mpv/video display process because the screen, IPC socket, fullscreen
@@ -389,22 +389,22 @@ new dedicated TODO instead of reopening this image-action plan.
 
 ## Edge cases
 
-| Situation | Expected behavior |
-|---|---|
-| Image file does not exist | Runtime logs error/warning, action returns false, scene continues unless later transition depends on something else |
-| Unsupported extension | Validation should catch obvious cases or runtime rejects it |
-| `SHOW:` without filename | Validator rejects it explicitly before runtime |
-| Bare filename in `image` action | Validator rejects it; editor should save `SHOW:<filename>` instead |
-| `SHOW:../image.png` or subdirectory path | Validator rejects it; room/media folder comes from config |
-| `CLEAR` while a video is playing | Video is interrupted and default image is loaded; do not fire `videoEnd` for the interrupted video |
-| `SHOW` while a video is playing | Video is replaced by image; do not fire `videoEnd` for the interrupted video |
-| Video starts after image | Video plays normally, appends idle image, and can trigger `videoEnd` |
-| Scene ends while image is displayed | The outer runtime service / stop coordinator calls `stop_video()`, returning to configured default image |
-| `video_handler` failed to initialize | Image action logs simulation/no-handler warning; scene does not crash |
-| User sets default image to non-black | `CLEAR` uses configured `iddle_image`, not hardcoded `black.png` |
-| Existing scenes use `action: "video"` with `.png` | Keep working for backward compatibility |
-| Frontend loads an older scene without image actions | No UI regression |
-| Frontend loads a new scene with image action | It must render/edit/save without stripping action type |
+| Situation                                             | Expected behavior                                                                                                   |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Image file does not exist                             | Runtime logs error/warning, action returns false, scene continues unless later transition depends on something else |
+| Unsupported extension                                 | Validation should catch obvious cases or runtime rejects it                                                         |
+| `SHOW:` without filename                            | Validator rejects it explicitly before runtime                                                                      |
+| Bare filename in `image` action                     | Validator rejects it; editor should save `SHOW:<filename>` instead                                                |
+| `SHOW:../image.png` or subdirectory path            | Validator rejects it; room/media folder comes from config                                                           |
+| `CLEAR` while a video is playing                    | Video is interrupted and default image is loaded; do not fire `videoEnd` for the interrupted video                |
+| `SHOW` while a video is playing                     | Video is replaced by image; do not fire `videoEnd` for the interrupted video                                      |
+| Video starts after image                              | Video plays normally, appends idle image, and can trigger `videoEnd`                                              |
+| Scene ends while image is displayed                   | The outer runtime service / stop coordinator calls `stop_video()`, returning to configured default image          |
+| `video_handler` failed to initialize                | Image action logs simulation/no-handler warning; scene does not crash                                               |
+| User sets default image to non-black                  | `CLEAR` uses configured `iddle_image`, not hardcoded `black.png`                                              |
+| Existing scenes use `action: "video"` with `.png` | Keep working for backward compatibility                                                                             |
+| Frontend loads an older scene without image actions   | No UI regression                                                                                                    |
+| Frontend loads a new scene with image action          | It must render/edit/save without stripping action type                                                              |
 
 ---
 
@@ -514,7 +514,7 @@ Acceptance:
 - Image action support is implemented only in the Raspberry Pi backend and the
   dashboard-integrated editor.
 
-### Phase 5 - Documentation and manual verification - PARTLY DONE 2026-06-09
+### Phase 5 - Documentation and manual verification - DONE 2026-06-12
 
 1. Update MQTT/scene/video docs listed above.
 2. Add a tiny manual scene file if useful, for example
@@ -542,38 +542,14 @@ Progress note 2026-06-09:
   verification on the default room.
 - Raspberry Pi safe tests passed on 2026-06-09:
   `python tests/run_safe_tests.py` passed all 67 tests.
-- Manual Raspberry Pi display verification is still pending.
+- Manual Raspberry Pi show-image check passed: the selected image displays
+  properly.
+- Full end-to-end Raspberry Pi verification of the current `Image_TEST.json`
+  passed on 2026-06-12. The BP defense scene works on the Pi after the later
+  timing/content changes: Obhajoba images, relay sequence, OHEN video/audio/fire
+  synchronization, and final cleanup/default return are accepted for closure.
 
 ---
-
-## Suggested minimal test scene
-
-```json
-{
-  "sceneId": "image_action_test",
-  "version": "1.0",
-  "description": "Displays a static image, clears to default, then ends.",
-  "initialState": "show_image",
-  "states": {
-    "show_image": {
-      "onEnter": [
-        { "action": "image", "message": "SHOW:wallpaper_mikael_gustafsson.png" }
-      ],
-      "transitions": [
-        { "type": "timeout", "delay": 5, "goto": "clear_image" }
-      ]
-    },
-    "clear_image": {
-      "onEnter": [
-        { "action": "image", "message": "CLEAR" }
-      ],
-      "transitions": [
-        { "type": "timeout", "delay": 2, "goto": "END" }
-      ]
-    }
-  }
-}
-```
 
 ## Open decisions before implementation
 
