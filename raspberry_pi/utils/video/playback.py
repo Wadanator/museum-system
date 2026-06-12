@@ -103,7 +103,7 @@ class VideoPlaybackMixin:
         self._send_ipc_command(["loadfile", self.iddle_image, "append"])
 
         self.currently_playing = video_file
-        self.logger.info(f"Playing: {video_file}")
+        self.logger.debug(f"Playing: {video_file}")
         return True
 
     def show_image(self, image_file: str) -> bool:
@@ -134,7 +134,7 @@ class VideoPlaybackMixin:
 
         self.currently_playing = image_file
         self.was_playing = False
-        self.logger.info(f"Displaying image: {image_file}")
+        self.logger.debug(f"Displaying image: {image_file}")
         return True
 
     def stop_video(self) -> bool:
@@ -219,7 +219,7 @@ class VideoPlaybackMixin:
                 return
 
             finished_file = tracked_file
-            self.logger.info(f"Video ended: {finished_file}")
+            self.logger.debug(f"Video ended: {finished_file}")
 
             self.stop_video()
 

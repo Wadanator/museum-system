@@ -147,7 +147,7 @@ class AudioHandler:
         if not self.audio_available:
             return
 
-        self.logger.info("Starting Dynamic Preload for Scene...")
+        self.logger.debug("Starting Dynamic Preload for Scene...")
 
         # 1. Stop all current audio
         self.stop_all()
@@ -176,7 +176,7 @@ class AudioHandler:
                             f"Failed to preload {filename}: {e}"
                         )
 
-        self.logger.info(
+        self.logger.debug(
             f"Preload complete. {loaded_count} SFX files ready in RAM. "
             f"(Cleared {cleaned_count})"
         )
@@ -222,7 +222,7 @@ class AudioHandler:
                                 self.active_effects[resolved_name] = []
                             self.active_effects[resolved_name].append(channel)
 
-                        self.logger.info(
+                        self.logger.debug(
                             f"Playing SFX (RAM): {resolved_name} (Vol: {volume})"
                         )
                         return True
@@ -251,7 +251,7 @@ class AudioHandler:
 
                 self.current_music_file = resolved_name
                 self.music_was_playing = True
-                self.logger.info(
+                self.logger.debug(
                     f"Playing MUSIC (Stream): {resolved_name} (Vol: {volume})"
                 )
                 return True
@@ -350,7 +350,7 @@ class AudioHandler:
             channels = self._get_busy_channels()
 
             if music_busy or channels:
-                self.logger.info("Stopping audio with smooth fade...")
+                self.logger.debug("Stopping audio with smooth fade...")
                 self._smooth_fade_out(
                     include_music=music_busy,
                     channels=channels,
@@ -373,7 +373,7 @@ class AudioHandler:
             with self.active_effects_lock:
                 self.active_effects.clear()
 
-            self.logger.info("Stopped ALL audio")
+            self.logger.debug("Stopped ALL audio")
             return True
         except Exception as e:
             self.logger.error(f"Error stopping all: {e}")
@@ -405,7 +405,7 @@ class AudioHandler:
             )
             pygame.mixer.music.stop()
             self.current_music_file = None
-            self.logger.info(f"Stopped specific MUSIC: {resolved_name}")
+            self.logger.debug(f"Stopped specific MUSIC: {resolved_name}")
 
         # 2. Check if it is an active SFX effect
         channels_to_stop = []
@@ -425,7 +425,7 @@ class AudioHandler:
                     ch.stop()
                 except Exception as e:
                     self.logger.debug(f"Specific SFX stop error: {e}")
-            self.logger.info(f"Stopped specific SFX: {resolved_name}")
+            self.logger.debug(f"Stopped specific SFX: {resolved_name}")
 
         return True
 
@@ -668,7 +668,7 @@ class AudioHandler:
         is_music_playing = pygame.mixer.music.get_busy()
         if self.music_was_playing and not is_music_playing:
             if self.current_music_file:
-                self.logger.info(f"Music finished: {self.current_music_file}")
+                self.logger.debug(f"Music finished: {self.current_music_file}")
                 if self.end_callback:
                     self.end_callback(self.current_music_file)
                 self.current_music_file = None

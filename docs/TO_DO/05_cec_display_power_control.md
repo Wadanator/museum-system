@@ -29,6 +29,15 @@ unnecessary on/off cycling during frequent scene starts.
 Implement CEC as a separate `DisplayPowerManager`, not as direct CEC calls inside
 scene JSON or `VideoHandler.play_video()`.
 
+First-version backend decision:
+
+- Implement only `cec` and `noop` backends.
+- Do not implement an HDMI signal power-off backend in v1.
+- For non-CEC displays, keep HDMI and `mpv` alive and rely on the configured
+  black/idle image instead of turning the video signal off.
+- This avoids risking console exposure, lost fullscreen state, EDID/DRM changes,
+  or `mpv` output breakage after the display wakes again.
+
 The best default behavior for this project is:
 
 1. At scene load/start, scan the scene JSON for real video playback actions.
@@ -137,7 +146,8 @@ MQTT routing, and controller lifecycle code.
 
 For the first implementation, keep the real CEC backend and the no-op testing
 backend inside `display_power_manager.py`. Do not create a separate backend
-module in v1. Extract one only later if the file becomes too large or if more
+module in v1. Do not add an HDMI signal power backend in v1. Extract a separate
+backend module only later if the file becomes too large or if more safe hardware
 backends are added.
 
 ### New Files
@@ -158,6 +168,8 @@ Purpose:
   - video playback just started
 - Expose simple public methods for the rest of the system.
 - Contain the small CEC backend and no-op backend classes for the first version.
+- Treat non-CEC displays as `noop`: the display remains connected and `mpv`
+  continues showing the black/idle image.
 
 Suggested public API:
 
@@ -752,12 +764,18 @@ Behavior:
 - Manager logs `CEC unavailable`.
 - Display control status becomes degraded.
 - Video playback continues.
+- For PC monitors such as the currently tested MSI display, use `backend = noop`
+  and keep the configured black/idle image on screen instead of trying to power
+  the HDMI signal off.
 
 Mitigation:
 
 - Set `enabled = false` or `backend = noop`.
-- Optionally use a smart plug or relay-based display power path later, but that
-  is a different safety discussion.
+- Do not use `vcgencmd display_power 0/1` or an HDMI signal power-off backend in
+  v1. It can expose the console, disturb fullscreen/DRM state, or require `mpv`
+  recovery after wake.
+- Optionally evaluate a smart plug or relay-based display power path later, but
+  that is a different safety discussion.
 
 ### CEC Wake Is Slow
 
@@ -991,6 +1009,8 @@ Avoid these in the first implementation:
 - Requiring every scene to manually add display on/off actions.
 - Blocking video playback until CEC reports confirmed-on.
 - Killing/restarting `mpv` every time the monitor powers off.
+- Adding an HDMI signal power-off backend (`vcgencmd display_power 0/1`) in v1.
+- Turning off HDMI for non-CEC monitors instead of showing the black/idle image.
 - Adding per-state display schema/editor controls before hardware behavior is
   validated.
 - Treating CEC power status as perfectly reliable.
