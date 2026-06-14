@@ -413,6 +413,20 @@ class MuseumController:
             f"Starting named scene: {scene_file_name}",
         )
 
+    def resume_ambient_scene(self):
+        """Resume ambient mode after an operator stop from the dashboard."""
+        ambient = self._ambient_loop_service()
+        if not ambient.is_enabled():
+            log.info("Ambient resume requested while ambient mode is disabled")
+            return False
+
+        if self.scene_running:
+            ambient.resume()
+            log.info("Ambient resume requested while a scene is already running")
+            return True
+
+        return ambient.resume_from_operator()
+
     def _start_ambient_after_initial_connection(self):
         """Apply ambient boot policy after the initial MQTT connection attempt."""
         return self._ambient_loop_service().start_after_boot_if_needed()

@@ -338,6 +338,25 @@ def test_suspension_blocks_start_and_restart_until_resume():
     ]
 
 
+def test_operator_resume_clears_suspend_and_starts_ambient_scene():
+    service, owner, _logger = _service()
+
+    service.suspend_by_operator_stop()
+
+    assert service.resume_from_operator() is True
+    assert service.get_status()["suspended"] is False
+    assert owner.start_calls == [
+        ("AmbientLoop.json", "Ambient mode: resumed from dashboard")
+    ]
+
+
+def test_operator_resume_is_ignored_when_ambient_mode_is_disabled():
+    service, owner, _logger = _service({"startup_mode": "classic"})
+
+    assert service.resume_from_operator() is False
+    assert owner.start_calls == []
+
+
 def test_restart_decision_only_allows_configured_ambient_normal_end():
     service, _owner, _logger = _service()
 

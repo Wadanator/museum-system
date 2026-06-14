@@ -233,6 +233,14 @@ class AmbientLoopService:
             if not self._shutdown_requested:
                 self._wait_event.clear()
 
+    def resume_from_operator(self) -> bool:
+        """Resume ambient after an operator stop and start the ambient scene."""
+        if not self.is_enabled() or self._is_shutdown_requested():
+            return False
+
+        self.resume()
+        return self._start_ambient_scene('Ambient mode: resumed from dashboard')
+
     def request_shutdown(self) -> None:
         with self._lock:
             self._shutdown_requested = True

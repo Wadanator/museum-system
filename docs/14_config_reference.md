@@ -122,8 +122,9 @@ Defaults below are the values currently documented in
 
 ### `[Startup]`
 
-Implemented for config/template parsing. Runtime ambient autostart is still
-controlled by `docs/TO_DO/06_ambient_loop_mode.md` follow-up steps.
+Implemented for classic and ambient startup behavior. Ambient mode is now
+handled by the runtime policy layer described in
+`docs/TO_DO/06_ambient_loop_mode.md`.
 
 | Key | Default | Type | Notes |
 | --- | --- | --- | --- |
@@ -136,6 +137,54 @@ controlled by `docs/TO_DO/06_ambient_loop_mode.md` follow-up steps.
 | `ambient_ignore_default_start` | `true` | bool | Ignore GPIO/default MQTT START in ambient mode to avoid duplicates. |
 | `ambient_allow_named_scene_start` | `true` | bool | Allow explicit named scene starts while ambient is idle/suspended. |
 | `ambient_stop_behavior` | `suspend_until_restart` | enum | `suspend_until_restart` or `resume_after_delay`. `resume_after_delay` uses `ambient_restart_delay_seconds`. |
+
+Current temporary room1 operating choice:
+
+- Use `ambient_mode_smoke_test.json` as the configured ambient scene until the
+  real production ambient scene is authored.
+- Keep `config.ini.example` defaulting to `classic`; set the real Pi
+  `config.ini` to `ambient` only for installations that should auto-start.
+
+Ambient mode operator quick reference:
+
+```ini
+[Startup]
+mode = classic | ambient
+ambient_scene = <scene filename> | empty
+ambient_start_policy = after_initial_connection_attempt | wait_for_mqtt
+ambient_restart_delay_seconds = <non-negative seconds>
+ambient_error_retry_seconds = <non-negative seconds>
+ambient_cycle_cleanup = scene_only | full_stop
+ambient_ignore_default_start = true | false
+ambient_allow_named_scene_start = true | false
+ambient_stop_behavior = suspend_until_restart | resume_after_delay
+```
+
+Recommended temporary room1 ambient config until a real scene exists:
+
+```ini
+[Startup]
+mode = ambient
+ambient_scene = ambient_mode_smoke_test.json
+ambient_start_policy = after_initial_connection_attempt
+ambient_restart_delay_seconds = 5
+ambient_error_retry_seconds = 30
+ambient_cycle_cleanup = scene_only
+ambient_ignore_default_start = true
+ambient_allow_named_scene_start = true
+ambient_stop_behavior = suspend_until_restart
+```
+
+Ambient behavior notes:
+
+- Empty `ambient_scene` uses `[Json] json_file_name`.
+- `scene_only` skips global `room/STOP` between normal ambient cycles.
+- `full_stop` sends the classic force-off/STOP cleanup between cycles.
+- `suspend_until_restart` means dashboard/API Stop stops ambient until service
+  restart or the landing dashboard `Zapnúť ambient` action.
+- `resume_after_delay` means Stop behaves like another ambient cycle and uses
+  `ambient_restart_delay_seconds`.
+- Recoverable missing/load/start failures use `ambient_error_retry_seconds`.
 
 ### `[Logging]`
 

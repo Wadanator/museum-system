@@ -3,11 +3,12 @@ import { useSceneActions } from '../../hooks/useSceneActions';
 import '../../styles/views/main-dashboard.css';
 
 import HeroCard from '../Dashboard/HeroCard';
+import AmbientStatusCard from '../Dashboard/AmbientStatusCard';
 import StatsGrid from '../Dashboard/StatsGrid';
 
 export default function MainDashboard() {
   const { status, deviceCount } = useDashboardData();
-  const { runScene, stopScene, isLoading } = useSceneActions();
+  const { runScene, stopScene, resumeAmbient, isLoading } = useSceneActions();
 
   return (
     <div className="main-dashboard">
@@ -15,6 +16,11 @@ export default function MainDashboard() {
         status={status}
         onRun={runScene}
         onStop={stopScene}
+        isLoading={isLoading}
+      />
+      <AmbientStatusCard
+        status={status}
+        onResume={resumeAmbient}
         isLoading={isLoading}
       />
       <StatsGrid status={status} deviceCount={deviceCount} />

@@ -109,6 +109,11 @@ export const api = {
     return res.json();
   },
 
+  resumeAmbient: async () => {
+    const res = await authFetch(`${API_URL}/ambient/resume`, { method: 'POST' });
+    return res.json();
+  },
+
   // --- COMMANDS & DEVICES ---
 
   getCommands: async () => {

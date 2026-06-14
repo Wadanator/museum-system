@@ -193,6 +193,124 @@ button.stop-scene-button.btn-unstyled .button-subtext {
 }
 
 /* =======================================
+   AMBIENT MODE STATUS
+   ======================================= */
+
+.ambient-card {
+  background: var(--bg-card);
+  border: var(--border-width-md) solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--spacing-xl);
+  align-items: center;
+  margin-bottom: var(--spacing-2xl-plus);
+  padding: var(--spacing-xl);
+}
+
+.ambient-card.running {
+  border-color: var(--success);
+  background: linear-gradient(135deg, var(--success-bg), var(--bg-card));
+}
+
+.ambient-card.suspended,
+.ambient-card.blocked {
+  border-color: var(--warning);
+  background: linear-gradient(135deg, var(--warning-bg), var(--bg-card));
+}
+
+.ambient-card.waiting {
+  border-color: var(--primary);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 10%, transparent), var(--bg-card));
+}
+
+.ambient-card-main {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-lg);
+  min-width: 0;
+}
+
+.ambient-card-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-white);
+  background: var(--primary);
+  flex: 0 0 auto;
+}
+
+.ambient-card.running .ambient-card-icon {
+  background: var(--success);
+}
+
+.ambient-card.suspended .ambient-card-icon,
+.ambient-card.blocked .ambient-card-icon {
+  background: var(--warning);
+}
+
+.ambient-card-copy {
+  min-width: 0;
+}
+
+.ambient-card-kicker {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs-plus);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.ambient-card-title {
+  color: var(--text-primary);
+  font-size: var(--font-size-xl);
+  font-weight: 700;
+  line-height: var(--line-height-tight);
+  margin-top: var(--spacing-2xs);
+}
+
+.ambient-card-scene {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-comfy);
+  margin-top: var(--spacing-xs);
+  overflow-wrap: anywhere;
+}
+
+.ambient-card-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(120px, auto));
+  gap: var(--spacing-lg);
+}
+
+.ambient-card-meta div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  min-width: 0;
+}
+
+.ambient-card-meta span {
+  color: var(--text-secondary);
+  font-size: var(--font-size-xs-plus);
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.ambient-card-meta strong {
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.ambient-resume-button {
+  white-space: nowrap;
+}
+
+/* =======================================
    STATS GRID - 3 ukazovatele
    ======================================= */
 
@@ -292,5 +410,19 @@ button.stop-scene-button.btn-unstyled .button-subtext {
   .stop-scene-button .button-subtext {
     font-size: var(--font-size-md-plus);
     line-height: var(--line-height-comfy);
+  }
+
+  .ambient-card {
+    grid-template-columns: 1fr;
+    gap: var(--spacing-lg);
+  }
+
+  .ambient-card-meta {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ambient-resume-button {
+    width: 100%;
+    justify-content: center;
   }
 }

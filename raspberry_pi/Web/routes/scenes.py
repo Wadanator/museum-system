@@ -157,6 +157,28 @@ def setup_scenes_routes(dashboard):
             dashboard.log.debug("Scene stop sequence finished.")
         return jsonify({'success': True, 'message': 'Stop signal broadcasted to all devices'})
 
+    @scenes_bp.route('/ambient/resume', methods=['POST'])
+    @requires_auth
+    def resume_ambient_scene():
+        """Resume the configured ambient scene after an operator stop."""
+        try:
+            dashboard.log.info("[MANUAL] Ambient resume requested via dashboard")
+            success = controller.resume_ambient_scene()
+            if success:
+                return jsonify({
+                    'success': True,
+                    'message': 'Ambient scene resume requested',
+                })
+            return jsonify({
+                'success': False,
+                'error': 'Ambient mode is disabled or could not start',
+            }), 400
+        except Exception as e:
+            dashboard.log.error(f"Critical error during ambient resume route: {e}")
+            return jsonify({'error': str(e)}), 500
+        finally:
+            dashboard._broadcast_event('status_update', _get_current_status_data(controller))
+
 
     @scenes_bp.route('/config/main_scene')
     @requires_auth

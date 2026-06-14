@@ -109,6 +109,7 @@ class _AmbientPolicyStub:
         restart_delay=0.0,
         wait_results=None,
         failure_retry_results=None,
+        resume_result=True,
     ):
         self.ignore_default = ignore_default
         self.allow_named = allow_named
@@ -122,10 +123,13 @@ class _AmbientPolicyStub:
         self.restart_delay = restart_delay
         self.wait_results = list(wait_results or [])
         self.failure_retry_results = list(failure_retry_results or [])
+        self.resume_result = resume_result
         self.boot_calls = 0
         self.restore_calls = 0
         self.suspend_calls = 0
         self.shutdown_calls = 0
+        self.resume_calls = 0
+        self.resume_start_calls = 0
         self.restart_calls = []
         self.failure_retry_calls = []
         self.wait_calls = []
@@ -151,6 +155,13 @@ class _AmbientPolicyStub:
 
     def suspend_by_operator_stop(self):
         self.suspend_calls += 1
+
+    def resume(self):
+        self.resume_calls += 1
+
+    def resume_from_operator(self):
+        self.resume_start_calls += 1
+        return self.resume_result
 
     def request_shutdown(self):
         self.shutdown_calls += 1
@@ -414,6 +425,36 @@ def test_start_scene_by_name_returns_real_start_result():
     assert controller.start_scene_by_name("ok.json") is True
     assert controller.start_scene_by_name("already_running.json") is False
     assert start_calls["count"] == 2
+
+
+def test_resume_ambient_scene_is_ignored_when_ambient_is_disabled():
+    controller = _build_controller(scene_running=False)
+    policy = _attach_ambient_policy(controller, _AmbientPolicyStub(enabled=False))
+
+    assert controller.resume_ambient_scene() is False
+    assert policy.resume_calls == 0
+    assert policy.resume_start_calls == 0
+
+
+def test_resume_ambient_scene_starts_when_idle():
+    controller = _build_controller(scene_running=False)
+    policy = _attach_ambient_policy(
+        controller,
+        _AmbientPolicyStub(enabled=True, resume_result=True),
+    )
+
+    assert controller.resume_ambient_scene() is True
+    assert policy.resume_calls == 0
+    assert policy.resume_start_calls == 1
+
+
+def test_resume_ambient_scene_only_clears_suspend_when_scene_already_running():
+    controller = _build_controller(scene_running=True)
+    policy = _attach_ambient_policy(controller, _AmbientPolicyStub(enabled=True))
+
+    assert controller.resume_ambient_scene() is True
+    assert policy.resume_calls == 1
+    assert policy.resume_start_calls == 0
 
 
 def test_default_scene_start_ignored_by_ambient_policy():
@@ -979,6 +1020,9 @@ if __name__ == "__main__":
         ("shutdown_signal_requests_ambient_shutdown", test_shutdown_signal_requests_ambient_shutdown),
         ("cleanup_requests_ambient_shutdown_without_operator_suspend", test_cleanup_requests_ambient_shutdown_without_operator_suspend),
         ("start_scene_by_name_returns_real_start_result", test_start_scene_by_name_returns_real_start_result),
+        ("resume_ambient_scene_is_ignored_when_ambient_is_disabled", test_resume_ambient_scene_is_ignored_when_ambient_is_disabled),
+        ("resume_ambient_scene_starts_when_idle", test_resume_ambient_scene_starts_when_idle),
+        ("resume_ambient_scene_only_clears_suspend_when_scene_already_running", test_resume_ambient_scene_only_clears_suspend_when_scene_already_running),
         ("missing_scene_broadcasts_status_update", test_missing_scene_broadcasts_status_update),
         ("normal_scene_completion_returns_outcome_and_preserves_full_cleanup", test_normal_scene_completion_returns_outcome_and_preserves_full_cleanup),
         ("scene_load_failure_returns_outcome_without_full_cleanup", test_scene_load_failure_returns_outcome_without_full_cleanup),

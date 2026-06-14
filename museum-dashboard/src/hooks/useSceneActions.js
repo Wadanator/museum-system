@@ -83,5 +83,20 @@ export function useSceneActions() {
         }
     };
 
-    return { runScene, stopScene, isLoading };
+    const resumeAmbient = async () => {
+        await withSafetyLock(async () => {
+            await toast.promise(
+                api.resumeAmbient(),
+                {
+                    loading: 'Spúšťam ambient scénu...',
+                    success: 'Ambient scéna zapnutá',
+                    error: (err) => `Chyba: ${err.message}`
+                }
+            );
+            socket.emit('request_status');
+            socket.emit('request_stats');
+        });
+    };
+
+    return { runScene, stopScene, resumeAmbient, isLoading };
 }

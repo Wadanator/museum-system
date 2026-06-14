@@ -867,17 +867,20 @@ Acceptance:
 - Normal ambient cycle does not broadcast global STOP by default.
 - Error paths still force off and broadcast STOP.
 
-### Phase 4 - Dashboard Controls
+### Phase 4 - Dashboard Controls - DONE (2026-06-14 landing ambient status/resume)
 
-Optional after backend behavior is stable:
+Implemented after backend behavior was validated:
 
 - Add `AMBIENT` badge.
 - Add suspended/active/next restart display.
-- Add `Resume Ambient` and possibly `Suspend Ambient` controls.
+- Add `Resume Ambient` control.
+- Keep `Suspend Ambient` as the existing explicit Stop action in v1.
+- Show the landing-page ambient panel only when `ambient.enabled = true`.
 
 Acceptance:
 
 - Operator can tell why ambient is running, waiting, or suspended.
+- Operator can resume the configured ambient scene after an explicit Stop.
 
 ### Phase 5 - Production Validation
 
@@ -1249,6 +1252,16 @@ Pi validation note (2026-06-14):
   the scene and reached `AMBIENT_WAIT`.
 - Dashboard/API Stop still stopped and suspended ambient after the retry test.
 
+Temporary operating note (2026-06-14):
+
+- Until the real production ambient scene exists, keep
+  `ambient_mode_smoke_test.json` as the configured ambient scene.
+- This scene is intentionally safe: no audio, no video, and no outbound MQTT
+  actions. It only keeps the ambient lifecycle active and can be ended with
+  MQTT topic `room1/ambient_test/finish` payload `END`.
+- Do not leave Pi config pointing at `ambient_retry_restore_test.json`; that
+  file was only for retry validation and is deleted after the test.
+
 Automated verification:
 
 ```bash
@@ -1264,7 +1277,7 @@ Manual test to tell the user:
 4. Restore the scene filename.
 5. Confirm the next retry starts the scene.
 
-### Step 9 - Final Pi Validation And Optional Dashboard Controls
+### Step 9 - Final Pi Validation And Optional Dashboard Controls - DONE (2026-06-14 final Pi validation passed)
 
 Goal:
 
@@ -1280,21 +1293,168 @@ Implementation:
 - If controls are added, show `AMBIENT`, suspended state, next restart, and
   optional Resume/Suspend actions.
 
+Implementation decision (2026-06-14):
+
+- Backend runtime semantics were validated first. Dashboard controls were added
+  only after Stop/suspend/restart behavior was proven on the target Pi.
+- Keep `ambient_mode_smoke_test.json` as the temporary configured ambient scene
+  until a real production ambient scene is authored.
+- Treat this step as final hardware validation. Mark it `DONE` only after the
+  target Pi passes the manual checks below.
+
+Dashboard controls addendum (2026-06-14):
+
+- Added landing-page ambient status card in the React dashboard.
+- The card is shown only when `/api/status` reports `ambient.enabled = true`.
+- The card shows ambient scene name, running/waiting/suspended state, last
+  outcome, and next restart time when available.
+- Added `POST /api/ambient/resume` to start the configured ambient scene again
+  after an explicit Stop.
+- Added controller and policy tests for dashboard ambient resume.
+- Rebuilt `raspberry_pi/Web/dist` from `museum-dashboard`.
+
+Final Pi validation note (2026-06-14):
+
+- Target Pi pytest passed: 50 tests.
+- Ambient config with `ambient_mode_smoke_test.json` auto-started after service
+  restart and reached `AMBIENT_WAIT`.
+- MQTT `room1/ambient_test/finish = END` ended the cycle, set
+  `last_outcome = normal_end`, populated `next_restart_at`, and restarted back
+  into `AMBIENT_WAIT` after the configured delay.
+- Dashboard/API Stop set `last_outcome = explicit_stop`,
+  `ambient.suspended = true`, `scene_running = false`, and did not auto-restart
+  after waiting longer than the restart delay.
+- Backend ambient mode is accepted. Landing dashboard now has ambient status and
+  resume control.
+
 Automated verification:
 
 ```bash
 cd raspberry_pi
-pytest tests/test_ambient_loop_service.py tests/test_main_scene_state.py tests/test_runtime_smoke.py
+pytest tests/test_ambient_loop_service.py tests/test_ambient_status_wiring.py tests/test_main_scene_state.py tests/test_runtime_smoke.py
 ```
 
-Manual test to tell the user:
+Manual validation runbook:
 
-1. Run ambient mode for an extended test period.
-2. Confirm no duplicate starts after MQTT reconnect.
-3. Confirm Stop suspends ambient.
-4. Confirm service restart resumes ambient.
-5. Confirm watchdog does not restart during normal ambient gaps.
-6. Confirm device states do not drift across many cycles.
+1. Reset the Pi to the temporary ambient scene:
+
+   ```bash
+   cd ~/Documents/GitHub/museum-system/raspberry_pi
+   source venv/bin/activate
+   python - <<'PY'
+   import configparser
+   p = "config/config.ini"
+   cfg = configparser.ConfigParser()
+   cfg.read(p)
+   cfg["Startup"]["mode"] = "ambient"
+   cfg["Startup"]["ambient_scene"] = "ambient_mode_smoke_test.json"
+   cfg["Startup"]["ambient_restart_delay_seconds"] = "5"
+   cfg["Startup"]["ambient_error_retry_seconds"] = "30"
+   cfg["Startup"]["ambient_cycle_cleanup"] = "scene_only"
+   cfg["Startup"]["ambient_stop_behavior"] = "suspend_until_restart"
+   with open(p, "w") as f:
+       cfg.write(f)
+   PY
+   ```
+
+2. Restart service and confirm auto-start:
+
+   ```bash
+   bash "/home/admin/Documents/GitHub/museum-system/raspberry_pi/services/restart_service.sh"
+   sleep 5
+   curl -u admin:admin12321 http://127.0.0.1:5000/api/status | python -m json.tool
+   ```
+
+   Expected:
+
+   - `startup_mode = ambient`
+   - `ambient.enabled = true`
+   - `scene_running = true`
+   - `current_scene_name = ambient_mode_smoke_test.json`
+   - `active_state = AMBIENT_WAIT`
+
+3. Confirm normal ambient restart twice:
+
+   ```bash
+   mosquitto_pub -h 127.0.0.1 -t 'room1/ambient_test/finish' -m 'END'
+   sleep 1
+   curl -u admin:admin12321 http://127.0.0.1:5000/api/status | python -m json.tool
+   sleep 6
+   curl -u admin:admin12321 http://127.0.0.1:5000/api/status | python -m json.tool
+   mosquitto_pub -h 127.0.0.1 -t 'room1/ambient_test/finish' -m 'END'
+   sleep 6
+   curl -u admin:admin12321 http://127.0.0.1:5000/api/status | python -m json.tool
+   ```
+
+   Expected:
+
+   - first status after `END`: `last_outcome = normal_end`,
+     `next_restart_at` is not null, `scene_running = false`
+   - later statuses: scene returns to `AMBIENT_WAIT`
+   - logs show `ambient_restart:ambient_mode_smoke_test.json`
+
+4. Confirm `scene_only` does not spam global STOP between normal cycles:
+
+   - During the normal restart test, dashboard logs should not show
+     `Initiating GLOBAL STOP` between `scene_thread_finally` and
+     `ambient_restart`.
+   - `Initiating GLOBAL STOP` is expected only for explicit Stop, service
+     shutdown/cleanup, or recoverable failure cleanup.
+
+5. Confirm explicit Stop suspends ambient:
+
+   ```bash
+   curl -u admin:admin12321 -X POST http://127.0.0.1:5000/api/stop_scene | python -m json.tool
+   sleep 8
+   curl -u admin:admin12321 http://127.0.0.1:5000/api/status | python -m json.tool
+   ```
+
+   Expected:
+
+   - `scene_running = false`
+   - `ambient.suspended = true`
+   - `ambient.last_outcome = explicit_stop`
+   - no auto-restart after waiting longer than `ambient_restart_delay_seconds`
+
+6. Confirm service restart resumes ambient after suspension:
+
+   ```bash
+   bash "/home/admin/Documents/GitHub/museum-system/raspberry_pi/services/restart_service.sh"
+   sleep 5
+   curl -u admin:admin12321 http://127.0.0.1:5000/api/status | python -m json.tool
+   ```
+
+   Expected: ambient starts again and reaches `AMBIENT_WAIT`.
+
+7. Confirm MQTT reconnect does not duplicate-start:
+
+   - Restart or briefly stop/start the MQTT broker if safe for the room.
+   - Expected: no duplicate scene thread, no repeated ambient boot start, and
+     status remains one active scene at most.
+
+8. Run an extended validation:
+
+   - Let ambient mode run at least overnight, or for the longest practical
+     supervised period.
+   - Check logs for watchdog restarts, duplicate starts, STOP spam, MQTT
+     reconnect loops, and media/device drift.
+   - If the watchdog restarts during the normal 5 second ambient gap, check that
+     `ambient_restart_delay_seconds < scene_wait_max_seconds` and that the
+     service state file is updating correctly.
+
+Final acceptance:
+
+- All automated tests pass on the target Pi.
+- Ambient starts after service restart.
+- Normal ambient completion restarts after the configured delay.
+- Default START is ignored in ambient mode.
+- Explicit Stop suspends ambient.
+- Landing dashboard shows ambient state only when ambient mode is enabled.
+- Landing dashboard can resume ambient after explicit Stop.
+- Service restart resumes ambient.
+- Recoverable missing-scene retry works without a tight loop.
+- No global room STOP is emitted between normal `scene_only` ambient cycles.
+- Watchdog does not restart during normal ambient gaps.
 
 ## Minimal First Implementation
 
@@ -1345,20 +1505,28 @@ Avoid these in the first implementation:
   clear.
 - Adding new scene JSON schema fields unless a real ambient scene needs them.
 
-## Open Decisions
+## Resolved Implementation Decisions
 
-Before implementation, decide:
+Current validated choices:
 
-1. For this installation, keep the default explicit dashboard Stop behavior
-   `suspend_until_restart`, or override it to `resume_after_delay`?
-2. Should the first production ambient scene use lifecycle restart or an
-   internal scene loop?
-3. Is `scene_only` cleanup safe for the target ambient scene, or should that
-   scene use explicit END cleanup actions?
-4. Should MQTT named scene commands be allowed as operator overrides in ambient
-   installations?
-5. Should `ambient_start_policy` be `after_initial_connection_attempt` or
-   `wait_for_mqtt` for ESP-heavy rooms?
-6. What should `scene_wait_max_seconds` be for a 24/7 ambient installation?
-7. Should dashboard get a `Resume Ambient` button in the same implementation,
-   or only expose status first?
+1. Explicit dashboard/API Stop uses `suspend_until_restart`.
+2. The temporary room1 ambient scene uses lifecycle restart.
+3. `scene_only` cleanup is safe for the temporary no-output ambient scene.
+4. Named scene commands remain allowed as operator overrides when ambient is
+   idle/suspended.
+5. `ambient_start_policy = after_initial_connection_attempt` is the validated
+   room1/default policy.
+6. `scene_wait_max_seconds = 7200` is the current watchdog wait limit, safely
+   above the validated ambient restart gap.
+7. Landing dashboard shows ambient status and can resume the configured ambient
+   scene after explicit Stop. Dedicated Suspend remains the existing Stop action
+   in v1.
+
+Future production-scene decisions:
+
+- Replace `ambient_mode_smoke_test.json` with the real authored ambient scene
+  when it exists.
+- Revisit `ambient_cycle_cleanup` only if the real ambient scene needs global
+  device STOP between cycles.
+- Revisit display/cover/CEC interactions in their own TODO plans, not inside
+  ambient loop policy.
