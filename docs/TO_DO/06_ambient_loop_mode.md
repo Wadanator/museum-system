@@ -1112,7 +1112,7 @@ Manual test to tell the user:
 5. Confirm the scene does not restart until service restart or future explicit
    resume behavior.
 
-### Step 6 - SceneRuntimeService Outcome Refactor
+### Step 6 - SceneRuntimeService Outcome Refactor - DONE (2026-06-14 outcome return values/tests)
 
 Goal:
 
@@ -1132,6 +1132,16 @@ Implementation:
   `parser_unavailable`, `start_failure`, `error`, `explicit_stop`, `shutdown`.
 - Preserve current classic cleanup behavior exactly.
 - Preserve dashboard status broadcasts and scene stats.
+
+Implementation note (2026-06-14):
+
+- `SceneRuntimeService.run_scene_logic(...)` now delegates one pass to
+  `_run_scene_once(...)` and returns an outcome string.
+- `run_scene()` returns `normal_end`, `start_failure`, `explicit_stop`, or
+  `shutdown` as appropriate, while keeping the previous media/stat cleanup
+  order.
+- Classic full cleanup is still preserved for normal end, start failure,
+  shutdown, and runtime error; external stop still avoids duplicate global STOP.
 
 Automated verification:
 

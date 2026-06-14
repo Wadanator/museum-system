@@ -447,7 +447,7 @@ class MuseumController:
 
     def run_scene(self):
         """Execute the loaded state machine scene."""
-        self._scene_runtime_service().run_scene()
+        return self._scene_runtime_service().run_scene()
 
     def _update_scene_statistics(self, scene_name=None):
         """Update scene play statistics for the web dashboard."""

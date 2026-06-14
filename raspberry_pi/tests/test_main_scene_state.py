@@ -10,6 +10,14 @@ if str(RPI_DIR) not in sys.path:
 
 import main as main_module
 from main import MuseumController
+from utils.runtime.scene_runtime_service import (
+    OUTCOME_EXPLICIT_STOP,
+    OUTCOME_LOAD_FAILURE,
+    OUTCOME_MISSING_SCENE,
+    OUTCOME_NORMAL_END,
+    OUTCOME_SHUTDOWN,
+    OUTCOME_START_FAILURE,
+)
 
 
 class _Counter:
@@ -41,6 +49,48 @@ class _WebDashboardStub:
 
     def broadcast_status(self):
         self.status_calls += 1
+
+
+class _SceneParserStub:
+    def __init__(
+        self,
+        *,
+        owner=None,
+        load_result=True,
+        scene_data=None,
+        start_result=True,
+        process_results=None,
+        stop_on_process=False,
+        shutdown_on_process=False,
+    ):
+        self.owner = owner
+        self.load_result = load_result
+        self.scene_data = {"initialState": "START"} if scene_data is None else scene_data
+        self.start_result = start_result
+        self.process_results = list(process_results or [False])
+        self.stop_on_process = stop_on_process
+        self.shutdown_on_process = shutdown_on_process
+        self.load_calls = []
+        self.start_calls = 0
+        self.process_calls = 0
+
+    def load_scene(self, scene_path):
+        self.load_calls.append(scene_path)
+        return self.load_result
+
+    def start_scene(self):
+        self.start_calls += 1
+        return self.start_result
+
+    def process_scene(self):
+        self.process_calls += 1
+        if self.stop_on_process and self.owner:
+            self.owner.scene_running = False
+        if self.shutdown_on_process and self.owner:
+            self.owner.shutdown_requested = True
+        if self.process_results:
+            return self.process_results.pop(0)
+        return False
 
 
 class _AmbientPolicyStub:
@@ -117,12 +167,24 @@ def _build_controller(scene_running=False):
     controller.mqtt_client = None
     controller.services = None
     controller.scene_thread = None
+    controller.current_scene_name = None
+    controller.current_scene_state = None
+    controller.scene_processing_sleep = 0.001
+    controller.scenes_dir = "."
     return controller
 
 
 def _attach_ambient_policy(controller, policy):
     controller._ambient_loop_service = lambda: policy
     return policy
+
+
+def _touch_scene_file(tmp_dir, scene_name="scene.json"):
+    scene_dir = Path(tmp_dir) / "room1"
+    scene_dir.mkdir(parents=True, exist_ok=True)
+    scene_path = scene_dir / scene_name
+    scene_path.write_text("{}", encoding="utf-8")
+    return scene_path
 
 
 def test_transition_updates_file_and_is_idempotent():
@@ -383,14 +445,194 @@ def test_missing_scene_broadcasts_status_update():
 
             main_module.os.path.exists = lambda _: False
 
-            controller._run_scene_logic("missing.json")
+            outcome = controller._run_scene_logic("missing.json")
 
+            assert outcome == OUTCOME_MISSING_SCENE
             assert controller.scene_running is False
             assert state_file.read_text() == "idle"
             assert controller.web_dashboard.status_calls == 1
         finally:
             main_module._SCENE_STATE_FILE = original_state_file
             main_module.os.path.exists = original_exists
+
+
+def test_normal_scene_completion_returns_outcome_and_preserves_full_cleanup():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        state_file = Path(tmp_dir) / "museum_scene_state"
+        original_state_file = main_module._SCENE_STATE_FILE
+        try:
+            main_module._SCENE_STATE_FILE = state_file
+            _touch_scene_file(tmp_dir, "normal.json")
+
+            controller = _build_controller(scene_running=True)
+            controller.scenes_dir = tmp_dir
+            controller.current_scene_name = "normal.json"
+            controller.scene_parser = _SceneParserStub(process_results=[False])
+            controller.audio_handler = _Counter()
+            controller.video_handler = _Counter()
+            controller.actuator_state_store = _ActuatorStoreCounter()
+            stop_calls = {"count": 0}
+
+            def _broadcast_stop():
+                stop_calls["count"] += 1
+
+            controller.broadcast_stop = _broadcast_stop
+
+            outcome = controller._run_scene_logic("normal.json")
+
+            assert outcome == OUTCOME_NORMAL_END
+            assert controller.scene_running is False
+            assert controller.current_scene_name is None
+            assert controller.audio_handler.calls == 1
+            assert controller.video_handler.calls == 2
+            assert controller.actuator_state_store.sources == ["scene_end"]
+            assert stop_calls["count"] == 1
+        finally:
+            main_module._SCENE_STATE_FILE = original_state_file
+
+
+def test_scene_load_failure_returns_outcome_without_full_cleanup():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        state_file = Path(tmp_dir) / "museum_scene_state"
+        original_state_file = main_module._SCENE_STATE_FILE
+        try:
+            main_module._SCENE_STATE_FILE = state_file
+            _touch_scene_file(tmp_dir, "bad.json")
+
+            controller = _build_controller(scene_running=True)
+            controller.scenes_dir = tmp_dir
+            controller.current_scene_name = "bad.json"
+            controller.scene_parser = _SceneParserStub(load_result=False)
+            controller.audio_handler = _Counter()
+            controller.video_handler = _Counter()
+            controller.actuator_state_store = _ActuatorStoreCounter()
+            stop_calls = {"count": 0}
+
+            def _broadcast_stop():
+                stop_calls["count"] += 1
+
+            controller.broadcast_stop = _broadcast_stop
+
+            outcome = controller._run_scene_logic("bad.json")
+
+            assert outcome == OUTCOME_LOAD_FAILURE
+            assert controller.scene_running is False
+            assert controller.audio_handler.calls == 0
+            assert controller.video_handler.calls == 0
+            assert controller.actuator_state_store.sources == []
+            assert stop_calls["count"] == 0
+        finally:
+            main_module._SCENE_STATE_FILE = original_state_file
+
+
+def test_scene_start_failure_returns_outcome_and_preserves_full_cleanup():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        state_file = Path(tmp_dir) / "museum_scene_state"
+        original_state_file = main_module._SCENE_STATE_FILE
+        try:
+            main_module._SCENE_STATE_FILE = state_file
+            _touch_scene_file(tmp_dir, "start-fails.json")
+
+            controller = _build_controller(scene_running=True)
+            controller.scenes_dir = tmp_dir
+            controller.current_scene_name = "start-fails.json"
+            controller.scene_parser = _SceneParserStub(start_result=False)
+            controller.audio_handler = _Counter()
+            controller.video_handler = _Counter()
+            controller.actuator_state_store = _ActuatorStoreCounter()
+            stop_calls = {"count": 0}
+
+            def _broadcast_stop():
+                stop_calls["count"] += 1
+
+            controller.broadcast_stop = _broadcast_stop
+
+            outcome = controller._run_scene_logic("start-fails.json")
+
+            assert outcome == OUTCOME_START_FAILURE
+            assert controller.scene_running is False
+            assert controller.audio_handler.calls == 1
+            assert controller.video_handler.calls == 1
+            assert controller.actuator_state_store.sources == ["scene_end"]
+            assert stop_calls["count"] == 1
+        finally:
+            main_module._SCENE_STATE_FILE = original_state_file
+
+
+def test_external_stop_during_processing_returns_outcome_without_duplicate_stop():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        state_file = Path(tmp_dir) / "museum_scene_state"
+        original_state_file = main_module._SCENE_STATE_FILE
+        try:
+            main_module._SCENE_STATE_FILE = state_file
+            _touch_scene_file(tmp_dir, "external-stop.json")
+
+            controller = _build_controller(scene_running=True)
+            controller.scenes_dir = tmp_dir
+            controller.current_scene_name = "external-stop.json"
+            controller.scene_parser = _SceneParserStub(
+                owner=controller,
+                stop_on_process=True,
+                process_results=[False],
+            )
+            controller.audio_handler = _Counter()
+            controller.video_handler = _Counter()
+            controller.actuator_state_store = _ActuatorStoreCounter()
+            stop_calls = {"count": 0}
+
+            def _broadcast_stop():
+                stop_calls["count"] += 1
+
+            controller.broadcast_stop = _broadcast_stop
+
+            outcome = controller._run_scene_logic("external-stop.json")
+
+            assert outcome == OUTCOME_EXPLICIT_STOP
+            assert controller.scene_running is False
+            assert controller.audio_handler.calls == 1
+            assert controller.video_handler.calls == 2
+            assert controller.actuator_state_store.sources == []
+            assert stop_calls["count"] == 0
+        finally:
+            main_module._SCENE_STATE_FILE = original_state_file
+
+
+def test_shutdown_during_processing_returns_outcome_and_preserves_cleanup():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        state_file = Path(tmp_dir) / "museum_scene_state"
+        original_state_file = main_module._SCENE_STATE_FILE
+        try:
+            main_module._SCENE_STATE_FILE = state_file
+            _touch_scene_file(tmp_dir, "shutdown.json")
+
+            controller = _build_controller(scene_running=True)
+            controller.scenes_dir = tmp_dir
+            controller.current_scene_name = "shutdown.json"
+            controller.scene_parser = _SceneParserStub(
+                owner=controller,
+                shutdown_on_process=True,
+                process_results=[False],
+            )
+            controller.audio_handler = _Counter()
+            controller.video_handler = _Counter()
+            controller.actuator_state_store = _ActuatorStoreCounter()
+            stop_calls = {"count": 0}
+
+            def _broadcast_stop():
+                stop_calls["count"] += 1
+
+            controller.broadcast_stop = _broadcast_stop
+
+            outcome = controller._run_scene_logic("shutdown.json")
+
+            assert outcome == OUTCOME_SHUTDOWN
+            assert controller.scene_running is False
+            assert controller.audio_handler.calls == 1
+            assert controller.video_handler.calls == 2
+            assert controller.actuator_state_store.sources == ["scene_end"]
+            assert stop_calls["count"] == 1
+        finally:
+            main_module._SCENE_STATE_FILE = original_state_file
 
 
 if __name__ == "__main__":
@@ -404,6 +646,11 @@ if __name__ == "__main__":
         ("cleanup_requests_ambient_shutdown_without_operator_suspend", test_cleanup_requests_ambient_shutdown_without_operator_suspend),
         ("start_scene_by_name_returns_real_start_result", test_start_scene_by_name_returns_real_start_result),
         ("missing_scene_broadcasts_status_update", test_missing_scene_broadcasts_status_update),
+        ("normal_scene_completion_returns_outcome_and_preserves_full_cleanup", test_normal_scene_completion_returns_outcome_and_preserves_full_cleanup),
+        ("scene_load_failure_returns_outcome_without_full_cleanup", test_scene_load_failure_returns_outcome_without_full_cleanup),
+        ("scene_start_failure_returns_outcome_and_preserves_full_cleanup", test_scene_start_failure_returns_outcome_and_preserves_full_cleanup),
+        ("external_stop_during_processing_returns_outcome_without_duplicate_stop", test_external_stop_during_processing_returns_outcome_without_duplicate_stop),
+        ("shutdown_during_processing_returns_outcome_and_preserves_cleanup", test_shutdown_during_processing_returns_outcome_and_preserves_cleanup),
     ]
 
     failed = 0
