@@ -1,0 +1,24 @@
+{
+  "sceneId": "ambient_mode_smoke_test",
+  "description": "Safe ambient mode smoke test. No audio, video, or MQTT output actions.",
+  "version": "1.0",
+  "initialState": "AMBIENT_WAIT",
+  "states": {
+    "AMBIENT_WAIT": {
+      "description": "Keeps the scene running long enough to test ambient auto-start and default START ignore behavior.",
+      "transitions": [
+        {
+          "type": "mqttMessage",
+          "topic": "room1/ambient_test/finish",
+          "message": "END",
+          "goto": "END"
+        },
+        {
+          "type": "timeout",
+          "delay": 300,
+          "goto": "END"
+        }
+      ]
+    }
+  }
+}

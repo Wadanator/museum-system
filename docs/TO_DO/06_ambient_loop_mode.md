@@ -1015,7 +1015,16 @@ Manual test to tell the user:
 3. Confirm status contains `startup_mode: classic` and ambient status shows
    disabled/no scheduled restart.
 
-### Step 4 - Boot And Start-Command Policy
+### Step 4 - Boot And Start-Command Policy - DONE (2026-06-14 boot/default-start policy/tests)
+
+Validation setup note (2026-06-14):
+
+- Added `raspberry_pi/scenes/room1/ambient_mode_smoke_test.json` as a safe
+  no-output ambient test scene.
+- Set local `raspberry_pi/config/config.ini` to `[Startup] mode = ambient` with
+  `ambient_scene = ambient_mode_smoke_test.json` for Pi validation.
+- After validation, return `[Startup] mode = classic` unless continuing
+  directly into the next ambient runtime step.
 
 Goal:
 

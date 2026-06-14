@@ -362,21 +362,40 @@ class MuseumController:
         if self.system_monitor:
             self.system_monitor.send_ready_notification()
         log.info(f"System ready - {self.room_id} operational")
+        self._ambient_loop_service().start_after_mqtt_restore_if_needed()
 
     def on_button_press(self):
         """Handle button press to start default scene."""
-        self._initiate_scene_start(self.json_file_name, "Button pressed - starting default scene")
+        if self._ambient_loop_service().should_ignore_default_start():
+            log.info("Ignoring default scene start in ambient mode")
+            return False
+        return self._initiate_scene_start(
+            self.json_file_name,
+            "Button pressed - starting default scene",
+        )
 
     def start_default_scene(self):
         """Public method to start default scene."""
-        self._initiate_scene_start(self.json_file_name, "Starting default scene")
+        if self._ambient_loop_service().should_ignore_default_start():
+            log.info("Ignoring default scene start in ambient mode")
+            return False
+        return self._initiate_scene_start(self.json_file_name, "Starting default scene")
 
     def start_scene_by_name(self, scene_file_name):
         """Public method to start a specific scene by file name."""
+        if not self._ambient_loop_service().should_allow_named_scene_start():
+            log.info(
+                f"Named scene start rejected by ambient policy: {scene_file_name}"
+            )
+            return False
         return self._initiate_scene_start(
             scene_file_name,
             f"Starting named scene: {scene_file_name}",
         )
+
+    def _start_ambient_after_initial_connection(self):
+        """Apply ambient boot policy after the initial MQTT connection attempt."""
+        return self._ambient_loop_service().start_after_boot_if_needed()
 
     def _initiate_scene_start(self, scene_filename, log_message):
         """Common entry point for starting a scene."""
@@ -435,6 +454,9 @@ class MuseumController:
                 if self.shutdown_requested:
                     return
                 log.warning("NETWORK ERROR: System starting in OFFLINE MODE. Will retry connection in background.")
+
+        if not self.shutdown_requested:
+            self._start_ambient_after_initial_connection()
         
         last_device_cleanup = time.time()
         device_cleanup_interval = self.config['device_cleanup_interval']
