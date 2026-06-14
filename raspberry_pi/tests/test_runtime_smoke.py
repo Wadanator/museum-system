@@ -16,6 +16,7 @@ import main as main_module
 RUNTIME_MODULES = [
     "main.py",
     "utils/runtime/__init__.py",
+    "utils/runtime/ambient_loop_service.py",
     "utils/runtime/dashboard_notifier.py",
     "utils/runtime/scene_lifecycle.py",
     "utils/runtime/scene_runtime_service.py",

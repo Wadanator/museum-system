@@ -946,7 +946,7 @@ Manual test to tell the user:
 3. Open dashboard status or logs and confirm startup mode is still effectively
    classic.
 
-### Step 2 - AmbientLoopService Policy Unit
+### Step 2 - AmbientLoopService Policy Unit - DONE (2026-06-14 policy helper/tests)
 
 Goal:
 
