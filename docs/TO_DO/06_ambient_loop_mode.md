@@ -978,7 +978,7 @@ Manual test to tell the user:
 
 - No Pi/manual test is expected yet. This step should be behavior-neutral.
 
-### Step 3 - Status/API Wiring
+### Step 3 - Status/API Wiring - DONE (2026-06-14 backend status fields/tests)
 
 Goal:
 
@@ -1005,7 +1005,7 @@ Automated verification:
 
 ```bash
 cd raspberry_pi
-pytest tests/test_ambient_loop_service.py tests/test_runtime_smoke.py
+pytest tests/test_ambient_loop_service.py tests/test_ambient_status_wiring.py tests/test_runtime_smoke.py
 ```
 
 Manual test to tell the user:

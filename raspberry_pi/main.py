@@ -25,6 +25,7 @@ ServiceContainer = None
 SceneParser = None
 start_web_dashboard = None
 DashboardNotifier = None
+AmbientLoopService = None
 SceneLifecycle = None
 SceneRuntimeService = None
 SceneStopCoordinator = None
@@ -39,7 +40,7 @@ def _initialize_runtime():
     """Load runtime modules and switch from bootstrap logging to configured logging."""
     global config_manager, setup_logging_from_config, get_logger
     global ServiceContainer, SceneParser, start_web_dashboard, log
-    global DashboardNotifier, SceneLifecycle, SceneRuntimeService
+    global DashboardNotifier, AmbientLoopService, SceneLifecycle, SceneRuntimeService
     global SceneStopCoordinator, SystemActions
 
     from utils.config_manager import ConfigManager
@@ -48,6 +49,7 @@ def _initialize_runtime():
     from utils.scene_parser import SceneParser as scene_parser_cls
     from Web import start_web_dashboard as start_web_dashboard_func
     from utils.runtime import (
+        AmbientLoopService as ambient_loop_service_cls,
         DashboardNotifier as dashboard_notifier_cls,
         SceneLifecycle as scene_lifecycle_cls,
         SceneRuntimeService as scene_runtime_service_cls,
@@ -61,6 +63,7 @@ def _initialize_runtime():
     ServiceContainer = service_container_cls
     SceneParser = scene_parser_cls
     start_web_dashboard = start_web_dashboard_func
+    AmbientLoopService = ambient_loop_service_cls
     DashboardNotifier = dashboard_notifier_cls
     SceneLifecycle = scene_lifecycle_cls
     SceneRuntimeService = scene_runtime_service_cls
@@ -114,6 +117,7 @@ class MuseumController:
 
         # Runtime helpers keep the public MuseumController API stable while
         # moving scene lifecycle/stop/system responsibilities out of main.py.
+        self.ambient_loop = AmbientLoopService(self, log)
         self.dashboard_notifier = DashboardNotifier(self, log)
         self.scene_lifecycle = SceneLifecycle(self, _SCENE_STATE_FILE, log)
         self.stop_coordinator = SceneStopCoordinator(self, log)
@@ -209,6 +213,17 @@ class MuseumController:
                 from utils.runtime.dashboard_notifier import DashboardNotifier as cls
             service = cls(self, log)
             self.dashboard_notifier = service
+        return service
+
+    def _ambient_loop_service(self):
+        """Return the ambient policy helper, lazily creating it for tests."""
+        service = getattr(self, 'ambient_loop', None)
+        if service is None:
+            cls = globals().get('AmbientLoopService')
+            if cls is None:
+                from utils.runtime.ambient_loop_service import AmbientLoopService as cls
+            service = cls(self, log)
+            self.ambient_loop = service
         return service
 
     def _scene_lifecycle_service(self):

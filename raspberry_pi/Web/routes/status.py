@@ -10,14 +10,31 @@ from ..auth import requires_auth
 # --- KOREKCIA: Odstránený url_prefix='/api' ---
 status_bp = Blueprint('status', __name__) 
 
+def _get_ambient_status_data(controller):
+    ambient_service = getattr(controller, '_ambient_loop_service', None)
+    if callable(ambient_service):
+        return ambient_service().get_status()
+    return {
+        'enabled': False,
+        'scene': None,
+        'suspended': False,
+        'start_policy': 'after_initial_connection_attempt',
+        'cycle_cleanup': 'scene_only',
+        'next_restart_at': None,
+        'last_outcome': 'never_started',
+    }
+
 # Pomocná funkcia na získanie dát o stave systému
 def _get_current_status_data(controller):
+    config = getattr(controller, 'config', {}) or {}
     return {
         'room_id': getattr(controller, 'room_id', 'Unknown'),
         'scene_running': getattr(controller, 'scene_running', False),
         'current_scene_name': getattr(controller, 'current_scene_name', None),
         'active_state': getattr(controller, 'current_scene_state', None),
         'mqtt_connected': controller.mqtt_client.is_connected() if controller.mqtt_client else False,
+        'startup_mode': config.get('startup_mode', 'classic'),
+        'ambient': _get_ambient_status_data(controller),
     }
 
 def setup_status_routes(dashboard):

@@ -181,14 +181,31 @@ class WebDashboard:
 
     def _get_status_data(self):
         """Get current system status data."""
+        config = getattr(self.controller, 'config', {}) or {}
         return {
             'room_id': getattr(self.controller, 'room_id', 'Unknown'),
             'scene_running': getattr(self.controller, 'scene_running', False),
             'current_scene_name': getattr(self.controller, 'current_scene_name', None),
             'active_state': getattr(self.controller, 'current_scene_state', None),
             'mqtt_connected': self.controller.mqtt_client.is_connected() if self.controller.mqtt_client else False,
+            'startup_mode': config.get('startup_mode', 'classic'),
+            'ambient': self._get_ambient_status_data(),
             'uptime': self.get_uptime(),
             'log_count': len(self.log_buffer)
+        }
+
+    def _get_ambient_status_data(self):
+        ambient_service = getattr(self.controller, '_ambient_loop_service', None)
+        if callable(ambient_service):
+            return ambient_service().get_status()
+        return {
+            'enabled': False,
+            'scene': None,
+            'suspended': False,
+            'start_policy': 'after_initial_connection_attempt',
+            'cycle_cleanup': 'scene_only',
+            'next_restart_at': None,
+            'last_outcome': 'never_started',
         }
 
     def get_device_runtime_states(self) -> list:
