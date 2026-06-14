@@ -875,7 +875,7 @@ Implemented after backend behavior was validated:
 - Add suspended/active/next restart display.
 - Add `Resume Ambient` control.
 - Keep `Suspend Ambient` as the existing explicit Stop action in v1.
-- Show the landing-page ambient panel only when `ambient.enabled = true`.
+- Show the landing-page ambient stat only when `ambient.enabled = true`.
 
 Acceptance:
 
@@ -1304,10 +1304,13 @@ Implementation decision (2026-06-14):
 
 Dashboard controls addendum (2026-06-14):
 
-- Added landing-page ambient status card in the React dashboard.
-- The card is shown only when `/api/status` reports `ambient.enabled = true`.
-- The card shows ambient scene name, running/waiting/suspended state, last
-  outcome, and next restart time when available.
+- Added minimalist landing-page ambient status inside the Stats grid.
+- The ambient stat is shown only when `/api/status` reports
+  `ambient.enabled = true`.
+- The Stats grid also shows the configured default scene name via
+  `/api/status.default_scene`.
+- The ambient stat shows only the ambient scene name, a compact state label, and
+  a small resume icon when ambient can be started again.
 - Added `POST /api/ambient/resume` to start the configured ambient scene again
   after an explicit Stop.
 - Added controller and policy tests for dashboard ambient resume.

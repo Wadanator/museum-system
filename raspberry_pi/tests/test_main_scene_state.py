@@ -19,6 +19,7 @@ from utils.runtime.scene_runtime_service import (
     OUTCOME_SHUTDOWN,
     OUTCOME_START_FAILURE,
 )
+from utils.runtime.scene_lifecycle import SceneLifecycle
 
 
 class _Counter:
@@ -33,6 +34,26 @@ class _Counter:
 
     def stop_video(self):
         self.calls += 1
+
+
+class _LifecycleLogger:
+    def __init__(self):
+        self.debugs = []
+        self.infos = []
+        self.warnings = []
+        self.errors = []
+
+    def debug(self, message, *args, **kwargs):
+        self.debugs.append(message % args if args else message)
+
+    def info(self, message, *args, **kwargs):
+        self.infos.append(message % args if args else message)
+
+    def warning(self, message, *args, **kwargs):
+        self.warnings.append(message % args if args else message)
+
+    def error(self, message, *args, **kwargs):
+        self.errors.append(message % args if args else message)
 
 
 class _ActuatorStoreCounter:
@@ -248,6 +269,39 @@ def _touch_scene_file(tmp_dir, scene_name="scene.json"):
     scene_path = scene_dir / scene_name
     scene_path.write_text("{}", encoding="utf-8")
     return scene_path
+
+
+def test_routine_lifecycle_transitions_log_at_debug():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        controller = _build_controller(scene_running=False)
+        state_file = Path(tmp_dir) / "museum_scene_state"
+        logger = _LifecycleLogger()
+        lifecycle = SceneLifecycle(controller, state_file, logger)
+
+        assert lifecycle.set_scene_running(
+            True,
+            "start:ambient.json",
+            expect_current=False,
+        )
+        assert lifecycle.set_scene_running(
+            False,
+            "scene_thread_finally:ambient.json",
+        )
+        assert lifecycle.set_scene_running(
+            True,
+            "ambient_restart:ambient.json",
+            expect_current=False,
+        )
+        assert lifecycle.set_scene_running(False, "external_stop")
+
+        assert logger.debugs == [
+            "Scene lifecycle transition -> running (start:ambient.json)",
+            "Scene lifecycle transition -> idle (scene_thread_finally:ambient.json)",
+            "Scene lifecycle transition -> running (ambient_restart:ambient.json)",
+        ]
+        assert logger.infos == [
+            "Scene lifecycle transition -> idle (external_stop)"
+        ]
 
 
 def test_transition_updates_file_and_is_idempotent():
@@ -1013,6 +1067,7 @@ def test_ambient_runtime_error_does_not_retry_in_v1():
 if __name__ == "__main__":
     print("Running offline P0-2 checks (no pytest required)...")
     tests = [
+        ("routine_lifecycle_transitions_log_at_debug", test_routine_lifecycle_transitions_log_at_debug),
         ("transition_updates_file_and_is_idempotent", test_transition_updates_file_and_is_idempotent),
         ("stop_scene_is_idempotent", test_stop_scene_is_idempotent),
         ("operator_stop_suspends_ambient_policy_before_full_stop", test_operator_stop_suspends_ambient_policy_before_full_stop),

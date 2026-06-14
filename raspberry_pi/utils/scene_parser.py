@@ -231,7 +231,7 @@ class SceneParser:
         Stops all audio, resets the state machine to END, clears pending
         transition events, and resets the timeline tracker.
         """
-        self.logger.warning("Stopping scene via SceneParser request...")
+        self.logger.debug("Stopping scene via SceneParser request...")
 
         if self.audio_handler:
             self.audio_handler.stop_all()

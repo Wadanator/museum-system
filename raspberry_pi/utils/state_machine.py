@@ -107,7 +107,7 @@ class StateMachine:
         if not self.goto_state(self.initial_state):
             return False
 
-        self.logger.info(f"State machine started -> {self.current_state}")
+        self.logger.debug(f"State machine started -> {self.current_state}")
         return True
 
     def goto_state(self, state_name):

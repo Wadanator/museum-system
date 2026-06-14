@@ -78,6 +78,7 @@ def test_rest_status_payload_includes_startup_and_ambient_status():
     status = _get_current_status_data(controller)
 
     assert status["startup_mode"] == "classic"
+    assert status["default_scene"] == "SceneV01.json"
     assert status["ambient"]["enabled"] is False
     assert status["ambient"]["scene"] == "SceneV01.json"
     assert status["ambient"]["last_outcome"] == "never_started"
@@ -102,6 +103,8 @@ def test_dashboard_status_and_runtime_snapshot_include_ambient_status():
     snapshot = dashboard.get_runtime_snapshot()
 
     assert status["startup_mode"] == "classic"
+    assert status["default_scene"] == "SceneV01.json"
     assert status["ambient"]["scene"] == "SceneV01.json"
     assert status["ambient"]["next_restart_at"] is None
+    assert snapshot["status"]["default_scene"] == "SceneV01.json"
     assert snapshot["status"]["ambient"]["last_outcome"] == "never_started"

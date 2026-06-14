@@ -101,7 +101,7 @@ class SceneRuntimeService:
                     outcome,
                 )
             else:
-                self.log.info(
+                self.log.debug(
                     "Ambient mode: restarting %s after %.2fs",
                     scene_filename,
                     delay_seconds,

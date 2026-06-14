@@ -18,6 +18,18 @@ class SceneLifecycle:
             return provider()
         return self.state_file
 
+    def _transition_logger(self, reason):
+        """Return debug for routine lifecycle chatter and info for notable changes."""
+        routine_prefixes = (
+            'start:',
+            'scene_thread_finally:',
+            'ambient_restart:',
+            'ambient_retry:',
+        )
+        if str(reason or '').startswith(routine_prefixes):
+            return self.log.debug
+        return self.log.info
+
     def set_scene_running(self, is_running, reason, expect_current=None):
         """Centralized scene lifecycle transition with synchronized file updates."""
         state_value = 'running' if is_running else 'idle'
@@ -41,7 +53,9 @@ class SceneLifecycle:
         else:
             self.stop_heartbeat()
 
-        self.log.info(f"Scene lifecycle transition -> {state_value} ({reason})")
+        self._transition_logger(reason)(
+            f"Scene lifecycle transition -> {state_value} ({reason})"
+        )
         return True
 
     def heartbeat_loop(self) -> None:

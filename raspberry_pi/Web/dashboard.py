@@ -188,6 +188,10 @@ class WebDashboard:
             'current_scene_name': getattr(self.controller, 'current_scene_name', None),
             'active_state': getattr(self.controller, 'current_scene_state', None),
             'mqtt_connected': self.controller.mqtt_client.is_connected() if self.controller.mqtt_client else False,
+            'default_scene': config.get(
+                'json_file_name',
+                getattr(self.controller, 'json_file_name', None),
+            ),
             'startup_mode': config.get('startup_mode', 'classic'),
             'ambient': self._get_ambient_status_data(),
             'uptime': self.get_uptime(),
