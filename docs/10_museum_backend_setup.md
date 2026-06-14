@@ -45,6 +45,8 @@ pip install -r requirements.txt
 
 - Súbor: `raspberry_pi/config/config.ini`
 - Referenčný príklad: `raspberry_pi/config/config.ini.example`
+- Kompletný zoznam aktuálnych a plánovaných config možností:
+  `docs/14_config_reference.md`
 
 Dôležité sekcie:
 

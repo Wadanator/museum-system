@@ -23,6 +23,7 @@ museum-system/
 │   ├── 11_esp32_firmware_setup.md
 │   ├── 12_physical_installation.md
 │   ├── 13_rpi_hardware_watchdog_setup.md
+│   ├── 14_config_reference.md
 │   ├── Content_instructions.md
 │   ├── General_text_instruction.md
 │   ├── museum_diagrams/
