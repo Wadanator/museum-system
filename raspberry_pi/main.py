@@ -311,6 +311,26 @@ class MuseumController:
         self.shutdown_requested = True
         if self.mqtt_client:
             self.mqtt_client.shutdown_requested = True
+        self._request_ambient_shutdown()
+
+    def _request_ambient_shutdown(self):
+        """Wake ambient restart waits when the controller is shutting down."""
+        try:
+            self._ambient_loop_service().request_shutdown()
+        except Exception as exc:
+            log.error(f"Failed to notify ambient shutdown: {exc}")
+
+    def _apply_ambient_operator_stop_policy(self):
+        """Suspend ambient auto-restart when Stop is an operator safety action."""
+        try:
+            ambient = self._ambient_loop_service()
+            if self.shutdown_requested or self._cleaned_up:
+                ambient.request_shutdown()
+                return
+            if ambient.should_suspend_on_operator_stop():
+                ambient.suspend_by_operator_stop()
+        except Exception as exc:
+            log.error(f"Failed to apply ambient stop policy: {exc}")
 
     def _on_device_status_change(self, device_id: str, status: str) -> None:
         """Handle MQTT device online/offline transitions."""
@@ -418,6 +438,7 @@ class MuseumController:
 
     def stop_scene(self):
         """Stop the running scene and shut down all local and external devices."""
+        self._apply_ambient_operator_stop_policy()
         return self._stop_coordinator_service().stop_scene()
 
     def broadcast_stop(self):
@@ -497,6 +518,7 @@ class MuseumController:
 
         log.debug("Initiating cleanup...")
         self._cleaned_up = True
+        self._request_ambient_shutdown()
 
         try:
             if self.scene_running:

@@ -48,21 +48,34 @@ class _AmbientPolicyStub:
         self,
         ignore_default=False,
         allow_named=True,
+        suspend_on_stop=False,
         boot_result=True,
         restore_result=True,
     ):
         self.ignore_default = ignore_default
         self.allow_named = allow_named
+        self.suspend_on_stop = suspend_on_stop
         self.boot_result = boot_result
         self.restore_result = restore_result
         self.boot_calls = 0
         self.restore_calls = 0
+        self.suspend_calls = 0
+        self.shutdown_calls = 0
 
     def should_ignore_default_start(self):
         return self.ignore_default
 
     def should_allow_named_scene_start(self):
         return self.allow_named
+
+    def should_suspend_on_operator_stop(self):
+        return self.suspend_on_stop
+
+    def suspend_by_operator_stop(self):
+        self.suspend_calls += 1
+
+    def request_shutdown(self):
+        self.shutdown_calls += 1
 
     def start_after_boot_if_needed(self):
         self.boot_calls += 1
@@ -100,6 +113,10 @@ def _build_controller(scene_running=False):
     controller._heartbeat_stop_event = threading.Event()
     controller._heartbeat_thread = None
     controller.shutdown_requested = False
+    controller._cleaned_up = False
+    controller.mqtt_client = None
+    controller.services = None
+    controller.scene_thread = None
     return controller
 
 
@@ -171,6 +188,98 @@ def test_stop_scene_is_idempotent():
                 "external_stop",
                 "external_stop_idle",
             ]
+        finally:
+            main_module._SCENE_STATE_FILE = original_state_file
+
+
+def test_operator_stop_suspends_ambient_policy_before_full_stop():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        state_file = Path(tmp_dir) / "museum_scene_state"
+        original_state_file = main_module._SCENE_STATE_FILE
+        try:
+            main_module._SCENE_STATE_FILE = state_file
+
+            parser = _Counter()
+            audio = _Counter()
+            video = _Counter()
+            stop_calls = {"count": 0}
+
+            controller = _build_controller(scene_running=True)
+            policy = _attach_ambient_policy(
+                controller,
+                _AmbientPolicyStub(suspend_on_stop=True),
+            )
+            controller.scene_parser = parser
+            controller.audio_handler = audio
+            controller.video_handler = video
+            controller.actuator_state_store = _ActuatorStoreCounter()
+
+            def _broadcast_stop():
+                stop_calls["count"] += 1
+
+            controller.broadcast_stop = _broadcast_stop
+
+            assert controller.stop_scene() is True
+            assert policy.suspend_calls == 1
+            assert policy.shutdown_calls == 0
+            assert parser.calls == 1
+            assert audio.calls == 1
+            assert video.calls == 1
+            assert stop_calls["count"] == 1
+            assert controller.actuator_state_store.sources == ["external_stop"]
+        finally:
+            main_module._SCENE_STATE_FILE = original_state_file
+
+
+def test_operator_stop_does_not_suspend_ambient_when_resume_after_delay():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        state_file = Path(tmp_dir) / "museum_scene_state"
+        original_state_file = main_module._SCENE_STATE_FILE
+        try:
+            main_module._SCENE_STATE_FILE = state_file
+
+            controller = _build_controller(scene_running=True)
+            policy = _attach_ambient_policy(
+                controller,
+                _AmbientPolicyStub(suspend_on_stop=False),
+            )
+            controller.broadcast_stop = lambda: None
+
+            assert controller.stop_scene() is True
+            assert policy.suspend_calls == 0
+            assert policy.shutdown_calls == 0
+        finally:
+            main_module._SCENE_STATE_FILE = original_state_file
+
+
+def test_shutdown_signal_requests_ambient_shutdown():
+    controller = _build_controller(scene_running=False)
+    policy = _attach_ambient_policy(controller, _AmbientPolicyStub())
+
+    controller._signal_handler(15, None)
+
+    assert controller.shutdown_requested is True
+    assert policy.shutdown_calls == 1
+
+
+def test_cleanup_requests_ambient_shutdown_without_operator_suspend():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        state_file = Path(tmp_dir) / "museum_scene_state"
+        original_state_file = main_module._SCENE_STATE_FILE
+        try:
+            main_module._SCENE_STATE_FILE = state_file
+
+            controller = _build_controller(scene_running=True)
+            policy = _attach_ambient_policy(
+                controller,
+                _AmbientPolicyStub(suspend_on_stop=True),
+            )
+            controller.broadcast_stop = lambda: None
+
+            controller.cleanup()
+
+            assert policy.shutdown_calls >= 1
+            assert policy.suspend_calls == 0
         finally:
             main_module._SCENE_STATE_FILE = original_state_file
 
@@ -289,6 +398,10 @@ if __name__ == "__main__":
     tests = [
         ("transition_updates_file_and_is_idempotent", test_transition_updates_file_and_is_idempotent),
         ("stop_scene_is_idempotent", test_stop_scene_is_idempotent),
+        ("operator_stop_suspends_ambient_policy_before_full_stop", test_operator_stop_suspends_ambient_policy_before_full_stop),
+        ("operator_stop_does_not_suspend_ambient_when_resume_after_delay", test_operator_stop_does_not_suspend_ambient_when_resume_after_delay),
+        ("shutdown_signal_requests_ambient_shutdown", test_shutdown_signal_requests_ambient_shutdown),
+        ("cleanup_requests_ambient_shutdown_without_operator_suspend", test_cleanup_requests_ambient_shutdown_without_operator_suspend),
         ("start_scene_by_name_returns_real_start_result", test_start_scene_by_name_returns_real_start_result),
         ("missing_scene_broadcasts_status_update", test_missing_scene_broadcasts_status_update),
     ]

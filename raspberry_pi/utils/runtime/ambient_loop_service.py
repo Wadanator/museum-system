@@ -97,6 +97,15 @@ class AmbientLoopService:
             return True
         return bool(self._config().get('ambient_allow_named_scene_start', True))
 
+    def should_suspend_on_operator_stop(self) -> bool:
+        return bool(
+            self.is_enabled()
+            and self._config().get(
+                'ambient_stop_behavior',
+                'suspend_until_restart',
+            ) == 'suspend_until_restart'
+        )
+
     def start_after_boot_if_needed(self) -> bool:
         """Start ambient after boot if policy allows it and only once."""
         if not self.is_enabled():

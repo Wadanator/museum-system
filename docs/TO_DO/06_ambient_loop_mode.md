@@ -1063,7 +1063,7 @@ Manual test to tell the user:
 4. Send MQTT `<room_id>/scene` payload `START` or press the GPIO start button.
 5. Confirm no duplicate scene starts and logs say default start was ignored.
 
-### Step 5 - Stop, Suspend, And Shutdown Wakeup
+### Step 5 - Stop, Suspend, And Shutdown Wakeup - DONE (2026-06-14 stop/suspend/shutdown wiring/tests)
 
 Goal:
 
@@ -1086,6 +1086,15 @@ Implementation:
   if the helper exists.
 - Keep `stop_scene()` full cleanup behavior: parser stop, audio stop, video
   stop, force actuators off, and `room/STOP`.
+
+Implementation note (2026-06-14):
+
+- `MuseumController.stop_scene()` now applies ambient operator-stop policy
+  before the existing full stop coordinator.
+- Shutdown signal and controller cleanup wake pending ambient restart waits via
+  `ambient.request_shutdown()`.
+- `AmbientLoopService.should_suspend_on_operator_stop()` keeps the
+  `ambient_stop_behavior` decision inside the policy helper.
 
 Automated verification:
 

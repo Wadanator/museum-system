@@ -257,6 +257,21 @@ def test_ambient_service_status_and_start_decisions_use_config():
     assert status["cycle_cleanup"] == "scene_only"
 
 
+def test_operator_stop_suspend_policy_uses_mode_and_config():
+    service, _owner, _logger = _service(
+        _ambient_config(ambient_stop_behavior="suspend_until_restart")
+    )
+    assert service.should_suspend_on_operator_stop() is True
+
+    service, _owner, _logger = _service(
+        _ambient_config(ambient_stop_behavior="resume_after_delay")
+    )
+    assert service.should_suspend_on_operator_stop() is False
+
+    service, _owner, _logger = _service({"startup_mode": "classic"})
+    assert service.should_suspend_on_operator_stop() is False
+
+
 def test_start_after_boot_is_idempotent_for_default_policy():
     service, owner, _logger = _service()
 
