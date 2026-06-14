@@ -134,6 +134,33 @@ class ConfigManager:
             'component_levels': component_levels
         }
 
+    def _get_choice(self, section, option, *, allowed, fallback):
+        value = self.config.get(section, option, fallback=fallback).strip().lower()
+        if value in allowed:
+            return value
+
+        self.logger.warning(
+            "Invalid [%s] %s=%r; using %r",
+            section,
+            option,
+            value,
+            fallback,
+        )
+        return fallback
+
+    def _get_nonnegative_float(self, section, option, *, fallback):
+        value = self.config.getfloat(section, option, fallback=fallback)
+        if value >= 0:
+            return value
+
+        self.logger.warning(
+            "Invalid negative [%s] %s=%s; clamping to 0",
+            section,
+            option,
+            value,
+        )
+        return 0.0
+
     def get_all_config(self):
         """
         Return the complete application configuration as a single dictionary.
@@ -153,6 +180,9 @@ class ConfigManager:
         room_id = self.config.get('Room', 'room_id', fallback='room1')
         audio_dir_name = self.config.get('Audio', 'directory', fallback='audio')
         video_dir_name = self.config.get('Video', 'directory', fallback='videos')
+        json_file_name = self.config.get(
+            'Json', 'json_file_name', fallback='default.json'
+        )
 
         # Base path for all scenes
         scenes_base_path = os.path.join(script_dir, scenes_dir_name)
@@ -166,6 +196,56 @@ class ConfigManager:
         mpv_extra_args_raw = self.config.get(
             'Video', 'mpv_extra_args', fallback=''
         ).strip()
+
+        scene_wait_poll_interval = max(1, self.config.getint(
+            'System', 'scene_wait_poll_interval', fallback=30
+        ))
+        scene_wait_max_seconds = max(1, self.config.getint(
+            'System', 'scene_wait_max_seconds', fallback=7200
+        ))
+
+        startup_mode = self._get_choice(
+            'Startup',
+            'mode',
+            allowed={'classic', 'ambient'},
+            fallback='classic',
+        )
+        ambient_scene = self.config.get(
+            'Startup', 'ambient_scene', fallback=''
+        ).strip() or json_file_name
+        ambient_start_policy = self._get_choice(
+            'Startup',
+            'ambient_start_policy',
+            allowed={'after_initial_connection_attempt', 'wait_for_mqtt'},
+            fallback='after_initial_connection_attempt',
+        )
+        ambient_restart_delay_seconds = self._get_nonnegative_float(
+            'Startup', 'ambient_restart_delay_seconds', fallback=2.0
+        )
+        ambient_error_retry_seconds = self._get_nonnegative_float(
+            'Startup', 'ambient_error_retry_seconds', fallback=30.0
+        )
+        ambient_cycle_cleanup = self._get_choice(
+            'Startup',
+            'ambient_cycle_cleanup',
+            allowed={'scene_only', 'full_stop'},
+            fallback='scene_only',
+        )
+        ambient_stop_behavior = self._get_choice(
+            'Startup',
+            'ambient_stop_behavior',
+            allowed={'suspend_until_restart', 'resume_after_delay'},
+            fallback='suspend_until_restart',
+        )
+
+        if ambient_restart_delay_seconds > scene_wait_max_seconds:
+            self.logger.warning(
+                "ambient_restart_delay_seconds (%s) exceeds "
+                "scene_wait_max_seconds (%s); watchdog may force restart "
+                "during ambient cycle gap",
+                ambient_restart_delay_seconds,
+                scene_wait_max_seconds,
+            )
 
         result = {
             # MQTT
@@ -185,7 +265,7 @@ class ConfigManager:
 
             # Room / JSON
             'room_id': room_id,
-            'json_file_name': self.config.get('Json', 'json_file_name', fallback='default.json'),
+            'json_file_name': json_file_name,
             'devices_config_path': devices_config_path,
 
             # System
@@ -215,6 +295,21 @@ class ConfigManager:
                 'System', 'device_cleanup_interval', fallback=60),
             'scene_heartbeat_interval': self.config.getfloat(
                 'System', 'scene_heartbeat_interval', fallback=60.0),
+            'scene_wait_poll_interval': scene_wait_poll_interval,
+            'scene_wait_max_seconds': scene_wait_max_seconds,
+
+            # Startup / ambient mode
+            'startup_mode': startup_mode,
+            'ambient_scene': ambient_scene,
+            'ambient_start_policy': ambient_start_policy,
+            'ambient_restart_delay_seconds': ambient_restart_delay_seconds,
+            'ambient_error_retry_seconds': ambient_error_retry_seconds,
+            'ambient_cycle_cleanup': ambient_cycle_cleanup,
+            'ambient_ignore_default_start': self.config.getboolean(
+                'Startup', 'ambient_ignore_default_start', fallback=True),
+            'ambient_allow_named_scene_start': self.config.getboolean(
+                'Startup', 'ambient_allow_named_scene_start', fallback=True),
+            'ambient_stop_behavior': ambient_stop_behavior,
 
             # Video
             'ipc_socket': self.config.get(

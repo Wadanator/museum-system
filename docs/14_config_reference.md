@@ -120,6 +120,23 @@ Defaults below are the values currently documented in
 | --- | --- | --- | --- |
 | `json_file_name` | `SceneV01.json` | filename | Default scene started by GPIO/default MQTT START. |
 
+### `[Startup]`
+
+Implemented for config/template parsing. Runtime ambient autostart is still
+controlled by `docs/TO_DO/06_ambient_loop_mode.md` follow-up steps.
+
+| Key | Default | Type | Notes |
+| --- | --- | --- | --- |
+| `mode` | `classic` | `classic`/`ambient` | Runtime startup mode. `classic` preserves current behavior. |
+| `ambient_scene` | empty | filename | Ambient scene. Empty resolves to `[Json] json_file_name` in `ConfigManager`. |
+| `ambient_start_policy` | `after_initial_connection_attempt` | enum | `after_initial_connection_attempt` or `wait_for_mqtt`. |
+| `ambient_restart_delay_seconds` | `2` | seconds | Normal delay between ambient cycles. Must stay below `scene_wait_max_seconds`. Negative values clamp to `0`. |
+| `ambient_error_retry_seconds` | `30` | seconds | Retry delay for missing/load/start failures. Negative values clamp to `0`. |
+| `ambient_cycle_cleanup` | `scene_only` | enum | `scene_only` avoids global room STOP between normal cycles; `full_stop` keeps classic cleanup. |
+| `ambient_ignore_default_start` | `true` | bool | Ignore GPIO/default MQTT START in ambient mode to avoid duplicates. |
+| `ambient_allow_named_scene_start` | `true` | bool | Allow explicit named scene starts while ambient is idle/suspended. |
+| `ambient_stop_behavior` | `suspend_until_restart` | enum | `suspend_until_restart` or `resume_after_delay`. `resume_after_delay` uses `ambient_restart_delay_seconds`. |
+
 ### `[Logging]`
 
 | Key | Default | Type | Notes |
@@ -174,26 +191,6 @@ engineio = ERROR
 This section exists so implementation TODOs do not invent conflicting config
 names. Do not rely on these keys in production until their related TODO is
 implemented and moved into the current section above.
-
-### Planned `[Startup]` - Ambient Loop Mode
-
-Source: `docs/TO_DO/06_ambient_loop_mode.md`.
-
-| Key | Planned default | Type | Notes |
-| --- | --- | --- | --- |
-| `mode` | `classic` | `classic`/`ambient` | Runtime startup mode. |
-| `ambient_scene` | empty | filename | Ambient scene. Empty means use `[Json] json_file_name`. |
-| `ambient_start_policy` | `after_initial_connection_attempt` | enum | `after_initial_connection_attempt` or `wait_for_mqtt`. |
-| `ambient_restart_delay_seconds` | `2` | seconds | Normal delay between ambient cycles. Must stay below `scene_wait_max_seconds`. |
-| `ambient_error_retry_seconds` | `30` | seconds | Retry delay for missing/load/start failures. |
-| `ambient_cycle_cleanup` | `scene_only` | enum | `scene_only` avoids global room STOP between normal cycles; `full_stop` keeps classic cleanup. |
-| `ambient_ignore_default_start` | `true` | bool | Ignore GPIO/default MQTT START in ambient mode to avoid duplicates. |
-| `ambient_allow_named_scene_start` | `true` | bool | Allow explicit named scene starts while ambient is idle/suspended. |
-| `ambient_stop_behavior` | `suspend_until_restart` | enum | `suspend_until_restart` or `resume_after_delay`. `resume_after_delay` uses `ambient_restart_delay_seconds`. |
-
-When Step 1 of the ambient TODO is implemented, move these keys into the
-current implemented section and update the setup guide if the operator workflow
-changes.
 
 ### Planned `[Display]` - CEC Display Power Control
 

@@ -908,7 +908,7 @@ Do not continue into the next step if the current step changes runtime behavior
 and the requested manual test has not been confirmed, unless the user explicitly
 asks to continue anyway.
 
-### Step 1 - Startup Config Only
+### Step 1 - Startup Config Only - DONE (2026-06-14 config parser/template/tests)
 
 Goal:
 

@@ -56,6 +56,40 @@ scene_wait_max_seconds = 7200
 [Json]
 json_file_name = SceneV01.json
 
+[Startup]
+# Runtime startup mode: classic | ambient
+mode = classic
+
+# Scene file used in ambient mode. If empty, [Json] json_file_name is used.
+ambient_scene =
+
+# Policy for the first ambient start:
+# - after_initial_connection_attempt: try MQTT first, then start even in offline mode.
+# - wait_for_mqtt: do not start until MQTT is connected/restored.
+ambient_start_policy = after_initial_connection_attempt
+
+# Delay between normal ambient scene cycles.
+ambient_restart_delay_seconds = 2
+
+# Delay before retrying when the ambient scene is missing or fails to load.
+ambient_error_retry_seconds = 30
+
+# Normal ambient cycle cleanup:
+# - scene_only: do not broadcast global room STOP between normal cycles.
+# - full_stop: use the same force-off/STOP cleanup as classic scene end.
+ambient_cycle_cleanup = scene_only
+
+# In ambient mode, default START commands should not create duplicate starts.
+ambient_ignore_default_start = true
+
+# Operator/dashboard/named scene starts are explicit actions.
+ambient_allow_named_scene_start = true
+
+# Operator Stop behavior in ambient mode:
+# - suspend_until_restart: stop now and stay suspended until service restart/future resume.
+# - resume_after_delay: restart after ambient_restart_delay_seconds.
+ambient_stop_behavior = suspend_until_restart
+
 [Logging]
 log_level = INFO
 log_directory = logs
