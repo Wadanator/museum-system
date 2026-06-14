@@ -14,6 +14,17 @@ OUTCOME_ERROR = 'error'
 OUTCOME_EXPLICIT_STOP = 'explicit_stop'
 OUTCOME_SHUTDOWN = 'shutdown'
 
+_RECOVERABLE_AMBIENT_FAILURES = {
+    OUTCOME_MISSING_SCENE,
+    OUTCOME_LOAD_FAILURE,
+    OUTCOME_PARSER_UNAVAILABLE,
+    OUTCOME_START_FAILURE,
+}
+
+_FAILURES_WITH_EXISTING_FULL_CLEANUP = {
+    OUTCOME_START_FAILURE,
+}
+
 
 class SceneRuntimeService:
     """Own scene thread creation and scene execution flow."""
@@ -65,23 +76,42 @@ class SceneRuntimeService:
             ambient = self._ambient_loop_service()
             self._record_ambient_outcome(ambient, scene_filename, outcome)
 
-            if not self._should_restart_ambient_scene(
+            should_restart = self._should_restart_ambient_scene(
                 ambient,
                 scene_filename,
                 outcome,
-            ):
+            )
+            should_retry = self._should_retry_recoverable_ambient_failure(
+                ambient,
+                scene_filename,
+                outcome,
+            )
+
+            if not should_restart and not should_retry:
                 return outcome
 
-            delay_seconds = ambient.restart_delay_seconds(normal_end=True)
-            self.log.info(
-                "Ambient mode: restarting %s after %.2fs",
-                scene_filename,
-                delay_seconds,
-            )
+            normal_end = should_restart
+            delay_seconds = ambient.restart_delay_seconds(normal_end=normal_end)
+            if should_retry:
+                self._cleanup_after_recoverable_ambient_failure(outcome)
+                self.log.info(
+                    "Ambient mode: retrying %s after %.2fs due to %s",
+                    scene_filename,
+                    delay_seconds,
+                    outcome,
+                )
+            else:
+                self.log.info(
+                    "Ambient mode: restarting %s after %.2fs",
+                    scene_filename,
+                    delay_seconds,
+                )
+
             if not ambient.wait_for_restart_delay(delay_seconds):
                 return outcome
 
-            if not self._prepare_ambient_restart(scene_filename):
+            restart_reason = 'ambient_restart' if normal_end else 'ambient_retry'
+            if not self._prepare_ambient_restart(scene_filename, restart_reason):
                 return outcome
 
     def _run_scene_once(self, scene_filename):
@@ -250,6 +280,16 @@ class SceneRuntimeService:
             normal_end=(outcome == OUTCOME_NORMAL_END),
         )
 
+    def _should_retry_recoverable_ambient_failure(
+        self,
+        ambient,
+        scene_filename,
+        outcome,
+    ) -> bool:
+        if outcome not in _RECOVERABLE_AMBIENT_FAILURES:
+            return False
+        return ambient.should_retry_after_scene_failure(scene_filename, outcome)
+
     def _use_scene_only_ambient_cleanup(self, scene_filename, outcome) -> bool:
         if outcome != OUTCOME_NORMAL_END:
             return False
@@ -268,11 +308,21 @@ class SceneRuntimeService:
         configured = os.path.basename(ambient.scene_name() or '')
         return bool(finished and configured and finished == configured)
 
-    def _prepare_ambient_restart(self, scene_filename) -> bool:
+    def _cleanup_after_recoverable_ambient_failure(self, outcome) -> None:
+        if outcome in _FAILURES_WITH_EXISTING_FULL_CLEANUP:
+            return
+
+        stop_coordinator = self.owner._stop_coordinator_service()
+        stop_coordinator.stop_audio()
+        stop_coordinator.stop_video()
+        stop_coordinator.force_actuators_off('ambient_recoverable_failure')
+        self.owner.broadcast_stop()
+
+    def _prepare_ambient_restart(self, scene_filename, reason='ambient_restart') -> bool:
         owner = self.owner
         if not owner._set_scene_running(
             True,
-            f"ambient_restart:{scene_filename}",
+            f"{reason}:{scene_filename}",
             expect_current=False,
         ):
             self.log.info(

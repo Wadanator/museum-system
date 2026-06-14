@@ -346,6 +346,31 @@ def test_restart_decision_only_allows_configured_ambient_normal_end():
     assert not service.should_restart_after_scene("AmbientLoop.json", normal_end=False)
 
 
+def test_recoverable_failure_retry_only_allows_configured_ambient_scene():
+    service, _owner, _logger = _service()
+
+    assert service.should_retry_after_scene_failure(
+        "AmbientLoop.json",
+        "missing_scene",
+    )
+    assert service.should_retry_after_scene_failure(
+        "AmbientLoop.json",
+        "load_failure",
+    )
+    assert not service.should_retry_after_scene_failure(
+        "OtherScene.json",
+        "missing_scene",
+    )
+    assert not service.should_retry_after_scene_failure(
+        "AmbientLoop.json",
+        "error",
+    )
+    assert not service.should_retry_after_scene_failure(
+        "AmbientLoop.json",
+        "normal_end",
+    )
+
+
 def test_restart_delay_selects_normal_or_error_delay():
     service, _owner, _logger = _service(
         _ambient_config(

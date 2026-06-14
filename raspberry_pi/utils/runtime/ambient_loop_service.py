@@ -18,6 +18,13 @@ _VALID_OUTCOMES = {
     'shutdown',
 }
 
+_RECOVERABLE_FAILURE_OUTCOMES = {
+    'missing_scene',
+    'load_failure',
+    'parser_unavailable',
+    'start_failure',
+}
+
 
 def _utc_iso(dt: datetime) -> str:
     return (
@@ -160,6 +167,16 @@ class AmbientLoopService:
         finished = os.path.basename(scene_filename or '')
         ambient = os.path.basename(self.scene_name() or '')
         return bool(finished and ambient and finished == ambient)
+
+    def should_retry_after_scene_failure(self, scene_filename: str, outcome: str) -> bool:
+        if outcome not in _RECOVERABLE_FAILURE_OUTCOMES:
+            return False
+        if not self.is_enabled() or self._is_shutdown_requested() or self._is_suspended():
+            return False
+
+        failed = os.path.basename(scene_filename or '')
+        ambient = os.path.basename(self.scene_name() or '')
+        return bool(failed and ambient and failed == ambient)
 
     def restart_delay_seconds(self, *, normal_end: bool) -> float:
         key = (

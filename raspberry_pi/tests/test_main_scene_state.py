@@ -11,6 +11,7 @@ if str(RPI_DIR) not in sys.path:
 import main as main_module
 from main import MuseumController
 from utils.runtime.scene_runtime_service import (
+    OUTCOME_ERROR,
     OUTCOME_EXPLICIT_STOP,
     OUTCOME_LOAD_FAILURE,
     OUTCOME_MISSING_SCENE,
@@ -107,6 +108,7 @@ class _AmbientPolicyStub:
         restart_results=None,
         restart_delay=0.0,
         wait_results=None,
+        failure_retry_results=None,
     ):
         self.ignore_default = ignore_default
         self.allow_named = allow_named
@@ -119,11 +121,13 @@ class _AmbientPolicyStub:
         self.restart_results = list(restart_results or [])
         self.restart_delay = restart_delay
         self.wait_results = list(wait_results or [])
+        self.failure_retry_results = list(failure_retry_results or [])
         self.boot_calls = 0
         self.restore_calls = 0
         self.suspend_calls = 0
         self.shutdown_calls = 0
         self.restart_calls = []
+        self.failure_retry_calls = []
         self.wait_calls = []
         self.recorded_outcomes = []
 
@@ -155,6 +159,12 @@ class _AmbientPolicyStub:
         self.restart_calls.append((scene_filename, normal_end))
         if self.restart_results:
             return self.restart_results.pop(0)
+        return False
+
+    def should_retry_after_scene_failure(self, scene_filename, outcome):
+        self.failure_retry_calls.append((scene_filename, outcome))
+        if self.failure_retry_results:
+            return self.failure_retry_results.pop(0)
         return False
 
     def restart_delay_seconds(self, *, normal_end):
@@ -812,6 +822,153 @@ def test_ambient_restart_wait_cancel_stops_loop_after_first_cycle():
             main_module._SCENE_STATE_FILE = original_state_file
 
 
+def test_ambient_missing_scene_retries_after_error_delay_with_full_cleanup():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        state_file = Path(tmp_dir) / "museum_scene_state"
+        original_state_file = main_module._SCENE_STATE_FILE
+        try:
+            main_module._SCENE_STATE_FILE = state_file
+
+            controller = _build_controller(scene_running=True)
+            controller.config["startup_mode"] = "ambient"
+            controller.scenes_dir = tmp_dir
+            controller.scene_parser = object()
+            controller.audio_handler = _Counter()
+            controller.video_handler = _Counter()
+            controller.actuator_state_store = _ActuatorStoreCounter()
+            stop_calls = {"count": 0}
+            policy = _attach_ambient_policy(
+                controller,
+                _AmbientPolicyStub(
+                    enabled=True,
+                    scene_name="missing.json",
+                    failure_retry_results=[True, False],
+                    restart_delay=12.0,
+                ),
+            )
+
+            def _broadcast_stop():
+                stop_calls["count"] += 1
+
+            controller.broadcast_stop = _broadcast_stop
+
+            outcome = controller._run_scene_logic("missing.json")
+
+            assert outcome == OUTCOME_MISSING_SCENE
+            assert controller.scene_running is False
+            assert controller.current_scene_name is None
+            assert policy.recorded_outcomes == [
+                OUTCOME_MISSING_SCENE,
+                OUTCOME_MISSING_SCENE,
+            ]
+            assert policy.failure_retry_calls == [
+                ("missing.json", OUTCOME_MISSING_SCENE),
+                ("missing.json", OUTCOME_MISSING_SCENE),
+            ]
+            assert policy.wait_calls == [12.0]
+            assert controller.audio_handler.calls == 1
+            assert controller.video_handler.calls == 1
+            assert controller.actuator_state_store.sources == [
+                "ambient_recoverable_failure"
+            ]
+            assert stop_calls["count"] == 1
+        finally:
+            main_module._SCENE_STATE_FILE = original_state_file
+
+
+def test_ambient_start_failure_retries_without_duplicate_full_cleanup():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        state_file = Path(tmp_dir) / "museum_scene_state"
+        original_state_file = main_module._SCENE_STATE_FILE
+        try:
+            main_module._SCENE_STATE_FILE = state_file
+            _touch_scene_file(tmp_dir, "ambient.json")
+
+            controller = _build_controller(scene_running=True)
+            controller.config["startup_mode"] = "ambient"
+            controller.scenes_dir = tmp_dir
+            controller.current_scene_name = "ambient.json"
+            controller.scene_parser = _SceneParserStub(start_result=False)
+            controller.audio_handler = _Counter()
+            controller.video_handler = _Counter()
+            controller.actuator_state_store = _ActuatorStoreCounter()
+            stop_calls = {"count": 0}
+            policy = _attach_ambient_policy(
+                controller,
+                _AmbientPolicyStub(
+                    enabled=True,
+                    scene_name="ambient.json",
+                    failure_retry_results=[True, False],
+                    restart_delay=3.0,
+                ),
+            )
+
+            def _broadcast_stop():
+                stop_calls["count"] += 1
+
+            controller.broadcast_stop = _broadcast_stop
+
+            outcome = controller._run_scene_logic("ambient.json")
+
+            assert outcome == OUTCOME_START_FAILURE
+            assert controller.scene_parser.start_calls == 2
+            assert policy.recorded_outcomes == [
+                OUTCOME_START_FAILURE,
+                OUTCOME_START_FAILURE,
+            ]
+            assert policy.wait_calls == [3.0]
+            assert controller.audio_handler.calls == 2
+            assert controller.video_handler.calls == 2
+            assert controller.actuator_state_store.sources == [
+                "scene_end",
+                "scene_end",
+            ]
+            assert stop_calls["count"] == 2
+        finally:
+            main_module._SCENE_STATE_FILE = original_state_file
+
+
+def test_ambient_runtime_error_does_not_retry_in_v1():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        state_file = Path(tmp_dir) / "museum_scene_state"
+        original_state_file = main_module._SCENE_STATE_FILE
+        try:
+            main_module._SCENE_STATE_FILE = state_file
+            _touch_scene_file(tmp_dir, "ambient.json")
+
+            controller = _build_controller(scene_running=True)
+            controller.config["startup_mode"] = "ambient"
+            controller.scenes_dir = tmp_dir
+            controller.current_scene_name = "ambient.json"
+            controller.scene_parser = _SceneParserStub()
+            controller.audio_handler = _Counter()
+            controller.video_handler = _Counter()
+            controller.actuator_state_store = _ActuatorStoreCounter()
+            policy = _attach_ambient_policy(
+                controller,
+                _AmbientPolicyStub(
+                    enabled=True,
+                    scene_name="ambient.json",
+                    failure_retry_results=[True],
+                ),
+            )
+
+            def _raise_runtime_error():
+                raise RuntimeError("boom")
+
+            controller.run_scene = _raise_runtime_error
+
+            outcome = controller._run_scene_logic("ambient.json")
+
+            assert outcome == OUTCOME_ERROR
+            assert policy.recorded_outcomes == [OUTCOME_ERROR]
+            assert policy.failure_retry_calls == []
+            assert policy.wait_calls == []
+            assert controller.scene_running is False
+        finally:
+            main_module._SCENE_STATE_FILE = original_state_file
+
+
 if __name__ == "__main__":
     print("Running offline P0-2 checks (no pytest required)...")
     tests = [
@@ -831,6 +988,9 @@ if __name__ == "__main__":
         ("ambient_scene_only_restarts_without_global_stop_between_cycles", test_ambient_scene_only_restarts_without_global_stop_between_cycles),
         ("ambient_full_stop_cleanup_runs_between_cycles", test_ambient_full_stop_cleanup_runs_between_cycles),
         ("ambient_restart_wait_cancel_stops_loop_after_first_cycle", test_ambient_restart_wait_cancel_stops_loop_after_first_cycle),
+        ("ambient_missing_scene_retries_after_error_delay_with_full_cleanup", test_ambient_missing_scene_retries_after_error_delay_with_full_cleanup),
+        ("ambient_start_failure_retries_without_duplicate_full_cleanup", test_ambient_start_failure_retries_without_duplicate_full_cleanup),
+        ("ambient_runtime_error_does_not_retry_in_v1", test_ambient_runtime_error_does_not_retry_in_v1),
     ]
 
     failed = 0

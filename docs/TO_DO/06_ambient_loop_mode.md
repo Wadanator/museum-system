@@ -1206,7 +1206,7 @@ Manual test to tell the user:
 5. Subscribe to `<room_id>/STOP` and confirm no STOP is sent between normal
    cycles.
 
-### Step 8 - Recoverable Startup Failure Retry
+### Step 8 - Recoverable Startup Failure Retry - DONE (2026-06-14 recoverable failure retry/tests)
 
 Goal:
 
@@ -1227,6 +1227,27 @@ Implementation:
   media, force actuators off, and broadcast `room/STOP` if MQTT is connected.
 - Do not retry runtime execution `error` in v1.
 - Keep retry wait interruptible.
+
+Implementation note (2026-06-14):
+
+- `AmbientLoopService.should_retry_after_scene_failure(...)` now gates retry to
+  the configured ambient scene and only recoverable startup/load outcomes.
+- `SceneRuntimeService` retries recoverable ambient failures after
+  `ambient_error_retry_seconds`, using `ambient_retry:<scene>` lifecycle start
+  reason for retry attempts.
+- Missing/load/parser-unavailable failures receive one full safety cleanup
+  before the retry wait. `start_failure` already gets full scene-thread cleanup,
+  so it is not cleaned twice.
+- Runtime execution `error` remains non-retry in v1.
+
+Pi validation note (2026-06-14):
+
+- Target Pi pytest passed: 50 tests.
+- Missing ambient scene produced `last_outcome = missing_scene` and populated
+  `next_restart_at`.
+- Restoring the missing scene file before the next retry successfully started
+  the scene and reached `AMBIENT_WAIT`.
+- Dashboard/API Stop still stopped and suspended ambient after the retry test.
 
 Automated verification:
 
