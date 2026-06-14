@@ -272,6 +272,14 @@ def test_operator_stop_suspend_policy_uses_mode_and_config():
     assert service.should_suspend_on_operator_stop() is False
 
 
+def test_cycle_cleanup_reports_configured_mode():
+    service, _owner, _logger = _service(
+        _ambient_config(ambient_cycle_cleanup="full_stop")
+    )
+
+    assert service.cycle_cleanup() == "full_stop"
+
+
 def test_start_after_boot_is_idempotent_for_default_policy():
     service, owner, _logger = _service()
 

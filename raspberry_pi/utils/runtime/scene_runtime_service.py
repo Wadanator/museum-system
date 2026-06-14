@@ -1,5 +1,6 @@
 """Scene start/run orchestration extracted from MuseumController."""
 
+import os
 import threading
 import time
 
@@ -57,7 +58,31 @@ class SceneRuntimeService:
 
     def run_scene_logic(self, scene_filename):
         """Worker thread function containing the core scene flow."""
-        return self._run_scene_once(scene_filename)
+        outcome = OUTCOME_ERROR
+
+        while True:
+            outcome = self._run_scene_once(scene_filename)
+            ambient = self._ambient_loop_service()
+            self._record_ambient_outcome(ambient, scene_filename, outcome)
+
+            if not self._should_restart_ambient_scene(
+                ambient,
+                scene_filename,
+                outcome,
+            ):
+                return outcome
+
+            delay_seconds = ambient.restart_delay_seconds(normal_end=True)
+            self.log.info(
+                "Ambient mode: restarting %s after %.2fs",
+                scene_filename,
+                delay_seconds,
+            )
+            if not ambient.wait_for_restart_delay(delay_seconds):
+                return outcome
+
+            if not self._prepare_ambient_restart(scene_filename):
+                return outcome
 
     def _run_scene_once(self, scene_filename):
         """Run one scene lifecycle and return its completion outcome."""
@@ -97,7 +122,7 @@ class SceneRuntimeService:
                     self.log.error(f"An error occurred during scene execution: {exc}")
                     outcome = OUTCOME_ERROR
                 finally:
-                    self._cleanup_after_scene_thread(scene_filename)
+                    self._cleanup_after_scene_thread(scene_filename, outcome)
                 return outcome
             else:
                 self.log.error(f"Failed to load scene: {scene_filename}")
@@ -175,7 +200,7 @@ class SceneRuntimeService:
         self.owner.current_scene_state = None
         self.owner._dashboard_notifier_service().broadcast_status()
 
-    def _cleanup_after_scene_thread(self, scene_filename) -> None:
+    def _cleanup_after_scene_thread(self, scene_filename, outcome) -> None:
         owner = self.owner
         stop_coordinator = owner._stop_coordinator_service()
         stop_coordinator.stop_audio_for_scene_finally()
@@ -187,8 +212,14 @@ class SceneRuntimeService:
             f"scene_thread_finally:{scene_filename}",
         )
         if transitioned:
-            stop_coordinator.force_actuators_off(source='scene_end')
-            owner.broadcast_stop()
+            if self._use_scene_only_ambient_cleanup(scene_filename, outcome):
+                self.log.debug(
+                    "Ambient mode: scene_only cleanup for %s; skipping global STOP",
+                    scene_filename,
+                )
+            else:
+                stop_coordinator.force_actuators_off(source='scene_end')
+                owner.broadcast_stop()
 
         self._clear_current_scene_and_status()
 
@@ -204,3 +235,52 @@ class SceneRuntimeService:
         if not owner.scene_running:
             return OUTCOME_EXPLICIT_STOP
         return default
+
+    def _ambient_loop_service(self):
+        return self.owner._ambient_loop_service()
+
+    def _record_ambient_outcome(self, ambient, scene_filename, outcome) -> None:
+        if not self._is_configured_ambient_scene(ambient, scene_filename):
+            return
+        ambient.record_outcome(outcome)
+
+    def _should_restart_ambient_scene(self, ambient, scene_filename, outcome) -> bool:
+        return ambient.should_restart_after_scene(
+            scene_filename,
+            normal_end=(outcome == OUTCOME_NORMAL_END),
+        )
+
+    def _use_scene_only_ambient_cleanup(self, scene_filename, outcome) -> bool:
+        if outcome != OUTCOME_NORMAL_END:
+            return False
+
+        ambient = self._ambient_loop_service()
+        return bool(
+            ambient.cycle_cleanup() == 'scene_only'
+            and self._is_configured_ambient_scene(ambient, scene_filename)
+        )
+
+    def _is_configured_ambient_scene(self, ambient, scene_filename) -> bool:
+        if not ambient.is_enabled():
+            return False
+
+        finished = os.path.basename(scene_filename or '')
+        configured = os.path.basename(ambient.scene_name() or '')
+        return bool(finished and configured and finished == configured)
+
+    def _prepare_ambient_restart(self, scene_filename) -> bool:
+        owner = self.owner
+        if not owner._set_scene_running(
+            True,
+            f"ambient_restart:{scene_filename}",
+            expect_current=False,
+        ):
+            self.log.info(
+                "Ambient mode: restart skipped because scene is already running"
+            )
+            return False
+
+        owner.current_scene_name = scene_filename
+        owner.current_scene_state = None
+        owner._dashboard_notifier_service().broadcast_status()
+        return True

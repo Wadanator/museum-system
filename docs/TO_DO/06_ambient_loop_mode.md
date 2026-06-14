@@ -1158,7 +1158,7 @@ Manual test to tell the user:
 4. Press Stop during a scene and confirm the existing full stop behavior still
    works.
 
-### Step 7 - Ambient Normal Loop
+### Step 7 - Ambient Normal Loop - DONE (2026-06-14 normal ambient restart loop/tests)
 
 Goal:
 
@@ -1179,6 +1179,16 @@ Implementation:
 - For `full_stop`, keep classic end cleanup between cycles.
 - Use interruptible wait for `ambient_restart_delay_seconds`.
 - Update `next_restart_at` and `last_outcome` status fields.
+
+Implementation note (2026-06-14):
+
+- `SceneRuntimeService.run_scene_logic(...)` now loops normal completion of the
+  configured ambient scene in the existing scene-runner thread.
+- `scene_only` normal ambient cleanup still stops local audio/video but skips
+  global actuator force-off and `room/STOP` between normal cycles.
+- `full_stop` keeps classic force-off and `room/STOP` behavior between cycles.
+- Ambient status records the last outcome and uses the existing interruptible
+  restart wait, including `next_restart_at` while waiting.
 
 Automated verification:
 

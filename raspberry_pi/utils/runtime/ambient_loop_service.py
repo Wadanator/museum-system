@@ -106,6 +106,9 @@ class AmbientLoopService:
             ) == 'suspend_until_restart'
         )
 
+    def cycle_cleanup(self) -> str:
+        return str(self._config().get('ambient_cycle_cleanup', 'scene_only'))
+
     def start_after_boot_if_needed(self) -> bool:
         """Start ambient after boot if policy allows it and only once."""
         if not self.is_enabled():

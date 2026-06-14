@@ -101,16 +101,40 @@ class _AmbientPolicyStub:
         suspend_on_stop=False,
         boot_result=True,
         restore_result=True,
+        enabled=False,
+        scene_name="SceneV01.json",
+        cycle_cleanup="scene_only",
+        restart_results=None,
+        restart_delay=0.0,
+        wait_results=None,
     ):
         self.ignore_default = ignore_default
         self.allow_named = allow_named
         self.suspend_on_stop = suspend_on_stop
         self.boot_result = boot_result
         self.restore_result = restore_result
+        self.enabled = enabled
+        self._scene_name = scene_name
+        self._cycle_cleanup = cycle_cleanup
+        self.restart_results = list(restart_results or [])
+        self.restart_delay = restart_delay
+        self.wait_results = list(wait_results or [])
         self.boot_calls = 0
         self.restore_calls = 0
         self.suspend_calls = 0
         self.shutdown_calls = 0
+        self.restart_calls = []
+        self.wait_calls = []
+        self.recorded_outcomes = []
+
+    def is_enabled(self):
+        return self.enabled
+
+    def scene_name(self):
+        return self._scene_name
+
+    def cycle_cleanup(self):
+        return self._cycle_cleanup
 
     def should_ignore_default_start(self):
         return self.ignore_default
@@ -126,6 +150,24 @@ class _AmbientPolicyStub:
 
     def request_shutdown(self):
         self.shutdown_calls += 1
+
+    def should_restart_after_scene(self, scene_filename, *, normal_end):
+        self.restart_calls.append((scene_filename, normal_end))
+        if self.restart_results:
+            return self.restart_results.pop(0)
+        return False
+
+    def restart_delay_seconds(self, *, normal_end):
+        return self.restart_delay
+
+    def wait_for_restart_delay(self, delay_seconds):
+        self.wait_calls.append(delay_seconds)
+        if self.wait_results:
+            return self.wait_results.pop(0)
+        return True
+
+    def record_outcome(self, outcome):
+        self.recorded_outcomes.append(outcome)
 
     def start_after_boot_if_needed(self):
         self.boot_calls += 1
@@ -635,6 +677,141 @@ def test_shutdown_during_processing_returns_outcome_and_preserves_cleanup():
             main_module._SCENE_STATE_FILE = original_state_file
 
 
+def test_ambient_scene_only_restarts_without_global_stop_between_cycles():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        state_file = Path(tmp_dir) / "museum_scene_state"
+        original_state_file = main_module._SCENE_STATE_FILE
+        try:
+            main_module._SCENE_STATE_FILE = state_file
+            _touch_scene_file(tmp_dir, "ambient.json")
+
+            controller = _build_controller(scene_running=True)
+            controller.config["startup_mode"] = "ambient"
+            controller.scenes_dir = tmp_dir
+            controller.current_scene_name = "ambient.json"
+            controller.scene_parser = _SceneParserStub(process_results=[False, False])
+            controller.audio_handler = _Counter()
+            controller.video_handler = _Counter()
+            controller.actuator_state_store = _ActuatorStoreCounter()
+            stop_calls = {"count": 0}
+            policy = _attach_ambient_policy(
+                controller,
+                _AmbientPolicyStub(
+                    enabled=True,
+                    scene_name="ambient.json",
+                    cycle_cleanup="scene_only",
+                    restart_results=[True, False],
+                    restart_delay=0.0,
+                ),
+            )
+
+            def _broadcast_stop():
+                stop_calls["count"] += 1
+
+            controller.broadcast_stop = _broadcast_stop
+
+            outcome = controller._run_scene_logic("ambient.json")
+
+            assert outcome == OUTCOME_NORMAL_END
+            assert controller.scene_parser.start_calls == 2
+            assert controller.scene_running is False
+            assert controller.current_scene_name is None
+            assert policy.recorded_outcomes == [OUTCOME_NORMAL_END, OUTCOME_NORMAL_END]
+            assert policy.wait_calls == [0.0]
+            assert controller.audio_handler.calls == 2
+            assert controller.video_handler.calls == 4
+            assert controller.actuator_state_store.sources == []
+            assert stop_calls["count"] == 0
+        finally:
+            main_module._SCENE_STATE_FILE = original_state_file
+
+
+def test_ambient_full_stop_cleanup_runs_between_cycles():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        state_file = Path(tmp_dir) / "museum_scene_state"
+        original_state_file = main_module._SCENE_STATE_FILE
+        try:
+            main_module._SCENE_STATE_FILE = state_file
+            _touch_scene_file(tmp_dir, "ambient.json")
+
+            controller = _build_controller(scene_running=True)
+            controller.config["startup_mode"] = "ambient"
+            controller.scenes_dir = tmp_dir
+            controller.current_scene_name = "ambient.json"
+            controller.scene_parser = _SceneParserStub(process_results=[False, False])
+            controller.audio_handler = _Counter()
+            controller.video_handler = _Counter()
+            controller.actuator_state_store = _ActuatorStoreCounter()
+            stop_calls = {"count": 0}
+            policy = _attach_ambient_policy(
+                controller,
+                _AmbientPolicyStub(
+                    enabled=True,
+                    scene_name="ambient.json",
+                    cycle_cleanup="full_stop",
+                    restart_results=[True, False],
+                    restart_delay=0.0,
+                ),
+            )
+
+            def _broadcast_stop():
+                stop_calls["count"] += 1
+
+            controller.broadcast_stop = _broadcast_stop
+
+            outcome = controller._run_scene_logic("ambient.json")
+
+            assert outcome == OUTCOME_NORMAL_END
+            assert controller.scene_parser.start_calls == 2
+            assert policy.recorded_outcomes == [OUTCOME_NORMAL_END, OUTCOME_NORMAL_END]
+            assert controller.actuator_state_store.sources == [
+                "scene_end",
+                "scene_end",
+            ]
+            assert stop_calls["count"] == 2
+        finally:
+            main_module._SCENE_STATE_FILE = original_state_file
+
+
+def test_ambient_restart_wait_cancel_stops_loop_after_first_cycle():
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        state_file = Path(tmp_dir) / "museum_scene_state"
+        original_state_file = main_module._SCENE_STATE_FILE
+        try:
+            main_module._SCENE_STATE_FILE = state_file
+            _touch_scene_file(tmp_dir, "ambient.json")
+
+            controller = _build_controller(scene_running=True)
+            controller.config["startup_mode"] = "ambient"
+            controller.scenes_dir = tmp_dir
+            controller.current_scene_name = "ambient.json"
+            controller.scene_parser = _SceneParserStub(process_results=[False, False])
+            controller.audio_handler = _Counter()
+            controller.video_handler = _Counter()
+            controller.actuator_state_store = _ActuatorStoreCounter()
+            policy = _attach_ambient_policy(
+                controller,
+                _AmbientPolicyStub(
+                    enabled=True,
+                    scene_name="ambient.json",
+                    cycle_cleanup="scene_only",
+                    restart_results=[True],
+                    restart_delay=2.0,
+                    wait_results=[False],
+                ),
+            )
+
+            outcome = controller._run_scene_logic("ambient.json")
+
+            assert outcome == OUTCOME_NORMAL_END
+            assert controller.scene_parser.start_calls == 1
+            assert policy.recorded_outcomes == [OUTCOME_NORMAL_END]
+            assert policy.wait_calls == [2.0]
+            assert controller.scene_running is False
+        finally:
+            main_module._SCENE_STATE_FILE = original_state_file
+
+
 if __name__ == "__main__":
     print("Running offline P0-2 checks (no pytest required)...")
     tests = [
@@ -651,6 +828,9 @@ if __name__ == "__main__":
         ("scene_start_failure_returns_outcome_and_preserves_full_cleanup", test_scene_start_failure_returns_outcome_and_preserves_full_cleanup),
         ("external_stop_during_processing_returns_outcome_without_duplicate_stop", test_external_stop_during_processing_returns_outcome_without_duplicate_stop),
         ("shutdown_during_processing_returns_outcome_and_preserves_cleanup", test_shutdown_during_processing_returns_outcome_and_preserves_cleanup),
+        ("ambient_scene_only_restarts_without_global_stop_between_cycles", test_ambient_scene_only_restarts_without_global_stop_between_cycles),
+        ("ambient_full_stop_cleanup_runs_between_cycles", test_ambient_full_stop_cleanup_runs_between_cycles),
+        ("ambient_restart_wait_cancel_stops_loop_after_first_cycle", test_ambient_restart_wait_cancel_stops_loop_after_first_cycle),
     ]
 
     failed = 0
