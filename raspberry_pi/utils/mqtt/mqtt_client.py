@@ -45,6 +45,9 @@ class MQTTClient:
         self.shutdown_requested = False
         self.connection_lost_callback = None
         self.connection_restored_callback = None
+        self._network_loop_started = False
+        self._last_connect_rc = None
+        self._callback_api_version = 1
 
         # === External Handlers (injected after initialization) ===
         self.message_handler = None
@@ -56,14 +59,15 @@ class MQTTClient:
 
     def _setup_mqtt_client(self, client_id):
         """Initialize MQTT client with version compatibility and callbacks."""
-        # Fix for paho-mqtt 2.0+ compatibility
         try:
             self.client = mqtt.Client(
                 client_id=client_id,
-                callback_api_version=mqtt.CallbackAPIVersion.VERSION1
+                callback_api_version=mqtt.CallbackAPIVersion.VERSION2
             )
-        except TypeError:
+            self._callback_api_version = 2
+        except (AttributeError, TypeError):
             self.client = mqtt.Client(client_id=client_id)
+            self._callback_api_version = 1
 
         # Set up callbacks
         self.client.on_connect = self._on_connect
@@ -104,7 +108,27 @@ class MQTTClient:
     # MQTT CALLBACK HANDLERS
     # ==========================================================================
 
-    def _on_connect(self, client, userdata, flags, rc):
+    @staticmethod
+    def _reason_code_value(reason_code):
+        """Return a comparable success/error value for Paho v1/v2 callbacks."""
+        if reason_code is None:
+            return None
+
+        value = getattr(reason_code, "value", None)
+        if value is not None:
+            return value
+
+        try:
+            return int(reason_code)
+        except (TypeError, ValueError):
+            pass
+
+        text = str(reason_code).strip().lower()
+        if text in {"success", "normal disconnection"}:
+            return 0
+        return reason_code
+
+    def _on_connect(self, client, userdata, flags, reason_code, properties=None):
         """
         Handle connection success or failure from the broker.
 
@@ -112,8 +136,12 @@ class MQTTClient:
             client: The MQTT client instance.
             userdata: User-defined data passed to the callback.
             flags: Response flags from the broker.
-            rc: Connection result code (0 indicates success).
+            reason_code: Connection result code (0 indicates success).
+            properties: MQTT v5 properties when Paho callback API v2 is used.
         """
+        rc = self._reason_code_value(reason_code)
+        self._last_connect_rc = rc
+
         if rc == 0:
             was_connected = self.connected
             self.connected = True
@@ -132,18 +160,20 @@ class MQTTClient:
         else:
             self.connected = False
             self.logger.error(
-                f"Failed to connect to MQTT broker. Return code: {rc}"
+                f"Failed to connect to MQTT broker. Return code: {reason_code}"
             )
 
-    def _on_disconnect(self, client, userdata, rc):
+    def _on_disconnect(self, client, userdata, *args):
         """
         Handle disconnection from the broker.
 
         Args:
             client: The MQTT client instance.
             userdata: User-defined data passed to the callback.
-            rc: Disconnection result code.
+            args: Paho v1 passes `(rc,)`; callback API v2 passes
+                `(disconnect_flags, reason_code, properties)`.
         """
+        reason_code = args[-2] if len(args) >= 2 else (args[0] if args else None)
         was_connected = self.connected
         self.connected = False
 
@@ -152,11 +182,11 @@ class MQTTClient:
             if self.shutdown_requested:
                 self.logger.debug(
                     "Disconnected from MQTT broker during planned shutdown. "
-                    f"Return code: {rc}"
+                    f"Return code: {reason_code}"
                 )
             else:
                 self.logger.warning(
-                    f"Disconnected from MQTT broker. Return code: {rc}"
+                    f"Disconnected from MQTT broker. Return code: {reason_code}"
                 )
             if self.connection_lost_callback:
                 self.connection_lost_callback()
@@ -173,7 +203,8 @@ class MQTTClient:
         if self.message_handler:
             self.message_handler.handle_message(msg)
 
-    def _on_publish(self, client, userdata, mid):
+    def _on_publish(self, client, userdata, mid, reason_code=None,
+                    properties=None):
         """
         Handle acknowledgement of a successfully published message.
 
@@ -181,6 +212,8 @@ class MQTTClient:
             client: The MQTT client instance.
             userdata: User-defined data passed to the callback.
             mid: Message ID of the published message.
+            reason_code: Publish reason code when callback API v2 is used.
+            properties: MQTT v5 properties when callback API v2 is used.
         """
         self.logger.debug(f"Message published with ID: {mid}")
 
@@ -250,21 +283,38 @@ class MQTTClient:
         """
         try:
             # Clean up existing connection if present
-            if hasattr(self.client, '_sock') and self.client._sock:
-                self.client.disconnect()
+            if (
+                self.connected
+                or self._network_loop_started
+                or getattr(self.client, '_sock', None)
+            ):
+                self.disconnect()
 
+            self._last_connect_rc = None
             self.client.connect(self.broker_host, self.broker_port, timeout)
             self.client.loop_start()
+            self._network_loop_started = True
 
             # Wait for connection confirmation with timeout
             start_time = time.time()
             while not self.connected and (time.time() - start_time) < timeout:
+                if self._last_connect_rc not in (None, 0):
+                    break
                 time.sleep(0.1)
 
-            return self.connected
+            if self.connected:
+                return True
+
+            if self._last_connect_rc in (None, 0):
+                self.logger.debug(
+                    f"MQTT connection attempt timed out after {timeout}s"
+                )
+            self._cleanup_failed_connect()
+            return False
 
         except Exception as e:
             self.logger.error(f"Error connecting to MQTT broker: {e}")
+            self._cleanup_failed_connect()
             return False
 
     def connect_with_retry(self):
@@ -379,11 +429,47 @@ class MQTTClient:
         """
         return self.connected
 
+    def _stop_network_loop(self):
+        """Stop the Paho network loop if this wrapper started it."""
+        if not self._network_loop_started:
+            return
+
+        try:
+            self.client.loop_stop()
+        except Exception as e:
+            self.logger.debug(f"Error stopping MQTT network loop: {e}")
+        finally:
+            self._network_loop_started = False
+
+    def _disconnect_client(self):
+        """Disconnect the underlying Paho client, ignoring cleanup failures."""
+        try:
+            self.client.disconnect()
+        except Exception as e:
+            self.logger.debug(f"Error disconnecting MQTT client: {e}")
+
+    def _cleanup_failed_connect(self):
+        """Reset Paho loop/socket state after a failed connection attempt."""
+        self._stop_network_loop()
+        self._disconnect_client()
+        self.connected = False
+
     def disconnect(self):
         """Disconnect from the MQTT broker and stop the network loop."""
-        if self.connected:
-            self.client.loop_stop()
-            self.client.disconnect()
+        should_disconnect = (
+            self.connected
+            or self._network_loop_started
+            or getattr(self.client, '_sock', None)
+        )
+
+        self._stop_network_loop()
+        if should_disconnect:
+            self._disconnect_client()
+
+        self.connected = False
+        self._last_connect_rc = None
+
+        if should_disconnect:
             self.logger.debug("MQTT disconnected")
 
     def cleanup(self):

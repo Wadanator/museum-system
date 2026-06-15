@@ -1,6 +1,6 @@
 # Museum System - Reliability And Stability Future Work
 
-Updated: 2026-05-23
+Updated: 2026-06-15
 
 ## Progress marking rule
 
@@ -111,6 +111,57 @@ Acceptance:
 - DONE: `config.ini.example` matches the intended production recommendation.
 - DONE: Documentation clearly explains which timeout means device offline and
   which one is only command ACK timing.
+
+## P1/P2 - MQTT Reconnect Failure Paths Need Explicit Paho Cleanup - DONE (2026-06-15)
+
+Status: done
+
+Where:
+
+- `raspberry_pi/utils/mqtt/mqtt_client.py`
+- `raspberry_pi/utils/system_monitor.py`
+- `docs/TO_DO/02_mqtt_security_hardening.md`
+- `raspberry_pi/tests/test_mqtt_client_reconnect_cleanup.py`
+
+Current state:
+
+- `MQTTClient.connect()` now tracks whether the Paho network loop was started
+  for the current attempt.
+- On timeout, refused connection, or exception it stops the loop, disconnects
+  the underlying client, and resets wrapper connection state before retrying.
+- `SystemMonitor.perform_periodic_health_check()` can repeatedly call
+  `manage_connection_health()` during a broker/network outage without carrying
+  stale Paho loop/socket state into later attempts.
+
+Why this is real:
+
+- A long broker outage, bad broker address, or rejected auth can keep
+  exercising the failed-connect path for hours.
+- Half-started Paho loop state can accumulate or leave the client in a bad
+  retry state.
+- The midnight service reset limits worst-case duration, but reconnect
+  reliability should not depend on that reset.
+- This overlaps with MQTT security hardening because failed auth uses the same
+  failed-connect path.
+
+Implemented work:
+
+- DONE: Track whether each connect attempt started the Paho loop.
+- DONE: Prefer Paho callback API v2 so current development installs do not emit
+  the old callback API deprecation warning.
+- DONE: On timeout, non-success return code, or exception, best-effort
+  `loop_stop()` and `disconnect()` before returning `False` or retrying.
+- DONE: Add fake-client tests for timeout, refused return code, exception, and
+  successful reconnect.
+- DONE: Keep timeout logging at debug level so broker outages do not flood
+  production logs.
+
+Acceptance:
+
+- DONE: Repeated broker-down health checks do not increase active network-loop
+  threads.
+- DONE: Failed auth/timeouts leave the client ready for the next retry.
+- DONE: Successful reconnect still subscribes and calls the restored callback.
 
 ## P2 - Scene MQTT Publish Failure Policy For Critical Actions
 
@@ -232,6 +283,92 @@ Acceptance:
 - DONE - Unit tests cover queued fanout, non-synchronous emit, full queue
   behavior, and websocket emit failures.
 
+## P2 - Actuator State WebSocket Fanout Still Runs On MQTT Callback Path
+
+Status: open
+
+Where:
+
+- `raspberry_pi/utils/mqtt/mqtt_actuator_state_store.py`
+- `raspberry_pi/utils/runtime/dashboard_notifier.py`
+- `raspberry_pi/Web/dashboard.py`
+
+Current state:
+
+- `MQTTActuatorStateStore._notify()` calls its update callback synchronously.
+- The callback path reaches `WebDashboard.broadcast_device_runtime_state(...)`,
+  which emits SocketIO events to connected dashboard clients.
+- This happens from MQTT/device-state paths such as retained state reports,
+  feedback confirmations, offline/online state changes, and forced-off updates.
+
+Why this is real:
+
+- The log fanout path is already async, but device runtime-state fanout still
+  has the same risk shape.
+- A slow dashboard client or SocketIO stall can make MQTT callback handling
+  slower.
+- During an ESP reconnect burst or retained-state replay, many state updates
+  can arrive close together.
+
+Recommended work:
+
+- Move `device_runtime_state_update` delivery onto a bounded async queue,
+  preferably through a small generic dashboard event queue.
+- Coalesce by topic when overloaded so the newest actuator state wins instead
+  of preserving every intermediate update.
+- Add a rate-limited warning/counter when state updates are dropped or
+  coalesced under pressure.
+
+Acceptance:
+
+- A slow/broken dashboard client cannot block MQTT message handling.
+- A flood of state reports does not grow memory unbounded.
+- After backpressure clears, the dashboard receives the latest known state for
+  each topic.
+
+## P2 - Async SQLite Logging Needs Drop Visibility And Shutdown Drain
+
+Status: open
+
+Where:
+
+- `raspberry_pi/utils/logging_setup.py`
+- `raspberry_pi/main.py`
+
+Current state:
+
+- `AsyncSQLiteHandler` uses a bounded queue with `maxsize=1000`.
+- When the queue is full, `emit()` silently drops log records.
+- `close()` asks the writer thread to stop and joins for a short timeout, but
+  it does not explicitly wake the worker or drain all queued records before
+  process exit.
+
+Why this is real:
+
+- The room can keep running, but post-incident diagnostics can lose exactly the
+  logs needed to understand what happened.
+- The planned midnight reset makes shutdown flushing important because shutdown
+  is a normal daily event, not only a crash path.
+- Silent drops make the dashboard/log database look complete when it may not be
+  complete.
+
+Recommended work:
+
+- Maintain a dropped-record counter and emit a rate-limited warning when the
+  queue overflows.
+- Use a sentinel/event so `close()` wakes the writer immediately.
+- Drain queued records on shutdown within a bounded deadline.
+- Ensure `logging.shutdown()` or equivalent cleanup runs during controller
+  shutdown.
+
+Acceptance:
+
+- A forced log burst records visible dropped-log diagnostics instead of failing
+  silently.
+- Normal shutdown flushes queued records within a bounded time.
+- The daily reset preserves final shutdown/restart diagnostic lines as much as
+  possible.
+
 ## P2 - Build/Deploy Flow Still Does Not Guarantee A Current Frontend Build - SKIP
 
 Status: partly improved, still open
@@ -264,6 +401,45 @@ Acceptance:
 
 - A clean deployment process cannot silently deploy an outdated dashboard
   build.
+
+## P2 - Dashboard Media Upload Needs Size And Disk-Space Guard
+
+Status: open
+
+Where:
+
+- `raspberry_pi/Web/routes/media.py`
+- `raspberry_pi/Web/app.py`
+- `raspberry_pi/config/config.ini.example`
+
+Current state:
+
+- Authenticated media upload validates file extension, then writes the uploaded
+  file directly to the media folder.
+- There is no configured maximum upload size, per-media size limit, free-disk
+  reserve check, or atomic temp-file rename.
+
+Why this is real:
+
+- An accidental huge upload or browser retry can fill the Raspberry Pi storage.
+- Full disk can break SQLite logging, scene saves, media playback, package
+  updates, and general OS stability.
+- Authentication reduces malicious access, but operator mistakes are still
+  realistic in a museum installation.
+
+Recommended work:
+
+- Add configurable upload limits for image/audio/video files.
+- Add a minimum free-space reserve before accepting uploads.
+- Save uploads to a temporary file and rename atomically after validation.
+- Clean up partial temp files on failed uploads.
+
+Acceptance:
+
+- Oversized uploads are rejected before writing the full file.
+- Low-disk conditions return a clear dashboard error and preserve existing
+  files.
+- Interrupted uploads do not leave broken final media files behind.
 
 ## P2/P3 - Dashboard Credentials And Secret Key Are Still Hardcoded
 
