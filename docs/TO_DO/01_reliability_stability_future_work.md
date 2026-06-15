@@ -64,9 +64,9 @@ Acceptance:
 - DONE: The museum runtime continues without the dashboard.
 - DONE: Logs clearly show that the web layer is degraded.
 
-## P1 - Align Production MQTT Timing Defaults
+## P1 - Align Production MQTT Timing Defaults - DONE (2026-06-15)
 
-Status: open / values need a final decision
+Status: done
 
 Where:
 
@@ -79,34 +79,38 @@ Current state:
 - Older analysis assumed `device_timeout` was already a conservative 180
   seconds.
 - The current `config.ini` and `config.ini.example` both use
-  `device_timeout = 15`.
-- `ConfigManager` fallback is 180 seconds, but a real copied config overrides
-  that fallback with 15 seconds.
-- `command_ack_timeout_ms` is now separated from legacy `feedback_timeout`,
-  which is good, but production values still need to be explicit.
+  `device_timeout = 25`.
+- `ConfigManager` fallback remains 180 seconds for missing keys, but tracked
+  runtime configs now explicitly choose the faster production value `25s`.
+- `command_ack_timeout_ms` is separated from legacy `feedback_timeout` and
+  remains `700ms` for fast command feedback.
+- `node_offline_timeout_s` remains `5s`, but the current online/offline device
+  registry uses `device_timeout`.
 
 Why this is real:
 
-- A copied config can override the safer fallback with an aggressive timeout.
-- Short LAN/MQTT hiccups can create false offline states for devices.
+- A copied config now uses a less aggressive timeout than the old 15s value.
+- Short LAN/MQTT hiccups are less likely to create false offline states while
+  still showing real device loss quickly.
 
 Recommended work:
 
-- Decide the production default for `device_timeout` based on the real ESP
-  heartbeat interval.
-- Likely use 60-180 seconds for device presence.
-- Keep a lower `node_offline_timeout_s` only for actuator-state indication if
-  that distinction remains useful.
-- Document the difference between:
+- DONE: Production `device_timeout` is set to `25s`. Current ESP status
+  heartbeat is typically `5s`, so this allows roughly five missed heartbeats
+  before a device is marked offline.
+- DONE: Keep `command_ack_timeout_ms = 700` for fast feedback timeout behavior.
+- DONE: Keep `node_offline_timeout_s = 5` documented as reserved/actuator-state
+  timing; the current registry uses `device_timeout`.
+- DONE: Document the difference between:
   - `device_timeout`
   - `node_offline_timeout_s`
   - `command_ack_timeout_ms`
 
 Acceptance:
 
-- `config.ini.example` matches the intended production recommendation.
-- Documentation clearly explains which timeout means device offline and which
-  one is only command ACK timing.
+- DONE: `config.ini.example` matches the intended production recommendation.
+- DONE: Documentation clearly explains which timeout means device offline and
+  which one is only command ACK timing.
 
 ## P2 - Scene MQTT Publish Failure Policy For Critical Actions
 

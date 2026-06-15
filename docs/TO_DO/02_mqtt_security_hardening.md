@@ -131,13 +131,15 @@ nie je zavisla od MQTT TLS, iba od toho, ci sa controller vie pripojit na broker
 
 S tymto planom suvisia hlavne dve veci:
 
-- `device_timeout = 15` moze byt prilis agresivny po zavedeni TLS/reconnectov,
+- `device_timeout = 25` je aktualny kompromis pre 5s ESP status heartbeat
+  bez prilis rychlych fake offline stavov,
 - dashboard credentials su stale hardcoded v `raspberry_pi/Web/config.py`.
 
 Odporucanie:
 
-- Pred alebo spolu s MQTTS zvysit produkcny `device_timeout` na realnu hodnotu,
-  napriklad 60 az 180 sekund podla heartbeat intervalov.
+- Ak TLS/reconnecty v praxi sposobia kratke vypadky, znovu zvazit
+  `device_timeout` a pripadne ho zvysit nad 25s podla realnych heartbeat
+  intervalov.
 - Dashboard Basic Auth je samostatna vrstva. Netreba ju miesat s MQTT auth, ale
   produkcne credentials by tiez nemali byt `admin/admin`.
 

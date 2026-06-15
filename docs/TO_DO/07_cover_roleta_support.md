@@ -617,8 +617,8 @@ Room1_Shelly_Covers_B
 ```
 
 Status publikovat periodicky, napriklad kazdych 5 az 10 sekund. Aktualny
-`config.ini.example` ma `device_timeout = 15`, preto musi byt interval kratsi
-ako timeout.
+`config.ini.example` ma `device_timeout = 25`, preto musi byt interval kratsi
+ako timeout a mal by mat rezervu aspon niekolko heartbeatov.
 
 ## 4.5 State topic
 

@@ -45,10 +45,10 @@ Defaults below are the values currently documented in
 | --- | --- | --- | --- |
 | `broker_ip` | `127.0.0.1` | string | MQTT broker host/IP. Watchdog also pings this target. |
 | `port` | `1883` | int | MQTT broker port. |
-| `device_timeout` | `15` | seconds | Device status timeout for online/offline registry. |
+| `device_timeout` | `25` | seconds | Device status timeout for online/offline registry. With 5s ESP status heartbeats this allows roughly five missed heartbeats before marking a device offline. |
 | `feedback_timeout` | `1` | seconds | Legacy/general feedback timeout. |
-| `command_ack_timeout_ms` | `700` | milliseconds | Per-command acknowledgement timeout for MQTT feedback tracking. |
-| `node_offline_timeout_s` | `5` | seconds | Node/device offline timeout used by actuator state handling. |
+| `command_ack_timeout_ms` | `700` | milliseconds | Per-command acknowledgement timeout for MQTT feedback tracking. This affects command feedback, not device online/offline presence. |
+| `node_offline_timeout_s` | `5` | seconds | Reserved actuator-state offline timing value. The current online/offline registry uses `device_timeout`. |
 
 ### `[GPIO]`
 
