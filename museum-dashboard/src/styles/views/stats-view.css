@@ -148,13 +148,50 @@
     margin: 0 var(--spacing-md);
 }
 
+.rank-title-row {
+    align-items: center;
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs-plus);
+    min-width: 0;
+}
+
 .rank-name { 
     font-weight: 600; 
     color: var(--text-primary); 
     font-size: var(--font-size-md-plus); 
-    margin-bottom: var(--spacing-xs-plus); 
+    margin-bottom: 0; 
     min-width: 0;
     overflow-wrap: anywhere;
+}
+
+.scene-role-badges {
+    display: inline-flex;
+    flex: 0 0 auto;
+    gap: var(--spacing-2xs);
+}
+
+.scene-role-badge {
+    align-items: center;
+    border: var(--border-width-sm) solid currentColor;
+    border-radius: var(--radius-2xs);
+    display: inline-flex;
+    font-size: var(--font-size-xs);
+    font-weight: 800;
+    height: 20px;
+    justify-content: center;
+    line-height: 1;
+    width: 20px;
+}
+
+.scene-role-badge.default {
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    color: var(--primary);
+}
+
+.scene-role-badge.ambient {
+    background: var(--success-bg);
+    color: var(--success);
 }
 
 .rank-bar-container { 

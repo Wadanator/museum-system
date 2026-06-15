@@ -8,25 +8,34 @@ export function useSystemStats() {
         connected_devices: {},
         scene_play_counts: {}
     });
+    const [statusMeta, setStatusMeta] = useState({
+        default_scene: null,
+        ambient: null
+    });
 
     useEffect(() => {
         const handleStats = (data) => setStats(data);
+        const handleStatus = (data) => setStatusMeta(data || {});
         
         const handleConnect = () => {
             // Re-request stats when socket reconnects
             socket.emit('request_stats');
+            socket.emit('request_status');
         };
 
         socket.on('stats_update', handleStats);
+        socket.on('status_update', handleStatus);
         socket.on('connect', handleConnect);
 
         // Initial fetch
         if (socket.connected) {
             socket.emit('request_stats');
+            socket.emit('request_status');
         }
 
         return () => {
             socket.off('stats_update', handleStats);
+            socket.off('status_update', handleStatus);
             socket.off('connect', handleConnect);
         };
     }, []);
@@ -48,6 +57,8 @@ export function useSystemStats() {
         stats, 
         sortedScenes, 
         sortedDevices, 
-        formatTime 
+        formatTime,
+        defaultScene: statusMeta.default_scene,
+        ambientScene: statusMeta.ambient?.enabled ? statusMeta.ambient.scene : null
     };
 }

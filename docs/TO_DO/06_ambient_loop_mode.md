@@ -1,6 +1,10 @@
-# Ambient Loop Mode Plan
+# Ambient Loop Mode Plan - DONE
 
 Date: 2026-06-14
+
+Status: DONE as of 2026-06-15. Backend policy, config, tests, Pi smoke
+validation, landing dashboard behavior, and Stats `D`/`A` scene-role badges are
+implemented for v1.
 
 ## Progress marking rule
 
@@ -44,9 +48,9 @@ Why this shape:
 
 ## Operating Modes
 
-| Mode | Behavior |
-| --- | --- |
-| `classic` | Current behavior. A scene starts from GPIO button, MQTT `scene START`, dashboard, or named scene command. It runs once and ends. |
+| Mode        | Behavior                                                                                                                                        |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `classic` | Current behavior. A scene starts from GPIO button, MQTT `scene START`, dashboard, or named scene command. It runs once and ends.              |
 | `ambient` | A configured scene starts automatically after boot and restarts after normal completion. Default start commands do not create duplicate starts. |
 
 Ambient mode is for exhibits where the Raspberry Pi behaves like a persistent
@@ -57,9 +61,9 @@ waiting screen, or a room that should always have a scene context active.
 
 Do not mix these two concepts:
 
-| Loop type | Best place | Use case |
-| --- | --- | --- |
-| Scene lifecycle loop | `AmbientLoopService` + `SceneRuntimeService` | Run a full scene from beginning to end, then start it again. |
+| Loop type                 | Best place                                                      | Use case                                                        |
+| ------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------- |
+| Scene lifecycle loop      | `AmbientLoopService` + `SceneRuntimeService`                | Run a full scene from beginning to end, then start it again.    |
 | Seamless media/state loop | Scene JSON transitions, or a future explicit media loop command | Continuous video/audio/state cycle with no visible restart gap. |
 
 Ambient mode is a lifecycle feature. It is not meant to make a video frame-loop
@@ -81,36 +85,37 @@ whole scene every few seconds.
 Relevant current files:
 
 - `raspberry_pi/main.py`
+
   - Owns `MuseumController`.
   - Delegates scene start/run/stop to runtime helper services.
   - Wires MQTT, button handler, scene parser, dashboard, and services.
-
 - `raspberry_pi/utils/runtime/scene_runtime_service.py`
+
   - Owns scene thread creation and scene execution flow.
   - Starts scenes through `_set_scene_running(True, ...)`.
   - On scene completion currently stops audio/video, marks lifecycle idle,
     force-turns actuators off, broadcasts `room/STOP`, clears current scene, and
     broadcasts dashboard status.
   - This is the most important integration point.
-
 - `raspberry_pi/utils/runtime/scene_lifecycle.py`
+
   - Owns synchronized `scene_running` transitions.
   - Writes `/tmp/museum_scene_state`.
   - Starts/stops heartbeat for watchdog freshness.
-
 - `raspberry_pi/utils/runtime/scene_stop_coordinator.py`
+
   - Owns explicit stop ordering for parser, audio, video, actuator force-off,
     and MQTT STOP broadcast.
-
 - `raspberry_pi/utils/scene_parser.py`
+
   - Loads and executes scene JSON through current state machine stack.
   - Should not know about startup mode.
-
 - `raspberry_pi/utils/mqtt/mqtt_message_handler.py`
+
   - Routes scene start commands and transition events.
   - Should not contain ambient loop policy.
-
 - `raspberry_pi/watchdog.py`
+
   - Reads `/tmp/museum_scene_state`.
   - Treats fresh `running` as an active scene and waits up to
     `scene_wait_max_seconds` before forcing a restart.
@@ -496,16 +501,16 @@ For all non-normal paths:
 
 Cleanup matrix:
 
-| Action | `scene_only` normal ambient cycle | `full_stop` normal ambient cycle | Error/explicit stop/shutdown |
-| --- | --- | --- | --- |
-| scene `onExit` / `END.onEnter` | yes, via normal scene flow | yes, via normal scene flow | best effort, depending on where failure happened |
-| `stop_audio_for_scene_finally()` | yes | yes | yes |
-| `video_handler.stop_video()` | yes | yes | yes |
-| `_set_scene_running(False, ...)` | yes | yes | yes |
-| clear current scene/status fields | yes | yes | yes |
-| dashboard status broadcast | yes | yes | yes |
-| `force_actuators_off(source='scene_end')` | no | yes | yes |
-| `broadcast_stop()` / `room/STOP` | no | yes | yes where current safety paths already do so |
+| Action                                      | `scene_only` normal ambient cycle | `full_stop` normal ambient cycle | Error/explicit stop/shutdown                     |
+| ------------------------------------------- | ----------------------------------- | ---------------------------------- | ------------------------------------------------ |
+| scene `onExit` / `END.onEnter`          | yes, via normal scene flow          | yes, via normal scene flow         | best effort, depending on where failure happened |
+| `stop_audio_for_scene_finally()`          | yes                                 | yes                                | yes                                              |
+| `video_handler.stop_video()`              | yes                                 | yes                                | yes                                              |
+| `_set_scene_running(False, ...)`          | yes                                 | yes                                | yes                                              |
+| clear current scene/status fields           | yes                                 | yes                                | yes                                              |
+| dashboard status broadcast                  | yes                                 | yes                                | yes                                              |
+| `force_actuators_off(source='scene_end')` | no                                  | yes                                | yes                                              |
+| `broadcast_stop()` / `room/STOP`        | no                                  | yes                                | yes where current safety paths already do so     |
 
 The matrix is intentionally conservative: local media cleanup still happens
 between scene cycles, but global external-device STOP is avoided in the normal
@@ -583,13 +588,13 @@ Keep this behavior:
 
 Default start commands:
 
-| Source | Current route | Ambient default |
-| --- | --- | --- |
-| GPIO start button | `on_button_press()` | Ignore when `ambient_ignore_default_start = true` |
-| MQTT `<room_id>/scene` + `START` | `button_callback()` | Ignore through `on_button_press()` |
-| Dashboard Run Scene / named scene | `start_scene_by_name(...)` | Allow as operator intent unless disabled |
-| MQTT `<room_id>/start_scene` | `named_scene_callback()` | Allow as explicit named scene request unless disabled |
-| Other MQTT topics | `scene_parser.register_mqtt_event(...)` | Unchanged |
+| Source                               | Current route                             | Ambient default                                       |
+| ------------------------------------ | ----------------------------------------- | ----------------------------------------------------- |
+| GPIO start button                    | `on_button_press()`                     | Ignore when `ambient_ignore_default_start = true`   |
+| MQTT `<room_id>/scene` + `START` | `button_callback()`                     | Ignore through `on_button_press()`                  |
+| Dashboard Run Scene / named scene    | `start_scene_by_name(...)`              | Allow as operator intent unless disabled              |
+| MQTT `<room_id>/start_scene`       | `named_scene_callback()`                | Allow as explicit named scene request unless disabled |
+| Other MQTT topics                    | `scene_parser.register_mqtt_event(...)` | Unchanged                                             |
 
 Do not modify `MQTTMessageHandler` for the basic ambient implementation.
 
@@ -765,21 +770,21 @@ Rules:
 
 ## Edge Cases
 
-| Situation | Recommended behavior |
-| --- | --- |
-| Ambient scene file missing | Log error, use full safety cleanup once for that failed attempt, wait `ambient_error_retry_seconds`, retry only if ambient is not suspended and service is not shutting down. |
-| Scene load validation fails | Treat like missing scene; use full safety cleanup and do not tight-loop. |
-| Scene fails to start state machine | Mark `start_failure`, use full safety cleanup, retry after `ambient_error_retry_seconds`. |
-| Scene crashes during execution | Mark `error`, use full safety cleanup, and stop ambient in v1. Add retry-on-exception only as a later explicit policy. |
-| Scene ends normally | Restart after `ambient_restart_delay_seconds` if it is the configured ambient scene. |
-| Operator presses Stop | Full safety stop; suspend ambient until service restart by default. |
-| Service shutdown signal during restart delay | Cancel restart and run cleanup. |
-| MQTT unavailable at boot | Follow `ambient_start_policy`. Default starts after initial connection attempt, matching existing offline mode. |
-| MQTT reconnects later | If policy is `wait_for_mqtt` and ambient has not started/suspended, start ambient then. |
-| Named scene command while ambient is running | Existing start guard rejects because a scene is already running. Log clearly. |
-| Named scene command while ambient is suspended/idle | Allow if `ambient_allow_named_scene_start = true`. |
-| Ambient scene is also default scene | Supported. Empty `ambient_scene` resolves to `[Json] json_file_name`. |
-| Dashboard reconnects | Runtime snapshot includes ambient status. |
+| Situation                                           | Recommended behavior                                                                                                                                                            |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ambient scene file missing                          | Log error, use full safety cleanup once for that failed attempt, wait `ambient_error_retry_seconds`, retry only if ambient is not suspended and service is not shutting down. |
+| Scene load validation fails                         | Treat like missing scene; use full safety cleanup and do not tight-loop.                                                                                                        |
+| Scene fails to start state machine                  | Mark `start_failure`, use full safety cleanup, retry after `ambient_error_retry_seconds`.                                                                                   |
+| Scene crashes during execution                      | Mark `error`, use full safety cleanup, and stop ambient in v1. Add retry-on-exception only as a later explicit policy.                                                        |
+| Scene ends normally                                 | Restart after `ambient_restart_delay_seconds` if it is the configured ambient scene.                                                                                          |
+| Operator presses Stop                               | Full safety stop; suspend ambient until service restart by default.                                                                                                             |
+| Service shutdown signal during restart delay        | Cancel restart and run cleanup.                                                                                                                                                 |
+| MQTT unavailable at boot                            | Follow `ambient_start_policy`. Default starts after initial connection attempt, matching existing offline mode.                                                               |
+| MQTT reconnects later                               | If policy is `wait_for_mqtt` and ambient has not started/suspended, start ambient then.                                                                                       |
+| Named scene command while ambient is running        | Existing start guard rejects because a scene is already running. Log clearly.                                                                                                   |
+| Named scene command while ambient is suspended/idle | Allow if `ambient_allow_named_scene_start = true`.                                                                                                                            |
+| Ambient scene is also default scene                 | Supported. Empty `ambient_scene` resolves to `[Json] json_file_name`.                                                                                                       |
+| Dashboard reconnects                                | Runtime snapshot includes ambient status.                                                                                                                                       |
 
 ## Testing Plan
 
@@ -867,19 +872,21 @@ Acceptance:
 - Normal ambient cycle does not broadcast global STOP by default.
 - Error paths still force off and broadcast STOP.
 
-### Phase 4 - Dashboard Controls - DONE (2026-06-14 landing ambient status/resume)
+### Phase 4 - Dashboard Controls - DONE (2026-06-14/15 landing ambient button/stats badges)
 
 Implemented after backend behavior was validated:
 
-- Add `AMBIENT` badge.
-- Add suspended/active/next restart display.
-- Add `Resume Ambient` control.
+- Use the existing landing hero button as the ambient start/resume control when
+  `ambient.enabled = true`.
+- Keep default/main scene names out of the landing page in ambient mode.
+- Show default/ambient scene roles as compact `D`/`A` badges in the Stats Top
+  scenes ranking.
 - Keep `Suspend Ambient` as the existing explicit Stop action in v1.
-- Show the landing-page ambient stat only when `ambient.enabled = true`.
 
 Acceptance:
 
-- Operator can tell why ambient is running, waiting, or suspended.
+- Operator can start/resume the configured ambient scene from the landing page.
+- Operator can see which ranked scenes are default and ambient in Stats.
 - Operator can resume the configured ambient scene after an explicit Stop.
 
 ### Phase 5 - Production Validation
@@ -1302,15 +1309,15 @@ Implementation decision (2026-06-14):
 - Treat this step as final hardware validation. Mark it `DONE` only after the
   target Pi passes the manual checks below.
 
-Dashboard controls addendum (2026-06-14):
+Dashboard controls addendum (2026-06-14, revised 2026-06-15):
 
-- Added minimalist landing-page ambient status inside the Stats grid.
-- The ambient stat is shown only when `/api/status` reports
-  `ambient.enabled = true`.
-- The Stats grid also shows the configured default scene name via
-  `/api/status.default_scene`.
-- The ambient stat shows only the ambient scene name, a compact state label, and
-  a small resume icon when ambient can be started again.
+- Landing page keeps only the existing hero control and basic room/MQTT/device
+  stats.
+- In ambient mode, the hero control starts/resumes the configured ambient scene
+  instead of starting the classic default scene.
+- Landing page does not show default or ambient scene filenames.
+- Stats view Top scenes list shows minimalist `D` and `A` badges for default
+  and ambient scene roles.
 - Added `POST /api/ambient/resume` to start the configured ambient scene again
   after an explicit Stop.
 - Added controller and policy tests for dashboard ambient resume.
@@ -1327,8 +1334,8 @@ Final Pi validation note (2026-06-14):
 - Dashboard/API Stop set `last_outcome = explicit_stop`,
   `ambient.suspended = true`, `scene_running = false`, and did not auto-restart
   after waiting longer than the restart delay.
-- Backend ambient mode is accepted. Landing dashboard now has ambient status and
-  resume control.
+- Backend ambient mode is accepted. Landing dashboard now uses the main hero
+  control for ambient start/resume.
 
 Automated verification:
 
@@ -1359,7 +1366,6 @@ Manual validation runbook:
        cfg.write(f)
    PY
    ```
-
 2. Restart service and confirm auto-start:
 
    ```bash
@@ -1375,7 +1381,6 @@ Manual validation runbook:
    - `scene_running = true`
    - `current_scene_name = ambient_mode_smoke_test.json`
    - `active_state = AMBIENT_WAIT`
-
 3. Confirm normal ambient restart twice:
 
    ```bash
@@ -1395,7 +1400,6 @@ Manual validation runbook:
      `next_restart_at` is not null, `scene_running = false`
    - later statuses: scene returns to `AMBIENT_WAIT`
    - logs show `ambient_restart:ambient_mode_smoke_test.json`
-
 4. Confirm `scene_only` does not spam global STOP between normal cycles:
 
    - During the normal restart test, dashboard logs should not show
@@ -1403,7 +1407,6 @@ Manual validation runbook:
      `ambient_restart`.
    - `Initiating GLOBAL STOP` is expected only for explicit Stop, service
      shutdown/cleanup, or recoverable failure cleanup.
-
 5. Confirm explicit Stop suspends ambient:
 
    ```bash
@@ -1418,7 +1421,6 @@ Manual validation runbook:
    - `ambient.suspended = true`
    - `ambient.last_outcome = explicit_stop`
    - no auto-restart after waiting longer than `ambient_restart_delay_seconds`
-
 6. Confirm service restart resumes ambient after suspension:
 
    ```bash
@@ -1428,13 +1430,11 @@ Manual validation runbook:
    ```
 
    Expected: ambient starts again and reaches `AMBIENT_WAIT`.
-
 7. Confirm MQTT reconnect does not duplicate-start:
 
    - Restart or briefly stop/start the MQTT broker if safe for the room.
    - Expected: no duplicate scene thread, no repeated ambient boot start, and
      status remains one active scene at most.
-
 8. Run an extended validation:
 
    - Let ambient mode run at least overnight, or for the longest practical
@@ -1452,8 +1452,9 @@ Final acceptance:
 - Normal ambient completion restarts after the configured delay.
 - Default START is ignored in ambient mode.
 - Explicit Stop suspends ambient.
-- Landing dashboard shows ambient state only when ambient mode is enabled.
-- Landing dashboard can resume ambient after explicit Stop.
+- Landing dashboard main button resumes ambient after explicit Stop.
+- Stats Top scenes marks default/ambient scene roles with compact `D`/`A`
+  badges.
 - Service restart resumes ambient.
 - Recoverable missing-scene retry works without a tight loop.
 - No global room STOP is emitted between normal `scene_only` ambient cycles.
@@ -1521,9 +1522,9 @@ Current validated choices:
    room1/default policy.
 6. `scene_wait_max_seconds = 7200` is the current watchdog wait limit, safely
    above the validated ambient restart gap.
-7. Landing dashboard shows ambient status and can resume the configured ambient
-   scene after explicit Stop. Dedicated Suspend remains the existing Stop action
-   in v1.
+7. In ambient mode, the landing dashboard keeps the same simple layout, but the
+   primary button controls the configured ambient scene instead of the classic
+   default scene. Dedicated Suspend remains the existing Stop action in v1.
 
 Future production-scene decisions:
 
@@ -1533,3 +1534,18 @@ Future production-scene decisions:
   device STOP between cycles.
 - Revisit display/cover/CEC interactions in their own TODO plans, not inside
   ambient loop policy.
+
+
+
+DONE (2026-06-15): Scene names are no longer shown on the landing page. The
+Stats view Top scenes list shows minimalist `D` and `A` badges for the default
+scene and ambient scene.
+
+DONE (2026-06-15): Ambient mode no longer shows a separate ambient status tile
+on the landing page. The large landing button becomes the ambient start/resume
+action; other scenes stay manually launchable from the Scenes tab.
+
+Fake TODO / history marker - DONE (2026-06-15): Add minimalist `D` and `A`
+markers to the Stats Top scenes ranking so the operator can see which scene is
+the configured default scene and which scene is the configured ambient scene
+without showing those filenames on the landing dashboard.

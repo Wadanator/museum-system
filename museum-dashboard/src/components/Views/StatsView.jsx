@@ -6,8 +6,51 @@ import Card from '../ui/Card'; // Použitie generickej karty
 import StateNotice from '../ui/StateNotice';
 import '../../styles/views/stats-view.css';
 
+function basename(path) {
+  return String(path || '').split(/[\\/]/).pop();
+}
+
+function sceneKey(path) {
+  return basename(path).toLowerCase();
+}
+
+function SceneRoleBadges({ name, defaultScene, ambientScene }) {
+  const normalizedName = sceneKey(name);
+  const badges = [];
+
+  if (defaultScene && normalizedName === sceneKey(defaultScene)) {
+    badges.push({ label: 'D', title: 'Default scéna', className: 'default' });
+  }
+  if (ambientScene && normalizedName === sceneKey(ambientScene)) {
+    badges.push({ label: 'A', title: 'Ambient scéna', className: 'ambient' });
+  }
+
+  if (badges.length === 0) return null;
+
+  return (
+    <div className="scene-role-badges" aria-label="Roly scény">
+      {badges.map((badge) => (
+        <span
+          className={`scene-role-badge ${badge.className}`}
+          title={badge.title}
+          key={badge.label}
+        >
+          {badge.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 export default function StatsView() {
-  const { stats, sortedScenes, sortedDevices, formatTime } = useSystemStats();
+  const {
+    stats,
+    sortedScenes,
+    sortedDevices,
+    formatTime,
+    defaultScene,
+    ambientScene
+  } = useSystemStats();
 
   return (
     <div className="view-container">
@@ -77,7 +120,14 @@ export default function StatsView() {
                         <div className="ranking-item" key={name}>
                             <div className="rank-number">{index + 1}.</div>
                             <div className="rank-info">
-                                <div className="rank-name">{name.replace('.json', '')}</div>
+                                <div className="rank-title-row">
+                                    <div className="rank-name">{name.replace('.json', '')}</div>
+                                    <SceneRoleBadges
+                                      name={name}
+                                      defaultScene={defaultScene}
+                                      ambientScene={ambientScene}
+                                    />
+                                </div>
                                 <div className="rank-bar-container">
                                     <div 
                                         className="rank-bar" 

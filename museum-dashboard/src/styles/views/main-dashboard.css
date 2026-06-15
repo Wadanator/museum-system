@@ -227,11 +227,6 @@ button.stop-scene-button.btn-unstyled .button-subtext {
   background: linear-gradient(135deg, var(--danger-bg), var(--bg-card));
 }
 
-.status-item.neutral {
-  border-color: var(--border-color);
-  background: var(--bg-card);
-}
-
 .status-header {
   font-size: var(--font-size-sm);
   color: var(--text-secondary);
@@ -252,59 +247,6 @@ button.stop-scene-button.btn-unstyled .button-subtext {
   align-items: center;
   gap: var(--spacing-sm);
   justify-content: center;
-}
-
-.scene-status {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-width: 0;
-}
-
-.status-value-file {
-  align-items: center;
-  display: inline-flex;
-  font-size: var(--font-size-md-plus);
-  gap: var(--spacing-sm);
-  justify-content: center;
-  line-height: var(--line-height-tight);
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.status-value-file svg {
-  flex: 0 0 auto;
-}
-
-.status-subrow {
-  align-items: center;
-  color: var(--text-secondary);
-  display: inline-flex;
-  font-size: var(--font-size-sm);
-  font-weight: 600;
-  gap: var(--spacing-sm);
-  justify-content: center;
-  margin-top: var(--spacing-sm);
-}
-
-button.ambient-stat-button.btn-unstyled {
-  align-items: center;
-  appearance: none;
-  background: var(--success);
-  border: 0;
-  border-radius: var(--radius-md);
-  color: var(--text-white);
-  display: inline-flex;
-  height: 30px;
-  justify-content: center;
-  padding: 0;
-  width: 30px;
-}
-
-button.ambient-stat-button.btn-unstyled:disabled {
-  background: var(--secondary);
-  cursor: not-allowed;
-  opacity: 0.55;
 }
 
 /* =======================================
