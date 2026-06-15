@@ -3,6 +3,10 @@
 // Diagnostic output.
 const bool DEBUG = false;
 
+// PWM telemetry.
+const bool PWM_TELEMETRY = false;
+const unsigned long PWM_TELEMETRY_INTERVAL = 100;
+
 // WiFi configuration.
 const char* WIFI_SSID = "Museum-Room1";
 const char* WIFI_PASSWORD = "88888888";
@@ -20,6 +24,8 @@ const int MOTOR1_ENABLE_PIN = 21;
 const int MOTOR2_LEFT_PIN = 27;
 const int MOTOR2_RIGHT_PIN = 26;
 const int MOTOR2_ENABLE_PIN = 25;
+
+
 
 // PWM output settings.
 const int PWM_FREQUENCY = 20000;

@@ -12,6 +12,47 @@ MotorState motor2State = {false, 0, 0, 0, 'S', 0, false, 0, 0, false, 0, 0, 0};
 
 void updateMotorPWM(int motorNum, int speed, char direction);
 
+static int signedPwmFromState(const MotorState& state) {
+  int safeSpeed = constrain(state.currentSpeed, 0, 100);
+  int pwmValue = map(safeSpeed, 0, 100, 0, 255);
+  pwmValue = constrain(pwmValue, 0, 255);
+
+  if (safeSpeed == 0 || state.direction == 'S') {
+    return 0;
+  }
+
+  return (state.direction == 'L') ? -pwmValue : pwmValue;
+}
+
+static int signedTargetPwmFromState(const MotorState& state) {
+  int safeSpeed = constrain(state.targetSpeed, 0, 100);
+  int pwmValue = map(safeSpeed, 0, 100, 0, 255);
+  pwmValue = constrain(pwmValue, 0, 255);
+
+  if (safeSpeed == 0 || state.direction == 'S') {
+    return 0;
+  }
+
+  return (state.direction == 'L') ? -pwmValue : pwmValue;
+}
+
+static void printPwmTelemetry(unsigned long currentTime) {
+  if (!PWM_TELEMETRY) return;
+
+  static unsigned long lastTelemetryTime = 0;
+  if (currentTime - lastTelemetryTime < PWM_TELEMETRY_INTERVAL) return;
+  lastTelemetryTime = currentTime;
+
+  Serial.print("M1_PWM:");
+  Serial.print(signedPwmFromState(motor1State));
+  Serial.print("\tM1_TARGET:");
+  Serial.print(signedTargetPwmFromState(motor1State));
+  Serial.print("\tM2_PWM:");
+  Serial.print(signedPwmFromState(motor2State));
+  Serial.print("\tM2_TARGET:");
+  Serial.println(signedTargetPwmFromState(motor2State));
+}
+
 static bool parseSpeed(const char* speed, int& value) {
   if (speed == nullptr || speed[0] == '\0') return false;
 
@@ -111,95 +152,216 @@ void updateMotorPWM(int motorNum, int speed, char direction) {
 void updateMotorSmoothly() {
   unsigned long currentTime = millis();
 
+  // -------------------- MOTOR 1 --------------------
   if (currentTime - motor1State.lastUpdate >= SMOOTH_DELAY) {
     bool rampStepHandled = false;
 
-    // Direction reversal is staged through zero speed before applying the requested direction.
+    // Direction reversal is staged through zero speed.
     if (motor1State.pendingDirectionChange) {
-       if (motor1State.currentSpeed == 0) {
-          motor1State.direction = motor1State.newDirection;
-          motor1State.targetSpeed = motor1State.savedSpeed;
-          motor1State.pendingDirectionChange = false;
-          debugPrint("Motor1 reached 0, flipping direction to: " + String(motor1State.direction) + ", resuming to: " + String(motor1State.targetSpeed));
-       }
-       else {
-          motor1State.targetSpeed = 0;
-          motor1State.rampActive = false;
-       }
+      if (motor1State.currentSpeed == 0) {
+        motor1State.direction = motor1State.newDirection;
+        motor1State.targetSpeed = motor1State.savedSpeed;
+        motor1State.pendingDirectionChange = false;
+
+        debugPrint(
+          "Motor1 reached 0, flipping direction to: " +
+          String(motor1State.direction) +
+          ", resuming to: " +
+          String(motor1State.targetSpeed)
+        );
+      } else {
+        motor1State.targetSpeed = 0;
+        motor1State.rampActive = false;
+      }
     }
 
-    // Command-defined ramps are used only while the direction is stable.
-    if (motor1State.rampActive && !motor1State.pendingDirectionChange) {
-      if (currentTime >= motor1State.rampStartTime + motor1State.rampDurationMs) {
-        motor1State.currentSpeed = motor1State.targetSpeed;
+    // Command-defined ramp.
+    if (motor1State.rampActive &&
+        !motor1State.pendingDirectionChange) {
+
+      if (currentTime >=
+          motor1State.rampStartTime +
+          motor1State.rampDurationMs) {
+
+        motor1State.currentSpeed =
+          motor1State.targetSpeed;
+
         motor1State.rampActive = false;
+
+        updateMotorPWM(
+          1,
+          motor1State.currentSpeed,
+          motor1State.direction
+        );
+
+        motor1State.lastUpdate = currentTime;
+        rampStepHandled = true;
+
         debugPrint("Motor1 Ramp finished.");
       } else {
-        unsigned long elapsedTime = currentTime - motor1State.rampStartTime;
-        long deltaSpeed = motor1State.targetSpeed - motor1State.rampStartSpeed;
-        motor1State.currentSpeed = motor1State.rampStartSpeed + (int)((deltaSpeed * elapsedTime) / motor1State.rampDurationMs);
-        updateMotorPWM(1, motor1State.currentSpeed, motor1State.direction);
+        unsigned long elapsedTime =
+          currentTime - motor1State.rampStartTime;
+
+        long deltaSpeed =
+          motor1State.targetSpeed -
+          motor1State.rampStartSpeed;
+
+        motor1State.currentSpeed =
+          motor1State.rampStartSpeed +
+          (int)(
+            (deltaSpeed * elapsedTime) /
+            motor1State.rampDurationMs
+          );
+
+        updateMotorPWM(
+          1,
+          motor1State.currentSpeed,
+          motor1State.direction
+        );
+
         motor1State.lastUpdate = currentTime;
         rampStepHandled = true;
       }
     }
 
-    if (!rampStepHandled && motor1State.currentSpeed != motor1State.targetSpeed) {
-      if (motor1State.currentSpeed < motor1State.targetSpeed) {
-        motor1State.currentSpeed = min(motor1State.currentSpeed + SMOOTH_STEP, motor1State.targetSpeed);
+    // Normal smooth stepping.
+    if (!rampStepHandled &&
+        motor1State.currentSpeed !=
+        motor1State.targetSpeed) {
+
+      if (motor1State.currentSpeed <
+          motor1State.targetSpeed) {
+
+        motor1State.currentSpeed = min(
+          motor1State.currentSpeed + SMOOTH_STEP,
+          motor1State.targetSpeed
+        );
       } else {
-        motor1State.currentSpeed = max(motor1State.currentSpeed - SMOOTH_STEP, motor1State.targetSpeed);
+        motor1State.currentSpeed = max(
+          motor1State.currentSpeed - SMOOTH_STEP,
+          motor1State.targetSpeed
+        );
       }
-      updateMotorPWM(1, motor1State.currentSpeed, motor1State.direction);
+
+      updateMotorPWM(
+        1,
+        motor1State.currentSpeed,
+        motor1State.direction
+      );
+
       motor1State.lastUpdate = currentTime;
     }
+
     markMotorStopped(1, motor1State);
   }
 
+  // -------------------- MOTOR 2 --------------------
   if (currentTime - motor2State.lastUpdate >= SMOOTH_DELAY) {
     bool rampStepHandled = false;
 
-    // Direction reversal is staged through zero speed before applying the requested direction.
+    // Direction reversal is staged through zero speed.
     if (motor2State.pendingDirectionChange) {
-       if (motor2State.currentSpeed == 0) {
-          motor2State.direction = motor2State.newDirection;
-          motor2State.targetSpeed = motor2State.savedSpeed;
-          motor2State.pendingDirectionChange = false;
-          debugPrint("Motor2 reached 0, flipping direction to: " + String(motor2State.direction));
-       } else {
-          motor2State.targetSpeed = 0;
-          motor2State.rampActive = false;
-       }
+      if (motor2State.currentSpeed == 0) {
+        motor2State.direction = motor2State.newDirection;
+        motor2State.targetSpeed = motor2State.savedSpeed;
+        motor2State.pendingDirectionChange = false;
+
+        debugPrint(
+          "Motor2 reached 0, flipping direction to: " +
+          String(motor2State.direction) +
+          ", resuming to: " +
+          String(motor2State.targetSpeed)
+        );
+      } else {
+        motor2State.targetSpeed = 0;
+        motor2State.rampActive = false;
+      }
     }
 
-    // Command-defined ramps are used only while the direction is stable.
-    if (motor2State.rampActive && !motor2State.pendingDirectionChange) {
-      if (currentTime >= motor2State.rampStartTime + motor2State.rampDurationMs) {
-        motor2State.currentSpeed = motor2State.targetSpeed;
+    // Command-defined ramp.
+    if (motor2State.rampActive &&
+        !motor2State.pendingDirectionChange) {
+
+      if (currentTime >=
+          motor2State.rampStartTime +
+          motor2State.rampDurationMs) {
+
+        motor2State.currentSpeed =
+          motor2State.targetSpeed;
+
         motor2State.rampActive = false;
+
+        updateMotorPWM(
+          2,
+          motor2State.currentSpeed,
+          motor2State.direction
+        );
+
+        motor2State.lastUpdate = currentTime;
+        rampStepHandled = true;
+
         debugPrint("Motor2 Ramp finished.");
       } else {
-        unsigned long elapsedTime = currentTime - motor2State.rampStartTime;
-        long deltaSpeed = motor2State.targetSpeed - motor2State.rampStartSpeed;
-        motor2State.currentSpeed = motor2State.rampStartSpeed + (int)((deltaSpeed * elapsedTime) / motor2State.rampDurationMs);
-        updateMotorPWM(2, motor2State.currentSpeed, motor2State.direction);
+        unsigned long elapsedTime =
+          currentTime - motor2State.rampStartTime;
+
+        long deltaSpeed =
+          motor2State.targetSpeed -
+          motor2State.rampStartSpeed;
+
+        motor2State.currentSpeed =
+          motor2State.rampStartSpeed +
+          (int)(
+            (deltaSpeed * elapsedTime) /
+            motor2State.rampDurationMs
+          );
+
+        updateMotorPWM(
+          2,
+          motor2State.currentSpeed,
+          motor2State.direction
+        );
+
         motor2State.lastUpdate = currentTime;
         rampStepHandled = true;
       }
     }
 
-    if (!rampStepHandled && motor2State.currentSpeed != motor2State.targetSpeed) {
-      if (motor2State.currentSpeed < motor2State.targetSpeed) {
-        motor2State.currentSpeed = min(motor2State.currentSpeed + SMOOTH_STEP, motor2State.targetSpeed);
+    // Normal smooth stepping.
+    if (!rampStepHandled &&
+        motor2State.currentSpeed !=
+        motor2State.targetSpeed) {
+
+      if (motor2State.currentSpeed <
+          motor2State.targetSpeed) {
+
+        motor2State.currentSpeed = min(
+          motor2State.currentSpeed + SMOOTH_STEP,
+          motor2State.targetSpeed
+        );
       } else {
-        motor2State.currentSpeed = max(motor2State.currentSpeed - SMOOTH_STEP, motor2State.targetSpeed);
+        motor2State.currentSpeed = max(
+          motor2State.currentSpeed - SMOOTH_STEP,
+          motor2State.targetSpeed
+        );
       }
-      updateMotorPWM(2, motor2State.currentSpeed, motor2State.direction);
+
+      updateMotorPWM(
+        2,
+        motor2State.currentSpeed,
+        motor2State.direction
+      );
+
       motor2State.lastUpdate = currentTime;
     }
+
     markMotorStopped(2, motor2State);
   }
+
+  // Print exactly once per telemetry interval.
+  printPwmTelemetry(currentTime);
 }
+
 
 bool controlMotor1(const char* command, const char* speed, const char* direction, const char* rampTime) {
   debugPrint("Motor1 CMD: " + String(command) + " Spd:" + String(speed) + " Dir:" + String(direction));

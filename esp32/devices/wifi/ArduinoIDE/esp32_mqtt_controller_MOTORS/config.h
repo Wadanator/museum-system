@@ -6,6 +6,10 @@
 // Diagnostic output.
 extern const bool DEBUG;
 
+// PWM telemetry for Serial Plotter.
+extern const bool PWM_TELEMETRY;
+extern const unsigned long PWM_TELEMETRY_INTERVAL;
+
 // WiFi configuration.
 extern const char* WIFI_SSID;
 extern const char* WIFI_PASSWORD;
