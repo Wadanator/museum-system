@@ -28,9 +28,9 @@ already implemented or downgraded are tracked in
   is stable.
 - P3: useful improvement, but not a deployment blocker.
 
-## P1 - Web Dashboard Crash Loop Still Has Infinite Retry
+## P1 - Web Dashboard Crash Loop Still Has Infinite Retry - DONE (2026-06-15)
 
-Status: open
+Status: done
 
 Where:
 
@@ -38,8 +38,12 @@ Where:
 
 Current state:
 
-- `run_dashboard()` still runs inside `while True`.
-- On exception it logs the error and retries after 10 seconds forever.
+- `run_dashboard()` now delegates to a bounded retry helper.
+- The first failures use a short 2s/4s/8s fast retry budget.
+- After that, the dashboard is marked `degraded` and retried every 300s with
+  rate-limited logging.
+- `/api/status` includes a `web_dashboard` diagnostic object when the web layer
+  is available.
 
 Why this is real:
 
@@ -56,9 +60,9 @@ Recommended work:
 
 Acceptance:
 
-- A simulated bind failure does not spam logs forever.
-- The museum runtime continues without the dashboard.
-- Logs clearly show that the web layer is degraded.
+- DONE: A simulated bind failure does not spam logs forever.
+- DONE: The museum runtime continues without the dashboard.
+- DONE: Logs clearly show that the web layer is degraded.
 
 ## P1 - Align Production MQTT Timing Defaults
 

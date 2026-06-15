@@ -32,6 +32,14 @@ class WebDashboard:
         self._connected_sids = set()
         self._sids_lock = threading.Lock()
         self._stats_lock = threading.Lock()
+        self._web_server_status_lock = threading.Lock()
+        self._web_server_status = {
+            'state': 'starting',
+            'last_error': None,
+            'failed_starts': 0,
+            'next_retry_seconds': None,
+            'last_changed': time.time(),
+        }
         
         self.log_buffer: List[Dict] = []  # In-memory log storage
         self.stats = {
@@ -194,6 +202,7 @@ class WebDashboard:
             ),
             'startup_mode': config.get('startup_mode', 'classic'),
             'ambient': self._get_ambient_status_data(),
+            'web_dashboard': self.get_web_server_status(),
             'uptime': self.get_uptime(),
             'log_count': len(self.log_buffer)
         }
@@ -211,6 +220,28 @@ class WebDashboard:
             'next_restart_at': None,
             'last_outcome': 'never_started',
         }
+
+    def set_web_server_status(
+        self,
+        state: str,
+        *,
+        last_error=None,
+        failed_starts: int = 0,
+        next_retry_seconds=None,
+    ) -> None:
+        """Record Flask/SocketIO serving health for diagnostics."""
+        with self._web_server_status_lock:
+            self._web_server_status = {
+                'state': state,
+                'last_error': str(last_error) if last_error else None,
+                'failed_starts': int(failed_starts),
+                'next_retry_seconds': next_retry_seconds,
+                'last_changed': time.time(),
+            }
+
+    def get_web_server_status(self) -> dict:
+        with self._web_server_status_lock:
+            return dict(self._web_server_status)
 
     def get_device_runtime_states(self) -> list:
         """Return the current actuator runtime states without mutating dashboard stats."""
