@@ -292,8 +292,8 @@ class MQTTClient:
 
             self._last_connect_rc = None
             self.client.connect(self.broker_host, self.broker_port, timeout)
-            self.client.loop_start()
             self._network_loop_started = True
+            self.client.loop_start()
 
             # Wait for connection confirmation with timeout
             start_time = time.time()

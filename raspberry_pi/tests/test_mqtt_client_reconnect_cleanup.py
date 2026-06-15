@@ -33,9 +33,11 @@ class _LoggerStub:
 
 
 class _FakePahoClient:
-    def __init__(self, connect_rc=None, connect_error=None):
+    def __init__(self, connect_rc=None, connect_error=None,
+                 callback_shape="v2"):
         self.connect_rc = connect_rc
         self.connect_error = connect_error
+        self.callback_shape = callback_shape
         self._sock = None
         self.on_connect = None
         self.on_disconnect = None
@@ -56,7 +58,10 @@ class _FakePahoClient:
     def loop_start(self):
         self.loop_start_calls += 1
         if self.connect_rc is not None and self.on_connect:
-            self.on_connect(self, None, {}, self.connect_rc, None)
+            if self.callback_shape == "v1":
+                self.on_connect(self, None, {}, self.connect_rc)
+            else:
+                self.on_connect(self, None, {}, self.connect_rc, None)
         return 0
 
     def loop_stop(self):
@@ -72,13 +77,27 @@ class _FakePahoClient:
 
 
 def _mqtt_client(fake_client):
-    client = MQTTClient(
-        "broker.local",
-        room_id="room1",
-        logger=_LoggerStub(),
-        retry_attempts=1,
-        connect_timeout=0.01,
-    )
+    client = MQTTClient.__new__(MQTTClient)
+    client.broker_host = "broker.local"
+    client.broker_port = 1883
+    client.room_id = "room1"
+    client.connected = False
+    client.logger = _LoggerStub()
+    client.retry_attempts = 1
+    client.retry_sleep = 0
+    client.connect_timeout = 0.01
+    client.reconnect_timeout = 0.01
+    client.reconnect_sleep = 0
+    client.check_interval = 60
+    client.shutdown_requested = False
+    client.connection_lost_callback = None
+    client.connection_restored_callback = None
+    client._network_loop_started = False
+    client._last_connect_rc = None
+    client._callback_api_version = 2
+    client.message_handler = None
+    client.feedback_tracker = None
+    client.device_registry = None
     client.client = fake_client
     fake_client.on_connect = client._on_connect
     fake_client.on_disconnect = client._on_disconnect
@@ -152,3 +171,14 @@ def test_legacy_disconnect_callback_shape_is_still_accepted():
 
     assert client.connected is False
     assert lost_events == [True]
+
+
+def test_legacy_connect_callback_shape_is_still_accepted():
+    fake_client = _FakePahoClient(connect_rc=0, callback_shape="v1")
+    client = _mqtt_client(fake_client)
+
+    assert client.connect(timeout=1) is True
+
+    assert fake_client.loop_start_calls == 1
+    assert fake_client.loop_stop_calls == 0
+    assert client.connected is True

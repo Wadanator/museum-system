@@ -26,6 +26,8 @@ class WebDashboard:
     REQUEST_LOG_HISTORY_LIMIT = 250
     LOG_FANOUT_QUEUE_LIMIT = 500
     LOG_FANOUT_DROP_WARNING_INTERVAL_SECONDS = 60
+    RUNTIME_STATE_FANOUT_QUEUE_LIMIT = 500
+    RUNTIME_STATE_FANOUT_DROP_WARNING_INTERVAL_SECONDS = 60
     
     def __init__(self, controller, app, socketio):
         self.controller = controller
@@ -46,6 +48,7 @@ class WebDashboard:
         
         self.log_buffer: List[Dict] = []  # In-memory log storage
         self._setup_log_fanout()
+        self._setup_runtime_state_fanout()
         self.stats = {
             'total_scenes_played': 0,
             'scene_play_counts': {},
@@ -89,6 +92,39 @@ class WebDashboard:
             self._last_log_drop_warning_ts = 0.0
         if not hasattr(self, '_log_fanout_thread'):
             self._log_fanout_thread = None
+
+    def _setup_runtime_state_fanout(self, start_worker: bool = True) -> None:
+        """Initialize async websocket fanout for actuator runtime states."""
+        self._runtime_state_fanout_queue = queue.Queue(
+            maxsize=self.RUNTIME_STATE_FANOUT_QUEUE_LIMIT
+        )
+        self._runtime_state_fanout_stop = threading.Event()
+        self._dropped_runtime_state_fanout_events = 0
+        self._last_runtime_state_drop_warning_ts = 0.0
+        self._runtime_state_fanout_thread = None
+
+        if start_worker:
+            self._runtime_state_fanout_thread = threading.Thread(
+                target=self._runtime_state_fanout_loop,
+                name='dashboard-runtime-state-fanout',
+                daemon=True,
+            )
+            self._runtime_state_fanout_thread.start()
+
+    def _ensure_runtime_state_fanout_state(self) -> None:
+        """Create runtime fanout fields for tests that instantiate with __new__."""
+        if not hasattr(self, '_runtime_state_fanout_queue'):
+            self._runtime_state_fanout_queue = queue.Queue(
+                maxsize=self.RUNTIME_STATE_FANOUT_QUEUE_LIMIT
+            )
+        if not hasattr(self, '_runtime_state_fanout_stop'):
+            self._runtime_state_fanout_stop = threading.Event()
+        if not hasattr(self, '_dropped_runtime_state_fanout_events'):
+            self._dropped_runtime_state_fanout_events = 0
+        if not hasattr(self, '_last_runtime_state_drop_warning_ts'):
+            self._last_runtime_state_drop_warning_ts = 0.0
+        if not hasattr(self, '_runtime_state_fanout_thread'):
+            self._runtime_state_fanout_thread = None
 
     def _append_log_entry_unlocked(self, log_entry: Dict) -> None:
         self.log_buffer.append(log_entry)
@@ -192,6 +228,127 @@ class WebDashboard:
         self._ensure_log_fanout_state()
         self._log_fanout_stop.set()
         thread = self._log_fanout_thread
+        if thread and thread.is_alive():
+            thread.join(timeout=timeout)
+
+    def _queue_runtime_state_fanout(self, state_snapshot: dict) -> None:
+        self._ensure_runtime_state_fanout_state()
+        try:
+            self._runtime_state_fanout_queue.put_nowait(dict(state_snapshot))
+            return
+        except queue.Full:
+            self._drop_oldest_runtime_state_fanout_event()
+            self._record_runtime_state_fanout_drop()
+
+        try:
+            self._runtime_state_fanout_queue.put_nowait(dict(state_snapshot))
+        except queue.Full:
+            self._record_runtime_state_fanout_drop()
+
+    def _drop_oldest_runtime_state_fanout_event(self) -> None:
+        self._ensure_runtime_state_fanout_state()
+        try:
+            self._runtime_state_fanout_queue.get_nowait()
+            self._runtime_state_fanout_queue.task_done()
+        except queue.Empty:
+            pass
+
+    def _record_runtime_state_fanout_drop(self) -> None:
+        """Record a rate-limited warning when runtime-state fanout lags."""
+        self._ensure_log_fanout_state()
+        self._ensure_runtime_state_fanout_state()
+        now = time.monotonic()
+        warning_entry = None
+
+        with self._log_lock:
+            self._dropped_runtime_state_fanout_events += 1
+            if (
+                self._last_runtime_state_drop_warning_ts
+                and now - self._last_runtime_state_drop_warning_ts
+                < self.RUNTIME_STATE_FANOUT_DROP_WARNING_INTERVAL_SECONDS
+            ):
+                return
+
+            dropped = self._dropped_runtime_state_fanout_events
+            self._dropped_runtime_state_fanout_events = 0
+            self._last_runtime_state_drop_warning_ts = now
+            warning_entry = {
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
+                'level': 'WARNING',
+                'module': 'web',
+                'message': (
+                    'Dashboard runtime-state websocket queue full; '
+                    f'dropped {dropped} state update(s)'
+                ),
+            }
+            self._append_log_entry_unlocked(warning_entry)
+
+        try:
+            self._log_fanout_queue.put_nowait(warning_entry)
+        except queue.Full:
+            pass
+
+    def _drain_runtime_state_fanout_once(self, timeout: float = 0.5) -> bool:
+        """
+        Drain queued runtime-state websocket work.
+
+        Returns True when at least one queued update was handled. Updates for
+        the same topic are coalesced so the dashboard sees the newest state.
+        """
+        self._ensure_runtime_state_fanout_state()
+        try:
+            first_snapshot = self._runtime_state_fanout_queue.get(timeout=timeout)
+        except queue.Empty:
+            return False
+
+        snapshots = [first_snapshot]
+        while True:
+            try:
+                snapshots.append(self._runtime_state_fanout_queue.get_nowait())
+            except queue.Empty:
+                break
+
+        latest_by_topic = {}
+        topic_order = []
+        no_topic_snapshots = []
+
+        for snapshot in snapshots:
+            topic = snapshot.get('topic') if isinstance(snapshot, dict) else None
+            if topic:
+                if topic not in latest_by_topic:
+                    topic_order.append(topic)
+                latest_by_topic[topic] = snapshot
+            else:
+                no_topic_snapshots.append(snapshot)
+
+        try:
+            for snapshot in no_topic_snapshots:
+                self._broadcast_event('device_runtime_state_update', snapshot)
+            for topic in topic_order:
+                self._broadcast_event(
+                    'device_runtime_state_update',
+                    latest_by_topic[topic],
+                )
+        except Exception:
+            # Dashboard fanout must never propagate into MQTT/runtime code.
+            pass
+        finally:
+            for _snapshot in snapshots:
+                self._runtime_state_fanout_queue.task_done()
+
+        return True
+
+    def _runtime_state_fanout_loop(self) -> None:
+        """Background worker for queued actuator runtime-state websocket events."""
+        self._ensure_runtime_state_fanout_state()
+        while not self._runtime_state_fanout_stop.is_set():
+            self._drain_runtime_state_fanout_once(timeout=0.5)
+
+    def stop_runtime_state_fanout_worker(self, timeout: float = 1.0) -> None:
+        """Stop the runtime-state fanout worker; mainly useful for tests."""
+        self._ensure_runtime_state_fanout_state()
+        self._runtime_state_fanout_stop.set()
+        thread = self._runtime_state_fanout_thread
         if thread and thread.is_alive():
             thread.join(timeout=timeout)
 
@@ -625,5 +782,5 @@ class WebDashboard:
         self._broadcast_event('stats_update', self.stats)
 
     def broadcast_device_runtime_state(self, state_snapshot: dict) -> None:
-        """Push an incremental actuator state update to all connected clients."""
-        self._broadcast_event('device_runtime_state_update', state_snapshot)
+        """Queue an incremental actuator state update for dashboard clients."""
+        self._queue_runtime_state_fanout(state_snapshot)

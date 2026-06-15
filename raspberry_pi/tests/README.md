@@ -19,6 +19,7 @@ pytest -q \
   tests/test_ambient_loop_service.py \
   tests/test_ambient_status_wiring.py \
   tests/test_dashboard_log_fanout.py \
+  tests/test_dashboard_runtime_state_fanout.py \
   tests/test_schema_validator.py \
   tests/test_mqtt_client_reconnect_cleanup.py \
   tests/test_mqtt_feedback_state.py \

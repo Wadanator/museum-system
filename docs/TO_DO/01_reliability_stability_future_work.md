@@ -283,21 +283,23 @@ Acceptance:
 - DONE - Unit tests cover queued fanout, non-synchronous emit, full queue
   behavior, and websocket emit failures.
 
-## P2 - Actuator State WebSocket Fanout Still Runs On MQTT Callback Path
+## P2 - Actuator State WebSocket Fanout Still Runs On MQTT Callback Path - DONE (2026-06-15)
 
-Status: open
+Status: done
 
 Where:
 
 - `raspberry_pi/utils/mqtt/mqtt_actuator_state_store.py`
 - `raspberry_pi/utils/runtime/dashboard_notifier.py`
 - `raspberry_pi/Web/dashboard.py`
+- `raspberry_pi/tests/test_dashboard_runtime_state_fanout.py`
 
 Current state:
 
-- `MQTTActuatorStateStore._notify()` calls its update callback synchronously.
+- `MQTTActuatorStateStore._notify()` still calls its update callback
+  synchronously, but that callback now only queues dashboard websocket work.
 - The callback path reaches `WebDashboard.broadcast_device_runtime_state(...)`,
-  which emits SocketIO events to connected dashboard clients.
+  which appends the update to a bounded dashboard-owned queue.
 - This happens from MQTT/device-state paths such as retained state reports,
   feedback confirmations, offline/online state changes, and forced-off updates.
 
@@ -310,10 +312,22 @@ Why this is real:
 - During an ESP reconnect burst or retained-state replay, many state updates
   can arrive close together.
 
-Recommended work:
+Implemented work:
 
-- Move `device_runtime_state_update` delivery onto a bounded async queue,
-  preferably through a small generic dashboard event queue.
+- DONE: Move `device_runtime_state_update` delivery onto a bounded async
+  dashboard queue.
+- DONE: Coalesce by topic while draining so the newest actuator state wins
+  instead of preserving every intermediate update.
+- DONE: When the queue is full, drop the oldest visual update and keep the
+  newer state update.
+- DONE: Add a rate-limited dashboard warning/counter when state updates are
+  dropped under pressure.
+- DONE: Keep actuator state storage and scene/MQTT execution synchronous; only
+  the dashboard websocket fanout is asynchronous.
+
+Original recommendation:
+
+- Move `device_runtime_state_update` delivery onto a bounded async queue.
 - Coalesce by topic when overloaded so the newest actuator state wins instead
   of preserving every intermediate update.
 - Add a rate-limited warning/counter when state updates are dropped or
@@ -321,10 +335,10 @@ Recommended work:
 
 Acceptance:
 
-- A slow/broken dashboard client cannot block MQTT message handling.
-- A flood of state reports does not grow memory unbounded.
-- After backpressure clears, the dashboard receives the latest known state for
-  each topic.
+- DONE: A slow/broken dashboard client cannot block MQTT message handling.
+- DONE: A flood of state reports does not grow memory unbounded.
+- DONE: After backpressure clears, the dashboard receives the latest known
+  state for each topic.
 
 ## P2 - Async SQLite Logging Needs Drop Visibility And Shutdown Drain
 
