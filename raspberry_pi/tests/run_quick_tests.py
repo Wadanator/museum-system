@@ -17,14 +17,20 @@ from pathlib import Path
 RPI_DIR = Path(__file__).resolve().parents[1]
 
 QUICK_TEST_FILES = [
+    "tests/test_ambient_loop_service.py",
+    "tests/test_ambient_status_wiring.py",
+    "tests/test_dashboard_log_fanout.py",
     "tests/test_schema_validator.py",
     "tests/test_mqtt_feedback_state.py",
     "tests/test_mqtt_state_reporting.py",
     "tests/test_device_status_broadcast.py",
     "tests/test_main_scene_state.py",
     "tests/test_heartbeat.py",
+    "tests/test_transition_manager_overflow.py",
     "tests/test_video_handler_end_detection.py",
     "tests/test_runtime_smoke.py",
+    "tests/test_state_executor.py",
+    "tests/test_web_dashboard_retry.py",
 ]
 
 

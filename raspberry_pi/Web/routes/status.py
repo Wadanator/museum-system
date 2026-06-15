@@ -50,7 +50,7 @@ def setup_status_routes(dashboard):
         """Return current system status including room ID, scene state, and uptime."""
         status_data = _get_current_status_data(controller)
         status_data['uptime'] = dashboard.get_uptime()
-        status_data['log_count'] = len(dashboard.log_buffer)
+        status_data['log_count'] = dashboard.get_log_count()
         return jsonify(status_data)
 
     @status_bp.route('/runtime')
@@ -82,7 +82,7 @@ def setup_status_routes(dashboard):
     @requires_auth
     def clear_logs():
         """Clear the in-memory log buffer and notify connected clients."""
-        dashboard.log_buffer.clear()
+        dashboard.clear_log_buffer()
         dashboard._broadcast_event('logs_cleared', None)
         return jsonify({'success': True, 'message': 'Logs cleared'})
 
@@ -91,7 +91,8 @@ def setup_status_routes(dashboard):
     def export_logs():
         """Export logs as a JSON file for download."""
         try:
-            buf = io.BytesIO(json.dumps(dashboard.log_buffer, indent=2).encode('utf-8'))
+            log_history = dashboard.get_log_history()
+            buf = io.BytesIO(json.dumps(log_history, indent=2).encode('utf-8'))
             return send_file(
                 buf,
                 as_attachment=True,

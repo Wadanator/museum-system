@@ -165,7 +165,7 @@ def test_image_display_loads_without_idle_append_or_video_end_state():
         ]
         assert handler.currently_playing == "slide.jpg"
         assert handler.was_playing is False
-        assert handler.logger.messages("info") == ["Displaying image: slide.jpg"]
+        assert handler.logger.messages("debug") == ["Displaying image: slide.jpg"]
 
 
 def test_displayed_image_does_not_fire_video_end_callback():

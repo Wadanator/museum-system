@@ -6,6 +6,7 @@ Transition Manager - Manages state transitions (thread-safe and optimized).
 
 from collections import deque
 from threading import Lock
+import time
 from utils.logging_setup import get_logger
 
 
@@ -18,6 +19,9 @@ class TransitionManager:
     making it straightforward to add new transition types.
     """
 
+    EVENT_QUEUE_LIMIT = 50
+    DROP_WARNING_INTERVAL_SECONDS = 60
+
     def __init__(self, logger=None):
         """
         Initialize the transition manager with empty event queues.
@@ -29,9 +33,19 @@ class TransitionManager:
         self.lock = Lock()
 
         # Event queues - deque with maxlen automatically discards oldest entries
-        self.mqtt_events = deque(maxlen=50)
-        self.audio_end_events = deque(maxlen=50)
-        self.video_end_events = deque(maxlen=50)
+        self.mqtt_events = deque(maxlen=self.EVENT_QUEUE_LIMIT)
+        self.audio_end_events = deque(maxlen=self.EVENT_QUEUE_LIMIT)
+        self.video_end_events = deque(maxlen=self.EVENT_QUEUE_LIMIT)
+        self._drop_counts_since_warning = {
+            "mqtt": 0,
+            "audioEnd": 0,
+            "videoEnd": 0,
+        }
+        self._last_drop_warning_ts = {
+            "mqtt": 0.0,
+            "audioEnd": 0.0,
+            "videoEnd": 0.0,
+        }
 
         # Transition type dispatch table: type string -> handler function
         self.transition_handlers = {
@@ -221,6 +235,39 @@ class TransitionManager:
 
     # --- Event Registration Methods (Thread-Safe) ---
 
+    def _append_event(self, queue, queue_name, event):
+        """
+        Append one event and record when deque(maxlen) will discard oldest data.
+
+        The caller must hold self.lock.
+        """
+        if queue.maxlen is not None and len(queue) >= queue.maxlen:
+            self._record_queue_drop(queue_name, queue.maxlen)
+        queue.append(event)
+
+    def _record_queue_drop(self, queue_name, queue_limit):
+        """Log a rate-limited warning when transition events overflow."""
+        self._drop_counts_since_warning[queue_name] += 1
+
+        now = time.monotonic()
+        last_warning = self._last_drop_warning_ts[queue_name]
+        if (
+            last_warning
+            and now - last_warning < self.DROP_WARNING_INTERVAL_SECONDS
+        ):
+            return
+
+        dropped = self._drop_counts_since_warning[queue_name]
+        self._drop_counts_since_warning[queue_name] = 0
+        self._last_drop_warning_ts[queue_name] = now
+        self.logger.warning(
+            "Transition event queue full; dropped %s %s event(s) "
+            "(queue_limit=%s)",
+            dropped,
+            queue_name,
+            queue_limit,
+        )
+
     def register_mqtt_event(self, topic, message):
         """
         Register an incoming MQTT event for transition evaluation.
@@ -237,7 +284,11 @@ class TransitionManager:
             return
 
         with self.lock:
-            self.mqtt_events.append({"topic": topic, "message": message})
+            self._append_event(
+                self.mqtt_events,
+                "mqtt",
+                {"topic": topic, "message": message},
+            )
 
         self.logger.debug(f"MQTT event registered: {topic}={message}")
 
@@ -249,7 +300,7 @@ class TransitionManager:
             audio_file: Filename of the audio track that finished playing.
         """
         with self.lock:
-            self.audio_end_events.append(audio_file)
+            self._append_event(self.audio_end_events, "audioEnd", audio_file)
         self.logger.debug(f"AudioEnd event registered: {audio_file}")
 
     def register_video_end(self, video_file):
@@ -260,7 +311,7 @@ class TransitionManager:
             video_file: Filename of the video that finished playing.
         """
         with self.lock:
-            self.video_end_events.append(video_file)
+            self._append_event(self.video_end_events, "videoEnd", video_file)
         self.logger.debug(f"VideoEnd event registered: {video_file}")
 
     def clear_events(self):

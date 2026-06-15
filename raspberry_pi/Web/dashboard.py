@@ -3,6 +3,7 @@
 
 import json
 import logging
+import queue
 import sqlite3
 import time
 import os
@@ -23,6 +24,8 @@ class WebDashboard:
 
     INITIAL_LOG_HISTORY_LIMIT = 50
     REQUEST_LOG_HISTORY_LIMIT = 250
+    LOG_FANOUT_QUEUE_LIMIT = 500
+    LOG_FANOUT_DROP_WARNING_INTERVAL_SECONDS = 60
     
     def __init__(self, controller, app, socketio):
         self.controller = controller
@@ -42,6 +45,7 @@ class WebDashboard:
         }
         
         self.log_buffer: List[Dict] = []  # In-memory log storage
+        self._setup_log_fanout()
         self.stats = {
             'total_scenes_played': 0,
             'scene_play_counts': {},
@@ -53,6 +57,143 @@ class WebDashboard:
         self._setup_logging()
         self._load_stats()
         self._setup_socketio_handlers()
+
+    def _setup_log_fanout(self, start_worker: bool = True) -> None:
+        """Initialize async websocket fanout for dashboard log entries."""
+        self._log_lock = threading.Lock()
+        self._log_fanout_queue = queue.Queue(maxsize=self.LOG_FANOUT_QUEUE_LIMIT)
+        self._log_fanout_stop = threading.Event()
+        self._dropped_log_fanout_events = 0
+        self._last_log_drop_warning_ts = 0.0
+        self._log_fanout_thread = None
+
+        if start_worker:
+            self._log_fanout_thread = threading.Thread(
+                target=self._log_fanout_loop,
+                name='dashboard-log-fanout',
+                daemon=True,
+            )
+            self._log_fanout_thread.start()
+
+    def _ensure_log_fanout_state(self) -> None:
+        """Create log fanout fields for tests that instantiate with __new__."""
+        if not hasattr(self, '_log_lock'):
+            self._log_lock = threading.Lock()
+        if not hasattr(self, '_log_fanout_queue'):
+            self._log_fanout_queue = queue.Queue(maxsize=self.LOG_FANOUT_QUEUE_LIMIT)
+        if not hasattr(self, '_log_fanout_stop'):
+            self._log_fanout_stop = threading.Event()
+        if not hasattr(self, '_dropped_log_fanout_events'):
+            self._dropped_log_fanout_events = 0
+        if not hasattr(self, '_last_log_drop_warning_ts'):
+            self._last_log_drop_warning_ts = 0.0
+        if not hasattr(self, '_log_fanout_thread'):
+            self._log_fanout_thread = None
+
+    def _append_log_entry_unlocked(self, log_entry: Dict) -> None:
+        self.log_buffer.append(log_entry)
+        if len(self.log_buffer) > Config.MAX_LOG_ENTRIES:
+            self.log_buffer = self.log_buffer[-Config.MAX_LOG_ENTRIES:]
+
+    def _append_log_entry_to_buffer(self, log_entry: Dict) -> None:
+        self._ensure_log_fanout_state()
+        with self._log_lock:
+            self._append_log_entry_unlocked(log_entry)
+
+    def get_log_history(self, limit: int = None) -> List[Dict]:
+        """Return a stable snapshot of recent in-memory logs."""
+        self._ensure_log_fanout_state()
+        with self._log_lock:
+            logs = list(self.log_buffer)
+
+        if limit is not None and len(logs) > limit:
+            return logs[-limit:]
+        return logs
+
+    def get_log_count(self) -> int:
+        """Return the current in-memory log count."""
+        self._ensure_log_fanout_state()
+        with self._log_lock:
+            return len(self.log_buffer)
+
+    def clear_log_buffer(self) -> None:
+        """Clear in-memory logs without touching persistent log files."""
+        self._ensure_log_fanout_state()
+        with self._log_lock:
+            self.log_buffer.clear()
+
+    def _queue_log_fanout(self, log_entry: Dict) -> None:
+        self._ensure_log_fanout_state()
+        try:
+            self._log_fanout_queue.put_nowait(log_entry)
+        except queue.Full:
+            self._record_log_fanout_drop()
+
+    def _record_log_fanout_drop(self) -> None:
+        """Record a rate-limited in-buffer warning when websocket fanout lags."""
+        self._ensure_log_fanout_state()
+        now = time.monotonic()
+        warning_entry = None
+
+        with self._log_lock:
+            self._dropped_log_fanout_events += 1
+            if (
+                self._last_log_drop_warning_ts
+                and now - self._last_log_drop_warning_ts
+                < self.LOG_FANOUT_DROP_WARNING_INTERVAL_SECONDS
+            ):
+                return
+
+            dropped = self._dropped_log_fanout_events
+            self._dropped_log_fanout_events = 0
+            self._last_log_drop_warning_ts = now
+            warning_entry = {
+                'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
+                'level': 'WARNING',
+                'module': 'web',
+                'message': (
+                    'Dashboard log websocket queue full; '
+                    f'dropped {dropped} log event(s)'
+                ),
+            }
+            self._append_log_entry_unlocked(warning_entry)
+
+        try:
+            self._log_fanout_queue.put_nowait(warning_entry)
+        except queue.Full:
+            pass
+
+    def _drain_log_fanout_once(self, timeout: float = 0.5) -> bool:
+        """Drain one queued log websocket event. Returns True when work was done."""
+        self._ensure_log_fanout_state()
+        try:
+            log_entry = self._log_fanout_queue.get(timeout=timeout)
+        except queue.Empty:
+            return False
+
+        try:
+            self._broadcast_event('new_log', log_entry)
+        except Exception:
+            # Websocket fanout must never propagate back into logging/runtime code.
+            pass
+        finally:
+            self._log_fanout_queue.task_done()
+
+        return True
+
+    def _log_fanout_loop(self) -> None:
+        """Background worker that broadcasts queued log websocket events."""
+        self._ensure_log_fanout_state()
+        while not self._log_fanout_stop.is_set():
+            self._drain_log_fanout_once(timeout=0.5)
+
+    def stop_log_fanout_worker(self, timeout: float = 1.0) -> None:
+        """Stop the dashboard log fanout worker; mainly useful for tests."""
+        self._ensure_log_fanout_state()
+        self._log_fanout_stop.set()
+        thread = self._log_fanout_thread
+        if thread and thread.is_alive():
+            thread.join(timeout=timeout)
 
     def _setup_logger(self):
         """Setup logger for dashboard."""
@@ -115,7 +256,7 @@ class WebDashboard:
                 # Send initial state on both initial connect and reconnect
                 self._emit_to_sid(
                     'log_history',
-                    self.log_buffer[-self.INITIAL_LOG_HISTORY_LIMIT:],
+                    self.get_log_history(self.INITIAL_LOG_HISTORY_LIMIT),
                     flask_request.sid,
                 )
                 self.update_stats()
@@ -140,7 +281,7 @@ class WebDashboard:
                 # Avoid oversized websocket packets that can trigger disconnects.
                 self._emit_to_sid(
                     'log_history',
-                    self.log_buffer[-self.REQUEST_LOG_HISTORY_LIMIT:],
+                    self.get_log_history(self.REQUEST_LOG_HISTORY_LIMIT),
                     flask_request.sid,
                 )
             except Exception as e:
@@ -204,7 +345,7 @@ class WebDashboard:
             'ambient': self._get_ambient_status_data(),
             'web_dashboard': self.get_web_server_status(),
             'uptime': self.get_uptime(),
-            'log_count': len(self.log_buffer)
+            'log_count': self.get_log_count()
         }
 
     def _get_ambient_status_data(self):
@@ -221,6 +362,19 @@ class WebDashboard:
             'last_outcome': 'never_started',
         }
 
+    def _ensure_web_server_status_state(self) -> None:
+        """Create web dashboard health fields for __new__ based tests."""
+        if not hasattr(self, '_web_server_status_lock'):
+            self._web_server_status_lock = threading.Lock()
+        if not hasattr(self, '_web_server_status'):
+            self._web_server_status = {
+                'state': 'starting',
+                'last_error': None,
+                'failed_starts': 0,
+                'next_retry_seconds': None,
+                'last_changed': time.time(),
+            }
+
     def set_web_server_status(
         self,
         state: str,
@@ -230,6 +384,7 @@ class WebDashboard:
         next_retry_seconds=None,
     ) -> None:
         """Record Flask/SocketIO serving health for diagnostics."""
+        self._ensure_web_server_status_state()
         with self._web_server_status_lock:
             self._web_server_status = {
                 'state': state,
@@ -240,6 +395,7 @@ class WebDashboard:
             }
 
     def get_web_server_status(self) -> dict:
+        self._ensure_web_server_status_state()
         with self._web_server_status_lock:
             return dict(self._web_server_status)
 
@@ -292,7 +448,7 @@ class WebDashboard:
                         try:
                             timestamp, rest = line.strip().split('] ', 1)
                             level, module, message = rest.split(' ', 2)
-                            self.log_buffer.append({
+                            self._append_log_entry_to_buffer({
                                 'timestamp': timestamp[1:],
                                 'level': level.strip(),
                                 'module': module.strip(),
@@ -301,7 +457,11 @@ class WebDashboard:
                             })
                         except ValueError:
                             continue
-                self.log.debug(f"Loaded {len([log for log in self.log_buffer if log.get('from_file')])} log entries efficiently")
+                loaded_file_logs = len([
+                    log for log in self.get_log_history()
+                    if log.get('from_file')
+                ])
+                self.log.debug(f"Loaded {loaded_file_logs} log entries efficiently")
             else:
                 self.log.debug(f"Main log file does not exist: {main_log}")
         except Exception as e:
@@ -344,7 +504,7 @@ class WebDashboard:
             ).fetchall()
 
         for timestamp, level, module, message in reversed(rows):
-            self.log_buffer.append({
+            self._append_log_entry_to_buffer({
                 'timestamp': timestamp,
                 'level': level,
                 'module': module,
@@ -370,7 +530,7 @@ class WebDashboard:
                 try:
                     timestamp, rest = line.strip().split('] ', 1)
                     level, module, message = rest.split(' ', 2)
-                    self.log_buffer.append({
+                    self._append_log_entry_to_buffer({
                         'timestamp': timestamp[1:],
                         'level': level.strip(),
                         'module': module.strip(),
@@ -444,15 +604,13 @@ class WebDashboard:
         self.save_stats()
 
     def add_log_entry(self, log_entry: Dict):
-        """Add a log entry to the buffer and notify connected clients."""
-        self.log_buffer.append(log_entry)
-        if len(self.log_buffer) > Config.MAX_LOG_ENTRIES:
-            self.log_buffer = self.log_buffer[-Config.MAX_LOG_ENTRIES:]
-        self._broadcast_event('new_log', log_entry)
+        """Add a log entry to the buffer and queue websocket fanout."""
+        self._append_log_entry_to_buffer(log_entry)
+        self._queue_log_fanout(log_entry)
 
     def filter_logs(self, level_filter: str, limit: int) -> List[Dict]:
         """Filter logs by level and limit the number returned."""
-        filtered_logs = self.log_buffer
+        filtered_logs = self.get_log_history()
         if level_filter in ['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL']:
             filtered_logs = [log for log in filtered_logs if log['level'] == level_filter]
         return filtered_logs[-limit:] if len(filtered_logs) > limit else filtered_logs

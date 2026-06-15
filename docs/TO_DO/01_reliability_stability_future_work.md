@@ -186,21 +186,27 @@ Acceptance:
 - A simulated device outage produces one understandable degraded-device signal,
   not only many isolated timeout logs.
 
-## P2 - Dashboard Log Fanout Is Still Synchronous
+## P2 - Dashboard Log Fanout Is Still Synchronous - DONE (2026-06-15)
 
-Status: partly improved, still open
+Status: done
 
 Where:
 
 - `raspberry_pi/Web/handlers/log_handler.py`
 - `raspberry_pi/Web/dashboard.py`
+- `raspberry_pi/tests/test_dashboard_log_fanout.py`
 
 Current state:
 
 - `WebLogHandler.emit()` now isolates exceptions through
   `handleError(record)`.
-- `dashboard.add_log_entry(...)` still directly calls websocket fanout through
-  `_broadcast_event(...)`.
+- `dashboard.add_log_entry(...)` appends to the in-memory log buffer and then
+  queues websocket fanout into a bounded dashboard-owned queue.
+- A daemon `dashboard-log-fanout` worker drains queued log events and broadcasts
+  the existing `new_log` event to connected clients.
+- If the queue is full, runtime logging does not block. The websocket event is
+  dropped and a rate-limited warning is written directly into the dashboard log
+  buffer without recursively logging through Python logging.
 
 Why this is real:
 
@@ -209,18 +215,24 @@ Why this is real:
 - With slow clients or many clients, logging can add latency to runtime
   threads.
 
-Recommended work:
+Implemented work:
 
 - Send log events into a bounded queue.
 - Drain the queue from a dashboard-owned background worker.
-- If the queue is full, drop or merge old logs and emit a rate-limited warning.
+- If the queue is full, drop websocket fanout and store a rate-limited
+  dashboard warning.
+- Keep frontend/API compatibility: `new_log`, `log_history`, `/api/logs`, and
+  `/api/status.log_count` keep the same shape.
 
 Acceptance:
 
-- Runtime logging is not blocked by websocket fanout.
-- A dashboard error never propagates back into the runtime thread that logged.
+- DONE - Runtime logging is not blocked by websocket fanout.
+- DONE - A dashboard error never propagates back into the runtime thread that
+  logged.
+- DONE - Unit tests cover queued fanout, non-synchronous emit, full queue
+  behavior, and websocket emit failures.
 
-## P2 - Build/Deploy Flow Still Does Not Guarantee A Current Frontend Build
+## P2 - Build/Deploy Flow Still Does Not Guarantee A Current Frontend Build - SKIP
 
 Status: partly improved, still open
 
@@ -264,7 +276,7 @@ Where:
 Current state:
 
 - `USERNAME = 'admin'`
-- `PASSWORD = 'admin'`
+- `PASSWORD = 'admin12321'`
 - `SECRET_KEY = 'museum_controller_secret'`
 
 Why this is real:
@@ -286,33 +298,40 @@ Acceptance:
 - A production installation does not use credentials stored in source code.
 - The system can still run in dev mode with simple defaults.
 
-## P3 - Transition Event Queue Overflow Monitoring
+## P3 - Transition Event Queue Overflow Monitoring - DONE (2026-06-15)
 
-Status: open
+Status: done
 
 Where:
 
 - `raspberry_pi/utils/transition_manager.py`
+- `raspberry_pi/tests/test_transition_manager_overflow.py`
 
 Current state:
 
 - MQTT/audio/video event queues are `deque(maxlen=50)`.
-- When full, `deque` silently drops the oldest events.
+- Before appending to a full queue, `TransitionManager` records that the next
+  append will drop the oldest event.
+- A rate-limited warning reports dropped transition events per queue type:
+  `mqtt`, `audioEnd`, or `videoEnd`.
 
 Why this is real:
 
 - The locking discipline looks safe.
 - During an MQTT flood, events can be lost without diagnostics.
 
-Recommended work:
+Implemented work:
 
 - Before append, check whether the queue is full.
-- Maintain a drop counter and log a rate-limited warning.
+- Maintain per-queue drop counters.
+- Log the first drop immediately and then rate-limit repeated warnings.
 
 Acceptance:
 
-- During an artificial flood, logs show that transition events were dropped.
-- Without a flood, this creates no log noise.
+- DONE - During an artificial flood, logs show that transition events were
+  dropped.
+- DONE - Without a flood, this creates no warning log noise.
+- DONE - Unit tests cover MQTT, audioEnd, videoEnd, and rate-limiting.
 
 ## P3 - Explicit Reason Codes For Scene Termination
 
