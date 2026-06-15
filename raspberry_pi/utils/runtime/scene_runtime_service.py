@@ -144,6 +144,7 @@ class SceneRuntimeService:
                     return self._cancelled_start_outcome()
 
                 outcome = OUTCOME_ERROR
+                started_at = time.monotonic()
                 try:
                     outcome = owner.run_scene()
                     if not outcome:
@@ -152,7 +153,13 @@ class SceneRuntimeService:
                     self.log.error(f"An error occurred during scene execution: {exc}")
                     outcome = OUTCOME_ERROR
                 finally:
+                    duration_seconds = time.monotonic() - started_at
                     self._cleanup_after_scene_thread(scene_filename, outcome)
+                    self._log_scene_completion_audit(
+                        scene_filename,
+                        outcome,
+                        duration_seconds,
+                    )
                 return outcome
             else:
                 self.log.error(f"Failed to load scene: {scene_filename}")
@@ -229,6 +236,81 @@ class SceneRuntimeService:
         self.owner.current_scene_name = None
         self.owner.current_scene_state = None
         self.owner._dashboard_notifier_service().broadcast_status()
+
+    def _log_scene_completion_audit(
+        self,
+        scene_filename,
+        outcome,
+        duration_seconds,
+    ) -> None:
+        ambient = self._ambient_loop_service()
+        if self._is_configured_ambient_scene(ambient, scene_filename):
+            self._log_ambient_completion_audit(
+                ambient,
+                scene_filename,
+                outcome,
+                duration_seconds,
+            )
+            return
+
+        if outcome == OUTCOME_NORMAL_END:
+            self.log.info(
+                "Scene finished: %s | outcome=%s | duration=%.1fs",
+                scene_filename,
+                outcome,
+                duration_seconds,
+            )
+        elif outcome == OUTCOME_EXPLICIT_STOP:
+            self.log.info(
+                "Scene stopped: %s | outcome=%s | duration=%.1fs",
+                scene_filename,
+                outcome,
+                duration_seconds,
+            )
+        elif outcome == OUTCOME_SHUTDOWN:
+            self.log.debug(
+                "Scene interrupted by shutdown: %s | duration=%.1fs",
+                scene_filename,
+                duration_seconds,
+            )
+        else:
+            self.log.warning(
+                "Scene ended with problem: %s | outcome=%s | duration=%.1fs",
+                scene_filename,
+                outcome,
+                duration_seconds,
+            )
+
+    def _log_ambient_completion_audit(
+        self,
+        ambient,
+        scene_filename,
+        outcome,
+        duration_seconds,
+    ) -> None:
+        if outcome == OUTCOME_NORMAL_END:
+            return
+        if outcome == OUTCOME_SHUTDOWN:
+            return
+        if outcome == OUTCOME_EXPLICIT_STOP and self._ambient_is_suspended(ambient):
+            return
+
+        self.log.warning(
+            "Ambient scene ended outside normal loop: %s | outcome=%s | "
+            "duration=%.1fs",
+            scene_filename,
+            outcome,
+            duration_seconds,
+        )
+
+    def _ambient_is_suspended(self, ambient) -> bool:
+        status_getter = getattr(ambient, 'get_status', None)
+        if not callable(status_getter):
+            return False
+        try:
+            return bool(status_getter().get('suspended'))
+        except Exception:
+            return False
 
     def _cleanup_after_scene_thread(self, scene_filename, outcome) -> None:
         owner = self.owner

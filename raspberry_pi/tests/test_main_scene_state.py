@@ -18,6 +18,7 @@ from utils.runtime.scene_runtime_service import (
     OUTCOME_NORMAL_END,
     OUTCOME_SHUTDOWN,
     OUTCOME_START_FAILURE,
+    SceneRuntimeService,
 )
 from utils.runtime.scene_lifecycle import SceneLifecycle
 
@@ -155,6 +156,9 @@ class _AmbientPolicyStub:
         self.failure_retry_calls = []
         self.wait_calls = []
         self.recorded_outcomes = []
+
+    def get_status(self):
+        return {"suspended": self.suspend_calls > 0}
 
     def is_enabled(self):
         return self.enabled
@@ -618,6 +622,8 @@ def test_normal_scene_completion_returns_outcome_and_preserves_full_cleanup():
             controller.audio_handler = _Counter()
             controller.video_handler = _Counter()
             controller.actuator_state_store = _ActuatorStoreCounter()
+            logger = _LifecycleLogger()
+            controller.scene_runtime = SceneRuntimeService(controller, logger)
             stop_calls = {"count": 0}
 
             def _broadcast_stop():
@@ -634,6 +640,10 @@ def test_normal_scene_completion_returns_outcome_and_preserves_full_cleanup():
             assert controller.video_handler.calls == 2
             assert controller.actuator_state_store.sources == ["scene_end"]
             assert stop_calls["count"] == 1
+            assert len(logger.infos) == 1
+            assert logger.infos[0].startswith(
+                "Scene finished: normal.json | outcome=normal_end | duration="
+            )
         finally:
             main_module._SCENE_STATE_FILE = original_state_file
 
@@ -725,6 +735,8 @@ def test_external_stop_during_processing_returns_outcome_without_duplicate_stop(
             controller.audio_handler = _Counter()
             controller.video_handler = _Counter()
             controller.actuator_state_store = _ActuatorStoreCounter()
+            logger = _LifecycleLogger()
+            controller.scene_runtime = SceneRuntimeService(controller, logger)
             stop_calls = {"count": 0}
 
             def _broadcast_stop():
@@ -740,6 +752,11 @@ def test_external_stop_during_processing_returns_outcome_without_duplicate_stop(
             assert controller.video_handler.calls == 2
             assert controller.actuator_state_store.sources == []
             assert stop_calls["count"] == 0
+            assert len(logger.infos) == 1
+            assert logger.infos[0].startswith(
+                "Scene stopped: external-stop.json | outcome=explicit_stop | "
+                "duration="
+            )
         finally:
             main_module._SCENE_STATE_FILE = original_state_file
 
@@ -798,6 +815,8 @@ def test_ambient_scene_only_restarts_without_global_stop_between_cycles():
             controller.audio_handler = _Counter()
             controller.video_handler = _Counter()
             controller.actuator_state_store = _ActuatorStoreCounter()
+            logger = _LifecycleLogger()
+            controller.scene_runtime = SceneRuntimeService(controller, logger)
             stop_calls = {"count": 0}
             policy = _attach_ambient_policy(
                 controller,
@@ -827,6 +846,10 @@ def test_ambient_scene_only_restarts_without_global_stop_between_cycles():
             assert controller.video_handler.calls == 4
             assert controller.actuator_state_store.sources == []
             assert stop_calls["count"] == 0
+            assert logger.infos == []
+            assert not any(
+                message.startswith("Scene finished:") for message in logger.debugs
+            )
         finally:
             main_module._SCENE_STATE_FILE = original_state_file
 

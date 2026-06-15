@@ -16,11 +16,14 @@ from utils.runtime.ambient_loop_service import AmbientLoopService
 
 class _ListLogger:
     def __init__(self):
+        self.infos = []
         self.warnings = []
         self.errors = []
 
-    def info(self, *args, **kwargs):
-        pass
+    def info(self, message, *args, **kwargs):
+        if args:
+            message = message % args
+        self.infos.append(message)
 
     def debug(self, *args, **kwargs):
         pass
@@ -460,3 +463,21 @@ def test_record_outcome_validates_status_values():
     service.record_outcome("surprising")
     assert service.get_status()["last_outcome"] == "error"
     assert logger.warnings == ["Unknown ambient outcome 'surprising'; using 'error'"]
+
+
+def test_ambient_summary_logs_once_per_12h_window():
+    service, _owner, logger = _service()
+
+    service.record_outcome("normal_end")
+    service.record_outcome("error")
+    assert logger.infos == []
+
+    service._summary_last_logged_at -= (12 * 60 * 60 + 1)
+    service.record_outcome("normal_end")
+
+    assert logger.infos == [
+        "Ambient summary: scene=AmbientLoop.json | cycles=2 | errors=1 | "
+        "last_outcome=normal_end | window=12h"
+    ]
+    assert service._summary_cycles == 0
+    assert service._summary_errors == 0

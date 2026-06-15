@@ -25,6 +25,8 @@ _RECOVERABLE_FAILURE_OUTCOMES = {
     'start_failure',
 }
 
+_SUMMARY_INTERVAL_SECONDS = 12 * 60 * 60
+
 
 def _utc_iso(dt: datetime) -> str:
     return (
@@ -49,6 +51,9 @@ class AmbientLoopService:
         self._mqtt_restore_start_attempted = False
         self._next_restart_at = None
         self._last_outcome = 'never_started'
+        self._summary_last_logged_at = time.monotonic()
+        self._summary_cycles = 0
+        self._summary_errors = 0
 
     def _config(self) -> dict:
         return getattr(self.owner, 'config', {}) or {}
@@ -252,8 +257,31 @@ class AmbientLoopService:
         if outcome not in _VALID_OUTCOMES:
             self.log.warning("Unknown ambient outcome %r; using 'error'", outcome)
             outcome = 'error'
+        now = time.monotonic()
         with self._lock:
             self._last_outcome = outcome
+            if outcome == 'normal_end':
+                self._summary_cycles += 1
+            elif outcome in _RECOVERABLE_FAILURE_OUTCOMES or outcome == 'error':
+                self._summary_errors += 1
+            self._log_summary_if_due_locked(now)
+
+    def _log_summary_if_due_locked(self, now: float) -> None:
+        elapsed = now - self._summary_last_logged_at
+        if elapsed < _SUMMARY_INTERVAL_SECONDS:
+            return
+
+        self.log.info(
+            "Ambient summary: scene=%s | cycles=%d | errors=%d | "
+            "last_outcome=%s | window=12h",
+            self.scene_name(),
+            self._summary_cycles,
+            self._summary_errors,
+            self._last_outcome,
+        )
+        self._summary_last_logged_at = now
+        self._summary_cycles = 0
+        self._summary_errors = 0
 
     def _start_ambient_scene(self, log_message: str) -> bool:
         if self._is_shutdown_requested() or self._is_suspended():
