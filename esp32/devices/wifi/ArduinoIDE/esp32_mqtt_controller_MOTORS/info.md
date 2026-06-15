@@ -31,13 +31,13 @@ Motor topics accept the following payloads:
 
 Examples:
 
-- `room1/motor1` -> `ON:150:L`
+- `room1/motor1` -> `ON:80:L`
 - `room1/motor2` -> `ON:90:R:4000`
-- `room1/motor1` -> `SPEED:200`
+- `room1/motor1` -> `SPEED:60`
 - `room1/motor2` -> `OFF`
 
-The `direction` field uses `L` or `R`. The optional `rampTime` field is a
-duration in milliseconds.
+The `speed` field is clamped to `0..100`. The `direction` field uses `L` or
+`R`. The optional `rampTime` field is a duration in milliseconds.
 
 ## Safety Behavior
 
@@ -45,6 +45,8 @@ duration in milliseconds.
   `turnOffHardware()`.
 - Direction changes while running are completed through zero speed before the
   requested direction is applied.
+- `OFF` cancels any pending direction change, decelerates to zero, then disables
+  the motor driver's enable pin.
 - Motors are de-energized when MQTT is unavailable.
 - `NO_COMMAND_TIMEOUT` provides the inactivity safety timeout.
 
@@ -57,4 +59,5 @@ The hardware and timing configuration is in `config.cpp`:
 - Motor driver pin mapping.
 - PWM frequency and resolution.
 - Smooth speed step and update interval.
+- WiFi/MQTT retry limits before a safety restart.
 - OTA hostname and password.

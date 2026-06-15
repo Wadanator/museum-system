@@ -18,6 +18,13 @@ NetworkTransport mqttTransport = NETWORK_NONE;
 unsigned long lastCommandTime = 0;
 static bool lastPublishedDeviceStates[20] = {false};
 static bool lastPublishedDeviceStateValid[20] = {false};
+static int mqttAttempts = 0;
+static unsigned long mqttRetryInterval = 0;
+
+static void resetMqttRetryState() {
+  mqttAttempts = 0;
+  mqttRetryInterval = MQTT_RETRY_INTERVAL;
+}
 
 void publishDeviceState(int deviceIndex, const char* source, bool force) {
   (void)source;
@@ -101,6 +108,7 @@ static void handleNetworkTransportChange() {
   mqttConnected = false;
   mqttTransport = activeTransport;
   lastMqttAttempt = 0;
+  resetMqttRetryState();
 }
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
@@ -226,14 +234,16 @@ void initializeMqtt() {
 void connectToMqtt() {
   if (!wifiConnected || !isWiFiConnected()) {
     mqttConnected = false;
+    resetMqttRetryState();
     return;
   }
 
   handleNetworkTransportChange();
 
   unsigned long currentTime = millis();
-  static int mqttAttempts = 0;
-  static unsigned long mqttRetryInterval = MQTT_RETRY_INTERVAL;
+  if (mqttRetryInterval == 0) {
+    mqttRetryInterval = MQTT_RETRY_INTERVAL;
+  }
 
   if (!client.connected() && (currentTime - lastMqttAttempt >= mqttRetryInterval)) {
     debugPrint("Connecting to MQTT broker...");
@@ -243,8 +253,7 @@ void connectToMqtt() {
       Serial.println("MQTT connected");
       debugPrint("MQTT connected successfully");
       mqttConnected = true;
-      mqttAttempts  = 0;
-      mqttRetryInterval = MQTT_RETRY_INTERVAL;
+      resetMqttRetryState();
 
       // Subscribe to every configured relay command topic.
       String basePrefix = String(BASE_TOPIC_PREFIX);

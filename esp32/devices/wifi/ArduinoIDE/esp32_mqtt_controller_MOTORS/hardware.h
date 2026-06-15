@@ -4,8 +4,8 @@
 // Hardware control interface.
 void initializeHardware();
 
-void controlMotor1(const char* command, const char* speed = "50", const char* direction = "L", const char* rampTime = "0");
-void controlMotor2(const char* command, const char* speed = "50", const char* direction = "L", const char* rampTime = "0");
+bool controlMotor1(const char* command, const char* speed = "50", const char* direction = "L", const char* rampTime = "0");
+bool controlMotor2(const char* command, const char* speed = "50", const char* direction = "L", const char* rampTime = "0");
 
 void turnOffHardware();
 

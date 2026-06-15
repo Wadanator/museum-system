@@ -25,7 +25,7 @@ MQTT správanie:
 
 - **Prevádzkové parametre:**
   - `CLIENT_ID = Room1_ESP_Motory`
-  - `STATUS_PUBLISH_INTERVAL = 15000` (ms)
+  - `STATUS_PUBLISH_INTERVAL = 5000` (ms)
   - `WDT_TIMEOUT = 60` (s)
   - `OTA_HOSTNAME = ESP32-Museum-Room1`
 
@@ -65,10 +65,10 @@ MQTT správanie:
 - **Prevádzkové parametre:**
   - `USE_RELAY_MODULE = true` (aktuálne zapnutý I2C režim)
   - `CLIENT_ID = Room1_Relays_Ctrl`
-  - `STATUS_PUBLISH_INTERVAL = 15000` (ms)
+  - `STATUS_PUBLISH_INTERVAL = 5000` (ms)
   - `NO_COMMAND_TIMEOUT = 180000` (ms)
   - `WDT_TIMEOUT = 30` (s)
-  - `OTA_HOSTNAME = ESP32-RelayModule-Room1`
+  - `OTA_HOSTNAME = ESP32-RelayModule-Room1-LAN`
 
 - **Status LED signalizácia:**
   - ArduinoIDE (`status_led.cpp`, GPIO38 / NeoPixel): pri štarte krátke modré bliknutie, bez WiFi rýchle červené blikanie, WiFi OK ale MQTT offline oranžové blikanie, všetko OK zelené breathing svietenie, počas OTA tyrkysová/modrá signalizácia
@@ -93,7 +93,7 @@ MQTT správanie:
 
 - publish trigger: `room1/scene` s payloadom `START`
 - status: `devices/Room1_ESP_Trigger/status`
-- interval heartbeat: 15s
+- interval heartbeat: 5s
 
 - **Mapovanie Pinov:**
   - `BUTTON_PIN = 32` (Zabezpečuje zachytávanie hardvérového tlačidla. Oproti slabým interným odporom využíva **externý pull-up rezistor** pre vyššiu spoľahlivosť a odolnosť voči rušeniu, LOW = stlačené)
@@ -104,7 +104,7 @@ MQTT správanie:
 
 - **Prevádzkové parametre:**
   - `CLIENT_ID = Room1_ESP_Trigger`
-  - `STATUS_PUBLISH_INTERVAL = 15000` (ms)
+  - `STATUS_PUBLISH_INTERVAL = 5000` (ms)
   - `WDT_TIMEOUT = 30` (s)
   - `OTA_HOSTNAME = ESP32-Room1-Trigger`
 
@@ -125,9 +125,9 @@ Všetky tri Arduino-ide firmvéry (MOTORS, RELAY, BUTTON) publikujú pravidelný
 
 | Zariadenie | STATUS_PUBLISH_INTERVAL | Poznámka |
 |-----------|-------------------------|----------|
-| **MOTORS** | 15000 ms (15 s) | Publikuje status každých 15 sekúnd |
-| **RELAY** | 15000 ms (15 s) | Publikuje status každých 15 sekúnd |
-| **BUTTON** | 15000 ms (15 s) | Publikuje status každých 15 sekúnd |
+| **MOTORS** | 5000 ms (5 s) | Publikuje status každých 5 sekúnd |
+| **RELAY** | 5000 ms (5 s) | Publikuje status každých 5 sekúnd |
+| **BUTTON** | 5000 ms (5 s) | Publikuje status každých 5 sekúnd |
 
 **MQTT Reconnect Behavior (od apríla 2026):**
 
@@ -148,7 +148,7 @@ Pri stratení a obnove MQTT spojenia sa timer pre `STATUS_PUBLISH_INTERVAL` rese
 ### MQTT Timeout False Positives (FIXED - apríl 2026)
 **Popis:** Keď sa zariadenie odpojilo a znova pripojilo, Raspberry Pi logovalo "timeout" aj keď sa zariadenie vrátilo do normálneho stavu.
 
-**Príčina:** Pri reconnecte sa `lastStatusPublish` neresetovalo, takže zariadenie čakalo na normálny interval (5-15 sekúnd) pred ďalším statusom. Raspberry Pi po ~180 sekundách bez statusu zariadenie markuje ako offline.
+**Príčina:** Pri reconnecte sa `lastStatusPublish` neresetovalo, takže zariadenie čakalo na normálny interval pred ďalším statusom. Raspberry Pi po ~180 sekundách bez statusu zariadenie markuje ako offline.
 
 **Riešenie:** Resetovať `lastStatusPublish = 0` ihneď po úspešnom MQTT reconnecte.
 

@@ -43,7 +43,7 @@ Všetky Arduino firmvéry ESP32 zariadení (RELAY, MOTORS, BUTTON) pravidelne pu
 
 **Súčasné nastavenia:**
 - **RELAY** (`esp32_mqtt_controller_RELAY`): `STATUS_PUBLISH_INTERVAL = 5000 ms` (5 sekúnd)
-- **MOTORS** (`esp32_mqtt_controller_MOTORS`): `STATUS_PUBLISH_INTERVAL = 15000 ms` (15 sekúnd)
+- **MOTORS** (`esp32_mqtt_controller_MOTORS`): `STATUS_PUBLISH_INTERVAL = 5000 ms` (5 sekúnd)
 - **BUTTON** (`esp32_mqtt_button`): `STATUS_PUBLISH_INTERVAL = 5000 ms` (5 sekúnd)
 
 **Dôležitá oprava (od apríla 2026):**

@@ -1,7 +1,7 @@
 #include "config.h"
 
 // Diagnostic output.
-const bool DEBUG = true;
+const bool DEBUG = false;
 
 // WiFi configuration.
 const char* WIFI_SSID = "Museum-Room1";
@@ -35,8 +35,8 @@ const unsigned long MQTT_RETRY_INTERVAL = 2000;
 const unsigned long MAX_RETRY_INTERVAL = 30000;
 const unsigned long STATUS_PUBLISH_INTERVAL = 5000;
 const unsigned long CONNECTION_CHECK_INTERVAL = 5000;
-const int MAX_WIFI_ATTEMPTS = 3;
-const int MAX_MQTT_ATTEMPTS = 3;
+const int MAX_WIFI_ATTEMPTS = 10;
+const int MAX_MQTT_ATTEMPTS = 10;
 const int MQTT_KEEP_ALIVE = 5;
 const unsigned long NO_COMMAND_TIMEOUT = 180000;
 

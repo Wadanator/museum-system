@@ -12,6 +12,13 @@ unsigned long lastMqttAttempt = 0;
 unsigned long lastStatusPublish = 0;
 unsigned long lastCommandTime = 0;
 String STATUS_TOPIC = String("devices/") + CLIENT_ID + "/status";
+static int mqttAttempts = 0;
+static unsigned long mqttRetryInterval = 0;
+
+static void resetMqttRetryState() {
+  mqttAttempts = 0;
+  mqttRetryInterval = MQTT_RETRY_INTERVAL;
+}
 
 static MotorState* motorStateFor(int motorNum) {
   if (motorNum == 1) return &motor1State;
@@ -39,6 +46,7 @@ void publishMotorState(int motorNum, const char* source, bool force) {
     pendingMotion
   );
   int speed = pendingMotion ? state->savedSpeed : max(state->speed, state->targetSpeed);
+  speed = constrain(speed, 0, 100);
   if (!isOn) speed = 0;
   char direction = state->pendingDirectionChange ? state->newDirection : state->direction;
 
@@ -152,36 +160,44 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
           direction[sizeof(direction) - 1] = '\0';
         }
 
-        if (motorNum == 1) controlMotor1("ON", speed, direction, rampTime);
-        else               controlMotor2("ON", speed, direction, rampTime);
-        publishMotorState(motorNum, "command", false);
-        commandSuccessful = true;
+        commandSuccessful = (motorNum == 1)
+          ? controlMotor1("ON", speed, direction, rampTime)
+          : controlMotor2("ON", speed, direction, rampTime);
+        if (commandSuccessful) {
+          publishMotorState(motorNum, "command", false);
+        }
       } else {
         debugPrint("ERROR: Malformed ON command - missing speed/direction");
       }
     }
 
     else if (strcmp(message, "OFF") == 0) {
-      if (motorNum == 1) controlMotor1("OFF", "0", "S", "0");
-      else               controlMotor2("OFF", "0", "S", "0");
-      publishMotorState(motorNum, "command", false);
-      commandSuccessful = true;
+      commandSuccessful = (motorNum == 1)
+        ? controlMotor1("OFF", "0", "S", "0")
+        : controlMotor2("OFF", "0", "S", "0");
+      if (commandSuccessful) {
+        publishMotorState(motorNum, "command", false);
+      }
     }
 
     else if (strncmp(message, "SPEED:", 6) == 0) {
       const char* speedVal = message + 6;
-      if (motorNum == 1) controlMotor1("SPEED", speedVal, "", "0");
-      else               controlMotor2("SPEED", speedVal, "", "0");
-      publishMotorState(motorNum, "command", false);
-      commandSuccessful = true;
+      commandSuccessful = (motorNum == 1)
+        ? controlMotor1("SPEED", speedVal, "", "0")
+        : controlMotor2("SPEED", speedVal, "", "0");
+      if (commandSuccessful) {
+        publishMotorState(motorNum, "command", false);
+      }
     }
 
     else if (strncmp(message, "DIR:", 4) == 0) {
       const char* dirVal = message + 4;
-      if (motorNum == 1) controlMotor1("DIR", "", dirVal, "0");
-      else               controlMotor2("DIR", "", dirVal, "0");
-      publishMotorState(motorNum, "command", false);
-      commandSuccessful = true;
+      commandSuccessful = (motorNum == 1)
+        ? controlMotor1("DIR", "", dirVal, "0")
+        : controlMotor2("DIR", "", dirVal, "0");
+      if (commandSuccessful) {
+        publishMotorState(motorNum, "command", false);
+      }
     }
 
     else {
@@ -216,11 +232,16 @@ void initializeMqtt() {
 }
 
 void connectToMqtt() {
-  if (!wifiConnected || !isWiFiConnected()) return;
+  if (!wifiConnected || !isWiFiConnected()) {
+    mqttConnected = false;
+    resetMqttRetryState();
+    return;
+  }
 
   unsigned long currentTime = millis();
-  static int mqttAttempts = 0;
-  static unsigned long mqttRetryInterval = MQTT_RETRY_INTERVAL;
+  if (mqttRetryInterval == 0) {
+    mqttRetryInterval = MQTT_RETRY_INTERVAL;
+  }
 
   if (!client.connected() && (currentTime - lastMqttAttempt >= mqttRetryInterval)) {
     debugPrint("MQTT connecting...");
@@ -229,8 +250,7 @@ void connectToMqtt() {
     if (client.connect(CLIENT_ID, willTopic.c_str(), 0, true, "offline")) {
       debugPrint("MQTT connected successfully");
       mqttConnected = true;
-      mqttAttempts = 0;
-      mqttRetryInterval = MQTT_RETRY_INTERVAL;
+      resetMqttRetryState();
 
       String basePrefix = String(BASE_TOPIC_PREFIX);
       client.subscribe((basePrefix + "motor1").c_str(), 0);
