@@ -1,4 +1,4 @@
-# Cover/Roleta Support Plan
+# Cover/Window Motor Control Plan
 
 ## Progress marking rule
 
@@ -7,640 +7,683 @@ that exact part with `DONE` in this file. Keep the original task text, add a
 short date or note if useful, and do not leave completed work only in chat or
 git history.
 
-Tento dokument popisuje navrhovanu podporu roliet, zaluzii a inych 230 V
-obojsmernych pohonov cez `cover` moduly v `museum-system`.
+Tento dokument popisuje implementačný návrh riadenia dvoch jednosmerných DC
+motorov pre dizajnérske okná cez `cover` typ zariadenia v `museum-system`.
 
-Dokument je zamerne iba implementacny navrh. V repozitari zatial netreba menit
-Python, React, Shelly script, ESPHome YAML ani ESP32 firmware kod, kym nie je
-potvrdeny finalny hardware a bezpecnostne spravanie.
+Dokument je zámerné iba implementačný návrh. V repozitári zatiaľ netreba meniť
+Python, React ani ESP32 firmware kód, kým nie je potvrdený finálny hardware
+a bezpečnostné správanie.
 
 ---
 
-## 1. Ciel integracie
+## 1. Cieľ integrácie
 
-Do systemu sa ma pridat novy typ zariadenia:
+Do systému sa má pridať nový typ zariadenia:
 
-- existujuce typy: `motor`, `relay`
-- novy typ: `cover`
+- existujúce typy: `motor`, `relay`
+- nový typ: `cover`
 
-`cover` znamena motoricky prvok typu roleta, zaluziovy pohon, opona, dvierka
-alebo podobny AC/Servo pohon s dvoma smermi. V Shelly terminologii sa tato trieda
-zariadeni vola `Cover`.
+`cover` znamená motorický prvok s dvoma smermi pohybu (otvoriť/zatvoriť).
+V tomto projekte ide konkrétne o jednosmerné DC motory ovládané PWM cez H-mostík.
 
-Hlavny ciel je, aby sa novy cover uzol z pohladu Raspberry Pi spraval rovnako
-ako existujuce ESP32 uzly:
+Hlavný cieľ je, aby sa nový cover uzol z pohľadu systému správal rovnako
+ako existujúce ESP32 uzly:
 
-- prijima prikazy cez room-scoped MQTT topicy,
+- prijíma príkazy cez room-scoped MQTT topicy,
 - publikuje feedback na `<command_topic>/feedback`,
 - publikuje stav zariadenia na `devices/<client_id>/status`,
 - reaguje na `roomX/STOP`,
-- da sa pridat do `devices.json`,
-- zobrazi sa vo frontende v Commands view,
-- je dostupny v palete Scene Editora,
-- vie byt pouzity v JSON scenach cez standardnu akciu `{"action": "mqtt"}`.
+- dá sa pridať do `devices.json`,
+- zobrazí sa vo frontende v Commands view,
+- je dostupný v palete Scene Editora,
+- vie byť použitý v JSON scénach cez štandardnú akciu `{"action": "mqtt"}`.
 
 ---
 
-## 2. Odporucany hardware
+## 2. Hardware architektúra
 
-## 2.1 Moznost A: Shelly Pro Dual Cover / Shutter PM
+### 2.1 Prehľad komponentov
 
-Odporucany hotovy modul:
+| Komponent | Model | Úloha |
+|---|---|---|
+| Riadiaci modul | Waveshare ESP32-S3-ETH-8DI-8RO-PoE | MQTT, logika, DI vstupy, riadenie cez RS485 |
+| PWM výstupný modul | 4-kanálový PWM Modbus RTU (elecom.sk) | Generovanie PWM signálu pre H-mostíky |
+| H-mostík | L298N (2×) | Napájanie a smer DC motorov |
+| Motory | 2× jednosmerný DC motor | Pohon okna |
+| Dorazové snímače | 4× mechanický mikrospínač (NO/NC) | Horný a dolný doraz každého motora |
+| Komunikácia | RS485 (Modbus RTU) | ESP32 → PWM modul |
 
-- `Shelly Pro Dual Cover / Shutter PM`
-- DIN rail montaz
-- Ethernet/LAN
-- MQTT
-- Shelly Scripts
-- 2 samostatne `Cover` vystupy: `cover:0`, `cover:1`
-- power metering
+### 2.2 Schéma zapojenia
 
-Toto je vhodnejsie ako male Wi-Fi moduly, pretoze muzeum preferuje stabilnu
-LAN komunikaciu, montaz do rozvadzaca a centralizovanu servisovatelnost.
+```
+Raspberry Pi
+    │
+    │ MQTT (TCP/IP, PoE LAN)
+    ▼
+Waveshare ESP32-S3-ETH-8DI-8RO-PoE
+    │                          │
+    │ RS485 (Modbus RTU)       │ 8× DI vstupy
+    ▼                          ▼
+4-ch PWM Modbus modul      Mikrospínače (end-stop)
+    │ CH1, CH2, CH3, CH4       IN1..IN4 (horné/dolné dorazy)
+    ▼
+H-mostík L298N (Motor 1)   H-mostík L298N (Motor 2)
+    │                              │
+    ▼                              ▼
+DC Motor 1 (Okno 1)         DC Motor 2 (Okno 2)
+```
 
-## 2.2 Moznost B: existujuci Waveshare ESP32-S3-ETH-8DI-8RO
+### 2.3 Mapovanie PWM kanálov na motory
 
-Pouzitelny modul, ktory uz projekt ma:
+| PWM kanál | Funkcia | H-mostík vstup |
+|---|---|---|
+| CH1 | Motor 1 — smer OPEN | ENA + IN1 |
+| CH2 | Motor 1 — smer CLOSE | ENA + IN2 |
+| CH3 | Motor 2 — smer OPEN | ENB + IN3 |
+| CH4 | Motor 2 — smer CLOSE | ENB + IN4 |
 
-- `Waveshare ESP32-S3-ETH-8DI-8RO` alebo PoE varianta,
-- ESP32-S3,
-- W5500 Ethernet,
-- 8 rele vystupov,
-- 8 opticky izolovanych digitalnych vstupov,
-- I2C expander pre rele vystupy,
-- existujuca LAN Arduino firmware vetva v repozitari:
-  `esp32/devices/lan/ArduinoIDE/esp32_mqtt_controller_RELAY/`.
+Každý motor má teda pridelené 2 PWM kanály — jeden pre každý smer. Nikdy
+nesmú byť aktívne súčasne oba kanály toho istého motora.
 
-Prakticky to znamena:
+### 2.4 Mapovanie DI vstupov na end-stop snímače
 
-- LAN kabel ano,
-- 8 rele = maximalne 4 cover pohony, ak kazdy pouzije 2 rele (`open` + `close`),
-- MQTT kompatibilita s tvojim systemom je dosiahnutelna,
-- `devices/<client_id>/status` a `<topic>/feedback` uz stylovo sedia k
-  existujucemu kodu,
-- existujuci `room1/STOP` moze ostat spolocny kill/stop signal.
+| DI vstup | Snímač | Motor |
+|---|---|---|
+| DI1 | Horný doraz (OPEN) | Motor 1 |
+| DI2 | Dolný doraz (CLOSE) | Motor 1 |
+| DI3 | Horný doraz (OPEN) | Motor 2 |
+| DI4 | Dolný doraz (CLOSE) | Motor 2 |
+| DI5–DI8 | Rezerva | — |
 
-Dolezita hranica:
-
-Existujuci relay firmware ma `autoOffMs` pre jednotlive vystupy, global STOP,
-status a feedback. Nema vsak cover-pair logiku pre dvojicu rele typu
-`open/close`. Preto nestaci iba premenovat `DEVICES[]` na
-`cover/1/open` a `cover/1/close`. Pre 230 V pohon treba doplnit aspon:
-
-- mutual exclusion: nikdy nezopnut `open` aj `close` naraz,
-- dead-time pri zmene smeru,
-- jeden command topic na jeden pohon (`room1/cover/1`), nie dva nezavisle
-  rele topicy,
-- max runtime pre cely pohyb,
-- feedback `OK/ERROR` po prijati prikazu,
-- state topic, ak ma frontend ukazovat pohyb a poziciu.
-
-## 2.3 Moznost C: Shelly 2PM Gen4 pre jeden pohon
-
-Mozna lacnejsia alternativa:
-
-- `Shelly 2PM Gen4`
-
-Pouzit iba vtedy, ak nevadi Wi-Fi alebo lokalna montaz pri pohone/vypinaci.
-Pre poziadavku "bez Wi-Fi, cez LAN kabel" je vhodnejsi Pro rad s Ethernetom.
-
-## 2.4 Porovnanie moznosti
-
-| Moznost                    | Vyhody                                      | Nevyhody                                        | Odporucanie                                                 |
-| -------------------------- | ------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------- |
-| Shelly Pro Dual Cover      | Hotovy cover modul, LAN, DIN, 2 pohony      | drahsi, dalsi hardware                          | najlepsie pre rychlu produkcnu instalaciu                   |
-| Waveshare Arduino firmware | uz ho mas, zapada do aktualneho ESP32 kodu  | treba doplnit cover interlock logiku            | dobre, ak chces ostat pri vlastnom firmware                 |
-| Waveshare ESPHome          | hotovy ESPHome pinout, cover komponent, LAN | iny firmware stack ako zvysok repo Arduino kodu | dobre pre rychle prototypovanie alebo samostatny cover node |
-| Shelly 2PM Gen4            | lacnejsie pre 1 pohon                       | bez LAN, lokalna montaz/Wi-Fi                   | pouzit iba ak LAN nie je poziadavka                         |
-
-## 2.5 Co nekupovat alebo nepouzit naivne
-
-Neodporucane:
-
-- obycajny `Shelly 1`, `Shelly 1PM`, `Shelly Plus 1`,
-- genericke dvojrele bez cover/shutter rezimu,
-- existujuci Waveshare relay firmware bez specialnej interlock logiky,
-- dve nezavisle MQTT rele akcie pre `open` a `close` bez centralneho
-  motorickeho guardu.
-
-Pri 230 V pohone s vodičmi `L_open` a `L_close` je kriticke, aby nikdy neboli
-aktivne oba smery naraz. Cover modul toto riesi ako jeden motoricky prvok.
-Obycajne rele to berie ako dva nezavisle vystupy, co je rizikove.
+Mikrospínače sú zapojené ako NC (normálne zatvorené) alebo NO — treba
+overiť pri fyzickom zapojení a nastaviť logiku DI vstupu v kóde podľa toho.
+Odporúčanie: NC je bezpečnejší (prerušenie kábla = doraz aktívny).
 
 ---
 
-## 3. Shelly konfiguracia
+## 3. Waveshare ESP32-S3-ETH-8DI-8RO-PoE — konfigurácia
 
-Konfiguracia sa robi vo web UI Shelly zariadenia alebo cez Shelly RPC.
-Presne nazvy poloziek sa mozu lisit podla firmware verzie, ale princip ostava
-rovnaky.
+### 3.1 Piny a rozhrania
 
-## 3.1 Siet
-
-Pre `Shelly Pro Dual Cover / Shutter PM`:
-
-- pripojit Ethernet RJ45,
-- nastavit DHCP reservation alebo staticku IP,
-- Wi-Fi moze ostat vypnute, ak sa nechce pouzivat ako fallback,
-- Shelly Cloud vypnut, ak ma byt system plne lokalny,
-- overit, ze Raspberry Pi a Shelly su v rovnakej sieti ako MQTT broker.
-
-## 3.2 MQTT
-
-Nastavit:
-
-- `MQTT enable = true`
-- `server = <broker_ip>:1883`
-- `topic_prefix = shellypro-cover-room1` alebo iny stabilny interny prefix
-- `enable_control = true`
-- `enable_rpc = true`
-- `status_ntf = true` volitelne, vhodne pre diagnostiku
-
-Poznamka k statusu:
-
-Shelly ma vlastne native MQTT status/online topicy, ale tvoj backend dnes
-ocakava `devices/<client_id>/status` s payloadom `online` alebo `offline`.
-Preto sa pre kompatibilitu nepouziva iba Shelly native online topic. Adapter
-script ma periodicky publikovat:
+Relevantné piny pre tento projekt:
 
 ```text
-devices/Room1_Shelly_Covers/status -> online
+W5500 Ethernet:
+  CLK:  GPIO15
+  MOSI: GPIO13
+  MISO: GPIO14
+  CS:   GPIO16
+  INT:  GPIO12
+
+I2C expander pre relé výstupy (PCA9554):
+  SDA: GPIO42
+  SCL: GPIO41
+  ADR: 0x20
+
+RS485 (na doske vyvedený ako A/B pár):
+  TX:  GPIO17  (overiť podľa wiki dosky)
+  RX:  GPIO18  (overiť podľa wiki dosky)
+  DE:  GPIO8   (driver enable — half-duplex)
 ```
 
-Tym aktualny `MQTTDeviceRegistry` funguje bez specialnej znalosti Shelly
-topicov. Ak Shelly prestane status publikovat, registry ho po
-`device_timeout` oznaci ako offline.
+Poznámka: relé výstupy (8× RO) nie sú v tomto projekte primárne využité.
+Môžu slúžiť ako záložné bezpečnostné vypnutie (napr. vypnúť napájanie
+H-mostíkov hardware cestou pri globálnom STOP).
 
-## 3.3 Cover setup
+### 3.2 RS485 / Modbus RTU konfigurácia
 
-Pre kazdy fyzicky pohon:
+ESP32 komunikuje s PWM modulom cez RS485 Modbus RTU. Odporúčané nastavenia:
 
-- nastavit vystup ako `Cover`/`Shutter`, nie ako dve samostatne rele,
-- overit smerovanie `open` a `close`,
-- nastavit maximalny cas pohybu,
-- nastavit vstupy podla zapojenia:
-  - `dual` pre dve tlacidla hore/dole,
-  - `detached`, ak fyzicke tlacidla nemaju priamo ovladat pohon,
-  - safety input iba ak ho elektrikarsky navrh vyzaduje.
+```text
+Baud rate:   9600 (default pre väčšinu priemyselných PWM modulov)
+Data bits:   8
+Parity:      None
+Stop bits:   1
+Modbus ID:   1 (nastaviť na PWM module DIP prepínačmi)
+```
 
-## 3.4 Kalibracia
+Overiť skutočnú baud rate a Modbus ID z datasheetu konkrétneho PWM modulu
+z elecom.sk (SKU 33921).
 
-Kalibracia je potrebna iba pre pozicne prikazy.
+### 3.3 MQTT konfigurácia
 
-Bez kalibracie:
-
-- `OPEN` funguje,
-- `CLOSE` funguje,
-- `STOP` funguje,
-- `POS:<0-100>` nema byt pouzite.
-
-Po kalibracii:
-
-- `POS:0` znamena uplne zatvorene,
-- `POS:100` znamena uplne otvorene,
-- `POS:50` znamena priblizne polovica drahy.
-
-Shelly dokumentacia uvadza, ze `Cover.GoToPosition` vyzaduje kalibrovany cover
-a znamu aktualnu poziciu. Po vypadku napajania moze byt nutne pohon najprv
-poslat na znamy koncovy bod.
+```text
+CLIENT_ID:    Window_Covers_Ctrl
+STATUS_TOPIC: devices/Window_Covers_Ctrl/status
+BASE_TOPIC:   room1/
+SUBSCRIPTIONS:
+  room1/cover/1
+  room1/cover/2
+  room1/STOP
+  room1/system/heartbeat
+```
 
 ---
 
-## 3B. Waveshare konfiguracia
+## 4. PWM výstupný modul (Modbus RTU)
 
-Tato sekcia popisuje druhu moznost: pouzit existujucu Waveshare
-`ESP32-S3-ETH-8DI-8RO` dosku ako cover controller.
+### 4.1 Ovládanie cez Modbus
 
-## 3B.1 Co uz v repozitari mas
+PWM modul z elecom.sk (SKU 33921) je 4-kanálový priemyselný PWM výstup
+s Modbus RTU cez RS485. Parametre PWM (duty cycle, frekvencia) sa nastavujú
+zápisom do holding registrov.
 
-Relevantna aktualna vetva:
+Typické Modbus registre (overiť z datasheetu modulu):
+
+| Register | Kanál | Popis |
+|---|---|---|
+| 0x0000 | CH1 | Duty cycle 0–1000 (0.0–100.0 %) |
+| 0x0001 | CH2 | Duty cycle |
+| 0x0002 | CH3 | Duty cycle |
+| 0x0003 | CH4 | Duty cycle |
+
+Príklad Modbus RTU zápisového príkazu pre CH1 na 75 % duty:
 
 ```text
-esp32/devices/lan/ArduinoIDE/esp32_mqtt_controller_RELAY/
+Function code: 0x06 (Write Single Register)
+Register:      0x0000
+Value:         750  (= 75.0 %)
 ```
 
-Podla aktualneho kodu:
+### 4.2 Nastavenie smeru vs. PWM
 
-- LAN/W5500 je primarny transport,
-- Wi-Fi je fallback,
-- MQTT client id je `Room1_Relays_Ctrl`,
-- status topic je `devices/Room1_Relays_Ctrl/status`,
-- base topic je `room1/`,
-- firmware subscribuje `room1/<device_name>`, `room1/effects/#`, `room1/STOP`,
-- feedback ide na `<command_topic>/feedback`,
-- rele vystupy su cez I2C expander `0x20`,
-- I2C piny su `GPIO42`/`GPIO41`,
-- W5500 piny su `GPIO15`, `GPIO14`, `GPIO13`, `GPIO16`, `GPIO12`,
-- `autoOffMs` uz vie vypnut jednotlive vystupy po case.
+H-mostík L298N potrebuje okrem PWM aj smerové vstupy IN1/IN2. Existujú
+dve možné schémy zapojenia:
 
-To je dobry zaklad pre cover node, ale aktualne je to stale relay controller,
-nie cover controller.
+**Schéma A (odporúčaná): ENA = PWM, smer cez relé alebo pevný vodič**
 
-## 3B.2 Odporucana Arduino firmware cesta
+- CH1 ide na ENA (enable) H-mostíka,
+- smer (IN1/IN2) je riadený relé výstupom ESP32 (RO1, RO2),
+- jeden kanál PWM = regulácia rýchlosti, relé = smer.
 
-Ak chceme ostat v style aktualneho repozitara, odporucam nevymenit firmware
-stack za ESPHome, ale spravit novu kopiu existujuceho LAN relay firmveru:
+**Schéma B: Každý smer = samostatný PWM kanál**
+
+- CH1 = IN1 (dopredu), CH2 = IN2 (dozadu),
+- ENA trvalo HIGH,
+- aktívny je vždy iba jeden kanál, druhý = 0.
+
+Schéma B je jednoduchšia na káblovanie a nepotrebuje relé pre smer —
+odporúčaná pre tento projekt. Firmware zabezpečí, že nikdy nie sú oba
+kanály toho istého motora nenulové súčasne.
+
+---
+
+## 5. Bezpečnostná logika (firmware)
+
+Toto je najkritickejšia časť. Jednosmerný motor napájaný H-mostíkom môže
+byť poškodený alebo spôsobiť mechanickú škodu pri nesprávnom riadení.
+
+### 5.1 Smerové blokovanie (mutual exclusion)
+
+**Pravidlo: Pre každý motor smú byť aktívne naraz maximálne 1 PWM kanál.**
 
 ```text
-esp32/devices/lan/ArduinoIDE/esp32_mqtt_controller_COVERS/
+Motor 1:
+  Pokiaľ CH1 > 0, CH2 musí byť = 0
+  Pokiaľ CH2 > 0, CH1 musí byť = 0
+
+Motor 2:
+  Pokiaľ CH3 > 0, CH4 musí byť = 0
+  Pokiaľ CH4 > 0, CH3 musí byť = 0
 ```
 
-Zaklad:
+Toto sa vykonáva vždy softvérovo v ESP32 pred každým zápisom do Modbus
+registrov — nie je to len politika, je to podmienka každého príkazu.
+
+### 5.2 Dead-time pri zmene smeru
+
+Pri prechode OPEN → CLOSE (alebo opačne):
 
 ```text
-copy esp32/devices/lan/ArduinoIDE/esp32_mqtt_controller_RELAY
-  -> esp32/devices/lan/ArduinoIDE/esp32_mqtt_controller_COVERS
+1. Nastaviť aktuálny aktívny kanál na 0 (motor stop)
+2. Počkať 300–500 ms (dead-time)
+3. Aktivovať opačný kanál
 ```
 
-Potom upravit konfiguraciu:
+Dead-time zabraňuje prúdovému špičke pri okamžitej zmene smeru.
+
+### 5.3 End-stop logika (dorazové snímače)
+
+Mikrospínače sú zapojené na DI vstupy ESP32. ESP32 číta stav DI vstupov
+asynchrónne (polling alebo interrupt).
 
 ```text
-CLIENT_ID = Room1_Covers_Ctrl
-STATUS_TOPIC = devices/Room1_Covers_Ctrl/status
-BASE_TOPIC_PREFIX = room1/
+Motor 1 — OPEN smer:
+  Ak DI1 aktívny (horný doraz) → okamžite CH1 = 0, ignorovať ďalšie OPEN
+  príkazy kým DI1 aktívny
+
+Motor 1 — CLOSE smer:
+  Ak DI2 aktívny (dolný doraz) → okamžite CH2 = 0, ignorovať ďalšie CLOSE
+  príkazy kým DI2 aktívny
+
+(analogicky pre Motor 2 s DI3/DI4)
 ```
 
-Navrhovane mapovanie 8 rele na 4 cover pohony:
+**Doraz = okamžitý stop (PWM = 0), bez soft-stop.**
 
-| Cover topic       | Open relay bit | Close relay bit |
-| ----------------- | -------------: | --------------: |
-| `room1/cover/1` |              0 |               1 |
-| `room1/cover/2` |              2 |               3 |
-| `room1/cover/3` |              4 |               5 |
-| `room1/cover/4` |              6 |               7 |
+Snímač sa overuje:
+- aktívne počas pohybu (polling každých 50–100 ms),
+- pred začatím pohybu (ak je doraz aktívny, príkaz sa odmietne s feedback ERROR).
 
-Pozor: toto plati iba pre dedikovanu Waveshare dosku na rolety. Ak aktualna
-Waveshare doska uz ovlada dymostroj, svetla a efekty, nema volnych 8 rele pre
-4 rolety. Vtedy treba bud dalsiu dosku, alebo premapovat realne fyzicke
-vystupy.
+### 5.4 Max runtime timeout
 
-## 3B.3 Co treba do Arduino firmware doplnit
-
-Minimalna nova logika:
+Ako záložná ochrana pri poruche snímača:
 
 ```text
+MAX_MOVE_TIME_MS = 30000   // 30 sekúnd, nastaviť podľa skutočnej doby chodu
+```
+
+Ak sa motor pohybuje dlhšie ako tento limit bez dorazu, firmware vykoná
+emergency stop (oba kanály = 0) a publikuje:
+
+```text
+room1/cover/1/feedback -> ERROR:TIMEOUT
+```
+
+### 5.5 Globálny STOP
+
+Príkaz `room1/STOP` zastaví okamžite **všetky** motory:
+
+```text
+CH1 = 0, CH2 = 0, CH3 = 0, CH4 = 0  (Modbus write all channels)
+Zrušiť všetky aktívne runtime timery
+Publikovať feedback OK pre každý aktívny cover
+```
+
+### 5.6 Heartbeat watchdog
+
+Raspberry Pi posiela periodicky:
+
+```text
+room1/system/heartbeat -> PING  (interval: 5 s)
+```
+
+ESP32 sleduje čas posledného heartbeatu. Ak nepríde do timeoutu:
+
+```text
+HEARTBEAT_TIMEOUT_MS = 20000  // 20 sekúnd
+Akcia pri timeout: STOP všetkých motorov (rovnako ako globálny STOP)
+Nepúšťať nové pohybové príkazy, kým sa heartbeat neobnoví
+```
+
+Heartbeat fail-safe nezatvára okná automaticky — iba zastaví pohyb.
+Automatické zatváranie pri výpadku je aktívny pohyb a môže byť nebezpečné
+(návštevník, exponát). Toto rozhodnutie treba potvrdiť.
+
+---
+
+## 6. Kanonický MQTT kontrakt
+
+### 6.1 Command topics
+
+```text
+room1/cover/1    // Motor 1 (Okno 1)
+room1/cover/2    // Motor 2 (Okno 2)
+room1/STOP       // Globálny stop všetkých motorov
+```
+
+### 6.2 Payloady
+
+| Payload | Význam |
+|---|---|
+| `OPEN` | Otvoriť okno (motor v smere OPEN, kým doraz alebo STOP) |
+| `CLOSE` | Zatvoriť okno (motor v smere CLOSE, kým doraz alebo STOP) |
+| `STOP` | Okamžite zastaviť pohyb |
+
+Pozičné príkazy (`POS:50`) nie sú v tejto verzii implementované — chýba
+enkodér alebo iná spätná väzba o polohe. Stačí OPEN/CLOSE/STOP.
+
+### 6.3 Feedback
+
+```text
+room1/cover/1/feedback -> OK             // príkaz prijatý a vykonaný
+room1/cover/1/feedback -> ERROR          // neplatný payload
+room1/cover/1/feedback -> ERROR:TIMEOUT  // max runtime prekročený
+room1/cover/1/feedback -> ERROR:ENDSTOP  // doraz aktívny, pohyb odmietnutý
+```
+
+### 6.4 Status topic
+
+```text
+devices/Window_Covers_Ctrl/status -> online   // periodicky každých 5–10 s
+devices/Window_Covers_Ctrl/status -> offline  // MQTT will message
+```
+
+Interval musí byť kratší ako `device_timeout` v `config.ini.example`
+(aktuálne `25` sekúnd), inak `MQTTDeviceRegistry` označí uzol ako offline,
+aj keď reálne funguje — detail a rezerva v 10.2.3.
+
+### 6.5 State topic
+
+```text
+room1/cover/1/state -> OPENING
+room1/cover/1/state -> CLOSING
+room1/cover/1/state -> OPEN      // doraz aktívny (horný)
+room1/cover/1/state -> CLOSED    // doraz aktívny (dolný)
+room1/cover/1/state -> STOPPED   // zastavený príkazom
+room1/cover/1/state -> UNKNOWN   // stav neznámy (napr. po resete)
+```
+
+Payload je čistý text (nie JSON) — backend parser má očakávať plain string,
+nie JSON objekt. Odôvodnenie a detaily v 10.2.4.
+
+---
+
+## 7. Firmware — implementačný návrh (Arduino/ESP-IDF)
+
+### 7.1 Štruktúra CoverDevice
+
+```cpp
 struct CoverDevice {
-  const char* topicName;       // cover/1
-  int openRelayIndex;          // bit 0
-  int closeRelayIndex;         // bit 1
-  unsigned long moveTimeoutMs; // napr. 30000
+  const char* topicName;       // napr. "cover/1"
+  int pwmOpenChannel;          // Modbus register pre OPEN kanál (0-based)
+  int pwmCloseChannel;         // Modbus register pre CLOSE kanál (0-based)
+  int diOpenPin;               // DI vstup — horný doraz (open endstop)
+  int diClosePin;              // DI vstup — dolný doraz (close endstop)
+  unsigned long moveTimeoutMs; // max čas pohybu v ms
+  // runtime stav:
+  unsigned long moveStartTime;
+  bool isMoving;
+  int moveDirection;           // +1 = OPEN, -1 = CLOSE, 0 = stop
 };
 ```
 
-Parser v `mqtt_manager.cpp` ma pred existujucim "Individual device" blokom
-rozpoznat:
+### 7.2 Postup pri príkaze OPEN
 
 ```text
-room1/cover/1 -> OPEN
-room1/cover/1 -> CLOSE
-room1/cover/1 -> STOP
-room1/cover/1 -> POS:50
+1. Skontrolovať DI (horný doraz):
+   - ak aktívny → feedback ERROR:ENDSTOP, koniec
+2. Nastaviť pwmCloseChannel = 0 cez Modbus
+3. Počkať dead-time (300 ms)
+4. Nastaviť pwmOpenChannel = PWM_DUTY (napr. 800 = 80 %) cez Modbus
+5. Zaznamenať moveStartTime = millis()
+6. Nastaviť isMoving = true, moveDirection = +1
+7. Publikovať room1/cover/1/state -> OPENING
+8. Publikovať room1/cover/1/feedback -> OK
 ```
 
-Pre `OPEN`:
-
-1. vypnut close relay,
-2. pockat kratky dead-time, napr. 500 ms,
-3. zapnut open relay,
-4. nastavit max runtime timer,
-5. publikovat `room1/cover/1/feedback -> OK`.
-
-Pre `CLOSE`:
-
-1. vypnut open relay,
-2. pockat kratky dead-time,
-3. zapnut close relay,
-4. nastavit max runtime timer,
-5. publikovat feedback `OK`.
-
-Pre `STOP`:
-
-1. vypnut oba rele,
-2. zrusit runtime timer,
-3. publikovat feedback `OK`.
-
-Pre neznamy alebo nevalidny payload:
+### 7.3 Postup pri príkaze CLOSE
 
 ```text
-room1/cover/1/feedback -> ERROR
+1. Skontrolovať DI (dolný doraz):
+   - ak aktívny → feedback ERROR:ENDSTOP, koniec
+2. Nastaviť pwmOpenChannel = 0 cez Modbus
+3. Počkať dead-time (300 ms)
+4. Nastaviť pwmCloseChannel = PWM_DUTY cez Modbus
+5. Zaznamenať moveStartTime = millis()
+6. Nastaviť isMoving = true, moveDirection = -1
+7. Publikovať room1/cover/1/state -> CLOSING
+8. Publikovať room1/cover/1/feedback -> OK
 ```
 
-`POS:<n>` cez cisty rele modul bez merania pozicie nie je skutocna pozicia.
-Da sa implementovat iba ako casovy odhad po kalibracii drahy, podobne ako
-ESPHome `time_based` cover. Ak nie je potrebne polohovanie, prvu verziu
-obmedzit na `OPEN`, `CLOSE`, `STOP`.
-
-## 3B.4 Preco nestaci iba `DEVICES[]`
-
-Teoreticky by sa dalo urobit:
+### 7.4 Postup pri príkaze STOP
 
 ```text
-room1/cover/1/open  -> ON
-room1/cover/1/close -> ON
+1. Nastaviť pwmOpenChannel = 0 a pwmCloseChannel = 0 cez Modbus
+2. isMoving = false, moveDirection = 0
+3. Zrušiť runtime timer
+4. Publikovať room1/cover/1/state -> STOPPED
+5. Publikovať room1/cover/1/feedback -> OK
 ```
 
-Toto vsak neodporucam.
+### 7.5 Loop — pravidelné kontroly
 
-Dovod:
-
-- aktualny `setDevice()` nevie, ze dve rele patria k jednemu motoru,
-- scene alebo manualny operator by mohli omylom zapnut oba smery,
-- `autoOffMs` riesi maximalny cas jedneho vystupu, nie smerove blokovanie,
-- frontend by videl dve rele, nie jeden cover pohon.
-
-Spravna abstrakcia pre system je:
+Každých 50–100 ms:
 
 ```text
-room1/cover/1 -> OPEN/CLOSE/STOP/POS:50
+Pre každý CoverDevice kde isMoving == true:
+
+  a) Skontrolovať doraz v smere pohybu:
+     - OPEN a diOpenPin aktívny  → emergency stop, state = OPEN, feedback OK
+     - CLOSE a diClosePin aktívny → emergency stop, state = CLOSED, feedback OK
+
+  b) Skontrolovať timeout:
+     - millis() - moveStartTime > moveTimeoutMs → emergency stop,
+       feedback ERROR:TIMEOUT
+
+  c) Emergency stop:
+     - Modbus: oba kanály = 0
+     - isMoving = false
 ```
 
-Teda jeden topic pre jeden fyzicky pohon.
-
-## 3B.5 ESPHome cesta na tej istej Waveshare doske
-
-ESPHome je druha mozna cesta na rovnakom hardware. Hodila by sa vtedy, ak
-chceme rychlo prototypovat cover spravanie bez pisania C++ Arduino firmware.
-
-Vyhody:
-
-- oficialny ESPHome device profil pre tuto dosku existuje,
-- W5500 Ethernet je podporeny,
-- rele su uz popisane cez `pca9554` expander,
-- ESPHome ma `time_based` cover komponent,
-- GPIO switch komponent ma `interlock` a `interlock_wait_time`,
-- MQTT ma `birth_message`, `will_message`, `on_message` a `mqtt.publish`.
-
-Zakladne piny pre tuto dosku:
-
-```yaml
-ethernet:
-  type: W5500
-  clk_pin: GPIO15
-  mosi_pin: GPIO13
-  miso_pin: GPIO14
-  cs_pin: GPIO16
-  interrupt_pin: GPIO12
-
-i2c:
-  sda: GPIO42
-  scl: GPIO41
-
-pca9554:
-  - id: TCA9554_hub
-    address: 0x20
-```
-
-Poznamka: nepouzivat nahodne W5500 piny z generickych prikladov. Tvoj
-existujuci Arduino firmware aj ESPHome devices profil pouzivaju pre tuto
-Waveshare dosku `GPIO15/13/14/16/12`.
-
-Rele v ESPHome nie su priame `GPIO1`, `GPIO2`, ale piny na expanderi:
-
-```yaml
-switch:
-  - platform: gpio
-    id: relay1
-    pin:
-      pca9554: TCA9554_hub
-      number: 0
-      mode:
-        output: true
-    restore_mode: ALWAYS_OFF
-    interlock: [relay2]
-    interlock_wait_time: 500ms
-
-  - platform: gpio
-    id: relay2
-    pin:
-      pca9554: TCA9554_hub
-      number: 1
-      mode:
-        output: true
-    restore_mode: ALWAYS_OFF
-    interlock: [relay1]
-    interlock_wait_time: 500ms
-```
-
-Time-based cover skeleton:
-
-```yaml
-cover:
-  - platform: time_based
-    id: cover_1
-    name: "Cover 1"
-    open_action:
-      - switch.turn_off: relay2
-      - delay: 500ms
-      - switch.turn_on: relay1
-    close_action:
-      - switch.turn_off: relay1
-      - delay: 500ms
-      - switch.turn_on: relay2
-    stop_action:
-      - switch.turn_off: relay1
-      - switch.turn_off: relay2
-    open_duration: 30s
-    close_duration: 30s
-```
-
-Pre motory s vlastnymi koncovymi dorazmi aj tak odporucam nechat
-`open_duration` a `close_duration` ako softverovu poistku. Nepouzivat
-`has_built_in_endstop: true` bez rozmyslu, pretoze pri tejto volbe ESPHome po
-dobehu casu nevykona `stop_action`.
-
-## 3B.6 ESPHome a tvoj MQTT protokol
-
-ESPHome native MQTT cover command topic nemusi sam o sebe publikovat tvoj
-`/feedback` format. Pre plnu kompatibilitu treba doplnit `mqtt.on_message`
-adapter, ktory pocuva tvoje topicy:
-
-```text
-room1/cover/1
-room1/cover/2
-room1/STOP
-room1/system/heartbeat
-```
-
-a vykona:
-
-```text
-OPEN  -> cover.open
-CLOSE -> cover.close
-STOP  -> cover.stop
-POS:n -> cover.control position n
-```
-
-Po prijati validneho prikazu publikuje:
-
-```text
-room1/cover/1/feedback -> OK
-```
-
-Pri nevalidnom prikaze:
-
-```text
-room1/cover/1/feedback -> ERROR
-```
-
-Tento `OK` znamena "ESPHome prikaz prijal a vykonal lokalnu akciu", nie
-hardverovo potvrdeny koncovy doraz. Rovnako funguje aj vacsina existujucich
-ESP32 relay potvrdeni v projekte.
-
-## 3B.7 ESPHome fail-safe
-
-`birth_message` a `will_message` riesia online/offline stav pre backend:
-
-```yaml
-mqtt:
-  broker: 192.168.0.127
-  topic_prefix: room1/covers_ctrl
-  birth_message:
-    topic: devices/Room1_Covers_Ctrl/status
-    payload: online
-    retain: true
-  will_message:
-    topic: devices/Room1_Covers_Ctrl/status
-    payload: offline
-    retain: true
-```
-
-Ale will message sam nezatvori roletu. Na fail-safe zatvorenie treba bud:
-
-- `mqtt.on_disconnect` akcia, ktora spusti `cover.close`, alebo
-- vlastny heartbeat watchdog cez `room1/system/heartbeat`.
-
-Pre tvoju poziadavku "ak nejde MQTT alebo LAN, zatvorit" je robustnejsi
-heartbeat watchdog. Dovod: `on_disconnect` riesi MQTT spojenie, ale heartbeat
-vie pokryt aj stav, ked Raspberry Pi alebo hlavna aplikacia nebezi spravne.
-
-## 3B.8 Odporucanie pre Waveshare variantu
-
-Ak chces co najviac konzistentny system s aktualnym repozitarom:
-
-1. pouzit dedikovanu Waveshare dosku pre covers,
-2. skopirovat existujuci LAN Arduino relay firmware do noveho
-   `esp32_mqtt_controller_COVERS`,
-3. doplnit cover-pair parser a interlock logiku,
-4. pouzit rovnaky MQTT kontrakt ako Shelly alternativa:
-   `room1/cover/<id>`, `/feedback`, `devices/<id>/status`, `room1/STOP`,
-5. frontend a backend pisat iba proti abstrakcii `cover`, nie proti Shelly
-   alebo Waveshare detailom.
-
-Ak chces rychlo overit fyzicke zapojenie a casy pohybu:
-
-1. pouzit ESPHome na Waveshare,
-2. nakonfigurovat 1 cover na rele 1/2,
-3. overit `OPEN/CLOSE/STOP`,
-4. az potom sa rozhodnut, ci ostanes pri ESPHome alebo prepises logiku do
-   Arduino firmware stylu repozitara.
-
----
-
-## 4. Kanonicky MQTT kontrakt pre museum-system
-
-## 4.1 Naming
-
-Pouzivat anglicky technicky nazov `cover`, pretoze:
-
-- zodpoveda Shelly API,
-- je ASCII,
-- je vseobecnejsi ako `blind`, `shutter`, `roleta` alebo `zaluzia`,
-- dobre sedi k buducemu frontendu `covers`.
-
-Priklad pre miestnost `room1`:
-
-```text
-room1/cover/1
-room1/cover/2
-```
-
-Ak jeden Shelly Pro modul ovlada dve rolety:
-
-```text
-room1/cover/1 -> Shelly cover:0
-room1/cover/2 -> Shelly cover:1
-```
-
-## 4.2 Command topics
-
-Kazdy cover ma jeden prikazovy topic:
-
-```text
-roomX/cover/<cover_id>
-```
-
-Priklady:
-
-```text
-room1/cover/1
-room1/cover/2
-```
-
-## 4.3 Feedback topics
-
-Shelly adapter musi odpovedat na rovnaky topic s `/feedback` suffixom:
-
-```text
-room1/cover/1/feedback -> OK
-room1/cover/1/feedback -> ERROR
-```
-
-Toto je kompatibilne s aktualnym `MQTTFeedbackTracker`, pretoze
-`MQTTTopicRules.expected_feedback_topic(original_topic)` sklada feedback ako
-`<original_topic>/feedback`.
-
-Poznamka:
-
-`MQTTClient` dnes subscribuje aj `room1/#`, takze nested feedback
-`room1/cover/1/feedback` sa do message handlera dostane. `room1/+/feedback`
-samotne by nested topic nepokrylo, ale `room1/#` ano.
-
-## 4.4 Status topic
-
-Pre registry kompatibilitu:
-
-```text
-devices/Room1_Shelly_Covers/status -> online
-```
-
-Odporucany `client_id`:
-
-```text
-Room1_Shelly_Covers
-```
-
-Ak bude v jednej miestnosti viac Shelly modulov:
-
-```text
-Room1_Shelly_Covers_A
-Room1_Shelly_Covers_B
-```
-
-Status publikovat periodicky, napriklad kazdych 5 az 10 sekund. Aktualny
-`config.ini.example` ma `device_timeout = 25`, preto musi byt interval kratsi
-ako timeout a mal by mat rezervu aspon niekolko heartbeatov.
-
-## 4.5 State topic
-
-Pre plnohodnotny frontend je vhodne pridat samostatny state topic:
-
-```text
-room1/cover/1/state
-```
-
-Odporucany JSON payload:
-
-```json
-{
-  "state": "opening",
-  "position": 42,
-  "target": 100,
-  "source": "shelly",
-  "calibrated": true
+### 7.6 Modbus write helper
+
+```cpp
+// Príklad s knižnicou ModbusMaster alebo vlastným UART Modbus RTU
+void setPwmChannel(int channel, int duty) {
+  // duty: 0–1000 (0.0–100.0 %)
+  // channel: 0–3 (pre CH1–CH4)
+  modbusClient.writeSingleRegister(0x0000 + channel, duty);
 }
 ```
 
-Minimalny textovy payload, ak sa nechce posielat JSON:
+Pred zápisom vždy overiť smerové blokovanie — nikdy nepísať duty > 0
+na oba kanály toho istého motora.
+
+---
+
+## 8. Manuálne MQTT testy
+
+Pred zapojením do scén otestovať cez broker.
+
+### 8.1 Subscribe na feedback a state
+
+```bash
+mosquitto_sub -h <broker_ip> -t 'room1/cover/#' -v
+```
+
+### 8.2 Otvoriť okno 1
+
+```bash
+mosquitto_pub -h <broker_ip> -t 'room1/cover/1' -m 'OPEN'
+```
+
+Očakávané:
+```text
+room1/cover/1/feedback -> OK
+room1/cover/1/state    -> OPENING
+... (po doraze) ...
+room1/cover/1/state    -> OPEN
+```
+
+### 8.3 Zatvoriť okno 1
+
+```bash
+mosquitto_pub -h <broker_ip> -t 'room1/cover/1' -m 'CLOSE'
+```
+
+### 8.4 Stop
+
+```bash
+mosquitto_pub -h <broker_ip> -t 'room1/cover/1' -m 'STOP'
+```
+
+### 8.5 Globálny stop
+
+```bash
+mosquitto_pub -h <broker_ip> -t 'room1/STOP' -m 'STOP'
+```
+
+### 8.6 End-stop test
+
+```text
+1. Spustiť OPEN
+2. Ručne aktivovať horný mikrospínač (simulovať doraz)
+3. Overiť, že motor zastane a state = OPEN
+4. Skúsiť znova OPEN → očakávané: ERROR:ENDSTOP
+```
+
+### 8.7 Heartbeat fail-safe test
+
+```text
+1. Spustiť heartbeat:
+   mosquitto_pub -h <broker_ip> -t 'room1/system/heartbeat' -m 'PING' -l
+   (loop mode, každú sekundu)
+2. Spustiť pohyb okna
+3. Zastaviť heartbeat (Ctrl+C)
+4. Po 20 s overiť, že motor zastane
+```
+
+---
+
+## 9. Bezpečnostné pravidlá
+
+### 9.1 Smerové blokovanie
+
+Smerové blokovanie musí riešiť **firmware** v ESP32 pred každým Modbus zápisom.
+Nestačí spoliehať sa len na MQTT logiku. Dva aktívne PWM kanály toho istého
+motora = možné poškodenie H-mostíka alebo motora.
+
+### 9.2 End-stop snímače ako primárna ochrana
+
+Mikrospínače sú primárna hardvérová ochrana pred mechanickým prechodom cez
+krajnú polohu. Softvérový timeout je iba záloha pri poruche snímača.
+Oba mechanizmy musia fungovať nezávisle.
+
+### 9.3 Odporúčané zapojenie NC mikrospínačov
+
+```text
+NC (normálne zatvorený) je bezpečnejší ako NO:
+  - prestrihnutý/odpojený kábel = snímač hlási aktívny doraz
+  - firmware zastane, neposiela motor do prechodenia
+```
+
+### 9.4 Pohyb pri strate riadenia
+
+Heartbeat fail-safe zastaví pohyb, ale **nespustí** aktívne zatváranie.
+Aktívny pohyb pri výpadku komunikácie môže ohroziť návštevníka alebo exponát.
+Toto rozhodnutie treba potvrdiť pred finálnou implementáciou.
+
+### 9.5 Napájanie H-mostíka
+
+H-mostíky L298N musia mať vlastný napájací zdroj pre motorovú časť (VM),
+oddelený od logického napájania (VSS 5V). Pri výpadku VM motory zastanú
+prirodzene — to je želané správanie.
+
+Zvážiť pridanie hardware kill: jeden relé výstup ESP32 (RO1) ovláda
+napájanie oboch H-mostíkov. Pri globálnom STOP alebo heartbeat timeout
+môže firmware odpojiť VM napájanie hardwarovo, nielen nullovať PWM.
+
+---
+
+## 10. Backend a frontend integrácia
+
+### 10.1 `devices.json` návrh
+
+Aktuálny room config:
+
+```text
+raspberry_pi/config/rooms/room1/devices.json
+```
+
+Aktuálne obsahuje kľúče `motors` a `relays`. Navrhované rozšírenie o
+`covers`:
+
+```json
+{
+  "motors": [],
+  "relays": [],
+  "covers": [
+    {
+      "id": "cover_1",
+      "name": "Okno 1",
+      "type": "cover",
+      "topic": "room1/cover/1",
+      "nodeId": "Window_Covers_Ctrl",
+      "esp32CoverIndex": 1,
+      "supportsPosition": false,
+      "heartbeatTopic": "room1/system/heartbeat",
+      "failSafeAction": "STOP",
+      "stopAction": "STOP"
+    },
+    {
+      "id": "cover_2",
+      "name": "Okno 2",
+      "type": "cover",
+      "topic": "room1/cover/2",
+      "nodeId": "Window_Covers_Ctrl",
+      "esp32CoverIndex": 2,
+      "supportsPosition": false,
+      "heartbeatTopic": "room1/system/heartbeat",
+      "failSafeAction": "STOP",
+      "stopAction": "STOP"
+    }
+  ]
+}
+```
+
+Poznámky k poliam:
+
+- `esp32CoverIndex` nahrádza Shelly-špecifický `coverId` (`cover:0`/`cover:1`
+  index v rámci jedného Shelly zariadenia, ktorý sa pre tento hardware
+  nehodí). Je to mapovací kľúč zodpovedajúci indexu v `CoverDevice[]` poli
+  vo firmware tohto ESP32 uzla (pozri 7.1). Backend ho nijako nevyhodnocuje,
+  iba ho preposiela/zobrazuje vo frontende pre debugging a servis.
+- `supportsPosition` je natvrdo `false` — tento hardware nemá enkodér ani
+  inú spätnú väzbu o polohe (pozri 6.2).
+- `failSafeAction` je `"STOP"`, nie `"CLOSE"` — zodpovedá rozhodnutiu z
+  5.6/9.4, že heartbeat fail-safe iba zastaví pohyb, nezatvára okno
+  automaticky.
+
+#### 10.1.1 Spätná kompatibilita pri ukladaní configu
+
+`POST /api/devices` dnes validuje, že config obsahuje aspoň jeden z kľúčov:
+
+```text
+motors
+relays
+lights
+```
+
+Pre plnú podporu treba pridať aj `covers` (pozri 10.2.1). Kým sa backend
+neupraví, config musí stále obsahovať aspoň prázdne `motors` alebo `relays`
+polia — inak `POST /api/devices` vráti chybu validácie, aj keď je `covers`
+pole vyplnené správne.
+
+### 10.2 Backend (Raspberry Pi Python)
+
+#### 10.2.1 Validácia `/api/devices`
+
+Aktuálne: `motors / relays / lights`
+Navrhované: `motors / relays / lights / covers`
+
+#### 10.2.2 `MQTTActuatorStateStore` — rozšírenie
+
+Pridať:
+
+- `cover_state`: `OPEN`, `CLOSED`, `OPENING`, `CLOSING`, `STOPPED`, `UNKNOWN`
+- `cover_position`: vždy `null` — tento hardware nemá pozičnú spätnú väzbu
+  (pozri 6.2). Pole sa zachováva v štruktúre pre prípadnú budúcu
+  kompatibilitu s pozičnými covermi (napr. Shelly v inej miestnosti), ale
+  parser ho pre tento ESP32 typ nikdy nenastavuje.
+- `cover_target`: vždy `null`, z rovnakého dôvodu.
+- `cover_calibrated`: vždy `false` alebo `null` — kalibrácia sa v tejto
+  verzii nepoužíva.
+
+Mapovanie príkazov:
+
+| Command | Desired cover state |
+|---|---|
+| `OPEN` | `OPENING` |
+| `CLOSE` | `CLOSING` |
+| `STOP` | `STOPPED` |
+
+Feedback `OK` sám o sebe neznamená, že okno už dorazilo — iba že cover uzol
+príkaz prijal. Skutočný finálny stav (`OPEN`/`CLOSED`) prichádza zo state
+topicu po dosiahnutí dorazu (pozri 6.5, 7.5).
+
+#### 10.2.3 Status interval a `device_timeout`
+
+Status (`devices/Window_Covers_Ctrl/status -> online`) sa má posielať
+periodicky každých 5–10 sekúnd (pozri 6.4). Aktuálny `config.ini.example`
+má `device_timeout = 25`, takže interval musí byť kratší ako tento timeout
+a mal by mať rezervu aspoň na niekoľko vynechaných heartbeatov — inak
+`MQTTDeviceRegistry` označí uzol ako offline, hoci reálne funguje.
+
+#### 10.2.4 Formát payloadu state topicu
+
+State topic (`room1/cover/1/state`) posiela čistý textový payload, nie
+JSON:
 
 ```text
 OPENING
@@ -651,544 +694,34 @@ STOPPED
 UNKNOWN
 ```
 
-Pre plnu integraciu je lepsi JSON, lebo frontend vie zobrazit percenta a
-kalibracny stav.
+Toto je vedomé zjednodušenie oproti JSON variante (relevantná pre Shelly
+cover s pozíciou) — pretože `cover_position`, `cover_target` a
+`cover_calibrated` sú pre tento hardware vždy `null`/`false`, JSON payload
+by neprinášal žiadnu extra informáciu. Backend parser má očakávať plain
+string, nie JSON objekt.
 
-## 4.6 Heartbeat topic
+### 10.3 Frontend
 
-Pre fail-safe "ak nejde MQTT/Pi/siet, zatvorit" treba heartbeat z Raspberry Pi
-do Shelly:
+Zmeny potrebné:
 
-```text
-room1/system/heartbeat -> PING
-```
+- rozšíriť `useDevices` o `covers` typ,
+- pridať `CoverCard` komponent s tlačidlami OPEN / STOP / CLOSE,
+- rozšíriť `CommandsView`,
+- rozšíriť `useDevicePalette` a `EditorPalette` o `OPEN`, `CLOSE`, `STOP` akcie,
+- runtime state zobraziť cez Socket.IO event `device_runtime_state_update`.
 
-Cover adapter si interne resetuje watchdog pri kazdom prijatom heartbeat.
-Ak heartbeat nepride do nastaveneho timeoutu, cover uzol vykona bezpecnostnu
-akciu podla policy.
+### 10.4 Scény — príklady
 
-Odporucane hodnoty:
-
-```text
-Raspberry Pi heartbeat interval: 5 s
-Shelly heartbeat timeout: 20 az 30 s
-```
-
-Heartbeat musi bezat stale pocas zdraveho runtime, nie iba pocas aktivnej
-sceny. Inak by Shelly zatvaral rolety pocas idle stavu.
-
----
-
-## 5. Payloady
-
-## 5.1 Povinne payloady
-
-Tieto payloady ma podporovat kazdy cover:
-
-| Payload   | Vyznam                  | Shelly RPC metoda |
-| --------- | ----------------------- | ----------------- |
-| `OPEN`  | otvorit                 | `Cover.Open`    |
-| `CLOSE` | zatvorit                | `Cover.Close`   |
-| `STOP`  | okamzite zastavit pohyb | `Cover.Stop`    |
-
-## 5.2 Pozicne payloady
-
-Pozicne payloady pouzit iba po kalibracii:
-
-| Payload     | Vyznam                 | Shelly RPC metoda      |
-| ----------- | ---------------------- | ---------------------- |
-| `POS:0`   | zatvorit na 0 percent  | `Cover.GoToPosition` |
-| `POS:50`  | ist na 50 percent      | `Cover.GoToPosition` |
-| `POS:100` | otvorit na 100 percent | `Cover.GoToPosition` |
-
-`POS:<n>` musi validovat rozsah `0..100`.
-
-Ak cover nie je kalibrovany alebo Shelly vrati chybu, adapter odpovie:
-
-```text
-room1/cover/1/feedback -> ERROR
-```
-
-## 5.3 Volitelne admin payloady
-
-Tieto payloady neodporucam davat do beznej palety Scene Editora, ale mozu byt
-uzitocne pre servis:
-
-| Payload       | Vyznam                                                     |
-| ------------- | ---------------------------------------------------------- |
-| `STATUS`    | adapter publikuje aktualny stav na `room1/cover/1/state` |
-| `CALIBRATE` | spusti kalibraciu, iba servisne                            |
-
-`CALIBRATE` moze byt rizikovy prikaz, preto ho nepouzivat v beznych scenach.
-
----
-
-## 6. STOP a fail-safe politika
-
-Toto su dve rozdielne veci a nemaju sa miesat.
-
-## 6.1 `room1/STOP`
-
-Aktualny backend pri `stop_scene()` publikuje:
-
-```text
-room1/STOP -> STOP
-```
-
-Pre cover zariadenia odporucam:
-
-- `room1/STOP` vykona `Cover.Stop`, nie `Cover.Close`,
-- ciel je okamzite zastavit pohyb a nevyvolat novy pohyb.
-
-Dovod: operator moze stlacit "Vypnut vsetko" prave preto, ze sa nieco hybe
-neziaducim smerom. Automaticke zatvaranie po global STOP by mohlo sposobit
-dalsi pohyb.
-
-Ak expozicia explicitne vyzaduje zatvorenie pri stopnuti sceny, scena ma mat
-vlastny `onExit` alebo finalny stav:
-
+Otvoriť okno 1:
 ```json
 {
   "action": "mqtt",
   "topic": "room1/cover/1",
-  "message": "CLOSE"
+  "message": "OPEN"
 }
 ```
 
-## 6.2 Heartbeat fail-safe
-
-Pri strate riadiaceho systemu je poziadavka ina:
-
-- Raspberry Pi crash,
-- MQTT broker nedostupny,
-- LAN kabel odpojeny,
-- Shelly pripojeny k napajaniu, ale nema spojenie s brokerom.
-
-Vtedy ma Shelly po timeout-e vykonat policy:
-
-```text
-failSafeAction = CLOSE
-```
-
-Odporucane spravanie:
-
-- po starte scriptu spustit watchdog,
-- heartbeat resetuje watchdog,
-- ak heartbeat nepride do 20 az 30 sekund, vykonat `Cover.Close`,
-- po vykonani fail-safe uz dalej neopakovat prikaz kazdu sekundu, iba raz za
-  timeout cyklus alebo po zmene stavu.
-
-## 6.3 Co fail-safe nevyriesi
-
-Fail-safe cez cover adapter nevyriesi:
-
-- vypadok 230 V napajania Shelly,
-- mechanicku poruchu pohonu,
-- zaseknutu roletu,
-- zle zapojene smery,
-- fyzicky odpojeny motor.
-
-Pre realnu bezpecnost musi byt zapojenie a mechanika overena elektrikarsky.
-
----
-
-## 7. Shelly adapter script - zodpovednosti
-
-Adapter script nie je firmware nahrada. Je to tenka prekladova vrstva medzi
-museum MQTT protokolom a Shelly Cover RPC API.
-
-## 7.1 Script robi
-
-- subscribuje `room1/cover/1`,
-- subscribuje `room1/cover/2`, ak modul ovlada dve rolety,
-- subscribuje `room1/STOP`,
-- subscribuje `room1/system/heartbeat`,
-- preklada `OPEN`, `CLOSE`, `STOP`, `POS:<n>` na Shelly `Cover.*` RPC,
-- publikuje `OK` alebo `ERROR` na `<command_topic>/feedback`,
-- periodicky publikuje `devices/<client_id>/status = online`,
-- publikuje aktualny cover stav na `room1/cover/<id>/state`,
-- drzi heartbeat watchdog pre fail-safe zatvorenie.
-
-## 7.2 Script nerobi
-
-- neriesi sceny,
-- neriesi casovanie show,
-- neriesi audio/video,
-- neobsahuje business logiku miestnosti,
-- nemeni MQTT protokol Raspberry Pi backendu.
-
-## 7.3 Minimalna konfiguracia scriptu
-
-Odporucane konstanty:
-
-```text
-ROOM_ID = room1
-CLIENT_ID = Room1_Shelly_Covers
-STATUS_TOPIC = devices/Room1_Shelly_Covers/status
-HEARTBEAT_TOPIC = room1/system/heartbeat
-HEARTBEAT_TIMEOUT_MS = 30000
-STATUS_INTERVAL_MS = 5000
-```
-
-Mapovanie coverov:
-
-```text
-room1/cover/1 -> Shelly cover id 0
-room1/cover/2 -> Shelly cover id 1
-```
-
-## 7.4 Poznamky k Shelly mJS
-
-Shelly Scripts nie su Node.js. Pouzivat iba Shelly podporovane API:
-
-- `Shelly.call(...)`
-- `Shelly.getComponentStatus(...)`
-- `Shelly.addStatusHandler(...)`
-- `MQTT.subscribe(...)`
-- `MQTT.publish(...)`
-- `Timer.set(...)`
-- `Timer.clear(...)`
-
-Nepouzivat:
-
-- Node.js moduly,
-- `async`/`await`,
-- Promise-based flow,
-- velke kniznice.
-
-Pre tento adapter je to v poriadku, pretoze logika je mala.
-
----
-
-## 8. `devices.json` navrh
-
-Aktualny room config je:
-
-```text
-raspberry_pi/config/rooms/room1/devices.json
-```
-
-Aktualne obsahuje:
-
-- `motors`
-- `relays`
-
-Navrhovane rozsirenie:
-
-```json
-{
-  "motors": [],
-  "relays": [],
-  "covers": [
-    {
-      "id": "cover_1",
-      "name": "Roleta 1",
-      "type": "cover",
-      "topic": "room1/cover/1",
-      "nodeId": "Room1_Shelly_Covers",
-      "coverId": 0,
-      "supportsPosition": true,
-      "heartbeatTopic": "room1/system/heartbeat",
-      "failSafeAction": "CLOSE",
-      "stopAction": "STOP"
-    },
-    {
-      "id": "cover_2",
-      "name": "Roleta 2",
-      "type": "cover",
-      "topic": "room1/cover/2",
-      "nodeId": "Room1_Shelly_Covers",
-      "coverId": 1,
-      "supportsPosition": true,
-      "heartbeatTopic": "room1/system/heartbeat",
-      "failSafeAction": "CLOSE",
-      "stopAction": "STOP"
-    }
-  ]
-}
-```
-
-## 8.1 Compatibility note
-
-`POST /api/devices` dnes validuje, ze config obsahuje aspon jeden z klucov:
-
-```text
-motors
-relays
-lights
-```
-
-Pre plnu podporu treba povolit aj:
-
-```text
-covers
-```
-
-Kym sa backend neupravi, config by mal stale obsahovat aspon prazdne `motors`
-alebo `relays`, inak save endpoint vrati chybu.
-
-## 8.2 Nemenit topic na user-facing nazov
-
-User-facing text moze byt slovensky:
-
-```text
-Roleta vstup
-Zaluzia kotol
-Opona scena
-```
-
-MQTT topic ma ostat stabilny a ASCII:
-
-```text
-room1/cover/1
-```
-
-Nemenit topic pri kazdej zmene nazvu vo frontende.
-
----
-
-## 9. Backend zmeny pre plnu implementaciu
-
-Tato sekcia popisuje buduce zmeny. Zatial sa nekoduju.
-
-## 9.1 `commands.py`
-
-Upravit validaciu `POST /api/devices`:
-
-Aktualne:
-
-```text
-motors / relays / lights
-```
-
-Navrhovane:
-
-```text
-motors / relays / lights / covers
-```
-
-## 9.2 `MQTTActuatorStateStore`
-
-Aktualny store vie hlavne:
-
-- `ON`,
-- `OFF`,
-- motor direction,
-- motor speed.
-
-Pre cover treba pridat:
-
-- `cover_state`: `OPEN`, `CLOSED`, `OPENING`, `CLOSING`, `STOPPED`, `UNKNOWN`
-- `cover_position`: number alebo `null`
-- `cover_target`: number alebo `null`
-- `cover_calibrated`: boolean alebo `null`
-
-Odporucane mapovanie prikazov:
-
-| Command     | Desired cover state                     |
-| ----------- | --------------------------------------- |
-| `OPEN`    | `OPENING`                             |
-| `CLOSE`   | `CLOSING`                             |
-| `STOP`    | `STOPPED`                             |
-| `POS:<n>` | `MOVING_TO_POSITION` + target `<n>` |
-
-Feedback `OK` sam o sebe neznamena, ze roleta uz dosla. Znamena iba, ze cover
-uzol prikaz prijal. Skutocny finalny stav ma prist zo state topicu.
-
-## 9.3 `MQTTMessageHandler`
-
-Pridat routing pre:
-
-```text
-room1/cover/+/state
-```
-
-alebo vseobecne:
-
-```text
-<room_id>/cover/<id>/state
-```
-
-Tento state event by mal ist do `MQTTActuatorStateStore`, nie iba do
-`scene_parser.register_mqtt_event(...)`.
-
-Zaroven je dobre state topic ponechat dostupny aj pre `mqttMessage`
-prechody v scenach. Moznosti:
-
-1. update-nut store a potom stale forwardnut event do scene parsera,
-2. forwardnut iba ak aktivna scena potrebuje transition eventy.
-
-Jednoduchsia a konzistentna varianta je prva.
-
-## 9.4 Raspberry Pi heartbeat publisher
-
-Pridat maly centralny heartbeat publisher:
-
-```text
-room1/system/heartbeat -> PING
-```
-
-Odporucane parametre v `config.ini`:
-
-```ini
-[MQTT]
-system_heartbeat_interval_s = 5
-```
-
-Heartbeat ma bezat stale, kym je `MuseumController` zdravy a MQTT client je
-pripojeny. Nie je naviazany na aktivnu scenu.
-
-## 9.5 `room1/STOP`
-
-Backend uz `room1/STOP` publikuje v `MuseumController.broadcast_stop()`.
-Pre Shelly/Waveshare adapter netreba menit backend, iba zabezpecit, ze cover
-uzol subscribuje `room1/STOP` a vykona `Cover.Stop` alebo ekvivalentne
-vypnutie oboch smerovych rele.
-
----
-
-## 10. Frontend zmeny pre plnu implementaciu
-
-Tato sekcia popisuje buduce zmeny. Zatial sa nekoduju.
-
-## 10.1 `useDevices.js`
-
-Aktualne vracia:
-
-```text
-devices
-motors
-relays
-```
-
-Navrhnut:
-
-```text
-devices
-motors
-relays
-covers
-```
-
-`devices` ma obsahovat vsetky tri skupiny.
-
-## 10.2 `CommandsView.jsx`
-
-Pridat novu sekciu:
-
-```text
-Rolety / Zaluziove pohony
-```
-
-Renderovat `CoverCard` pre kazdy item z `covers`.
-
-## 10.3 `CoverCard.jsx`
-
-Novy komponent ma mat minimalne:
-
-- tlacidlo `Otvorit` -> `OPEN`
-- tlacidlo `Stop` -> `STOP`
-- tlacidlo `Zatvorit` -> `CLOSE`
-
-Ak `supportsPosition = true`:
-
-- slider alebo numeric input `0..100`,
-- command `POS:<n>`.
-
-Zobrazenie runtime stavu:
-
-- `OPENING`
-- `CLOSING`
-- `OPEN`
-- `CLOSED`
-- `STOPPED`
-- percento, ak je dostupne.
-
-## 10.4 `useDevicePalette.js`
-
-Pridat `coverItems`:
-
-```text
-quickMessages = ["OPEN", "CLOSE", "STOP", "POS:50"]
-```
-
-`POS:50` zobrazovat iba pre `supportsPosition = true`.
-
-## 10.5 `EditorPalette.jsx`
-
-Pridat novu sekciu:
-
-```text
-Rolety
-```
-
-Ikona moze byt z `lucide-react`, napr. `Blinds`, ak je v pouzitej verzii
-dostupna. Ak nie, docasne pouzit neutralnu ikonu podobnu motorom.
-
-## 10.6 `useDeviceRuntimeState.js`
-
-Dnes motory formatuju direction + speed, relays iba `ON/OFF`.
-
-Pre `device.type === "cover"` treba zobrazit:
-
-- `cover_state`,
-- `cover_position`,
-- `cover_target`,
-- fallback na `confirmed_state`, ak este nie je implementovany cover store.
-
----
-
-## 11. Scene JSON priklady
-
-## 11.1 Otvorenie rolety pri starte stavu
-
-```json
-{
-  "sceneId": "cover_open_test",
-  "version": "1.0",
-  "initialState": "OPEN_COVER",
-  "states": {
-    "OPEN_COVER": {
-      "onEnter": [
-        {
-          "action": "mqtt",
-          "topic": "room1/cover/1",
-          "message": "OPEN"
-        }
-      ],
-      "transitions": [
-        {
-          "type": "timeout",
-          "delay": 10,
-          "goto": "END"
-        }
-      ]
-    },
-    "END": {
-      "onEnter": [
-        {
-          "action": "mqtt",
-          "topic": "room1/cover/1",
-          "message": "STOP"
-        }
-      ]
-    }
-  }
-}
-```
-
-## 11.2 Pozicia po kalibracii
-
-```json
-{
-  "action": "mqtt",
-  "topic": "room1/cover/1",
-  "message": "POS:50"
-}
-```
-
-## 11.3 Zatvorenie pri konci sceny
-
+Zatvoriť pri konci scény:
 ```json
 {
   "action": "mqtt",
@@ -1199,238 +732,79 @@ Pre `device.type === "cover"` treba zobrazit:
 
 ---
 
-## 12. Manualne MQTT testy
+## 11. Rozhodnutia na potvrdenie pred implementáciou
 
-Pred zapojenim do scen otestovat cez broker.
-
-## 12.1 Subscribe na feedback
-
-```bash
-mosquitto_sub -h <broker_ip> -t 'room1/cover/1/#' -v
-```
-
-## 12.2 Otvorit
-
-```bash
-mosquitto_pub -h <broker_ip> -t 'room1/cover/1' -m 'OPEN'
-```
-
-Ocakavane:
-
-```text
-room1/cover/1/feedback OK
-room1/cover/1/state {"state":"opening",...}
-```
-
-## 12.3 Zastavit
-
-```bash
-mosquitto_pub -h <broker_ip> -t 'room1/cover/1' -m 'STOP'
-```
-
-## 12.4 Zatvorit
-
-```bash
-mosquitto_pub -h <broker_ip> -t 'room1/cover/1' -m 'CLOSE'
-```
-
-## 12.5 Global stop
-
-```bash
-mosquitto_pub -h <broker_ip> -t 'room1/STOP' -m 'STOP'
-```
-
-Ocakavane:
-
-```text
-Cover.Stop alebo vypnutie oboch smerovych rele pre vsetky cover vystupy
-```
-
-## 12.6 Heartbeat fail-safe test
-
-1. Spustit Shelly script, Waveshare cover firmware alebo ESPHome cover node.
-2. Posielat heartbeat:
-
-```bash
-mosquitto_pub -h <broker_ip> -t 'room1/system/heartbeat' -m 'PING'
-```
-
-3. Prestat posielat heartbeat.
-4. Po `HEARTBEAT_TIMEOUT_MS` overit, ze cover uzol vykona `CLOSE`.
+1. **NC vs. NO mikrospínače** — potvrdiť typ, nastaviť inverznú logiku DI ak NC.
+2. **PWM duty cycle** — aká rýchlosť motorov? Plný výkon (100 %) alebo obmedzený (napr. 70–80 %)?
+3. **Schéma zapojenia H-mostíka** — Schéma A (relé pre smer) alebo Schéma B (2× PWM kanál)?
+4. **MAX_MOVE_TIME_MS** — namerať skutočnú dobu prechodu okna a nastaviť s rezervou +50 %.
+5. **Heartbeat timeout akcia** — iba STOP alebo aj CLOSE?
+6. **Hardware kill relé** — použiť RO výstup ESP32 pre napájanie VM H-mostíkov?
+7. **Modbus slave ID** — nastaviť DIP prepínačmi na PWM module, skontrolovať default.
+8. **RS485 piny** — overiť skutočné UART TX/RX/DE piny pre RS485 na PoE verzii dosky.
 
 ---
 
-## 13. Testovaci plan v repozitari
+## 12. Implementačný checklist
 
-Ked sa bude implementovat kod, doplnit testy.
+### 12.1 Hardware
 
-## 13.1 Python unit testy
+- [ ] Zapojiť mikrospínače na DI1–DI4 (NC alebo NO, zdokumentovať)
+- [ ] Zapojiť PWM modul cez RS485 (A/B, GND)
+- [ ] Nastaviť Modbus slave ID na PWM module
+- [ ] Zapojiť H-mostíky (L298N) podľa zvolenej schémy
+- [ ] Zapojiť motory na H-mostíky
+- [ ] Overiť napájanie VM (motorová časť) a VSS (logika)
+- [ ] Fyzicky otestovať smer motorov (OPEN = skutočné otváranie)
 
-Rozsirit alebo pridat test vedla:
+### 12.2 ESP32 Firmware
 
-```text
-raspberry_pi/tests/test_mqtt_feedback_state.py
-```
+- [ ] Overiť RS485 piny na PoE variante dosky
+- [ ] Implementovať Modbus RTU klienta (knižnica `ModbusMaster` alebo vlastná)
+- [ ] Implementovať `CoverDevice` štruktúru
+- [ ] Implementovať smerové blokovanie (mutual exclusion)
+- [ ] Implementovať dead-time (300 ms) pri zmene smeru
+- [ ] Implementovať end-stop polling (50 ms interval)
+- [ ] Implementovať max runtime timeout
+- [ ] Implementovať MQTT parser pre `room1/cover/1`, `room1/cover/2`, `room1/STOP`
+- [ ] Implementovať heartbeat watchdog
+- [ ] Implementovať state topic a feedback topic publikovanie
+- [ ] Implementovať `devices/Window_Covers_Ctrl/status` (periodický online)
 
-Testovat:
+### 12.3 Backend
 
-- `OPEN` vytvori desired cover state `OPENING`,
-- `CLOSE` vytvori desired cover state `CLOSING`,
-- `STOP` vytvori desired cover state `STOPPED`,
-- `POS:50` ulozi target position `50`,
-- `ERROR` feedback neprepise confirmed stav,
-- state topic JSON aktualizuje `cover_state` a `cover_position`.
+- [ ] Pridať `covers` pole do `devices.json` (pozri 10.1)
+- [ ] Povoliť `cover` v device validácii — kým sa nedokončí, `motors`/`relays`
+      musia ostať v configu aspoň ako prázdne polia (pozri 10.1.1)
+- [ ] Pridať heartbeat publisher
+- [ ] Rozšíriť state store o cover stavy: `cover_state`, `cover_position`
+      (vždy `null`), `cover_target` (vždy `null`), `cover_calibrated`
+      (vždy `false`/`null`) — pozri 10.2.2
+- [ ] Spracovať `/state` a `/feedback` topicy — plain text payload, nie
+      JSON (pozri 10.2.4)
+- [ ] Doplniť testy
 
-## 13.2 Frontend manual test
+### 12.4 Frontend
 
-Overit:
+- [ ] `CoverCard` komponent
+- [ ] Rozšíriť `CommandsView`
+- [ ] Rozšíriť Scene Editor paletu
+- [ ] Runtime state cez Socket.IO
 
-- `covers` sa nacitaju z `/api/devices`,
-- Commands view zobrazi novu sekciu,
-- `CoverCard` posiela spravne MQTT payloady,
-- Scene Editor paleta ponuka `OPEN`, `CLOSE`, `STOP`, `POS:50`,
-- runtime state sa aktualizuje cez Socket.IO event
-  `device_runtime_state_update`.
+### 12.5 Dokumentácia
 
-## 13.3 Runtime test na Raspberry Pi
+Po implementácii aktualizovať:
 
-Overit:
-
-- Shelly online status sa zobrazi v `connected_devices`,
-- manualny `OPEN` vrati `OK`,
-- manualny `CLOSE` vrati `OK`,
-- `room1/STOP` zastavi pohyb,
-- strata heartbeat zatvori cover,
-- po obnove MQTT spojenia Shelly znova publikuje `online`.
-
----
-
-## 14. Bezpecnostne pravidla
-
-## 14.1 Elektricka cast
-
-230 V cast musi zapojit elektrikarsky sposobilá osoba. Systemovy kod a MQTT
-protokol nesmie byt jedinou ochranou pred nespravnym spinanim smerov.
-
-## 14.2 Smerove blokovanie
-
-Smerove blokovanie musi riesit Shelly cover rezim alebo certifikovana
-elektroinstalacia. Nepouzivat dve nezavisle rele topic-y pre `open` a `close`.
-
-## 14.3 Manualny vypinac
-
-Ak je pri pohone fyzicky vypinac:
-
-- musi byt kompatibilny so Shelly cover zapojenim,
-- jeho input mode musi byt nastaveny podla realneho typu tlacidla/spinaca,
-- treba otestovat, ze manualne ovladanie a MQTT ovladanie sa nebiju.
-
-## 14.4 Pohyb pri strate riadenia
-
-Fail-safe zatvorenie pri strate MQTT je poziadavka, ale stale je to aktivny
-pohyb. Pred zapnutim tejto policy treba potvrdit, ze zatvaranie nemoze ohrozit
-navstevnika, obsluhu alebo exponat.
+- `docs/04_mqtt_protocol.md`
+- `docs/09_dashboard_api.md`
+- `docs/12_physical_installation.md`
+- tento dokument
 
 ---
 
-## 15. Rozhodnutia na potvrdenie pred kodom
+## 13. Externé referencie
 
-Pred implementaciou treba potvrdit:
-
-1. Presny cover hardware: Shelly, Waveshare Arduino firmware alebo Waveshare ESPHome.
-2. Pocet fyzickych pohonov.
-3. Ci ma jeden Pro/Waveshare modul ovladat jeden, dva alebo viac pohonov.
-4. Ci je pozicne ovladanie `POS:<n>` povinne alebo staci `OPEN/CLOSE/STOP`.
-5. Ci `room1/STOP` ma pre cover znamenat `STOP` alebo `CLOSE`.
-6. Heartbeat timeout: odporucane `30 s`.
-7. Ci bude Wi-Fi vypnute a pouzije sa iba LAN.
-8. Finalne MQTT topicy, odporucane `room1/cover/1`, `room1/cover/2`.
-9. Pri Waveshare variante: ci bude dedikovana doska pre covers alebo sa budu
-   zdielat rele s existujucimi svetlami/efektami.
-
----
-
-## 16. Implementacny checklist
-
-## 16.1 Shelly
-
-- kupit `Shelly Pro Dual Cover / Shutter PM`,
-- zapojit pohony elektrikarsky,
-- nastavit LAN,
-- nastavit MQTT broker,
-- nastavit cover mode,
-- kalibrovat, ak sa bude pouzivat `POS:<n>`,
-- nahrat adapter script,
-- zapnut autostart scriptu.
-
-## 16.2 Backend
-
-- povolit `covers` v `/api/devices` validacii,
-- pridat heartbeat publisher,
-- rozsirit actuator state store pre cover stavy,
-- spracovat `roomX/cover/+/state`,
-- doplnit testy.
-
-## 16.3 Waveshare Arduino firmware
-
-- vytvorit novu kopiu LAN relay firmveru:
-  `esp32/devices/lan/ArduinoIDE/esp32_mqtt_controller_COVERS/`,
-- zmenit `CLIENT_ID` na `Room1_Covers_Ctrl`,
-- pridat `CoverDevice` mapovanie rele parov,
-- pridat parser `room1/cover/<id>`,
-- pridat mutual exclusion a dead-time,
-- pridat max runtime pre pohyb,
-- pridat state topic `room1/cover/<id>/state`,
-- zachovat `room1/STOP` ako vypnutie oboch smerov.
-
-## 16.4 Waveshare ESPHome
-
-- zobrat ESPHome device profil pre `Waveshare ESP32-S3-ETH-8DI-8RO`,
-- pouzit W5500 piny `GPIO15/13/14/16/12`,
-- pouzit I2C `GPIO42/41` a `pca9554` address `0x20`,
-- rele pary definovat ako switch-e s `interlock` a `interlock_wait_time`,
-- pridat `time_based` cover,
-- pridat MQTT `birth_message`/`will_message`,
-- pridat `mqtt.on_message` adapter pre `room1/cover/<id>` a `/feedback`,
-- pridat heartbeat fail-safe.
-
-## 16.5 Frontend
-
-- rozsirit `useDevices`,
-- pridat `CoverCard`,
-- rozsirit `CommandsView`,
-- rozsirit `useDevicePalette`,
-- rozsirit `EditorPalette`,
-- rozsirit runtime state display.
-
-## 16.6 Dokumentacia
-
-Po implementacii aktualizovat:
-
-- `docs/04_mqtt_protocol.md`,
-- `docs/09_dashboard_api.md`,
-- `docs/12_physical_installation.md`,
-- tento dokument.
-
----
-
-## 17. Externe referencie
-
-- Shelly Cover component:
-  `https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/Cover/`
-- Shelly MQTT component:
-  `https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/Mqtt/`
-- Shelly Script language features:
-  `https://shelly-api-docs.shelly.cloud/gen2/Scripts/ShellyScriptLanguageFeatures/`
-- Shelly Pro Dual Cover PM device:
-  `https://shelly-api-docs.shelly.cloud/gen2/Devices/Gen2/ShellyProDualCoverPM/`
-- Waveshare ESP32-S3-ETH-8DI-8RO ESPHome device profile:
-  `https://devices.esphome.io/devices/waveshare-esp32-s3-eth-8di-8ro/`
-- Waveshare ESP32-S3-ETH-8DI-8RO wiki:
-  `https://www.waveshare.com/wiki/ESP32-S3-ETH-8DI-8RO`
-- ESPHome time based cover:
-  `https://esphome.io/components/cover/time_based/`
-- ESPHome MQTT component:
-  `https://esphome.io/components/mqtt/`
-- ESPHome GPIO switch interlock:
-  `https://esphome.io/components/switch/gpio/`
+- Waveshare ESP32-S3-ETH-8DI-8RO wiki: `https://www.waveshare.com/wiki/ESP32-S3-ETH-8DI-8RO`
+- PWM Modbus modul (SKU 33921): `https://www.elecom.sk/priemyselny-4-kanalovy-pwm-vystupny-modul--protokol-modbus-rtu--izolovane-rozhranie-rs485/`
+- L298N H-mostík datasheet: `https://www.st.com/resource/en/datasheet/l298.pdf`
+- Arduino ModbusMaster knižnica: `https://github.com/4-20ma/ModbusMaster`
