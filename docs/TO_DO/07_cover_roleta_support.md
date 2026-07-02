@@ -16,6 +16,36 @@ a bezpečnostné správanie.
 
 ---
 
+## Stav k 2026-07-02 - ESP32 SW nástrel
+
+Tento dokument bol aktualizovaný po príprave prvého ESP32 firmware nástrelu.
+ESP kód ešte nebol kompilovaný v Arduino IDE ani testovaný na reálnom HW,
+preto je stav označený ako **SW draft / not HW-tested**.
+
+**DONE - pripravené v ESP32 firmware nástrele:**
+
+- Vytvorený nový firmware priečinok: `esp32/devices/lan/ArduinoIDE/esp32_mqtt_window_cover_controller`.
+- Firmware je odvodený z LAN relay kódu, ale vyčistený na `cover` use case.
+- Zachované sú LAN/WiFi fallback, MQTT reconnect, OTA, WDT, status LED a modulárne súbory.
+- ESP32 ovláda externý PWM driver priamo cez onboard RS485/Modbus RTU (`GPIO17` TX, `GPIO18` RX), nie cez Raspberry Pi.
+- Aktívne sú iba 2 motory: `room1/cover/1`, `room1/cover/2`.
+- V kóde sú pripravené 4 softvérové cover sloty; `cover/3` a `cover/4` sú zatiaľ `enabled = false`.
+- Pri aktuálnej schéme 2 PWM kanály na 1 motor je 4-kanálový PWM modul plne využitý dvoma motormi. Pre 4 aktívne motory treba 8 PWM výstupov alebo ďalšie HW rozšírenie.
+- Implementované je smerové blokovanie, dead-time pri zmene smeru, end-stop polling, max runtime timeout, globálny STOP, MQTT loss stop, heartbeat timeout stop a OTA safe stop.
+- MQTT feedback/state/status topicy sú v ESP nástrele implementované.
+- Heartbeat timeout je nastavený na `20000 ms`; RPI má pri teste aj produkcii posielať `room1/system/heartbeat`.
+- RPI feedback tracker bol skontrolovaný iba čítaním: ACK mechanizmus je kompatibilný pre `room1/cover/1 -> room1/cover/1/feedback` a `room1/cover/2 -> room1/cover/2/feedback`.
+
+**OPEN - treba potvrdiť alebo dorobiť:**
+
+- Potvrdiť presnú register mapu PWM modulu, duty scale, baud rate a Modbus slave ID podľa manuálu konkrétneho modulu.
+- Skontrolovať Arduino build v Arduino IDE s knižnicami `PubSubClient`, `ArduinoOTA`, `ModbusMaster` a ESP32 core 3.x.
+- Zapojenie HW ešte nebolo spravené: RS485 A/B/GND, DI dorazy, H-mostíky, motory, napájanie.
+- Otestovať fyzické smery motorov, logiku NC/NO dorazov, timeout, heartbeat fail-safe, MQTT disconnect fail-safe a OTA safe stop.
+- Backend zatiaľ nemení `cover` model. Feedback tracker ACK bude fungovať, ale plná semantika `/state` payloadov `OPEN`, `CLOSED`, `OPENING`, `CLOSING` potrebuje neskoršiu backend/UI podporu.
+
+---
+
 ## 1. Cieľ integrácie
 
 Do systému sa má pridať nový typ zariadenia:
@@ -115,15 +145,18 @@ W5500 Ethernet:
   CS:   GPIO16
   INT:  GPIO12
 
-I2C expander pre relé výstupy (PCA9554):
+I2C expander pre relé výstupy (TCA9554PWR, nepoužitý v cover nástrele):
   SDA: GPIO42
   SCL: GPIO41
   ADR: 0x20
 
 RS485 (na doske vyvedený ako A/B pár):
-  TX:  GPIO17  (overiť podľa wiki dosky)
-  RX:  GPIO18  (overiť podľa wiki dosky)
-  DE:  GPIO8   (driver enable — half-duplex)
+  TX:  GPIO17  (potvrdené podľa Waveshare wiki)
+  RX:  GPIO18  (potvrdené podľa Waveshare wiki)
+  DE:  nezverejnený v pin tabuľke; firmware používa `RS485_DE_PIN = -1`
+
+Poznámka: nepoužívať `GPIO8` ako RS485 DE bez ďalšieho potvrdenia. Podľa
+Waveshare wiki je `GPIO8` digitálny vstup DI5.
 ```
 
 Poznámka: relé výstupy (8× RO) nie sú v tomto projekte primárne využité.
@@ -738,10 +771,10 @@ Zatvoriť pri konci scény:
 2. **PWM duty cycle** — aká rýchlosť motorov? Plný výkon (100 %) alebo obmedzený (napr. 70–80 %)?
 3. **Schéma zapojenia H-mostíka** — Schéma A (relé pre smer) alebo Schéma B (2× PWM kanál)?
 4. **MAX_MOVE_TIME_MS** — namerať skutočnú dobu prechodu okna a nastaviť s rezervou +50 %.
-5. **Heartbeat timeout akcia** — iba STOP alebo aj CLOSE?
+5. **DONE 2026-07-02:** Heartbeat timeout akcia — iba STOP, nie automatické CLOSE.
 6. **Hardware kill relé** — použiť RO výstup ESP32 pre napájanie VM H-mostíkov?
 7. **Modbus slave ID** — nastaviť DIP prepínačmi na PWM module, skontrolovať default.
-8. **RS485 piny** — overiť skutočné UART TX/RX/DE piny pre RS485 na PoE verzii dosky.
+8. **PARTIAL 2026-07-02:** RS485 TX/RX piny overené podľa Waveshare wiki (`GPIO17`/`GPIO18`); DE pin nie je v pin tabuľke, firmware ho necháva vypnutý (`-1`).
 
 ---
 
@@ -759,29 +792,29 @@ Zatvoriť pri konci scény:
 
 ### 12.2 ESP32 Firmware
 
-- [ ] Overiť RS485 piny na PoE variante dosky
-- [ ] Implementovať Modbus RTU klienta (knižnica `ModbusMaster` alebo vlastná)
-- [ ] Implementovať `CoverDevice` štruktúru
-- [ ] Implementovať smerové blokovanie (mutual exclusion)
-- [ ] Implementovať dead-time (300 ms) pri zmene smeru
-- [ ] Implementovať end-stop polling (50 ms interval)
-- [ ] Implementovať max runtime timeout
-- [ ] Implementovať MQTT parser pre `room1/cover/1`, `room1/cover/2`, `room1/STOP`
-- [ ] Implementovať heartbeat watchdog
-- [ ] Implementovať state topic a feedback topic publikovanie
-- [ ] Implementovať `devices/Window_Covers_Ctrl/status` (periodický online)
+- [ ] PARTIAL 2026-07-02: Overiť RS485 piny na PoE variante dosky - TX/RX potvrdené podľa wiki, DE zostáva fyzicky neoverené
+- [x] DONE 2026-07-02 SW draft: Implementovať Modbus RTU klienta (knižnica `ModbusMaster` alebo vlastná)
+- [x] DONE 2026-07-02 SW draft: Implementovať `CoverDevice`/`CoverConfig` štruktúru
+- [x] DONE 2026-07-02 SW draft: Implementovať smerové blokovanie (mutual exclusion)
+- [x] DONE 2026-07-02 SW draft: Implementovať dead-time pri zmene smeru
+- [x] DONE 2026-07-02 SW draft: Implementovať end-stop polling
+- [x] DONE 2026-07-02 SW draft: Implementovať max runtime timeout
+- [x] DONE 2026-07-02 SW draft: Implementovať MQTT parser pre `room1/cover/1`, `room1/cover/2`, `room1/STOP`
+- [x] DONE 2026-07-02 SW draft: Implementovať heartbeat watchdog (`20000 ms`)
+- [x] DONE 2026-07-02 SW draft: Implementovať state topic a feedback topic publikovanie
+- [x] DONE 2026-07-02 SW draft: Implementovať `devices/Window_Covers_Ctrl/status` (periodický online)
 
 ### 12.3 Backend
 
 - [ ] Pridať `covers` pole do `devices.json` (pozri 10.1)
 - [ ] Povoliť `cover` v device validácii — kým sa nedokončí, `motors`/`relays`
       musia ostať v configu aspoň ako prázdne polia (pozri 10.1.1)
-- [ ] Pridať heartbeat publisher
+- [ ] Pridať heartbeat publisher - ESP firmware už očakáva `room1/system/heartbeat` každých pár sekúnd
 - [ ] Rozšíriť state store o cover stavy: `cover_state`, `cover_position`
       (vždy `null`), `cover_target` (vždy `null`), `cover_calibrated`
       (vždy `false`/`null`) — pozri 10.2.2
 - [ ] Spracovať `/state` a `/feedback` topicy — plain text payload, nie
-      JSON (pozri 10.2.4)
+      JSON (pozri 10.2.4). 2026-07-02: ACK feedback je kompatibilný už teraz, cover `/state` semantika ostáva backend TODO.
 - [ ] Doplniť testy
 
 ### 12.4 Frontend
