@@ -22,10 +22,13 @@ uint32_t RS485_SERIAL_CONFIG = SERIAL_8N1;
 uint8_t PWM_MODBUS_ID = 1;
 uint8_t PWM_CHANNEL_COUNT = 4;
 
-// The TODO plan assumes the PWM module maps CH1..CH4 to holding registers
-// 0x0000..0x0003 and uses duty 0..1000. Confirm this against the exact module
-// manual before powering real motors.
+// Waveshare Modbus RTU PWM Output 4CH maps each channel as:
+// frequency high word, frequency low word, duty. Duty registers are therefore
+// CH1=0x0002, CH2=0x0005, CH3=0x0008, CH4=0x000B.
 uint16_t PWM_REGISTER_BASE = 0x0000;
+uint8_t PWM_CHANNEL_REGISTER_STRIDE = 3;
+uint8_t PWM_DUTY_REGISTER_OFFSET = 2;
+uint32_t PWM_FREQUENCY_HZ = 20000;
 uint16_t PWM_DUTY_OFF = 0;
 uint16_t PWM_DUTY_MAX = 1000;
 

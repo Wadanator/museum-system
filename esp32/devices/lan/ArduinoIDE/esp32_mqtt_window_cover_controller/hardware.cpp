@@ -192,6 +192,11 @@ void initializeHardware() {
 
   initializePwmDriver();
   configureEndstops();
+  PwmResult frequencyResult = configureAllPwmFrequencies();
+  if (frequencyResult != PWM_RESULT_OK) {
+    debugPrint("PWM frequency setup failed: " + String(pwmResultText(frequencyResult)));
+  }
+
   PwmResult offResult = writeAllPwmChannelsOff();
   if (offResult != PWM_RESULT_OK) {
     debugPrint("PWM startup safe-off failed: " + String(pwmResultText(offResult)));

@@ -11,6 +11,7 @@ enum PwmResult : uint8_t {
 };
 
 void initializePwmDriver();
+PwmResult configureAllPwmFrequencies();
 PwmResult writePwmChannel(uint8_t channel, uint16_t duty);
 PwmResult writeAllPwmChannelsOff();
 const char* pwmResultText(PwmResult result);

@@ -23,6 +23,9 @@ extern uint32_t RS485_SERIAL_CONFIG;
 extern uint8_t PWM_MODBUS_ID;
 extern uint8_t PWM_CHANNEL_COUNT;
 extern uint16_t PWM_REGISTER_BASE;
+extern uint8_t PWM_CHANNEL_REGISTER_STRIDE;
+extern uint8_t PWM_DUTY_REGISTER_OFFSET;
+extern uint32_t PWM_FREQUENCY_HZ;
 extern uint16_t PWM_DUTY_OFF;
 extern uint16_t PWM_DUTY_MAX;
 
