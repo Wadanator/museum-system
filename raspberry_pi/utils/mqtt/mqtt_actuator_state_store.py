@@ -19,24 +19,41 @@ from utils.logging_setup import get_logger
 _ON_PREFIXES = frozenset({'ON', '1', 'TRUE', 'START', 'ACTIVE'})
 # Commands that imply an OFF state
 _OFF_PREFIXES = frozenset({'OFF', '0', 'FALSE', 'STOP', 'INACTIVE'})
+_WINDOW_COMMAND_STATES = {
+    'OPEN': 'OPENING',
+    'CLOSE': 'CLOSING',
+    'CLOSED': 'CLOSED',
+    'OPENING': 'OPENING',
+    'CLOSING': 'CLOSING',
+    'STOPPED': 'STOPPED',
+    'UNKNOWN': 'UNKNOWN',
+    'ERROR': 'ERROR',
+}
+_RESTING_MOTION_STATES = frozenset({'OFF', 'OPEN', 'CLOSED', 'STOPPED'})
 
 
-def _infer_state_from_command(command: str) -> Optional[str]:
+def _infer_state_from_command(command: str, device_type: Optional[str] = None) -> Optional[str]:
     """
-    Infer ON or OFF from a command string.
+    Infer a stable runtime state from a command string.
 
-    Handles both plain commands ('ON', 'OFF') and colon-separated payloads
-    ('ON:100:L', 'ON:50:R:5000') by splitting on ':' and checking the prefix.
+    Handles both plain commands ('ON', 'OFF', 'STOP') and colon-separated
+    payloads ('ON:100:L', 'OPEN:30') by splitting on ':' and checking the
+    prefix.
 
     Args:
         command: Raw command string as sent to the device.
+        device_type: Optional configured device type for context-sensitive states.
 
     Returns:
-        'ON', 'OFF', or None if the command cannot be mapped.
+        Runtime state string, or None if the command cannot be mapped.
     """
     if not command:
         return None
     prefix = str(command).strip().upper().split(':')[0]
+    if device_type == 'window' and prefix in {'STOP', 'OFF'}:
+        return 'STOPPED'
+    if prefix in _WINDOW_COMMAND_STATES:
+        return _WINDOW_COMMAND_STATES[prefix]
     if prefix in _ON_PREFIXES:
         return 'ON'
     if prefix in _OFF_PREFIXES:
@@ -53,6 +70,10 @@ def _normalize_direction(direction: str) -> Optional[str]:
         return 'LEFT'
     if raw in {'R', 'RIGHT', 'CW', 'FWD', 'FORWARD'}:
         return 'RIGHT'
+    if raw in {'OPEN', 'OPENING', 'UP'}:
+        return 'OPENING'
+    if raw in {'CLOSE', 'CLOSING', 'DOWN'}:
+        return 'CLOSING'
     return None
 
 
@@ -63,7 +84,8 @@ def _extract_motor_fields(command: str) -> dict:
     Expected patterns include:
     - ON:<speed>:<direction>
     - ON:<speed>:<direction>:<duration_ms>
-    - OFF
+    - OPEN:<speed> / CLOSE:<speed>
+    - OFF / STOP
     """
     if not command:
         return {'motor_direction': None, 'motor_speed': None}
@@ -73,6 +95,18 @@ def _extract_motor_fields(command: str) -> dict:
 
     if prefix in _OFF_PREFIXES:
         return {'motor_direction': None, 'motor_speed': 0}
+
+    if prefix in {'OPEN', 'CLOSE'}:
+        speed = None
+        if len(parts) > 1:
+            try:
+                speed = int(parts[1])
+            except (ValueError, TypeError):
+                speed = None
+        return {
+            'motor_direction': _normalize_direction(prefix),
+            'motor_speed': speed,
+        }
 
     if prefix == 'SPEED':
         speed = None
@@ -167,7 +201,7 @@ class ActuatorState:
         'topic', 'desired_state', 'confirmed_state',
         'reported_state', 'state_source', 'last_update_ts',
         'last_state_ts', 'node_id', 'stale', 'state_retained',
-        'motor_direction', 'motor_speed',
+        'motor_direction', 'motor_speed', 'device_type',
     )
 
     def __init__(self, topic: str) -> None:
@@ -183,6 +217,7 @@ class ActuatorState:
         self.state_retained: bool = False
         self.motor_direction: Optional[str] = None
         self.motor_speed: Optional[int] = None
+        self.device_type: Optional[str] = None
 
     def to_dict(self) -> dict:
         return {
@@ -198,6 +233,7 @@ class ActuatorState:
             'state_retained': self.state_retained,
             'motor_direction': self.motor_direction,
             'motor_speed': self.motor_speed,
+            'device_type': self.device_type,
         }
 
 
@@ -255,23 +291,34 @@ class MQTTActuatorStateStore:
             self.logger.warning("Devices config is not an object; skipping state bootstrap")
             return 0
 
+        group_device_types = {
+            'motors': 'motor',
+            'relays': 'relay',
+            'lights': 'light',
+            'windows': 'window',
+        }
         configured = []
-        for group_name in ('motors', 'relays', 'lights'):
+        for group_name in ('motors', 'relays', 'lights', 'windows'):
             group = devices_config.get(group_name) or []
             if not isinstance(group, list):
                 self.logger.warning("Devices config group '%s' is not a list", group_name)
                 continue
-            configured.extend(item for item in group if isinstance(item, dict))
+            configured.extend(
+                (item, group_device_types[group_name])
+                for item in group
+                if isinstance(item, dict)
+            )
 
         count = 0
         with self._lock:
-            for item in configured:
+            for item, group_device_type in configured:
                 topic = str(item.get('topic') or '').strip()
                 if not topic:
                     continue
 
                 entry = self._get_or_create(topic)
                 entry.node_id = item.get('node_id') or entry.node_id
+                entry.device_type = item.get('type') or group_device_type
                 entry.confirmed_state = 'UNKNOWN'
                 entry.state_source = 'config'
                 entry.stale = True
@@ -301,15 +348,18 @@ class MQTTActuatorStateStore:
         """
         Record the desired state for an endpoint based on a published command.
 
-        Skips update if the command cannot be mapped to ON/OFF (e.g. SPEED,
-        DIR, or custom payloads that do not change the binary on/off state).
+        Skips update if the command cannot be mapped to a known actuator
+        state or movement metadata.
 
         Args:
             topic: MQTT topic the command was published to.
             command: Raw command payload string.
             node_id: Identifier of the node that owns this endpoint (optional).
         """
-        inferred = _infer_state_from_command(command)
+        with self._lock:
+            existing_entry = self._states.get(topic)
+            device_type = existing_entry.device_type if existing_entry else None
+        inferred = _infer_state_from_command(command, device_type)
         motor_fields = _extract_motor_fields(command)
         has_motor_delta = (
             motor_fields['motor_direction'] is not None
@@ -322,6 +372,10 @@ class MQTTActuatorStateStore:
             entry = self._get_or_create(topic)
             if inferred is not None:
                 entry.desired_state = inferred
+            if inferred in _RESTING_MOTION_STATES:
+                entry.motor_direction = None
+                if motor_fields['motor_speed'] is None:
+                    entry.motor_speed = 0
             if motor_fields['motor_direction'] is not None:
                 entry.motor_direction = motor_fields['motor_direction']
             if motor_fields['motor_speed'] is not None:
@@ -351,13 +405,20 @@ class MQTTActuatorStateStore:
             command: Raw command payload that produced the feedback.
             source: Origin of the confirmation ('feedback', 'state', 'manual').
         """
-        inferred = _infer_state_from_command(command)
+        with self._lock:
+            existing_entry = self._states.get(topic)
+            device_type = existing_entry.device_type if existing_entry else None
+        inferred = _infer_state_from_command(command, device_type)
         motor_fields = _extract_motor_fields(command)
 
         with self._lock:
             entry = self._get_or_create(topic)
             if inferred is not None:
                 entry.confirmed_state = inferred
+            if inferred in _RESTING_MOTION_STATES:
+                entry.motor_direction = None
+                if motor_fields['motor_speed'] is None:
+                    entry.motor_speed = 0
             if motor_fields['motor_direction'] is not None:
                 entry.motor_direction = motor_fields['motor_direction']
             if motor_fields['motor_speed'] is not None:
@@ -386,7 +447,10 @@ class MQTTActuatorStateStore:
         but the Live view is marked fresh only when node_online is true.
         """
         parsed = _parse_state_payload(payload)
-        inferred = _infer_state_from_command(parsed['state_command'])
+        with self._lock:
+            existing_entry = self._states.get(topic)
+            device_type = existing_entry.device_type if existing_entry else None
+        inferred = _infer_state_from_command(parsed['state_command'], device_type)
         motor_fields = _extract_motor_fields(parsed['state_command'])
         if parsed['motor_direction'] is not None:
             motor_fields['motor_direction'] = parsed['motor_direction']
@@ -422,6 +486,10 @@ class MQTTActuatorStateStore:
 
             if inferred is not None:
                 entry.reported_state = inferred
+                if inferred in _RESTING_MOTION_STATES:
+                    entry.motor_direction = None
+                    if motor_fields['motor_speed'] is None:
+                        entry.motor_speed = 0
                 if node_online:
                     entry.confirmed_state = inferred
                     entry.desired_state = None
@@ -529,14 +597,15 @@ class MQTTActuatorStateStore:
         snapshots = []
         with self._lock:
             for entry in self._states.values():
-                entry.desired_state = 'OFF'
+                safe_state = 'STOPPED' if entry.device_type == 'window' else 'OFF'
+                entry.desired_state = safe_state
                 entry.state_source = source
                 entry.last_update_ts = time.time()
                 if entry.stale:
                     entry.confirmed_state = 'UNKNOWN'
                 else:
-                    entry.confirmed_state = 'OFF'
-                    entry.reported_state = 'OFF'
+                    entry.confirmed_state = safe_state
+                    entry.reported_state = safe_state
                     entry.last_state_ts = entry.last_update_ts
                     entry.motor_direction = None
                     entry.motor_speed = 0
@@ -602,3 +671,5 @@ class MQTTActuatorStateStore:
                 self._update_callback(snapshot)
             except Exception as exc:
                 self.logger.error(f"State update callback error: {exc}")
+
+

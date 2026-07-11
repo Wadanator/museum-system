@@ -30,24 +30,24 @@ uint8_t PWM_CHANNEL_REGISTER_STRIDE = 3;
 uint8_t PWM_DUTY_REGISTER_OFFSET = 2;
 uint32_t PWM_FREQUENCY_HZ = 20000;
 uint16_t PWM_DUTY_OFF = 0;
-uint16_t PWM_DUTY_MAX = 1000;
+uint16_t PWM_DUTY_MAX = 10000;
 
 // WiFi fallback. LAN remains primary; WiFi is used only when LAN is down.
 const char* WIFI_SSID = "Museum-Room1";
 const char* WIFI_PASSWORD = "88888888";
 
-// Four software slots are kept here; only the first two are active now.
-// With the current two-channel-per-motor wiring, 4 active motors require
-// eight PWM outputs, so add hardware capacity before enabling slots 3 and 4.
-const CoverConfig COVERS[] = {
-  // On     Topic      Label              OPEN CH  CLOSE CH  OPEN DI  CLOSE DI  NC/active-low  Duty  Max move
-  {true,    "cover/1", "Window motor 1",  0,       1,        4,       5,        true,          800,  30000},
-  {true,    "cover/2", "Window motor 2",  2,       3,        6,       7,        true,          800,  30000},
-  {false,   "cover/3", "Window motor 3",  4,       5,        8,       9,        true,          800,  30000},
-  {false,   "cover/4", "Window motor 4",  6,       7,        10,      11,       true,          800,  30000}
+// Two active window sides. Each side uses two PWM channels: one for OPEN and
+// one for CLOSE. TEST DEFAULT: end-stops are disabled so PWM can be measured
+// before the limit switches are installed. Enable them for production.
+const WindowSideConfig WINDOW_SIDES[] = {
+  // On     Topic           Label                OPEN CH  CLOSE CH  OPEN DI  CLOSE DI  Endstops  NC/active-low  Speed  Max move
+  {true,    "window/left",  "Window left side",  0,       1,        4,       5,        false,    true,          30,    5000},
+  {true,    "window/right", "Window right side", 2,       3,        6,       7,        false,    true,          30,    5000},
+  {false,   "window/aux1",  "Window aux 1",     4,       5,        8,       9,        false,    true,          30,    5000},
+  {false,   "window/aux2",  "Window aux 2",     6,       7,        10,      11,       false,    true,          30,    5000}
 };
 
-const int COVER_COUNT = sizeof(COVERS) / sizeof(CoverConfig);
+const int WINDOW_SIDE_COUNT = sizeof(WINDOW_SIDES) / sizeof(WindowSideConfig);
 
 // Digital input mode for Waveshare isolated DI pins. Change to INPUT_PULLUP
 // only if the end-stops are wired directly to ESP32 GPIO instead of the DI port.
@@ -56,14 +56,13 @@ unsigned long ENDSTOP_POLL_INTERVAL_MS = 50;
 unsigned long DIRECTION_CHANGE_DEADTIME_MS = 350;
 
 // System configuration.
-bool DEBUG = false;
+bool DEBUG = true;
 
 // MQTT broker and topic configuration.
-const char* MQTT_SERVER = "192.168.0.127";
+const char* MQTT_SERVER = "TechMuzeumRoom1.local";
 int MQTT_PORT = 1883;
 const char* BASE_TOPIC_PREFIX = "room1/";
-const char* CLIENT_ID = "Window_Covers_Ctrl";
-const char* HEARTBEAT_TOPIC_SUFFIX = "system/heartbeat";
+const char* CLIENT_ID = "Room1_Window_Ctrl";
 
 // Connection management.
 unsigned long NETWORK_CONNECT_TIMEOUT = 15000;
@@ -78,15 +77,13 @@ int MAX_NETWORK_ATTEMPTS = 10;
 int MAX_MQTT_ATTEMPTS = 10;
 int MQTT_KEEP_ALIVE = 5;
 
-// Safety timeouts. RPI is expected to publish room1/system/heartbeat during
-// tests and production; keep the cover watchdog at the TODO value of 20000 ms.
+// Stop active PWM if commands stop arriving for too long.
 unsigned long NO_COMMAND_TIMEOUT = 180000;
-unsigned long HEARTBEAT_TIMEOUT_MS = 20000;
 
 // Watchdog timer.
 unsigned long WDT_TIMEOUT = 30;
 
 // OTA configuration.
-const char* OTA_HOSTNAME = "ESP32-WindowCover-Room1-LAN";
+const char* OTA_HOSTNAME = "ESP32-Window-Room1-LAN";
 const char* OTA_PASSWORD = "room1";
 bool OTA_ENABLED = true;

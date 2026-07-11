@@ -12,8 +12,8 @@ void setup() {
   Serial.begin(115200);
   delay(100);
   Serial.println("\n------------------------------------------------");
-  Serial.println(" ESP32 LAN+WiFi MQTT Window Cover Controller");
-  Serial.println(" 2 DC motors + 4 PWM channels + end-stop safety");
+  Serial.println(" ESP32 LAN+WiFi MQTT Window Controller");
+  Serial.println(" Left/right window sides + 4 PWM channels");
   Serial.println("------------------------------------------------");
   debugPrint("=== System startup ===");
 
@@ -57,7 +57,7 @@ void loop() {
     mqttLoop();
   }
 
-  handleCovers();
+  handleWindows();
 
   static unsigned long lastQuickCheck = 0;
   unsigned long currentTime = millis();
@@ -89,18 +89,18 @@ void loop() {
       mqttDisconnectedSince = currentTime;
     }
 
-    if (!allCoversStopped && (currentTime - mqttDisconnectedSince > NETWORK_FAILOVER_GRACE)) {
-      debugPrint("MQTT connection lost after failover grace -> stopping covers");
-      stopAllCovers("mqtt_disconnect");
+    if (!allWindowsStopped && (currentTime - mqttDisconnectedSince > NETWORK_FAILOVER_GRACE)) {
+      debugPrint("MQTT connection lost after failover grace -> stopping windows");
+      stopAllWindows("mqtt_disconnect");
     }
   } else {
     mqttDisconnectedSince = 0;
   }
 
-  if (!allCoversStopped && (currentTime - lastCommandTime > NO_COMMAND_TIMEOUT)) {
-     debugPrint("TIMEOUT: stopping covers due to command inactivity");
-     stopAllCovers("inactivity_timeout");
-     publishAllCoverStates("inactivity_timeout");
+  if (!allWindowsStopped && (currentTime - lastCommandTime > NO_COMMAND_TIMEOUT)) {
+     debugPrint("TIMEOUT: stopping windows due to command inactivity");
+     stopAllWindows("inactivity_timeout");
+     publishAllWindowStates("inactivity_timeout");
      lastCommandTime = currentTime;
   }
 

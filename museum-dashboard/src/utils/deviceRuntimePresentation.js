@@ -1,9 +1,12 @@
+const ACTIVE_STATES = new Set(['ON', 'OPEN', 'OPENING', 'CLOSING']);
+const INACTIVE_STATES = new Set(['OFF', 'CLOSED', 'STOPPED']);
+
 export const getDeviceRuntimeTone = (runtimeState) => {
   if (!runtimeState?.entry) return 'unknown';
   if (runtimeState.isStale) return 'unknown';
   if (runtimeState.isPending) return 'pending';
-  if (runtimeState.confirmedState === 'ON') return 'on';
-  if (runtimeState.confirmedState === 'OFF') return 'off';
+  if (ACTIVE_STATES.has(runtimeState.confirmedState)) return 'on';
+  if (INACTIVE_STATES.has(runtimeState.confirmedState)) return 'off';
   return 'unknown';
 };
 

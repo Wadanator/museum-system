@@ -1,0 +1,407 @@
+#include "hardware.h"
+#include "config.h"
+#include "debug.h"
+#include "mqtt_manager.h"
+#include "pwm_driver.h"
+
+static const int MAX_WINDOW_SIDES = 4;
+
+bool allWindowsStopped = true;
+
+static WindowState windowStates[MAX_WINDOW_SIDES];
+static WindowDirection activeDirections[MAX_WINDOW_SIDES];
+static unsigned long moveStartedAt[MAX_WINDOW_SIDES];
+static uint8_t runtimeSpeeds[MAX_WINDOW_SIDES];
+static unsigned long lastEndstopPoll = 0;
+
+static bool isValidWindowSideIndex(int sideIndex) {
+  return sideIndex >= 0 && sideIndex < WINDOW_SIDE_COUNT && sideIndex < MAX_WINDOW_SIDES;
+}
+
+static bool isWindowSideEnabled(int sideIndex) {
+  return isValidWindowSideIndex(sideIndex) && WINDOW_SIDES[sideIndex].enabled;
+}
+
+static bool isWindowSideConfigSafe(int sideIndex) {
+  if (!isWindowSideEnabled(sideIndex)) return false;
+
+  const WindowSideConfig& side = WINDOW_SIDES[sideIndex];
+  if (side.pwmOpenChannel >= PWM_CHANNEL_COUNT ||
+      side.pwmCloseChannel >= PWM_CHANNEL_COUNT) {
+    return false;
+  }
+  if (side.pwmOpenChannel == side.pwmCloseChannel) return false;
+  if (side.defaultSpeed > 100) return false;
+  if (side.endstopsEnabled && side.openEndstopPin >= 0 &&
+      side.openEndstopPin == side.closeEndstopPin) {
+    return false;
+  }
+
+  return true;
+}
+
+static bool parseSpeed(const char* speedValue, uint8_t& speed) {
+  if (speedValue == nullptr || speedValue[0] == '\0') return false;
+
+  char* endPtr = nullptr;
+  long parsed = strtol(speedValue, &endPtr, 10);
+  if (endPtr == speedValue || *endPtr != '\0') return false;
+
+  speed = (uint8_t)constrain((int)parsed, 0, 100);
+  return true;
+}
+
+static uint16_t dutyFromSpeed(uint8_t speed) {
+  uint8_t safeSpeed = (uint8_t)constrain((int)speed, 0, 100);
+  return (uint16_t)map(safeSpeed, 0, 100, PWM_DUTY_OFF, PWM_DUTY_MAX);
+}
+
+static const char* directionText(WindowDirection direction) {
+  switch (direction) {
+    case WINDOW_DIR_OPENING: return "OPENING";
+    case WINDOW_DIR_CLOSING: return "CLOSING";
+    default: return "STOPPED";
+  }
+}
+
+const char* getWindowDirectionText(int sideIndex) {
+  if (!isValidWindowSideIndex(sideIndex)) return "STOPPED";
+  return directionText(activeDirections[sideIndex]);
+}
+
+const char* getWindowStateText(int sideIndex) {
+  if (!isValidWindowSideIndex(sideIndex)) return "UNKNOWN";
+
+  switch (windowStates[sideIndex]) {
+    case WINDOW_STATE_OPENING: return "OPENING";
+    case WINDOW_STATE_CLOSING: return "CLOSING";
+    case WINDOW_STATE_OPEN: return "OPEN";
+    case WINDOW_STATE_CLOSED: return "CLOSED";
+    case WINDOW_STATE_STOPPED: return "STOPPED";
+    case WINDOW_STATE_ERROR: return "ERROR";
+    default: return "UNKNOWN";
+  }
+}
+
+WindowState getWindowState(int sideIndex) {
+  if (!isValidWindowSideIndex(sideIndex)) return WINDOW_STATE_UNKNOWN;
+  return windowStates[sideIndex];
+}
+
+bool isWindowMoving(int sideIndex) {
+  if (!isValidWindowSideIndex(sideIndex)) return false;
+  return activeDirections[sideIndex] != WINDOW_DIR_STOPPED;
+}
+
+int getWindowSpeed(int sideIndex) {
+  if (!isValidWindowSideIndex(sideIndex)) return 0;
+  if (!isWindowMoving(sideIndex)) return 0;
+  return runtimeSpeeds[sideIndex];
+}
+
+static void refreshAllStoppedFlag() {
+  bool anyMoving = false;
+  for (int i = 0; i < WINDOW_SIDE_COUNT && i < MAX_WINDOW_SIDES; i++) {
+    if (!isWindowSideEnabled(i)) continue;
+    if (activeDirections[i] != WINDOW_DIR_STOPPED) {
+      anyMoving = true;
+      break;
+    }
+  }
+  allWindowsStopped = !anyMoving;
+}
+
+static bool readConfiguredEndstop(int pin, bool activeLow) {
+  if (pin < 0) return false;
+  int reading = digitalRead(pin);
+  return activeLow ? (reading == LOW) : (reading == HIGH);
+}
+
+static bool isOpenEndstopActive(int sideIndex) {
+  if (!isWindowSideConfigSafe(sideIndex)) return false;
+  const WindowSideConfig& side = WINDOW_SIDES[sideIndex];
+  if (!side.endstopsEnabled) return false;
+  return readConfiguredEndstop(side.openEndstopPin, side.endstopActiveLow);
+}
+
+static bool isCloseEndstopActive(int sideIndex) {
+  if (!isWindowSideConfigSafe(sideIndex)) return false;
+  const WindowSideConfig& side = WINDOW_SIDES[sideIndex];
+  if (!side.endstopsEnabled) return false;
+  return readConfiguredEndstop(side.closeEndstopPin, side.endstopActiveLow);
+}
+
+static WindowState detectRestingState(int sideIndex) {
+  if (!WINDOW_SIDES[sideIndex].endstopsEnabled) return WINDOW_STATE_UNKNOWN;
+
+  bool openStop = isOpenEndstopActive(sideIndex);
+  bool closeStop = isCloseEndstopActive(sideIndex);
+
+  if (openStop && !closeStop) return WINDOW_STATE_OPEN;
+  if (closeStop && !openStop) return WINDOW_STATE_CLOSED;
+  if (openStop && closeStop) return WINDOW_STATE_ERROR;
+  return WINDOW_STATE_UNKNOWN;
+}
+
+static void configureEndstops() {
+  for (int i = 0; i < WINDOW_SIDE_COUNT && i < MAX_WINDOW_SIDES; i++) {
+    if (!isWindowSideEnabled(i)) continue;
+    if (!isWindowSideConfigSafe(i)) {
+      debugPrint(String(WINDOW_SIDES[i].topicName) + " has unsafe configuration");
+      continue;
+    }
+
+    const WindowSideConfig& side = WINDOW_SIDES[i];
+    if (!side.endstopsEnabled) continue;
+    if (side.openEndstopPin >= 0) pinMode(side.openEndstopPin, ENDSTOP_INPUT_MODE);
+    if (side.closeEndstopPin >= 0) pinMode(side.closeEndstopPin, ENDSTOP_INPUT_MODE);
+  }
+}
+
+static PwmResult stopWindowHardware(int sideIndex) {
+  if (!isWindowSideConfigSafe(sideIndex)) return PWM_RESULT_INVALID_CHANNEL;
+
+  const WindowSideConfig& side = WINDOW_SIDES[sideIndex];
+  PwmResult openResult = writePwmChannel(side.pwmOpenChannel, PWM_DUTY_OFF);
+  PwmResult closeResult = writePwmChannel(side.pwmCloseChannel, PWM_DUTY_OFF);
+
+  if (openResult == PWM_RESULT_OK && closeResult == PWM_RESULT_OK) {
+    activeDirections[sideIndex] = WINDOW_DIR_STOPPED;
+    moveStartedAt[sideIndex] = 0;
+    refreshAllStoppedFlag();
+    return PWM_RESULT_OK;
+  }
+
+  windowStates[sideIndex] = WINDOW_STATE_ERROR;
+  refreshAllStoppedFlag();
+  return openResult != PWM_RESULT_OK ? openResult : closeResult;
+}
+
+static PwmResult writeActiveWindowSpeed(int sideIndex, uint8_t speed) {
+  if (!isWindowSideConfigSafe(sideIndex)) return PWM_RESULT_INVALID_CHANNEL;
+  if (activeDirections[sideIndex] == WINDOW_DIR_STOPPED) return PWM_RESULT_OK;
+
+  const WindowSideConfig& side = WINDOW_SIDES[sideIndex];
+  uint8_t activeChannel = activeDirections[sideIndex] == WINDOW_DIR_OPENING
+    ? side.pwmOpenChannel
+    : side.pwmCloseChannel;
+
+  return writePwmChannel(activeChannel, dutyFromSpeed(speed));
+}
+
+static PwmResult startWindowHardware(int sideIndex, WindowDirection direction, uint8_t speed) {
+  if (!isWindowSideConfigSafe(sideIndex)) return PWM_RESULT_INVALID_CHANNEL;
+  if (speed == 0) return PWM_RESULT_INVALID_DUTY;
+
+  const WindowSideConfig& side = WINDOW_SIDES[sideIndex];
+  uint8_t activeChannel = direction == WINDOW_DIR_OPENING ? side.pwmOpenChannel : side.pwmCloseChannel;
+  uint8_t oppositeChannel = direction == WINDOW_DIR_OPENING ? side.pwmCloseChannel : side.pwmOpenChannel;
+
+  // Firmware-level mutual exclusion: the opposite direction is always forced
+  // to zero before the requested direction can receive non-zero duty.
+  PwmResult result = writePwmChannel(oppositeChannel, PWM_DUTY_OFF);
+  if (result != PWM_RESULT_OK) return result;
+
+  delay(DIRECTION_CHANGE_DEADTIME_MS);
+
+  result = writePwmChannel(activeChannel, dutyFromSpeed(speed));
+  if (result != PWM_RESULT_OK) {
+    writePwmChannel(activeChannel, PWM_DUTY_OFF);
+    return result;
+  }
+
+  runtimeSpeeds[sideIndex] = speed;
+  activeDirections[sideIndex] = direction;
+  moveStartedAt[sideIndex] = millis();
+  windowStates[sideIndex] = direction == WINDOW_DIR_OPENING ? WINDOW_STATE_OPENING : WINDOW_STATE_CLOSING;
+  refreshAllStoppedFlag();
+  return PWM_RESULT_OK;
+}
+
+void initializeHardware() {
+  debugPrint("Initializing window hardware...");
+
+  initializePwmDriver();
+  configureEndstops();
+  PwmResult frequencyResult = configureAllPwmFrequencies();
+  if (frequencyResult != PWM_RESULT_OK) {
+    debugPrint("PWM frequency setup failed: " + String(pwmResultText(frequencyResult)));
+  }
+
+  PwmResult offResult = writeAllPwmChannelsOff();
+  if (offResult != PWM_RESULT_OK) {
+    debugPrint("PWM startup safe-off failed: " + String(pwmResultText(offResult)));
+  }
+
+  for (int i = 0; i < WINDOW_SIDE_COUNT && i < MAX_WINDOW_SIDES; i++) {
+    activeDirections[i] = WINDOW_DIR_STOPPED;
+    moveStartedAt[i] = 0;
+    runtimeSpeeds[i] = isWindowSideEnabled(i) ? WINDOW_SIDES[i].defaultSpeed : 0;
+
+    if (!isWindowSideEnabled(i)) {
+      windowStates[i] = WINDOW_STATE_UNKNOWN;
+      debugPrint(String(WINDOW_SIDES[i].topicName) + " disabled");
+      continue;
+    }
+
+    windowStates[i] = isWindowSideConfigSafe(i) ? detectRestingState(i) : WINDOW_STATE_ERROR;
+    debugPrint(String(WINDOW_SIDES[i].topicName) + " initial state: " + getWindowStateText(i));
+  }
+
+  allWindowsStopped = true;
+  debugPrint("Window hardware initialized - all PWM channels OFF");
+}
+
+static const char* startWindowMovement(int sideIndex, WindowDirection direction, const char* speedValue) {
+  if (!isWindowSideConfigSafe(sideIndex)) return "ERROR:CONFIG";
+
+  uint8_t speed = runtimeSpeeds[sideIndex] > 0
+    ? runtimeSpeeds[sideIndex]
+    : WINDOW_SIDES[sideIndex].defaultSpeed;
+  if (speedValue != nullptr && speedValue[0] != '\0' && !parseSpeed(speedValue, speed)) {
+    return "ERROR:INVALID_SPEED";
+  }
+  if (speed == 0) return "ERROR:INVALID_SPEED";
+
+  bool opening = direction == WINDOW_DIR_OPENING;
+  bool targetEndstop = opening ? isOpenEndstopActive(sideIndex) : isCloseEndstopActive(sideIndex);
+  if (targetEndstop) {
+    PwmResult stopResult = stopWindowHardware(sideIndex);
+    windowStates[sideIndex] = opening ? WINDOW_STATE_OPEN : WINDOW_STATE_CLOSED;
+    publishWindowState(sideIndex, "endstop", true);
+    return stopResult == PWM_RESULT_OK ? "ERROR:ENDSTOP" : pwmResultText(stopResult);
+  }
+
+  if (activeDirections[sideIndex] != WINDOW_DIR_STOPPED &&
+      activeDirections[sideIndex] != direction) {
+    PwmResult stopResult = stopWindowHardware(sideIndex);
+    if (stopResult != PWM_RESULT_OK) {
+      publishWindowState(sideIndex, "hardware_error", true);
+      return pwmResultText(stopResult);
+    }
+  }
+
+  PwmResult result = startWindowHardware(sideIndex, direction, speed);
+  if (result != PWM_RESULT_OK) {
+    windowStates[sideIndex] = WINDOW_STATE_ERROR;
+    publishWindowState(sideIndex, "hardware_error", true);
+    return pwmResultText(result);
+  }
+
+  debugPrint(String(WINDOW_SIDES[sideIndex].topicName) + " -> " + directionText(direction) + " @ " + String(speed) + "%");
+  publishWindowState(sideIndex, "command", true);
+  return "OK";
+}
+
+const char* commandWindowOpen(int sideIndex, const char* speedValue) {
+  return startWindowMovement(sideIndex, WINDOW_DIR_OPENING, speedValue);
+}
+
+const char* commandWindowClose(int sideIndex, const char* speedValue) {
+  return startWindowMovement(sideIndex, WINDOW_DIR_CLOSING, speedValue);
+}
+
+const char* commandWindowStop(int sideIndex) {
+  if (!isWindowSideConfigSafe(sideIndex)) return "ERROR:CONFIG";
+
+  PwmResult result = stopWindowHardware(sideIndex);
+  if (result == PWM_RESULT_OK) {
+    windowStates[sideIndex] = WINDOW_STATE_STOPPED;
+  } else {
+    windowStates[sideIndex] = WINDOW_STATE_ERROR;
+  }
+
+  publishWindowState(sideIndex, "command", true);
+  return pwmResultText(result);
+}
+
+const char* commandWindowSpeed(int sideIndex, const char* speedValue) {
+  if (!isWindowSideConfigSafe(sideIndex)) return "ERROR:CONFIG";
+
+  uint8_t speed = 0;
+  if (!parseSpeed(speedValue, speed)) return "ERROR:INVALID_SPEED";
+
+  runtimeSpeeds[sideIndex] = speed;
+  if (speed == 0) {
+    return commandWindowStop(sideIndex);
+  }
+
+  PwmResult result = writeActiveWindowSpeed(sideIndex, speed);
+  if (result != PWM_RESULT_OK) {
+    windowStates[sideIndex] = WINDOW_STATE_ERROR;
+    publishWindowState(sideIndex, "hardware_error", true);
+    return pwmResultText(result);
+  }
+
+  publishWindowState(sideIndex, "speed", true);
+  return "OK";
+}
+
+void stopAllWindows(const char* source) {
+  debugPrint("Stopping all windows: " + String(source));
+
+  for (int i = 0; i < WINDOW_SIDE_COUNT && i < MAX_WINDOW_SIDES; i++) {
+    if (!isWindowSideEnabled(i)) continue;
+    PwmResult result = stopWindowHardware(i);
+    if (result == PWM_RESULT_OK) {
+      if (windowStates[i] == WINDOW_STATE_OPENING || windowStates[i] == WINDOW_STATE_CLOSING) {
+        windowStates[i] = WINDOW_STATE_STOPPED;
+      }
+    } else {
+      windowStates[i] = WINDOW_STATE_ERROR;
+      publishWindowFeedback(i, pwmResultText(result));
+    }
+    publishWindowState(i, source, true);
+  }
+
+  refreshAllStoppedFlag();
+}
+
+void handleWindows() {
+  unsigned long currentTime = millis();
+
+  if (currentTime - lastEndstopPoll < ENDSTOP_POLL_INTERVAL_MS) return;
+  lastEndstopPoll = currentTime;
+
+  for (int i = 0; i < WINDOW_SIDE_COUNT && i < MAX_WINDOW_SIDES; i++) {
+    if (!isWindowSideEnabled(i)) continue;
+    if (activeDirections[i] == WINDOW_DIR_STOPPED) continue;
+
+    bool reachedOpen = activeDirections[i] == WINDOW_DIR_OPENING && isOpenEndstopActive(i);
+    bool reachedClosed = activeDirections[i] == WINDOW_DIR_CLOSING && isCloseEndstopActive(i);
+
+    if (reachedOpen || reachedClosed) {
+      PwmResult result = stopWindowHardware(i);
+      if (result == PWM_RESULT_OK) {
+        windowStates[i] = reachedOpen ? WINDOW_STATE_OPEN : WINDOW_STATE_CLOSED;
+        debugPrint(String(WINDOW_SIDES[i].topicName) + " reached end-stop -> " + getWindowStateText(i));
+        publishWindowFeedback(i, "OK");
+      } else {
+        windowStates[i] = WINDOW_STATE_ERROR;
+        publishWindowFeedback(i, pwmResultText(result));
+      }
+      publishWindowState(i, "endstop", true);
+      continue;
+    }
+
+    if (WINDOW_SIDES[i].maxMoveMs > 0 && currentTime - moveStartedAt[i] >= WINDOW_SIDES[i].maxMoveMs) {
+      PwmResult result = stopWindowHardware(i);
+      windowStates[i] = result == PWM_RESULT_OK ? WINDOW_STATE_STOPPED : WINDOW_STATE_ERROR;
+      debugPrint(String(WINDOW_SIDES[i].topicName) + " move timeout");
+      publishWindowState(i, "timeout", true);
+      publishWindowFeedback(i, result == PWM_RESULT_OK ? "ERROR:TIMEOUT" : pwmResultText(result));
+    }
+  }
+}
+
+String getWindowStatus() {
+  String status = "";
+  bool first = true;
+  for (int i = 0; i < WINDOW_SIDE_COUNT && i < MAX_WINDOW_SIDES; i++) {
+    if (!isWindowSideEnabled(i)) continue;
+    if (!first) status += ",";
+    status += String(WINDOW_SIDES[i].topicName) + ":" + getWindowStateText(i);
+    first = false;
+  }
+  return status;
+}

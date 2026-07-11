@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Loader2, Zap, Settings2, RefreshCw, OctagonX, SlidersHorizontal } from 'lucide-react';
+import { Loader2, Zap, Settings2, RefreshCw, OctagonX, SlidersHorizontal, SquareSplitVertical } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useDevices } from '../../hooks/useDevices';
 import { useDeviceRuntimeState } from '../../hooks/useDeviceRuntimeState';
@@ -7,6 +7,7 @@ import { api } from '../../services/api';
 import { useConfirm } from '../../context/useConfirm';
 import MotorCard from '../Devices/MotorCard';
 import RelayCard from '../Devices/RelayCard';
+import WindowCard from '../Devices/WindowCard';
 import DevicesConfigModal from '../Devices/DevicesConfigModal';
 import Button from '../ui/Button';
 import PageHeader from '../ui/PageHeader';
@@ -14,11 +15,13 @@ import StateNotice from '../ui/StateNotice';
 import '../../styles/views/commands-view.css';
 
 export default function CommandsView() {
-    const { motors, relays, loading, error } = useDevices();
+    const { motors, relays, windows, loading, error } = useDevices();
     const { deviceStates, getStateForDevice, getDisplayStateForDevice } = useDeviceRuntimeState();
     const [isDevicesEditorOpen, setIsDevicesEditorOpen] = useState(false);
-    const [devicesConfig, setDevicesConfig] = useState({ relays: [], motors: [] });
+    const [devicesConfig, setDevicesConfig] = useState({ relays: [], motors: [], windows: [] });
     const { confirm } = useConfirm();
+
+    const hasDevices = motors.length > 0 || relays.length > 0 || windows.length > 0;
 
     const getRuntimeState = (device) => {
         const entry = deviceStates[device.topic] || null;
@@ -46,7 +49,7 @@ export default function CommandsView() {
     const handleStopAll = async () => {
         const confirmed = await confirm({
             title: 'Zastaviť všetko?',
-            message: 'Naozaj chcete okamžite zastaviť scénu a vypnúť všetky motory a relé?',
+            message: 'Naozaj chcete okamžite zastaviť scénu a vypnúť všetky motory, relé a okná?',
             confirmText: 'Zastaviť všetko',
             cancelText: 'Zrušiť',
             type: 'danger',
@@ -67,7 +70,7 @@ export default function CommandsView() {
     const handleOpenDevicesEditor = async () => {
         try {
             const config = await api.getDevices();
-            setDevicesConfig(config || { relays: [], motors: [] });
+            setDevicesConfig(config || { relays: [], motors: [], windows: [] });
             setIsDevicesEditorOpen(true);
         } catch (e) {
             console.error('Load devices config error:', e);
@@ -92,7 +95,7 @@ export default function CommandsView() {
         <StateNotice
             icon={Loader2}
             title="Načítavam zariadenia"
-            message="Zoznam motorov, relé a efektov sa načítava z konfigurácie."
+            message="Zoznam motorov, relé, okien a efektov sa načítava z konfigurácie."
             isLoading
         />
     );
@@ -112,14 +115,14 @@ export default function CommandsView() {
         <div className="view-container commands-view">
             <PageHeader 
                 title="Ovládanie zariadení" 
-                subtitle="Manuálna kontrola motorov a efektov"
+                subtitle="Manuálna kontrola motorov, okien a efektov"
                 icon={Zap}
             >
                 <Button 
                     variant="toolbar-danger" 
                     icon={OctagonX} 
                     onClick={handleStopAll} 
-                    disabled={motors.length === 0 && relays.length === 0}
+                    disabled={!hasDevices}
                 >
                     Zastaviť všetko
                 </Button>
@@ -159,7 +162,28 @@ export default function CommandsView() {
                     </section>
                 )}
 
-                {motors.length > 0 && relays.length > 0 && <div className="section-divider"></div>}
+                {motors.length > 0 && windows.length > 0 && <div className="section-divider"></div>}
+
+                {windows.length > 0 && (
+                    <section className="device-section">
+                        <div className="section-header">
+                            <SquareSplitVertical size={20} className="section-icon" />
+                            <h3>Okná</h3>
+                            <span className="count-badge">{windows.length}</span>
+                        </div>
+                        <div className="devices-grid windows-grid">
+                            {windows.map((windowDevice, idx) => (
+                                <WindowCard
+                                    key={windowDevice.id || idx}
+                                    device={windowDevice}
+                                    runtimeState={getRuntimeState(windowDevice)}
+                                />
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {(motors.length > 0 || windows.length > 0) && relays.length > 0 && <div className="section-divider"></div>}
 
                 {relays.length > 0 && (
                     <section className="device-section">
@@ -180,11 +204,11 @@ export default function CommandsView() {
                     </section>
                 )}
 
-                {motors.length === 0 && relays.length === 0 && (
+                {!hasDevices && (
                     <StateNotice
                         icon={SlidersHorizontal}
                         title="Žiadne zariadenia"
-                        message="V konfigurácii zatiaľ nie sú pridané motory, relé ani efekty."
+                        message="V konfigurácii zatiaľ nie sú pridané motory, okná, relé ani efekty."
                     >
                         <Button variant="toolbar-primary" icon={SlidersHorizontal} onClick={handleOpenDevicesEditor}>
                             Otvoriť konfiguráciu

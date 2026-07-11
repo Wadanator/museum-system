@@ -33,8 +33,8 @@ extern uint16_t PWM_DUTY_MAX;
 extern const char* WIFI_SSID;
 extern const char* WIFI_PASSWORD;
 
-// Window/cover motor definitions.
-struct CoverConfig {
+// Window side motor definitions.
+struct WindowSideConfig {
   bool enabled;
   const char* topicName;
   const char* displayName;
@@ -42,13 +42,14 @@ struct CoverConfig {
   uint8_t pwmCloseChannel;
   int openEndstopPin;
   int closeEndstopPin;
+  bool endstopsEnabled;
   bool endstopActiveLow;
-  uint16_t pwmDuty;
+  uint8_t defaultSpeed;
   unsigned long maxMoveMs;
 };
 
-extern const CoverConfig COVERS[];
-extern const int COVER_COUNT;
+extern const WindowSideConfig WINDOW_SIDES[];
+extern const int WINDOW_SIDE_COUNT;
 extern int ENDSTOP_INPUT_MODE;
 extern unsigned long ENDSTOP_POLL_INTERVAL_MS;
 extern unsigned long DIRECTION_CHANGE_DEADTIME_MS;
@@ -61,7 +62,6 @@ extern const char* MQTT_SERVER;
 extern int MQTT_PORT;
 extern const char* BASE_TOPIC_PREFIX;
 extern const char* CLIENT_ID;
-extern const char* HEARTBEAT_TOPIC_SUFFIX;
 
 // Connection management.
 extern unsigned long NETWORK_CONNECT_TIMEOUT;
@@ -78,7 +78,6 @@ extern int MQTT_KEEP_ALIVE;
 
 // Safety timeouts.
 extern unsigned long NO_COMMAND_TIMEOUT;
-extern unsigned long HEARTBEAT_TIMEOUT_MS;
 
 // Watchdog timer.
 extern unsigned long WDT_TIMEOUT;

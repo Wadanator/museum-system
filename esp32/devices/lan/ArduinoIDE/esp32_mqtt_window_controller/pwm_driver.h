@@ -1,4 +1,4 @@
-﻿#ifndef PWM_DRIVER_H
+#ifndef PWM_DRIVER_H
 #define PWM_DRIVER_H
 
 #include <Arduino.h>

@@ -46,7 +46,7 @@ def setup_commands_routes(dashboard):
                         f"Migrated devices config from {legacy_path} to {devices_config_path}"
                     )
                     return jsonify(legacy_data)
-                return jsonify({'relays': [], 'motors': []})
+                return jsonify({'relays': [], 'motors': [], 'windows': []})
 
             with open(devices_config_path, 'r', encoding='utf-8') as f:
                 return jsonify(json.load(f))
@@ -64,8 +64,8 @@ def setup_commands_routes(dashboard):
                 return jsonify({'error': 'Devices config must be an object'}), 400
 
             # Keep compatibility with current UI expectations
-            if 'motors' not in devices_data and 'relays' not in devices_data and 'lights' not in devices_data:
-                return jsonify({'error': 'Devices config must include motors/relays/lights keys'}), 400
+            if all(key not in devices_data for key in ('motors', 'relays', 'lights', 'windows')):
+                return jsonify({'error': 'Devices config must include motors/relays/lights/windows keys'}), 400
 
             devices_config_path = get_devices_config_path(controller)
             with open(devices_config_path, 'w', encoding='utf-8') as f:
@@ -208,3 +208,4 @@ def setup_commands_routes(dashboard):
             return jsonify({'error': f"Error executing command {command_name}: {e}"}), 500
 
     return commands_bp
+

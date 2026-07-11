@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { api } from '../services/api';
 
 export function useDevices() {
-    const [data, setData] = useState({ all: [], motors: [], relays: [] });
+    const [data, setData] = useState({ all: [], motors: [], relays: [], windows: [] });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
@@ -12,10 +12,12 @@ export function useDevices() {
         const relaysRaw = response.relays || [];
         const lightsRaw = response.lights || [];
         const allRelays = [...relaysRaw, ...lightsRaw].map(d => ({ ...d, type: 'relay' }));
+        const windows = (response.windows || []).map(d => ({ ...d, type: 'window' }));
         setData({
-            all: [...motors, ...allRelays],
+            all: [...motors, ...allRelays, ...windows],
             motors,
-            relays: allRelays
+            relays: allRelays,
+            windows,
         });
     };
 
@@ -50,6 +52,7 @@ export function useDevices() {
         devices: data.all,
         motors: data.motors,
         relays: data.relays,
+        windows: data.windows,
         loading,
         error,
         refresh

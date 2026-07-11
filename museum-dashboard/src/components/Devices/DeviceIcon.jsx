@@ -7,6 +7,7 @@ import {
   Layers,
   Lightbulb,
   Sparkles,
+  SquareSplitVertical,
   Wind,
   Zap,
 } from 'lucide-react';
@@ -35,6 +36,7 @@ const inferIconKey = (device = {}) => {
     'smoke',
     'vent',
     'wind',
+    'window',
   ].includes(explicitIcon)) {
     return explicitIcon;
   }
@@ -49,6 +51,7 @@ const inferIconKey = (device = {}) => {
 
   if (lookupText.includes('smoke') || lookupText.includes('dym')) return 'smoke';
   if (lookupText.includes('fire') || lookupText.includes('ohen')) return 'fire';
+  if (lookupText.includes('window') || lookupText.includes('okno')) return 'window';
   if (lookupText.includes('fan')) return 'fan';
   if (lookupText.includes('wind') || lookupText.includes('vent')) return 'wind';
   if (lookupText.includes('group') || lookupText.includes('blikanie')) return 'group';
@@ -60,6 +63,7 @@ const inferIconKey = (device = {}) => {
   ) {
     return 'light';
   }
+  if (device.type === 'window' || device.deviceType === 'window') return 'window';
   if (device.type === 'motor' || device.deviceType === 'motor') return 'motor';
   if (device.type === 'light' || device.deviceType === 'light') return 'light';
   return 'relay';
@@ -87,6 +91,8 @@ export default function DeviceIcon({ device, size = 64, strokeWidth = 1.4, ...pr
       return <Lightbulb {...iconProps} />;
     case 'motor':
       return <Gauge {...iconProps} />;
+    case 'window':
+      return <SquareSplitVertical {...iconProps} />;
     case 'vent':
     case 'wind':
       return <Wind {...iconProps} />;
@@ -95,3 +101,4 @@ export default function DeviceIcon({ device, size = 64, strokeWidth = 1.4, ...pr
       return <Zap {...iconProps} />;
   }
 }
+

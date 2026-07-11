@@ -1,7 +1,12 @@
 import { useMemo } from 'react';
 import { useDevices } from './useDevices';
 import { useMedia } from './useMedia';
-import { buildMotorOnCommand, normalizeMotorSpeed } from '../utils/deviceCommands';
+import {
+  buildMotorOnCommand,
+  buildWindowCommand,
+  normalizeMotorSpeed,
+  normalizeWindowSpeed,
+} from '../utils/deviceCommands';
 
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.avi', '.mkv', '.mov', '.webm']);
 const IMAGE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg']);
@@ -16,7 +21,7 @@ const extensionOf = (name = '') => {
  * ready for EditorPalette to render.
  */
 export function useDevicePalette() {
-  const { motors, relays, loading: devLoading, error: devError } = useDevices();
+  const { motors, relays, windows, loading: devLoading, error: devError } = useDevices();
   const { audios, videos, playMediaFile, isLoading: mediaLoading } = useMedia();
 
   const motorItems = useMemo(
@@ -41,6 +46,27 @@ export function useDevicePalette() {
       };
     }),
     [motors]
+  );
+
+  const windowItems = useMemo(
+    () => windows.map((d) => {
+      const speed = normalizeWindowSpeed(d.speed);
+      return {
+        id: d.id,
+        label: d.name,
+        topic: d.topic,
+        icon: d.icon,
+        deviceType: 'window',
+        defaultMessage: buildWindowCommand('OPEN', speed),
+        quickMessages: [
+          buildWindowCommand('OPEN', speed),
+          buildWindowCommand('CLOSE', speed),
+          'STOP',
+          `SPEED:${speed}`,
+        ],
+      };
+    }),
+    [windows]
   );
 
   const relayItems = useMemo(
@@ -86,6 +112,7 @@ export function useDevicePalette() {
 
   return {
     motorItems,
+    windowItems,
     relayItems,
     audioItems,
     videoItems,

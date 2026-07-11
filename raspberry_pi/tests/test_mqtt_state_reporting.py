@@ -59,6 +59,15 @@ def _devices_config():
                 "node_id": "Room1_Relays_Ctrl",
             }
         ],
+        "windows": [
+            {
+                "id": "window_left",
+                "name": "Window Left",
+                "type": "window",
+                "topic": "room1/window/left",
+                "node_id": "Room1_Window_Ctrl",
+            }
+        ],
     }
 
 
@@ -84,10 +93,15 @@ def test_store_bootstrap_starts_configured_outputs_stale_unknown():
     store = _store()
 
     state = store.get_state("room1/light/1")
+    motor_state = store.get_state("room1/motor1")
+    window_state = store.get_state("room1/window/left")
 
     assert state["node_id"] == "Room1_Relays_Ctrl"
+    assert state["device_type"] == "relay"
     assert state["confirmed_state"] == "UNKNOWN"
     assert state["stale"] is True
+    assert motor_state["device_type"] == "motor"
+    assert window_state["device_type"] == "window"
 
 
 def test_retained_state_without_online_keeps_live_state_stale_unknown():
@@ -209,3 +223,60 @@ def test_online_after_retained_state_report_clears_stale_desired_state():
     assert state["confirmed_state"] == "OFF"
     assert state["reported_state"] == "OFF"
     assert state["stale"] is False
+
+
+def test_window_json_state_report_uses_window_states_and_speed():
+    store = _store()
+    registry = MQTTDeviceRegistry(logger=_LoggerStub(), device_timeout=30)
+    registry.update_device_status("Room1_Window_Ctrl", "online")
+    handler = MQTTMessageHandler(logger=_LoggerStub(), room_id="room1")
+    handler.set_handlers(device_registry=registry, actuator_state_store=store)
+
+    handler.handle_message(_Message(
+        "room1/window/left/state",
+        '{"state":"OPENING","direction":"OPENING","speed":30,"node_id":"Room1_Window_Ctrl"}',
+    ))
+    state = store.get_state("room1/window/left")
+
+    assert state["device_type"] == "window"
+    assert state["confirmed_state"] == "OPENING"
+    assert state["reported_state"] == "OPENING"
+    assert state["motor_direction"] == "OPENING"
+    assert state["motor_speed"] == 30
+    assert state["stale"] is False
+
+
+def test_window_command_payload_sets_speed_and_stop_state():
+    store = _store()
+
+    store.update_desired("room1/window/left", "OPEN:30")
+    state = store.get_state("room1/window/left")
+
+    assert state["desired_state"] == "OPENING"
+    assert state["motor_direction"] == "OPENING"
+    assert state["motor_speed"] == 30
+
+    store.update_confirmed("room1/window/left", "STOP")
+    state = store.get_state("room1/window/left")
+
+    assert state["confirmed_state"] == "STOPPED"
+    assert state["motor_direction"] is None
+    assert state["motor_speed"] == 0
+
+
+def test_force_all_off_maps_windows_to_stopped():
+    store = _store()
+    store.update_reported_state(
+        "room1/window/left",
+        '{"state":"OPENING","speed":30,"node_id":"Room1_Window_Ctrl"}',
+        node_id="Room1_Window_Ctrl",
+        node_online=True,
+    )
+
+    store.force_all_off(source="pytest")
+    state = store.get_state("room1/window/left")
+
+    assert state["desired_state"] == "STOPPED"
+    assert state["confirmed_state"] == "STOPPED"
+    assert state["reported_state"] == "STOPPED"
+

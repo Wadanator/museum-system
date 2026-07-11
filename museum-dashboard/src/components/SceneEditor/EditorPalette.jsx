@@ -168,12 +168,13 @@ function ImageRow({ item, onInsert, onPreview, disabled }) {
 }
 
 export default function EditorPalette({ selectedStateId, onAddAction }) {
-  const { motorItems, relayItems, audioItems, videoItems, imageItems, loading, playMediaFile } =
+  const { motorItems, windowItems, relayItems, audioItems, videoItems, imageItems, loading, playMediaFile } =
     useDevicePalette();
 
   const [targetSection, setTargetSection] = useState('onEnter');
   const [openCats, setOpenCats] = useState({
     motors: true,
+    windows: true,
     relays: false,
     audio: false,
     video: false,
@@ -195,6 +196,7 @@ export default function EditorPalette({ selectedStateId, onAddAction }) {
 
   const isEmpty =
     motorItems.length === 0 &&
+    windowItems.length === 0 &&
     relayItems.length === 0 &&
     audioItems.length === 0 &&
     videoItems.length === 0 &&
@@ -243,6 +245,18 @@ export default function EditorPalette({ selectedStateId, onAddAction }) {
             </PalSection>
           )}
 
+          {windowItems.length > 0 && (
+            <PalSection label="Okná" open={openCats.windows} onToggle={() => toggleCat('windows')}>
+              {windowItems.map((item) => (
+                <DeviceRow
+                  key={item.id}
+                  item={item}
+                  onInsert={handleInsert}
+                  disabled={noState}
+                />
+              ))}
+            </PalSection>
+          )}
           {relayItems.length > 0 && (
             <PalSection label="Relé / Svetlá" open={openCats.relays} onToggle={() => toggleCat('relays')}>
               {relayItems.map((item) => (
@@ -301,3 +315,4 @@ export default function EditorPalette({ selectedStateId, onAddAction }) {
     </div>
   );
 }
+

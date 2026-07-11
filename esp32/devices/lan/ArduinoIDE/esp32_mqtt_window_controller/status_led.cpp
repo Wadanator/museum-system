@@ -1,4 +1,4 @@
-﻿#include "status_led.h"
+#include "status_led.h"
 #include "config.h"
 #include "debug.h"
 

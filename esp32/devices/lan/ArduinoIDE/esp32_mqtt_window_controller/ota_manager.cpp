@@ -35,9 +35,9 @@ void initializeOTA() {
     // Flash writes may exceed the normal watchdog service interval.
     esp_task_wdt_deinit();
 
-    // All cover motors are stopped before firmware replacement starts.
-    stopAllCovers("ota_start");
-    Serial.println("[OK] Cover motors safely stopped");
+    // All window outputs are stopped before firmware replacement starts.
+    stopAllWindows("ota_start");
+    Serial.println("[OK] Window outputs safely stopped");
 
     String update_type = (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "filesystem";
     Serial.println("Updating: " + update_type);

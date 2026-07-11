@@ -16,8 +16,9 @@ String STATUS_TOPIC = String("devices/") + CLIENT_ID + "/status";
 NetworkTransport mqttTransport = NETWORK_NONE;
 
 unsigned long lastCommandTime = 0;
-static CoverState lastPublishedCoverStates[8];
-static bool lastPublishedCoverStateValid[8] = {false};
+static WindowState lastPublishedWindowStates[8];
+static int lastPublishedWindowSpeeds[8] = {-1, -1, -1, -1, -1, -1, -1, -1};
+static bool lastPublishedWindowStateValid[8] = {false};
 static int mqttAttempts = 0;
 static unsigned long mqttRetryInterval = 0;
 
@@ -26,47 +27,61 @@ static void resetMqttRetryState() {
   mqttRetryInterval = MQTT_RETRY_INTERVAL;
 }
 
-static bool isValidCoverIndex(int coverIndex) {
-  return coverIndex >= 0 && coverIndex < COVER_COUNT && coverIndex < 8 &&
-         COVERS[coverIndex].enabled;
+static bool isValidWindowSideIndex(int sideIndex) {
+  return sideIndex >= 0 && sideIndex < WINDOW_SIDE_COUNT && sideIndex < 8 &&
+         WINDOW_SIDES[sideIndex].enabled;
 }
 
-void publishCoverState(int coverIndex, const char* source, bool force) {
-  (void)source;
+void publishWindowState(int sideIndex, const char* source, bool force) {
   if (!mqttConnected || !client.connected()) return;
-  if (!isValidCoverIndex(coverIndex)) return;
+  if (!isValidWindowSideIndex(sideIndex)) return;
 
-  CoverState state = getCoverState(coverIndex);
-  if (!force && lastPublishedCoverStateValid[coverIndex] &&
-      lastPublishedCoverStates[coverIndex] == state) {
+  WindowState state = getWindowState(sideIndex);
+  int speed = getWindowSpeed(sideIndex);
+  if (!force && lastPublishedWindowStateValid[sideIndex] &&
+      lastPublishedWindowStates[sideIndex] == state &&
+      lastPublishedWindowSpeeds[sideIndex] == speed) {
     return;
   }
 
   char stateTopic[96];
-  snprintf(stateTopic, sizeof(stateTopic), "%s%s/state", BASE_TOPIC_PREFIX, COVERS[coverIndex].topicName);
+  snprintf(stateTopic, sizeof(stateTopic), "%s%s/state", BASE_TOPIC_PREFIX, WINDOW_SIDES[sideIndex].topicName);
 
-  const char* payload = getCoverStateText(coverIndex);
+  char payload[192];
+  snprintf(
+    payload,
+    sizeof(payload),
+    "{\"state\":\"%s\",\"direction\":\"%s\",\"speed\":%d,\"node_id\":\"%s\",\"source\":\"%s\",\"ts_ms\":%lu}",
+    getWindowStateText(sideIndex),
+    getWindowDirectionText(sideIndex),
+    speed,
+    CLIENT_ID,
+    source,
+    millis()
+  );
+
   if (client.publish(stateTopic, payload, true)) {
-    lastPublishedCoverStates[coverIndex] = state;
-    lastPublishedCoverStateValid[coverIndex] = true;
+    lastPublishedWindowStates[sideIndex] = state;
+    lastPublishedWindowSpeeds[sideIndex] = speed;
+    lastPublishedWindowStateValid[sideIndex] = true;
     debugPrint("State: " + String(stateTopic) + " = " + String(payload));
   } else {
     debugPrint("Failed to publish state: " + String(stateTopic));
   }
 }
 
-void publishAllCoverStates(const char* source) {
-  for (int i = 0; i < COVER_COUNT && i < 8; i++) {
-    publishCoverState(i, source, true);
+void publishAllWindowStates(const char* source) {
+  for (int i = 0; i < WINDOW_SIDE_COUNT && i < 8; i++) {
+    publishWindowState(i, source, true);
   }
 }
 
-void publishCoverFeedback(int coverIndex, const char* feedback) {
+void publishWindowFeedback(int sideIndex, const char* feedback) {
   if (!mqttConnected || !client.connected()) return;
-  if (!isValidCoverIndex(coverIndex) || feedback == nullptr) return;
+  if (!isValidWindowSideIndex(sideIndex) || feedback == nullptr) return;
 
   char feedbackTopic[96];
-  snprintf(feedbackTopic, sizeof(feedbackTopic), "%s%s/feedback", BASE_TOPIC_PREFIX, COVERS[coverIndex].topicName);
+  snprintf(feedbackTopic, sizeof(feedbackTopic), "%s%s/feedback", BASE_TOPIC_PREFIX, WINDOW_SIDES[sideIndex].topicName);
 
   if (client.publish(feedbackTopic, feedback, false)) {
     debugPrint("Feedback: " + String(feedback) + " -> " + String(feedbackTopic));
@@ -105,10 +120,10 @@ static void handleNetworkTransportChange() {
   resetMqttRetryState();
 }
 
-static int findCoverByTopicName(const char* deviceName) {
-  for (int i = 0; i < COVER_COUNT && i < 8; i++) {
-    if (!COVERS[i].enabled) continue;
-    if (strcmp(COVERS[i].topicName, deviceName) == 0) return i;
+static int findWindowSideByTopicName(const char* deviceName) {
+  for (int i = 0; i < WINDOW_SIDE_COUNT && i < 8; i++) {
+    if (!WINDOW_SIDES[i].enabled) continue;
+    if (strcmp(WINDOW_SIDES[i].topicName, deviceName) == 0) return i;
   }
   return -1;
 }
@@ -132,6 +147,20 @@ static void trimAsciiInPlace(char* value) {
   }
 }
 
+static bool commandHasOptionalValue(const char* message, const char* command, const char** value) {
+  size_t len = strlen(command);
+  if (strncmp(message, command, len) != 0) return false;
+  if (message[len] == '\0') {
+    *value = nullptr;
+    return true;
+  }
+  if (message[len] == ':') {
+    *value = message + len + 1;
+    return true;
+  }
+  return false;
+}
+
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
   if (strstr(topic, "/feedback") != nullptr ||
       strstr(topic, "/status") != nullptr ||
@@ -139,12 +168,12 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     return;
   }
 
-  if (length >= 32) {
+  if (length >= 64) {
     debugPrint("MQTT: Payload too long, ignoring");
     return;
   }
 
-  char message[32];
+  char message[64];
   memcpy(message, payload, length);
   message[length] = '\0';
   trimAsciiInPlace(message);
@@ -162,42 +191,43 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
   const char* deviceName = topic + prefixLen;
 
-  if (strcmp(deviceName, HEARTBEAT_TOPIC_SUFFIX) == 0) {
-    markHeartbeatReceived();
-    return;
-  }
-
-  lastCommandTime = millis();
-
   char feedbackTopic[128];
   snprintf(feedbackTopic, sizeof(feedbackTopic), "%s/feedback", topic);
 
   const char* feedback = "ERROR";
 
-  if (strcmp(deviceName, "STOP") == 0) {
-    stopAllCovers("room_stop");
-    publishAllCoverStates("room_stop");
-    for (int i = 0; i < COVER_COUNT && i < 8; i++) {
-      if (!COVERS[i].enabled) continue;
-      publishCoverFeedback(i, getCoverState(i) == COVER_STATE_ERROR ? "ERROR:HARDWARE" : "OK");
+  if (strcmp(deviceName, "STOP") == 0 || strcmp(deviceName, "window/STOP") == 0) {
+    stopAllWindows("room_stop");
+    publishAllWindowStates("room_stop");
+    for (int i = 0; i < WINDOW_SIDE_COUNT && i < 8; i++) {
+      if (!WINDOW_SIDES[i].enabled) continue;
+      publishWindowFeedback(i, getWindowState(i) == WINDOW_STATE_ERROR ? "ERROR:HARDWARE" : "OK");
     }
     feedback = "OK";
-    debugPrint("Global STOP command executed for all covers");
+    debugPrint("Global STOP command executed for all windows");
   } else {
-    int coverIndex = findCoverByTopicName(deviceName);
-    if (coverIndex >= 0) {
-      if (strcmp(message, "OPEN") == 0) {
-        feedback = commandCoverOpen(coverIndex);
-      } else if (strcmp(message, "CLOSE") == 0) {
-        feedback = commandCoverClose(coverIndex);
-      } else if (strcmp(message, "STOP") == 0) {
-        feedback = commandCoverStop(coverIndex);
+    int sideIndex = findWindowSideByTopicName(deviceName);
+    if (sideIndex >= 0) {
+      const char* speedValue = nullptr;
+      if (commandHasOptionalValue(message, "OPEN", &speedValue)) {
+        feedback = commandWindowOpen(sideIndex, speedValue);
+      } else if (commandHasOptionalValue(message, "CLOSE", &speedValue)) {
+        feedback = commandWindowClose(sideIndex, speedValue);
+      } else if (strcmp(message, "STOP") == 0 || strcmp(message, "OFF") == 0) {
+        feedback = commandWindowStop(sideIndex);
+      } else if (strncmp(message, "SPEED:", 6) == 0) {
+        feedback = commandWindowSpeed(sideIndex, message + 6);
       } else {
-        debugPrint("Unknown cover command: " + String(message));
+        debugPrint("Unknown window command: " + String(message));
       }
     } else {
-      debugPrint("Unknown cover topic: " + String(deviceName));
+      debugPrint("Unknown window topic: " + String(deviceName));
+      return;
     }
+  }
+
+  if (strcmp(feedback, "OK") == 0) {
+    lastCommandTime = millis();
   }
 
   if (client.publish(feedbackTopic, feedback, false)) {
@@ -236,25 +266,25 @@ void connectToMqtt() {
       mqttConnected = true;
       resetMqttRetryState();
 
-      for (int i = 0; i < COVER_COUNT && i < 8; i++) {
-        if (!COVERS[i].enabled) continue;
+      for (int i = 0; i < WINDOW_SIDE_COUNT && i < 8; i++) {
+        if (!WINDOW_SIDES[i].enabled) continue;
         char topicBuf[64];
-        snprintf(topicBuf, sizeof(topicBuf), "%s%s", BASE_TOPIC_PREFIX, COVERS[i].topicName);
+        snprintf(topicBuf, sizeof(topicBuf), "%s%s", BASE_TOPIC_PREFIX, WINDOW_SIDES[i].topicName);
         client.subscribe(topicBuf, 0);
         debugPrint("Subscribed: " + String(topicBuf));
       }
+
+      char windowStopTopic[64];
+      snprintf(windowStopTopic, sizeof(windowStopTopic), "%swindow/STOP", BASE_TOPIC_PREFIX);
+      client.subscribe(windowStopTopic, 0);
+      debugPrint("Subscribed: " + String(windowStopTopic));
 
       char stopTopic[64];
       snprintf(stopTopic, sizeof(stopTopic), "%sSTOP", BASE_TOPIC_PREFIX);
       client.subscribe(stopTopic, 0);
       debugPrint("Subscribed: " + String(stopTopic));
 
-      char heartbeatTopic[96];
-      snprintf(heartbeatTopic, sizeof(heartbeatTopic), "%s%s", BASE_TOPIC_PREFIX, HEARTBEAT_TOPIC_SUFFIX);
-      client.subscribe(heartbeatTopic, 0);
-      debugPrint("Subscribed: " + String(heartbeatTopic));
-
-      publishAllCoverStates("reconnect");
+      publishAllWindowStates("reconnect");
       if (client.publish(STATUS_TOPIC.c_str(), "online", true)) {
         debugPrint("Status: online");
       }

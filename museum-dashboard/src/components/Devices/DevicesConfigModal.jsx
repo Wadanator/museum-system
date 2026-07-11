@@ -11,7 +11,7 @@ export default function DevicesConfigModal({
   onSave,
 }) {
   const initialJson = useMemo(
-    () => JSON.stringify(initialContent ?? { relays: [], motors: [] }, null, 2),
+    () => JSON.stringify(initialContent ?? { relays: [], motors: [], windows: [] }, null, 2),
     [initialContent]
   );
 
@@ -84,3 +84,4 @@ export default function DevicesConfigModal({
     </Modal>
   );
 }
+

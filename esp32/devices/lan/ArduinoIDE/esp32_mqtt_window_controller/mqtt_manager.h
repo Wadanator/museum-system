@@ -1,5 +1,4 @@
-﻿#ifndef MQTT_MANAGER_H
-#define MQTT_MANAGER_H
+#pragma once
 
 #include <PubSubClient.h>
 #include <NetworkClient.h>
@@ -13,9 +12,8 @@ void initializeMqtt();
 void connectToMqtt();
 void mqttLoop();
 void publishStatus();
-void publishCoverState(int coverIndex, const char* source = "command", bool force = false);
-void publishAllCoverStates(const char* source = "snapshot");
-void publishCoverFeedback(int coverIndex, const char* feedback);
+void publishWindowState(int sideIndex, const char* source = "command", bool force = false);
+void publishAllWindowStates(const char* source = "snapshot");
+void publishWindowFeedback(int sideIndex, const char* feedback);
 bool isMqttConnected();
 
-#endif

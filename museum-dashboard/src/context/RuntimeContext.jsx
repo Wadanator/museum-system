@@ -160,6 +160,16 @@ export function RuntimeProvider({ children }) {
       if (!entry || entry.stale) return 'UNKNOWN';
 
       const confirmed = entry.confirmed_state ?? 'UNKNOWN';
+      if (device.type === 'window') {
+        if (!['OPENING', 'CLOSING'].includes(confirmed)) {
+          return confirmed;
+        }
+        const speed = Number.isFinite(entry.motor_speed)
+          ? `${entry.motor_speed}%`
+          : '?%';
+        return `${confirmed} ${speed}`;
+      }
+
       if (device.type !== 'motor') {
         return confirmed;
       }
@@ -193,8 +203,8 @@ export function RuntimeProvider({ children }) {
         }
 
         const confirmed = entry.confirmed_state ?? 'UNKNOWN';
-        if (confirmed === 'ON') acc.on += 1;
-        else if (confirmed === 'OFF') acc.off += 1;
+        if (['ON', 'OPEN', 'OPENING', 'CLOSING'].includes(confirmed)) acc.on += 1;
+        else if (['OFF', 'CLOSED', 'STOPPED'].includes(confirmed)) acc.off += 1;
         else acc.unknown += 1;
 
         if (
@@ -246,3 +256,5 @@ export function RuntimeProvider({ children }) {
     </RuntimeContext.Provider>
   );
 }
+
+
