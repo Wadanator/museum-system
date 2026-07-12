@@ -96,10 +96,10 @@ after `NETWORK_FAILOVER_GRACE`.
   time.
 - Before a direction receives non-zero duty, the opposite channel is written to
   zero over Modbus.
-- Direction changes stop the side first and wait `DIRECTION_CHANGE_DEADTIME_MS`.
+- Direction changes schedule a non-blocking `DIRECTION_CHANGE_DEADTIME_MS` dead-time before enabling the requested PWM channel.
 - End-stops are optional in test mode and should be enabled for production.
 - Reaching an enabled end-stop immediately writes both channels for that side to zero.
-- `maxMoveMs` stops a side if it runs too long without reaching an end-stop.
+- `maxMoveMs` stops a side if it runs too long without reaching an end-stop. The ESP task watchdog is configured to 1.5x the active `maxMoveMs`.
 - `room1/STOP`, `room1/window/STOP`, MQTT loss, inactivity timeout, and OTA
   start stop all window outputs.
 - MQTT `OK` is published only after the command has been accepted and the

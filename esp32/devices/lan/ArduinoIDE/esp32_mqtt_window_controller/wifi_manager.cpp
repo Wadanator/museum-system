@@ -1,6 +1,7 @@
 #include "wifi_manager.h"
 #include "config.h"
 #include "debug.h"
+#include "wdt_manager.h"
 #include <ETH.h>
 #include <Network.h>
 #include <SPI.h>
@@ -198,6 +199,7 @@ bool initializeWiFi() {
       fallbackStartedForBoot = true;
     }
 
+    resetWatchdog();
     delay(100);
   }
 

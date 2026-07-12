@@ -10,8 +10,11 @@ bool allWindowsStopped = true;
 
 static WindowState windowStates[MAX_WINDOW_SIDES];
 static WindowDirection activeDirections[MAX_WINDOW_SIDES];
+static WindowDirection pendingDirections[MAX_WINDOW_SIDES];
+static unsigned long pendingActivationAt[MAX_WINDOW_SIDES];
 static unsigned long moveStartedAt[MAX_WINDOW_SIDES];
 static uint8_t runtimeSpeeds[MAX_WINDOW_SIDES];
+static uint8_t pendingSpeeds[MAX_WINDOW_SIDES];
 static unsigned long lastEndstopPoll = 0;
 
 static bool isValidWindowSideIndex(int sideIndex) {
@@ -79,7 +82,8 @@ static const char* directionText(WindowDirection direction) {
 
 const char* getWindowDirectionText(int sideIndex) {
   if (!isValidWindowSideIndex(sideIndex)) return "STOPPED";
-  return directionText(activeDirections[sideIndex]);
+  if (activeDirections[sideIndex] != WINDOW_DIR_STOPPED) return directionText(activeDirections[sideIndex]);
+  return directionText(pendingDirections[sideIndex]);
 }
 
 const char* getWindowStateText(int sideIndex) {
@@ -103,20 +107,23 @@ WindowState getWindowState(int sideIndex) {
 
 bool isWindowMoving(int sideIndex) {
   if (!isValidWindowSideIndex(sideIndex)) return false;
-  return activeDirections[sideIndex] != WINDOW_DIR_STOPPED;
+  return activeDirections[sideIndex] != WINDOW_DIR_STOPPED ||
+         pendingDirections[sideIndex] != WINDOW_DIR_STOPPED;
 }
 
 int getWindowSpeed(int sideIndex) {
   if (!isValidWindowSideIndex(sideIndex)) return 0;
-  if (!isWindowMoving(sideIndex)) return 0;
-  return runtimeSpeeds[sideIndex];
+  if (activeDirections[sideIndex] != WINDOW_DIR_STOPPED) return runtimeSpeeds[sideIndex];
+  if (pendingDirections[sideIndex] != WINDOW_DIR_STOPPED) return pendingSpeeds[sideIndex];
+  return 0;
 }
 
 static void refreshAllStoppedFlag() {
   bool anyMoving = false;
   for (int i = 0; i < WINDOW_SIDE_COUNT && i < MAX_WINDOW_SIDES; i++) {
     if (!isWindowSideEnabled(i)) continue;
-    if (activeDirections[i] != WINDOW_DIR_STOPPED) {
+    if (activeDirections[i] != WINDOW_DIR_STOPPED ||
+        pendingDirections[i] != WINDOW_DIR_STOPPED) {
       anyMoving = true;
       break;
     }
@@ -171,6 +178,13 @@ static void configureEndstops() {
   }
 }
 
+static void clearPendingWindowStart(int sideIndex) {
+  if (!isValidWindowSideIndex(sideIndex)) return;
+  pendingDirections[sideIndex] = WINDOW_DIR_STOPPED;
+  pendingActivationAt[sideIndex] = 0;
+  pendingSpeeds[sideIndex] = 0;
+}
+
 static PwmResult stopWindowHardware(int sideIndex) {
   if (!isWindowSideConfigSafe(sideIndex)) return PWM_RESULT_INVALID_CHANNEL;
 
@@ -180,6 +194,7 @@ static PwmResult stopWindowHardware(int sideIndex) {
 
   if (openResult == PWM_RESULT_OK && closeResult == PWM_RESULT_OK) {
     activeDirections[sideIndex] = WINDOW_DIR_STOPPED;
+    clearPendingWindowStart(sideIndex);
     moveStartedAt[sideIndex] = 0;
     refreshAllStoppedFlag();
     return PWM_RESULT_OK;
@@ -207,28 +222,61 @@ static PwmResult startWindowHardware(int sideIndex, WindowDirection direction, u
   if (speed == 0) return PWM_RESULT_INVALID_DUTY;
 
   const WindowSideConfig& side = WINDOW_SIDES[sideIndex];
-  uint8_t activeChannel = direction == WINDOW_DIR_OPENING ? side.pwmOpenChannel : side.pwmCloseChannel;
   uint8_t oppositeChannel = direction == WINDOW_DIR_OPENING ? side.pwmCloseChannel : side.pwmOpenChannel;
 
-  // Firmware-level mutual exclusion: the opposite direction is always forced
-  // to zero before the requested direction can receive non-zero duty.
+  // Firmware-level mutual exclusion: the opposite direction is forced to zero
+  // first. The requested direction is enabled later by handleWindows() after
+  // the configured dead-time, so MQTT handling and the main loop stay responsive.
   PwmResult result = writePwmChannel(oppositeChannel, PWM_DUTY_OFF);
   if (result != PWM_RESULT_OK) return result;
 
-  delay(DIRECTION_CHANGE_DEADTIME_MS);
-
-  result = writePwmChannel(activeChannel, dutyFromSpeed(speed));
-  if (result != PWM_RESULT_OK) {
-    writePwmChannel(activeChannel, PWM_DUTY_OFF);
-    return result;
-  }
-
-  runtimeSpeeds[sideIndex] = speed;
-  activeDirections[sideIndex] = direction;
-  moveStartedAt[sideIndex] = millis();
+  pendingDirections[sideIndex] = direction;
+  pendingSpeeds[sideIndex] = speed;
+  pendingActivationAt[sideIndex] = millis() + DIRECTION_CHANGE_DEADTIME_MS;
   windowStates[sideIndex] = direction == WINDOW_DIR_OPENING ? WINDOW_STATE_OPENING : WINDOW_STATE_CLOSING;
   refreshAllStoppedFlag();
   return PWM_RESULT_OK;
+}
+
+static void processPendingWindowStarts(unsigned long currentTime) {
+  for (int i = 0; i < WINDOW_SIDE_COUNT && i < MAX_WINDOW_SIDES; i++) {
+    if (!isWindowSideEnabled(i)) continue;
+    if (pendingDirections[i] == WINDOW_DIR_STOPPED) continue;
+    if ((long)(currentTime - pendingActivationAt[i]) < 0) continue;
+
+    WindowDirection direction = pendingDirections[i];
+    uint8_t speed = pendingSpeeds[i];
+    const WindowSideConfig& side = WINDOW_SIDES[i];
+    bool opening = direction == WINDOW_DIR_OPENING;
+
+    if ((opening && isOpenEndstopActive(i)) || (!opening && isCloseEndstopActive(i))) {
+      clearPendingWindowStart(i);
+      windowStates[i] = opening ? WINDOW_STATE_OPEN : WINDOW_STATE_CLOSED;
+      refreshAllStoppedFlag();
+      publishWindowState(i, "endstop", true);
+      publishWindowFeedback(i, "ERROR:ENDSTOP");
+      continue;
+    }
+
+    uint8_t activeChannel = opening ? side.pwmOpenChannel : side.pwmCloseChannel;
+    PwmResult result = writePwmChannel(activeChannel, dutyFromSpeed(speed));
+    if (result != PWM_RESULT_OK) {
+      clearPendingWindowStart(i);
+      windowStates[i] = WINDOW_STATE_ERROR;
+      refreshAllStoppedFlag();
+      publishWindowState(i, "hardware_error", true);
+      publishWindowFeedback(i, pwmResultText(result));
+      continue;
+    }
+
+    activeDirections[i] = direction;
+    runtimeSpeeds[i] = speed;
+    moveStartedAt[i] = currentTime;
+    clearPendingWindowStart(i);
+    refreshAllStoppedFlag();
+    debugPrint(String(WINDOW_SIDES[i].topicName) + " -> " + directionText(direction) + " active @ " + String(speed) + "%");
+    publishWindowState(i, "deadtime_complete", true);
+  }
 }
 
 void initializeHardware() {
@@ -248,8 +296,11 @@ void initializeHardware() {
 
   for (int i = 0; i < WINDOW_SIDE_COUNT && i < MAX_WINDOW_SIDES; i++) {
     activeDirections[i] = WINDOW_DIR_STOPPED;
+    pendingDirections[i] = WINDOW_DIR_STOPPED;
+    pendingActivationAt[i] = 0;
     moveStartedAt[i] = 0;
     runtimeSpeeds[i] = isWindowSideEnabled(i) ? WINDOW_SIDES[i].defaultSpeed : 0;
+    pendingSpeeds[i] = 0;
 
     if (!isWindowSideEnabled(i)) {
       windowStates[i] = WINDOW_STATE_UNKNOWN;
@@ -271,6 +322,9 @@ static const char* startWindowMovement(int sideIndex, WindowDirection direction,
   uint8_t speed = runtimeSpeeds[sideIndex] > 0
     ? runtimeSpeeds[sideIndex]
     : WINDOW_SIDES[sideIndex].defaultSpeed;
+  if (pendingDirections[sideIndex] != WINDOW_DIR_STOPPED && pendingSpeeds[sideIndex] > 0) {
+    speed = pendingSpeeds[sideIndex];
+  }
   if (speedValue != nullptr && speedValue[0] != '\0' && !parseSpeed(speedValue, speed)) {
     return "ERROR:INVALID_SPEED";
   }
@@ -283,6 +337,37 @@ static const char* startWindowMovement(int sideIndex, WindowDirection direction,
     windowStates[sideIndex] = opening ? WINDOW_STATE_OPEN : WINDOW_STATE_CLOSED;
     publishWindowState(sideIndex, "endstop", true);
     return stopResult == PWM_RESULT_OK ? "ERROR:ENDSTOP" : pwmResultText(stopResult);
+  }
+
+  if (pendingDirections[sideIndex] == direction) {
+    pendingSpeeds[sideIndex] = speed;
+    runtimeSpeeds[sideIndex] = speed;
+    publishWindowState(sideIndex, "command", true);
+    return "OK";
+  }
+
+  if (pendingDirections[sideIndex] != WINDOW_DIR_STOPPED &&
+      pendingDirections[sideIndex] != direction) {
+    PwmResult stopResult = stopWindowHardware(sideIndex);
+    if (stopResult != PWM_RESULT_OK) {
+      publishWindowState(sideIndex, "hardware_error", true);
+      return pwmResultText(stopResult);
+    }
+  }
+
+  if (activeDirections[sideIndex] == direction) {
+    runtimeSpeeds[sideIndex] = speed;
+    PwmResult result = writeActiveWindowSpeed(sideIndex, speed);
+    if (result != PWM_RESULT_OK) {
+      windowStates[sideIndex] = WINDOW_STATE_ERROR;
+      publishWindowState(sideIndex, "hardware_error", true);
+      return pwmResultText(result);
+    }
+
+    // Same-direction commands update speed only. They intentionally do not
+    // reset moveStartedAt[], so maxMoveMs is an overall continuous-run limit.
+    publishWindowState(sideIndex, "command", true);
+    return "OK";
   }
 
   if (activeDirections[sideIndex] != WINDOW_DIR_STOPPED &&
@@ -301,7 +386,7 @@ static const char* startWindowMovement(int sideIndex, WindowDirection direction,
     return pwmResultText(result);
   }
 
-  debugPrint(String(WINDOW_SIDES[sideIndex].topicName) + " -> " + directionText(direction) + " @ " + String(speed) + "%");
+  debugPrint(String(WINDOW_SIDES[sideIndex].topicName) + " -> " + directionText(direction) + " scheduled @ " + String(speed) + "%");
   publishWindowState(sideIndex, "command", true);
   return "OK";
 }
@@ -335,6 +420,9 @@ const char* commandWindowSpeed(int sideIndex, const char* speedValue) {
   if (!parseSpeed(speedValue, speed)) return "ERROR:INVALID_SPEED";
 
   runtimeSpeeds[sideIndex] = speed;
+  if (pendingDirections[sideIndex] != WINDOW_DIR_STOPPED) {
+    pendingSpeeds[sideIndex] = speed;
+  }
   if (speed == 0) {
     return commandWindowStop(sideIndex);
   }
@@ -372,6 +460,8 @@ void stopAllWindows(const char* source) {
 
 void handleWindows() {
   unsigned long currentTime = millis();
+
+  processPendingWindowStarts(currentTime);
 
   if (currentTime - lastEndstopPoll < ENDSTOP_POLL_INTERVAL_MS) return;
   lastEndstopPoll = currentTime;

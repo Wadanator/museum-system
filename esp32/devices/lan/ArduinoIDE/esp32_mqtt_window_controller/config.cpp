@@ -91,8 +91,8 @@ int MQTT_KEEP_ALIVE = 5;
 // Stop active PWM if commands stop arriving for too long.
 unsigned long NO_COMMAND_TIMEOUT = 180000;
 
-// Watchdog timer.
-unsigned long WDT_TIMEOUT = 30;
+// Watchdog timer. Keep this at 1.5x the active local movement timeout.
+const unsigned long WDT_TIMEOUT_MS = (WINDOW_ACTIVE_MAX_MOVE_MS * 3UL) / 2UL;
 
 // OTA configuration.
 const char* OTA_HOSTNAME = "ESP32-Window-Room1-LAN";

@@ -122,10 +122,11 @@ Hotove softverovo:
 - DONE: prikazy pre lavu/pravu stranu su oddelene.
 - DONE: podporovane su rychlosti cez `OPEN:<speed>`, `CLOSE:<speed>`, `SPEED:<speed>`.
 - DONE: pred zapnutim jedneho smeru sa vypina opacny PWM kanal.
-- DONE: pri zmene smeru je dead-time `DIRECTION_CHANGE_DEADTIME_MS = 350`.
+- DONE: pri zmene smeru je neblokujuci dead-time `DIRECTION_CHANGE_DEADTIME_MS = 350`; PWM aktivacia sa dokonci v `handleWindows()`.
 - DONE: po MQTT disconnecte sa aktivny pohyb zastavi po `NETWORK_FAILOVER_GRACE = 5000`.
 - DONE: pri dlhej necinnosti prikazov sa aktivny pohyb zastavi cez `NO_COMMAND_TIMEOUT = 180000`.
 - DONE: OTA safe stop zastavi PWM pred update cyklom.
+- DONE: WDT je odvodeny od aktivneho max pohybu: `WDT_TIMEOUT_MS = maxMoveMs * 1.5`, teraz 15000 ms.
 - DONE: state payload je JSON, napriklad:
 
 ```json
@@ -192,8 +193,8 @@ poruche.
 | --- | --- | --- |
 | Startup safe-off | po boote vypnut vsetky PWM kanaly | DONE (SW) |
 | Direction interlock | pred OPEN vypnut CLOSE a naopak | DONE (SW) |
-| Dead-time | kratka pauza pri zmene smeru | DONE (SW) |
-| Local max runtime | zastavit pohyb po `maxMoveMs` aj ked nepride doraz | DONE (SW): 10000 ms teraz, NIE JE DONE: finalna hodnota po merani |
+| Dead-time | kratka pauza pri zmene smeru bez blokovania hlavneho loopu | DONE (SW) |
+| Local max runtime | zastavit pohyb po `maxMoveMs` aj ked nepride doraz | DONE (SW): 10000 ms teraz, WDT 15000 ms; NIE JE DONE: finalna hodnota po merani |
 | MQTT disconnect stop | pri strate broker spojenia zastavit aktivny pohyb | DONE (SW) |
 | No-command timeout | pri dlhom tichu prikazov zastavit aktivny pohyb | DONE (SW) |
 | Global STOP | `room1/STOP` a `room1/window/STOP` | DONE (SW) |
@@ -204,7 +205,7 @@ poruche.
 
 Max runtime pravidlo:
 
-- DONE (SW): kazdy aktivny pohyb ma casovy limit.
+- DONE (SW): kazdy aktivny pohyb ma casovy limit; opakovany prikaz rovnakym smerom neresetuje `moveStartedAt`.
 - NIE JE DONE: finalny limit musi byt odmerany na realnom okne. Odporucanie: realny cas jazdy v danom smere + 30 az 50 percent rezerva, nikdy nie nekonecno.
 - NIE JE DONE: pri produkcii zvazit samostatne limity pre lavu/pravu stranu aj pre OPEN/CLOSE smer.
 
@@ -234,7 +235,7 @@ Firmware and ESP:
 - NIE JE DONE: potvrdit Arduino IDE compile po opravach hlaviciek, BOM a `RS485_DE_PIN=21`.
 - NIE JE DONE: potvrdit ze firmware publikuje feedback do 700 ms pri realnom brokeri.
 - NIE JE DONE: potvrdit ze `/state` JSON sa cita spravne v backend runtime stave.
-- DONE (SW): config profile switch existuje; aktivny je `WINDOW_PROFILE_TEST_NO_ENDSTOPS_SAFE` s 10 s limitom.
+- DONE (SW): config profile switch existuje; aktivny je `WINDOW_PROFILE_TEST_NO_ENDSTOPS_SAFE` s 10 s limitom a 15 s WDT.
 
 PWM module:
 

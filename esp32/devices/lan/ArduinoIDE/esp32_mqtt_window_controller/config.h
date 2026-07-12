@@ -92,7 +92,7 @@ extern int MQTT_KEEP_ALIVE;
 extern unsigned long NO_COMMAND_TIMEOUT;
 
 // Watchdog timer.
-extern unsigned long WDT_TIMEOUT;
+extern const unsigned long WDT_TIMEOUT_MS;
 
 // OTA configuration.
 extern const char* OTA_HOSTNAME;
