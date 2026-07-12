@@ -34,6 +34,18 @@ extern const char* WIFI_SSID;
 extern const char* WIFI_PASSWORD;
 
 // Window side motor definitions.
+#define WINDOW_PROFILE_TEST_NO_ENDSTOPS_SAFE 1
+#define WINDOW_PROFILE_PROD_WITH_ENDSTOPS 2
+
+#ifndef WINDOW_ACTIVE_PROFILE
+#define WINDOW_ACTIVE_PROFILE WINDOW_PROFILE_TEST_NO_ENDSTOPS_SAFE
+#endif
+
+extern const unsigned long WINDOW_TEST_MAX_MOVE_MS;
+extern const unsigned long WINDOW_PROD_MAX_MOVE_MS;
+extern const bool WINDOW_ACTIVE_ENDSTOPS_ENABLED;
+extern const unsigned long WINDOW_ACTIVE_MAX_MOVE_MS;
+
 struct WindowSideConfig {
   bool enabled;
   const char* topicName;

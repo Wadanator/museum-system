@@ -2,7 +2,7 @@
 broker_ip = 127.0.0.1
 port = 1883
 device_timeout = 25
-command_ack_timeout_ms = 2500
+command_ack_timeout_ms = 700
 node_offline_timeout_s = 5
 
 [GPIO]

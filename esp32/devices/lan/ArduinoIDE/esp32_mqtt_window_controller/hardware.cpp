@@ -26,15 +26,28 @@ static bool isWindowSideConfigSafe(int sideIndex) {
   if (!isWindowSideEnabled(sideIndex)) return false;
 
   const WindowSideConfig& side = WINDOW_SIDES[sideIndex];
+  if (side.topicName == nullptr || side.topicName[0] == '\0') return false;
   if (side.pwmOpenChannel >= PWM_CHANNEL_COUNT ||
       side.pwmCloseChannel >= PWM_CHANNEL_COUNT) {
     return false;
   }
   if (side.pwmOpenChannel == side.pwmCloseChannel) return false;
   if (side.defaultSpeed > 100) return false;
+  if (side.maxMoveMs == 0) return false;
   if (side.endstopsEnabled && side.openEndstopPin >= 0 &&
       side.openEndstopPin == side.closeEndstopPin) {
     return false;
+  }
+
+  for (int otherIndex = 0; otherIndex < WINDOW_SIDE_COUNT && otherIndex < MAX_WINDOW_SIDES; otherIndex++) {
+    if (otherIndex == sideIndex || !isWindowSideEnabled(otherIndex)) continue;
+    const WindowSideConfig& other = WINDOW_SIDES[otherIndex];
+    if (side.pwmOpenChannel == other.pwmOpenChannel ||
+        side.pwmOpenChannel == other.pwmCloseChannel ||
+        side.pwmCloseChannel == other.pwmOpenChannel ||
+        side.pwmCloseChannel == other.pwmCloseChannel) {
+      return false;
+    }
   }
 
   return true;

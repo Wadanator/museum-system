@@ -12,11 +12,11 @@ int ETH_PHY_IRQ_PIN = 12;
 int ETH_PHY_RST_PIN = 39;
 int ETH_PHY_ADDR = 1;
 
-// Waveshare onboard RS485. The public Waveshare pin table lists TX/RX only;
-// keep DE disabled unless the physical board/manual confirms a direction pin.
+// Waveshare onboard RS485. DE/RE direction control is confirmed on GPIO21 for
+// this board/wiring.
 int RS485_TX_PIN = 17;
 int RS485_RX_PIN = 18;
-int RS485_DE_PIN = -1;
+int RS485_DE_PIN = 21;
 unsigned long RS485_BAUD_RATE = 9600;
 uint32_t RS485_SERIAL_CONFIG = SERIAL_8N1;
 uint8_t PWM_MODBUS_ID = 1;
@@ -36,15 +36,26 @@ uint16_t PWM_DUTY_MAX = 10000;
 const char* WIFI_SSID = "Museum-Room1";
 const char* WIFI_PASSWORD = "88888888";
 
+const unsigned long WINDOW_TEST_MAX_MOVE_MS = 10000;
+const unsigned long WINDOW_PROD_MAX_MOVE_MS = 10000;
+
+#if WINDOW_ACTIVE_PROFILE == WINDOW_PROFILE_PROD_WITH_ENDSTOPS
+const bool WINDOW_ACTIVE_ENDSTOPS_ENABLED = true;
+const unsigned long WINDOW_ACTIVE_MAX_MOVE_MS = WINDOW_PROD_MAX_MOVE_MS;
+#else
+const bool WINDOW_ACTIVE_ENDSTOPS_ENABLED = false;
+const unsigned long WINDOW_ACTIVE_MAX_MOVE_MS = WINDOW_TEST_MAX_MOVE_MS;
+#endif
+
 // Two active window sides. Each side uses two PWM channels: one for OPEN and
-// one for CLOSE. TEST DEFAULT: end-stops are disabled so PWM can be measured
-// before the limit switches are installed. Enable them for production.
+// one for CLOSE. The active profile currently keeps end-stops disabled for HW
+// bring-up, but every movement still has a 10 s local hard timeout.
 const WindowSideConfig WINDOW_SIDES[] = {
   // On     Topic           Label                OPEN CH  CLOSE CH  OPEN DI  CLOSE DI  Endstops  NC/active-low  Speed  Max move
-  {true,    "window/left",  "Window left side",  0,       1,        4,       5,        false,    true,          30,    5000},
-  {true,    "window/right", "Window right side", 2,       3,        6,       7,        false,    true,          30,    5000},
-  {false,   "window/aux1",  "Window aux 1",     4,       5,        8,       9,        false,    true,          30,    5000},
-  {false,   "window/aux2",  "Window aux 2",     6,       7,        10,      11,       false,    true,          30,    5000}
+  {true,    "window/left",  "Window left side",  0,       1,        4,       5,        WINDOW_ACTIVE_ENDSTOPS_ENABLED, true, 30, WINDOW_ACTIVE_MAX_MOVE_MS},
+  {true,    "window/right", "Window right side", 2,       3,        6,       7,        WINDOW_ACTIVE_ENDSTOPS_ENABLED, true, 30, WINDOW_ACTIVE_MAX_MOVE_MS},
+  {false,   "window/aux1",  "Window aux 1",     4,       5,        8,       9,        false, true, 30, WINDOW_ACTIVE_MAX_MOVE_MS},
+  {false,   "window/aux2",  "Window aux 2",     6,       7,        10,      11,       false, true, 30, WINDOW_ACTIVE_MAX_MOVE_MS}
 };
 
 const int WINDOW_SIDE_COUNT = sizeof(WINDOW_SIDES) / sizeof(WindowSideConfig);

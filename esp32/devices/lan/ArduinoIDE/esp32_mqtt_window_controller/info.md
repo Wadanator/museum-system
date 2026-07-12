@@ -36,10 +36,12 @@ Test defaults in `config.cpp`:
 
 - `endstopsEnabled = false` for both active sides.
 - `defaultSpeed = 30` percent.
-- `maxMoveMs = 5000` ms.
+- active profile: `WINDOW_PROFILE_TEST_NO_ENDSTOPS_SAFE`.
+- `maxMoveMs = 10000` ms.
 
-For production, enable end-stops and set `maxMoveMs` from the measured travel
-time plus a safety margin.
+For production with real mechanics, switch to `WINDOW_PROFILE_PROD_WITH_ENDSTOPS`
+after wiring the end-stops and keep `maxMoveMs` based on measured travel time
+plus a safety margin. Do not run with an unlimited movement time.
 
 ## MQTT Interface
 

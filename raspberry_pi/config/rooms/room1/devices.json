@@ -98,6 +98,7 @@
                         "speed":  30,
                         "supportsPosition":  false,
                         "endstopsEnabled":  false,
+                        "maxMoveMs": 10000,
                         "stopAction":  "STOP"
                     },
                     {
@@ -110,6 +111,7 @@
                         "speed":  30,
                         "supportsPosition":  false,
                         "endstopsEnabled":  false,
+                        "maxMoveMs": 10000,
                         "stopAction":  "STOP"
                     }
                 ]
