@@ -109,5 +109,4 @@ after `NETWORK_FAILOVER_GRACE`.
 
 - ESP32 Arduino core 3.x or newer.
 - Board: `ESP32S3 Dev Module`.
-- Libraries used by this firmware: `PubSubClient`, `ArduinoOTA`, `ModbusMaster`,
-  ESP32 `Network`/`ETH` support.
+- Libraries used by this firmware: `PubSubClient`, `ArduinoOTA`, and ESP32 `Network`/`ETH` support. PWM Modbus RTU frames are generated directly in `pwm_driver.cpp`.
