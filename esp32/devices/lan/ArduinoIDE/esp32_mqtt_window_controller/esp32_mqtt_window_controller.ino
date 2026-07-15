@@ -7,6 +7,7 @@
 #include "ota_manager.h"
 #include "status_led.h"
 #include "wdt_manager.h"
+#include "serial_console.h"
 
 void setup() {
   Serial.begin(115200);
@@ -34,6 +35,7 @@ void setup() {
 
   Serial.println("\n--- MQTT configuration ---");
   initializeMqtt();
+  initializeSerialConsole();
   lastCommandTime = millis();
 
   Serial.println("\n------------------------------------------------");
@@ -49,6 +51,8 @@ void loop() {
       return;
     }
   }
+
+  handleSerialConsole();
 
   handleStatusLed(isWiFiConnected(), isMqttConnected());
   resetWatchdog();
@@ -90,8 +94,10 @@ void loop() {
     }
 
     if (!allWindowsStopped && (currentTime - mqttDisconnectedSince > NETWORK_FAILOVER_GRACE)) {
-      debugPrint("MQTT connection lost after failover grace -> stopping windows");
-      stopAllWindows("mqtt_disconnect");
+      if (!isSerialConsoleManualControlActive()) {
+        debugPrint("MQTT connection lost after failover grace -> stopping windows");
+        stopAllWindows("mqtt_disconnect");
+      }
     }
   } else {
     mqttDisconnectedSince = 0;

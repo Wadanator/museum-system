@@ -48,12 +48,27 @@ const unsigned long WINDOW_ACTIVE_MAX_MOVE_MS = WINDOW_TEST_MAX_MOVE_MS;
 #endif
 
 // Two active window sides. Each side uses two PWM channels: one for OPEN and
-// one for CLOSE. The active profile currently keeps end-stops disabled for HW
-// bring-up, but every movement still has a 10 s local hard timeout.
+// one for CLOSE. The active profile enables the tested DI1-DI4 end-stops and
+// every movement still has a 10 s local hard timeout.
+//
+// Waveshare Industrial ESP32-S3 Control Board With 8-Channel Digital Input &
+// Output: the DI terminal labels map directly to ESP32 GPIO pins here.
+// These DI/D inputs are ONLY end-stop inputs. They are not the PWM outputs;
+// PWM is written to the external Modbus RTU PWM module over RS485.
+//
+// End-stop terminal assignment:
+//   DI1 / D1 / GPIO4  = left window OPEN end-stop
+//   DI2 / D2 / GPIO5  = left window CLOSE end-stop
+//   DI3 / D3 / GPIO6  = right window OPEN end-stop
+//   DI4 / D4 / GPIO7  = right window CLOSE end-stop
+const int DI1_LEFT_OPEN_ENDSTOP_PIN = 4;
+const int DI2_LEFT_CLOSE_ENDSTOP_PIN = 5;
+const int DI3_RIGHT_OPEN_ENDSTOP_PIN = 6;
+const int DI4_RIGHT_CLOSE_ENDSTOP_PIN = 7;
 const WindowSideConfig WINDOW_SIDES[] = {
   // On     Topic           Label                OPEN CH  CLOSE CH  OPEN DI  CLOSE DI  Endstops  NC/active-low  Speed  Max move
-  {true,    "window/left",  "Window left side",  0,       1,        4,       5,        WINDOW_ACTIVE_ENDSTOPS_ENABLED, true, 30, WINDOW_ACTIVE_MAX_MOVE_MS},
-  {true,    "window/right", "Window right side", 2,       3,        6,       7,        WINDOW_ACTIVE_ENDSTOPS_ENABLED, true, 30, WINDOW_ACTIVE_MAX_MOVE_MS},
+  {true,    "window/left",  "Window left side",  0,       1,        DI1_LEFT_OPEN_ENDSTOP_PIN,  DI2_LEFT_CLOSE_ENDSTOP_PIN,  WINDOW_ACTIVE_ENDSTOPS_ENABLED, true, 30, WINDOW_ACTIVE_MAX_MOVE_MS},
+  {true,    "window/right", "Window right side", 2,       3,        DI3_RIGHT_OPEN_ENDSTOP_PIN, DI4_RIGHT_CLOSE_ENDSTOP_PIN, WINDOW_ACTIVE_ENDSTOPS_ENABLED, true, 30, WINDOW_ACTIVE_MAX_MOVE_MS},
   {false,   "window/aux1",  "Window aux 1",     4,       5,        8,       9,        false, true, 30, WINDOW_ACTIVE_MAX_MOVE_MS},
   {false,   "window/aux2",  "Window aux 2",     6,       7,        10,      11,       false, true, 30, WINDOW_ACTIVE_MAX_MOVE_MS}
 };
