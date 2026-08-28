@@ -1,0 +1,66 @@
+{
+  "sceneId": "window_open_hold_close_test",
+  "description": "Quick window test: open both sides at 100%, hold open for 10 seconds, then close at 100%.",
+  "version": "1.0",
+  "initialState": "OPEN_WINDOW",
+  "states": {
+    "OPEN_WINDOW": {
+      "description": "Open both window sides at 100%.",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/window/left",
+          "message": "OPEN:100"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/window/right",
+          "message": "OPEN:100"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 8.0,
+          "goto": "HOLD_OPEN"
+        }
+      ]
+    },
+    "HOLD_OPEN": {
+      "description": "Keep the window open for 10 seconds.",
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 10.0,
+          "goto": "CLOSE_WINDOW"
+        }
+      ]
+    },
+    "CLOSE_WINDOW": {
+      "description": "Close both window sides at 100%.",
+      "onEnter": [
+        {
+          "action": "mqtt",
+          "topic": "room1/window/left",
+          "message": "CLOSE:100"
+        },
+        {
+          "action": "mqtt",
+          "topic": "room1/window/right",
+          "message": "CLOSE:100"
+        }
+      ],
+      "transitions": [
+        {
+          "type": "timeout",
+          "delay": 11.0,
+          "goto": "END"
+        }
+      ]
+    },
+    "END": {
+      "description": "Scene finished.",
+      "transitions": []
+    }
+  }
+}

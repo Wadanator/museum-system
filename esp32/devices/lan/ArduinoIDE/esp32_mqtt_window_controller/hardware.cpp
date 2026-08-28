@@ -13,6 +13,8 @@ static WindowDirection activeDirections[MAX_WINDOW_SIDES];
 static WindowDirection pendingDirections[MAX_WINDOW_SIDES];
 static unsigned long pendingActivationAt[MAX_WINDOW_SIDES];
 static unsigned long moveStartedAt[MAX_WINDOW_SIDES];
+static bool closeEndstopPressActive[MAX_WINDOW_SIDES];
+static unsigned long closeEndstopPressStartedAt[MAX_WINDOW_SIDES];
 static uint8_t runtimeSpeeds[MAX_WINDOW_SIDES];
 static uint8_t pendingSpeeds[MAX_WINDOW_SIDES];
 static unsigned long lastEndstopPoll = 0;
@@ -36,7 +38,7 @@ static bool isWindowSideConfigSafe(int sideIndex) {
   }
   if (side.pwmOpenChannel == side.pwmCloseChannel) return false;
   if (side.defaultSpeed > 100) return false;
-  if (side.maxMoveMs == 0) return false;
+  if (side.maxOpenMoveMs == 0 || side.maxCloseMoveMs == 0) return false;
   if (side.endstopsEnabled && side.openEndstopPin >= 0 &&
       side.openEndstopPin == side.closeEndstopPin) {
     return false;
@@ -78,6 +80,14 @@ static const char* directionText(WindowDirection direction) {
     case WINDOW_DIR_CLOSING: return "CLOSING";
     default: return "STOPPED";
   }
+}
+
+static unsigned long maxMoveMsForDirection(const WindowSideConfig& side, WindowDirection direction) {
+  return direction == WINDOW_DIR_CLOSING ? side.maxCloseMoveMs : side.maxOpenMoveMs;
+}
+
+static bool shouldBlockMovementAtTargetEndstop(const WindowSideConfig& side, WindowDirection direction) {
+  return direction == WINDOW_DIR_OPENING || side.closeEndstopPressMs == 0;
 }
 
 const char* getWindowDirectionText(int sideIndex) {
@@ -185,6 +195,12 @@ static void clearPendingWindowStart(int sideIndex) {
   pendingSpeeds[sideIndex] = 0;
 }
 
+static void clearCloseEndstopPress(int sideIndex) {
+  if (!isValidWindowSideIndex(sideIndex)) return;
+  closeEndstopPressActive[sideIndex] = false;
+  closeEndstopPressStartedAt[sideIndex] = 0;
+}
+
 static PwmResult stopWindowHardware(int sideIndex) {
   if (!isWindowSideConfigSafe(sideIndex)) return PWM_RESULT_INVALID_CHANNEL;
 
@@ -195,6 +211,7 @@ static PwmResult stopWindowHardware(int sideIndex) {
   if (openResult == PWM_RESULT_OK && closeResult == PWM_RESULT_OK) {
     activeDirections[sideIndex] = WINDOW_DIR_STOPPED;
     clearPendingWindowStart(sideIndex);
+    clearCloseEndstopPress(sideIndex);
     moveStartedAt[sideIndex] = 0;
     refreshAllStoppedFlag();
     return PWM_RESULT_OK;
@@ -230,6 +247,7 @@ static PwmResult startWindowHardware(int sideIndex, WindowDirection direction, u
   PwmResult result = writePwmChannel(oppositeChannel, PWM_DUTY_OFF);
   if (result != PWM_RESULT_OK) return result;
 
+  clearCloseEndstopPress(sideIndex);
   pendingDirections[sideIndex] = direction;
   pendingSpeeds[sideIndex] = speed;
   pendingActivationAt[sideIndex] = millis() + DIRECTION_CHANGE_DEADTIME_MS;
@@ -249,7 +267,8 @@ static void processPendingWindowStarts(unsigned long currentTime) {
     const WindowSideConfig& side = WINDOW_SIDES[i];
     bool opening = direction == WINDOW_DIR_OPENING;
 
-    if ((opening && isOpenEndstopActive(i)) || (!opening && isCloseEndstopActive(i))) {
+    bool targetEndstopActive = opening ? isOpenEndstopActive(i) : isCloseEndstopActive(i);
+    if (targetEndstopActive && shouldBlockMovementAtTargetEndstop(side, direction)) {
       clearPendingWindowStart(i);
       windowStates[i] = opening ? WINDOW_STATE_OPEN : WINDOW_STATE_CLOSED;
       refreshAllStoppedFlag();
@@ -299,6 +318,8 @@ void initializeHardware() {
     pendingDirections[i] = WINDOW_DIR_STOPPED;
     pendingActivationAt[i] = 0;
     moveStartedAt[i] = 0;
+    closeEndstopPressActive[i] = false;
+    closeEndstopPressStartedAt[i] = 0;
     runtimeSpeeds[i] = isWindowSideEnabled(i) ? WINDOW_SIDES[i].defaultSpeed : 0;
     pendingSpeeds[i] = 0;
 
@@ -332,7 +353,7 @@ static const char* startWindowMovement(int sideIndex, WindowDirection direction,
 
   bool opening = direction == WINDOW_DIR_OPENING;
   bool targetEndstop = opening ? isOpenEndstopActive(sideIndex) : isCloseEndstopActive(sideIndex);
-  if (targetEndstop) {
+  if (targetEndstop && shouldBlockMovementAtTargetEndstop(WINDOW_SIDES[sideIndex], direction)) {
     PwmResult stopResult = stopWindowHardware(sideIndex);
     windowStates[sideIndex] = opening ? WINDOW_STATE_OPEN : WINDOW_STATE_CLOSED;
     publishWindowState(sideIndex, "endstop", true);
@@ -365,7 +386,7 @@ static const char* startWindowMovement(int sideIndex, WindowDirection direction,
     }
 
     // Same-direction commands update speed only. They intentionally do not
-    // reset moveStartedAt[], so maxMoveMs is an overall continuous-run limit.
+    // reset moveStartedAt[], so direction max movement time is a continuous-run limit.
     publishWindowState(sideIndex, "command", true);
     return "OK";
   }
@@ -473,10 +494,28 @@ void handleWindows() {
     bool reachedOpen = activeDirections[i] == WINDOW_DIR_OPENING && isOpenEndstopActive(i);
     bool reachedClosed = activeDirections[i] == WINDOW_DIR_CLOSING && isCloseEndstopActive(i);
 
-    if (reachedOpen || reachedClosed) {
+    if (closeEndstopPressActive[i]) {
+      if (currentTime - closeEndstopPressStartedAt[i] < WINDOW_SIDES[i].closeEndstopPressMs) {
+        continue;
+      }
+
       PwmResult result = stopWindowHardware(i);
       if (result == PWM_RESULT_OK) {
-        windowStates[i] = reachedOpen ? WINDOW_STATE_OPEN : WINDOW_STATE_CLOSED;
+        windowStates[i] = WINDOW_STATE_CLOSED;
+        debugPrint(String(WINDOW_SIDES[i].topicName) + " close end-stop press complete -> CLOSED");
+        publishWindowFeedback(i, "OK");
+      } else {
+        windowStates[i] = WINDOW_STATE_ERROR;
+        publishWindowFeedback(i, pwmResultText(result));
+      }
+      publishWindowState(i, "close_endstop_press", true);
+      continue;
+    }
+
+    if (reachedOpen) {
+      PwmResult result = stopWindowHardware(i);
+      if (result == PWM_RESULT_OK) {
+        windowStates[i] = WINDOW_STATE_OPEN;
         debugPrint(String(WINDOW_SIDES[i].topicName) + " reached end-stop -> " + getWindowStateText(i));
         publishWindowFeedback(i, "OK");
       } else {
@@ -487,7 +526,35 @@ void handleWindows() {
       continue;
     }
 
-    if (WINDOW_SIDES[i].maxMoveMs > 0 && currentTime - moveStartedAt[i] >= WINDOW_SIDES[i].maxMoveMs) {
+    if (reachedClosed) {
+      if (WINDOW_SIDES[i].closeEndstopPressMs > 0) {
+        closeEndstopPressActive[i] = true;
+        closeEndstopPressStartedAt[i] = currentTime;
+        debugPrint(
+          String(WINDOW_SIDES[i].topicName) +
+          " reached CLOSE end-stop -> pressing for " +
+          String(WINDOW_SIDES[i].closeEndstopPressMs) +
+          "ms"
+        );
+        publishWindowState(i, "close_endstop_press", true);
+        continue;
+      }
+
+      PwmResult result = stopWindowHardware(i);
+      if (result == PWM_RESULT_OK) {
+        windowStates[i] = WINDOW_STATE_CLOSED;
+        debugPrint(String(WINDOW_SIDES[i].topicName) + " reached end-stop -> " + getWindowStateText(i));
+        publishWindowFeedback(i, "OK");
+      } else {
+        windowStates[i] = WINDOW_STATE_ERROR;
+        publishWindowFeedback(i, pwmResultText(result));
+      }
+      publishWindowState(i, "endstop", true);
+      continue;
+    }
+
+    unsigned long maxMoveMs = maxMoveMsForDirection(WINDOW_SIDES[i], activeDirections[i]);
+    if (maxMoveMs > 0 && currentTime - moveStartedAt[i] >= maxMoveMs) {
       PwmResult result = stopWindowHardware(i);
       windowStates[i] = result == PWM_RESULT_OK ? WINDOW_STATE_STOPPED : WINDOW_STATE_ERROR;
       debugPrint(String(WINDOW_SIDES[i].topicName) + " move timeout");

@@ -47,11 +47,15 @@ Active safety defaults:
 - `endstopsEnabled = true` for both active sides.
 - `defaultSpeed = 30` percent.
 - active profile: `WINDOW_PROFILE_PROD_WITH_ENDSTOPS`.
-- `maxMoveMs = 10000` ms.
+- `maxOpenMoveMs = 6500` ms.
+- `maxCloseMoveMs = 10000` ms.
+- left side close end-stop press = 3000 ms.
+- right side close end-stop press = 2000 ms.
 
 The end-stops were verified as active-low DI inputs: connecting DI1-DI4 to GND
-makes the matching end-stop active. Keep `maxMoveMs` based on measured travel
-time plus a safety margin. Do not run with an unlimited movement time.
+makes the matching end-stop active. Keep both direction timeouts based on
+measured travel time plus a safety margin. Do not run with an unlimited movement
+time.
 
 ## MQTT Interface
 
@@ -108,12 +112,19 @@ after `NETWORK_FAILOVER_GRACE`.
   zero over Modbus.
 - Direction changes schedule a non-blocking `DIRECTION_CHANGE_DEADTIME_MS` dead-time before enabling the requested PWM channel.
 - End-stops are optional in test mode and should be enabled for production.
-- Reaching an enabled end-stop immediately writes both channels for that side to zero.
-- `maxMoveMs` stops a side if it runs too long without reaching an end-stop. The ESP task watchdog is configured to 1.5x the active `maxMoveMs`.
+- Reaching an enabled OPEN end-stop immediately writes both channels for that
+  side to zero.
+- Reaching an enabled CLOSE end-stop keeps the CLOSE motor output active for
+  the side-specific press time before stopping, so the window can press into the
+  closed position.
+- Direction movement timeout stops a side if it runs too long without reaching
+  an end-stop. The ESP task watchdog is configured to 1.5x the longer active
+  direction timeout.
 - `room1/STOP`, `room1/window/STOP`, MQTT loss, inactivity timeout, and OTA
   start stop all window outputs.
-- MQTT `OK` is published only after the command has been accepted and the
-  relevant Modbus write path returns success.
+- For `OPEN`/`CLOSE`, the immediate MQTT `OK` means the command was accepted and
+  the initial Modbus safety write succeeded. Final movement result is published
+  later as end-stop `OK` or `ERROR:TIMEOUT` feedback plus retained state.
 
 ## Arduino IDE Requirements
 
@@ -126,8 +137,8 @@ after `NETWORK_FAILOVER_GRACE`.
 When connected through the Arduino IDE Serial Monitor at `115200`, local manual
 commands are available even if LAN, WiFi, MQTT, or the Raspberry Pi path is not
 working. Serial commands use the same firmware control path as MQTT, so
-`DIRECTION_CHANGE_DEADTIME_MS`, enabled end-stops, `maxMoveMs`, and watchdog
-protection still apply.
+`DIRECTION_CHANGE_DEADTIME_MS`, enabled end-stops, direction movement timeouts,
+and watchdog protection still apply.
 
 Supported commands:
 

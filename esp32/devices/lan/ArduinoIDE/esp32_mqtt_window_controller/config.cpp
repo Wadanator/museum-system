@@ -36,20 +36,32 @@ uint16_t PWM_DUTY_MAX = 10000;
 const char* WIFI_SSID = "Museum-Room1";
 const char* WIFI_PASSWORD = "88888888";
 
-const unsigned long WINDOW_TEST_MAX_MOVE_MS = 10000;
-const unsigned long WINDOW_PROD_MAX_MOVE_MS = 10000;
+const unsigned long WINDOW_TEST_MAX_OPEN_MOVE_MS = 6500;
+const unsigned long WINDOW_TEST_MAX_CLOSE_MOVE_MS = 10000;
+const unsigned long WINDOW_PROD_MAX_OPEN_MOVE_MS = 6500;
+const unsigned long WINDOW_PROD_MAX_CLOSE_MOVE_MS = 10000;
+const unsigned long WINDOW_LEFT_CLOSE_ENDSTOP_PRESS_MS = 3000;
+const unsigned long WINDOW_RIGHT_CLOSE_ENDSTOP_PRESS_MS = 2000;
+const unsigned long WINDOW_AUX_CLOSE_ENDSTOP_PRESS_MS = 2000;
 
 #if WINDOW_ACTIVE_PROFILE == WINDOW_PROFILE_PROD_WITH_ENDSTOPS
 const bool WINDOW_ACTIVE_ENDSTOPS_ENABLED = true;
-const unsigned long WINDOW_ACTIVE_MAX_MOVE_MS = WINDOW_PROD_MAX_MOVE_MS;
+const unsigned long WINDOW_ACTIVE_MAX_OPEN_MOVE_MS = WINDOW_PROD_MAX_OPEN_MOVE_MS;
+const unsigned long WINDOW_ACTIVE_MAX_CLOSE_MOVE_MS = WINDOW_PROD_MAX_CLOSE_MOVE_MS;
 #else
 const bool WINDOW_ACTIVE_ENDSTOPS_ENABLED = false;
-const unsigned long WINDOW_ACTIVE_MAX_MOVE_MS = WINDOW_TEST_MAX_MOVE_MS;
+const unsigned long WINDOW_ACTIVE_MAX_OPEN_MOVE_MS = WINDOW_TEST_MAX_OPEN_MOVE_MS;
+const unsigned long WINDOW_ACTIVE_MAX_CLOSE_MOVE_MS = WINDOW_TEST_MAX_CLOSE_MOVE_MS;
 #endif
+
+const unsigned long WINDOW_ACTIVE_MAX_MOVE_MS =
+  WINDOW_ACTIVE_MAX_OPEN_MOVE_MS > WINDOW_ACTIVE_MAX_CLOSE_MOVE_MS
+    ? WINDOW_ACTIVE_MAX_OPEN_MOVE_MS
+    : WINDOW_ACTIVE_MAX_CLOSE_MOVE_MS;
 
 // Two active window sides. Each side uses two PWM channels: one for OPEN and
 // one for CLOSE. The active profile enables the tested DI1-DI4 end-stops and
-// every movement still has a 10 s local hard timeout.
+// every movement still has a local hard timeout configured above.
 //
 // Waveshare Industrial ESP32-S3 Control Board With 8-Channel Digital Input &
 // Output: the DI terminal labels map directly to ESP32 GPIO pins here.
@@ -65,12 +77,18 @@ const int DI1_LEFT_OPEN_ENDSTOP_PIN = 4;
 const int DI2_LEFT_CLOSE_ENDSTOP_PIN = 5;
 const int DI3_RIGHT_OPEN_ENDSTOP_PIN = 6;
 const int DI4_RIGHT_CLOSE_ENDSTOP_PIN = 7;
+const int AUX1_OPEN_ENDSTOP_PIN = 8;
+const int AUX1_CLOSE_ENDSTOP_PIN = 9;
+const int AUX2_OPEN_ENDSTOP_PIN = 10;
+const int AUX2_CLOSE_ENDSTOP_PIN = 11;
+const uint8_t WINDOW_DEFAULT_SPEED_PERCENT = 30;
+
 const WindowSideConfig WINDOW_SIDES[] = {
-  // On     Topic           Label                OPEN CH  CLOSE CH  OPEN DI  CLOSE DI  Endstops  NC/active-low  Speed  Max move
-  {true,    "window/left",  "Window left side",  0,       1,        DI1_LEFT_OPEN_ENDSTOP_PIN,  DI2_LEFT_CLOSE_ENDSTOP_PIN,  WINDOW_ACTIVE_ENDSTOPS_ENABLED, true, 30, WINDOW_ACTIVE_MAX_MOVE_MS},
-  {true,    "window/right", "Window right side", 2,       3,        DI3_RIGHT_OPEN_ENDSTOP_PIN, DI4_RIGHT_CLOSE_ENDSTOP_PIN, WINDOW_ACTIVE_ENDSTOPS_ENABLED, true, 30, WINDOW_ACTIVE_MAX_MOVE_MS},
-  {false,   "window/aux1",  "Window aux 1",     4,       5,        8,       9,        false, true, 30, WINDOW_ACTIVE_MAX_MOVE_MS},
-  {false,   "window/aux2",  "Window aux 2",     6,       7,        10,      11,       false, true, 30, WINDOW_ACTIVE_MAX_MOVE_MS}
+  // On     Topic           Label                OPEN CH                CLOSE CH               OPEN DI                     CLOSE DI                     Endstops              NC/active-low   Speed                         Max OPEN ms                     Max CLOSE ms                      CLOSE press ms
+  {true,    "window/left",  "Window left side",  WINDOW_PWM_CH1,        WINDOW_PWM_CH2,        DI1_LEFT_OPEN_ENDSTOP_PIN,  DI2_LEFT_CLOSE_ENDSTOP_PIN,  WINDOW_ACTIVE_ENDSTOPS_ENABLED, true, WINDOW_DEFAULT_SPEED_PERCENT, WINDOW_ACTIVE_MAX_OPEN_MOVE_MS, WINDOW_ACTIVE_MAX_CLOSE_MOVE_MS, WINDOW_LEFT_CLOSE_ENDSTOP_PRESS_MS},
+  {true,    "window/right", "Window right side", WINDOW_PWM_CH4,        WINDOW_PWM_CH3,        DI3_RIGHT_OPEN_ENDSTOP_PIN, DI4_RIGHT_CLOSE_ENDSTOP_PIN, WINDOW_ACTIVE_ENDSTOPS_ENABLED, true, WINDOW_DEFAULT_SPEED_PERCENT, WINDOW_ACTIVE_MAX_OPEN_MOVE_MS, WINDOW_ACTIVE_MAX_CLOSE_MOVE_MS, WINDOW_RIGHT_CLOSE_ENDSTOP_PRESS_MS},
+  {false,   "window/aux1",  "Window aux 1",     WINDOW_PWM_UNUSED_CH5, WINDOW_PWM_UNUSED_CH6,  AUX1_OPEN_ENDSTOP_PIN,      AUX1_CLOSE_ENDSTOP_PIN,      false, true, WINDOW_DEFAULT_SPEED_PERCENT, WINDOW_ACTIVE_MAX_OPEN_MOVE_MS, WINDOW_ACTIVE_MAX_CLOSE_MOVE_MS, WINDOW_AUX_CLOSE_ENDSTOP_PRESS_MS},
+  {false,   "window/aux2",  "Window aux 2",     WINDOW_PWM_UNUSED_CH7, WINDOW_PWM_UNUSED_CH8,  AUX2_OPEN_ENDSTOP_PIN,      AUX2_CLOSE_ENDSTOP_PIN,      false, true, WINDOW_DEFAULT_SPEED_PERCENT, WINDOW_ACTIVE_MAX_OPEN_MOVE_MS, WINDOW_ACTIVE_MAX_CLOSE_MOVE_MS, WINDOW_AUX_CLOSE_ENDSTOP_PRESS_MS}
 };
 
 const int WINDOW_SIDE_COUNT = sizeof(WINDOW_SIDES) / sizeof(WindowSideConfig);
@@ -106,7 +124,7 @@ int MQTT_KEEP_ALIVE = 5;
 // Stop active PWM if commands stop arriving for too long.
 unsigned long NO_COMMAND_TIMEOUT = 180000;
 
-// Watchdog timer. Keep this at 1.5x the active local movement timeout.
+// Watchdog timer. Keep this at 1.5x the longest active local movement timeout.
 const unsigned long WDT_TIMEOUT_MS = (WINDOW_ACTIVE_MAX_MOVE_MS * 3UL) / 2UL;
 
 // OTA configuration.

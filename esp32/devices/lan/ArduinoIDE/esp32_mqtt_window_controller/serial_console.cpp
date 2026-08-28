@@ -49,7 +49,7 @@ void printHelp() {
   Serial.println("  l / r                        short names for left / right");
   Serial.println("  lava / prava                 Slovak aliases for left / right");
   Serial.println("  otvor / zatvor / zastav      Slovak aliases for open / close / stop");
-  Serial.println("Safety: uses the same firmware path as MQTT: dead-time, maxMoveMs, and end-stops if enabled.");
+  Serial.println("Safety: uses the same firmware path as MQTT: dead-time, direction max move time, and end-stops if enabled.");
   Serial.println();
 }
 

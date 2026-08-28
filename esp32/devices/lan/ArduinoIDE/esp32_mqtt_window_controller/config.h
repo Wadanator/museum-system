@@ -41,10 +41,28 @@ extern const char* WIFI_PASSWORD;
 #define WINDOW_ACTIVE_PROFILE WINDOW_PROFILE_PROD_WITH_ENDSTOPS
 #endif
 
-extern const unsigned long WINDOW_TEST_MAX_MOVE_MS;
-extern const unsigned long WINDOW_PROD_MAX_MOVE_MS;
+extern const unsigned long WINDOW_TEST_MAX_OPEN_MOVE_MS;
+extern const unsigned long WINDOW_TEST_MAX_CLOSE_MOVE_MS;
+extern const unsigned long WINDOW_PROD_MAX_OPEN_MOVE_MS;
+extern const unsigned long WINDOW_PROD_MAX_CLOSE_MOVE_MS;
 extern const bool WINDOW_ACTIVE_ENDSTOPS_ENABLED;
+extern const unsigned long WINDOW_ACTIVE_MAX_OPEN_MOVE_MS;
+extern const unsigned long WINDOW_ACTIVE_MAX_CLOSE_MOVE_MS;
 extern const unsigned long WINDOW_ACTIVE_MAX_MOVE_MS;
+extern const unsigned long WINDOW_LEFT_CLOSE_ENDSTOP_PRESS_MS;
+extern const unsigned long WINDOW_RIGHT_CLOSE_ENDSTOP_PRESS_MS;
+extern const unsigned long WINDOW_AUX_CLOSE_ENDSTOP_PRESS_MS;
+
+enum WindowPwmChannel {
+  WINDOW_PWM_CH1 = 0,
+  WINDOW_PWM_CH2 = 1,
+  WINDOW_PWM_CH3 = 2,
+  WINDOW_PWM_CH4 = 3,
+  WINDOW_PWM_UNUSED_CH5 = 4,
+  WINDOW_PWM_UNUSED_CH6 = 5,
+  WINDOW_PWM_UNUSED_CH7 = 6,
+  WINDOW_PWM_UNUSED_CH8 = 7
+};
 
 struct WindowSideConfig {
   bool enabled;
@@ -57,7 +75,9 @@ struct WindowSideConfig {
   bool endstopsEnabled;
   bool endstopActiveLow;
   uint8_t defaultSpeed;
-  unsigned long maxMoveMs;
+  unsigned long maxOpenMoveMs;
+  unsigned long maxCloseMoveMs;
+  unsigned long closeEndstopPressMs;
 };
 
 extern const WindowSideConfig WINDOW_SIDES[];
