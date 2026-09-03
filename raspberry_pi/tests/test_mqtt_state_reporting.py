@@ -41,6 +41,22 @@ class _SceneParserStub:
         self.events.append((topic, payload))
 
 
+class _DisplayPowerStub:
+    def __init__(self):
+        self.commands = []
+
+    def force_on(self, reason):
+        self.commands.append(("on", reason))
+        return True
+
+    def force_standby(self, reason):
+        self.commands.append(("standby", reason))
+        return True
+
+    def get_status(self):
+        return {"enabled": True, "requested_state": "on"}
+
+
 def _devices_config():
     return {
         "motors": [
@@ -184,6 +200,26 @@ def test_message_handler_routes_state_report_before_scene_parser():
     assert state["topic"] == "room1/light/1"
     assert state["confirmed_state"] == "ON"
     assert state["stale"] is False
+
+
+def test_message_handler_routes_display_command_before_scene_parser():
+    scene_parser = _SceneParserStub()
+    display_power = _DisplayPowerStub()
+    handler = MQTTMessageHandler(logger=_LoggerStub(), room_id="room1")
+    handler.set_handlers(
+        scene_parser=scene_parser,
+        display_power_manager=display_power,
+    )
+
+    handler.handle_message(_Message("room1/display", "ON"))
+    handler.handle_message(_Message("room1/display", "OFF"))
+    handler.handle_message(_Message("room1/display", "STATUS"))
+
+    assert display_power.commands == [
+        ("on", "mqtt_manual"),
+        ("standby", "mqtt_manual"),
+    ]
+    assert scene_parser.events == []
 
 
 def test_online_state_report_clears_stale_desired_state():

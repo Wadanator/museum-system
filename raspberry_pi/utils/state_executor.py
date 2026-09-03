@@ -13,6 +13,10 @@ already been invoked by the OS when cancel() is called.
 """
 
 import threading
+from utils.display_policy import (
+    DISPLAY_SCENE_VIDEO_REASON,
+    action_requests_display,
+)
 from utils.image_command import parse_image_command
 from utils.logging_setup import get_logger
 
@@ -35,7 +39,7 @@ class StateExecutor:
     """
 
     def __init__(self, mqtt_client=None, audio_handler=None,
-                 video_handler=None, logger=None):
+                 video_handler=None, display_power_manager=None, logger=None):
         """
         Initialize the state executor and register action handlers.
 
@@ -43,11 +47,14 @@ class StateExecutor:
             mqtt_client: MQTT client instance for publishing commands.
             audio_handler: Audio handler for playback commands.
             video_handler: Video handler for playback commands.
+            display_power_manager: Optional local display power controller.
             logger: Logger instance for execution events.
         """
         self.mqtt_client = mqtt_client
         self.audio_handler = audio_handler
         self.video_handler = video_handler
+        self.display_power_manager = display_power_manager
+        self.display_auto_enabled = True
         self.logger = logger or get_logger("StateExecutor")
 
         self._active_timers: list[threading.Timer] = []
@@ -59,6 +66,14 @@ class StateExecutor:
             "video": self._execute_video,
             "image": self._execute_image,
         }
+
+    def set_display_power_manager(self, display_power_manager):
+        """Update the optional display power manager dependency."""
+        self.display_power_manager = display_power_manager
+
+    def set_display_auto_enabled(self, enabled):
+        """Allow a scene-level policy to suppress automatic display wakeups."""
+        self.display_auto_enabled = bool(enabled)
 
     def execute_onEnter(self, state_data):
         """
@@ -297,6 +312,7 @@ class StateExecutor:
 
         if self.video_handler:
             try:
+                self._request_display_for_action(action)
                 success = self.video_handler.handle_command(message)
             except Exception as e:
                 self.logger.error(
@@ -341,6 +357,7 @@ class StateExecutor:
             return False
 
         try:
+            self._request_display_for_action(action)
             if parsed.kind == "show":
                 success = self.video_handler.show_image(parsed.filename)
             else:
@@ -357,3 +374,17 @@ class StateExecutor:
 
         self.logger.error(f"Image command failed: {message}")
         return False
+
+    def _request_display_for_action(self, action):
+        """Request display power for visible video/image actions."""
+        if not self.display_auto_enabled:
+            return
+        if not self.display_power_manager:
+            return
+        if not action_requests_display(action):
+            return
+
+        try:
+            self.display_power_manager.request_on(DISPLAY_SCENE_VIDEO_REASON)
+        except Exception as exc:
+            self.logger.error(f"Display power request failed: {exc}")

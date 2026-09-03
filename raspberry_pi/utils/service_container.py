@@ -14,6 +14,7 @@ try:
     from utils.mqtt.mqtt_device_registry import MQTTDeviceRegistry
     from utils.audio_handler import AudioHandler
     from utils.video import VideoHandler
+    from utils.display_power_manager import DisplayPowerManager
     from utils.system_monitor import SystemMonitor
     from utils.button_handler import ButtonHandler
 except ImportError as e:
@@ -52,6 +53,7 @@ class ServiceContainer:
         self.mqtt_device_registry = None
         self.system_monitor = None
         self.button_handler = None
+        self.display_power_manager = None
 
     def init_all_services(self):
         """
@@ -64,6 +66,7 @@ class ServiceContainer:
 
         self._init_audio()
         self._init_video()
+        self._init_display_power()
         self._init_mqtt()
         self._init_system_monitor()
         self._init_button_handler()
@@ -103,6 +106,17 @@ class ServiceContainer:
         except Exception as e:
             self.log.warning(f"Video handler initialization failed: {e}")
             self.video_handler = None
+
+    def _init_display_power(self):
+        """Initialize the display power manager. Sets to None on failure."""
+        try:
+            self.display_power_manager = DisplayPowerManager.from_config(
+                self.config,
+                logger=get_logger('display'),
+            )
+        except Exception as e:
+            self.log.warning(f"Display power manager initialization failed: {e}")
+            self.display_power_manager = None
 
     def _init_mqtt(self):
         """
@@ -192,7 +206,8 @@ class ServiceContainer:
         components = [
             (self.button_handler, "Button Handler"),
             (self.audio_handler, "Audio Handler"),
-            (self.video_handler, "Video Handler")
+            (self.video_handler, "Video Handler"),
+            (self.display_power_manager, "Display Power Manager"),
         ]
 
         for component, name in components:

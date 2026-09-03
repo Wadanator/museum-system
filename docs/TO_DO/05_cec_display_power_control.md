@@ -15,6 +15,25 @@ Goal: keep the monitor off when the current room experience does not need
 video, turn it on early enough for scenes that do need video, and avoid
 unnecessary on/off cycling during frequent scene starts.
 
+## Implementation Status
+
+- DONE 2026-09-03: Added `DisplayPowerManager` with script/noop backends,
+  strict subprocess timeout, async command worker, active display reasons,
+  idle standby timer, debouncing, manual force ON/STANDBY, startup power state,
+  cleanup standby, and dashboard/API status snapshot.
+- DONE 2026-09-03: Added `[Display]` config to `config.ini` and
+  `config.ini.example`, using existing `tools/CEC/display_on.sh` and
+  `tools/CEC/display_off.sh`.
+- DONE 2026-09-03: Wired display power into `ServiceContainer`,
+  `MuseumController`, `SceneParser`, `StateExecutor`, scene cleanup, global
+  stop, MQTT `<room_id>/display`, and runtime status responses.
+- DONE 2026-09-03: Added top-level scene `displayPolicy` validation with
+  `auto`, `required`, and `never`.
+- DONE 2026-09-03: Added tests for manager behavior, scene display policy,
+  MQTT display routing, and schema validation.
+- TODO: Add installer checks/package install for `cec-utils`.
+- TODO: Validate on the target Raspberry Pi and final display hardware.
+
 ## Deployment Assumptions
 
 - One Raspberry Pi controls one room.
@@ -873,7 +892,7 @@ Acceptance:
 - We know whether the actual monitor supports CEC reliably.
 - We know a realistic wake lead time.
 
-### Phase 1 - Core Manager
+### Phase 1 - Core Manager - DONE 2026-09-03
 
 Add `raspberry_pi/utils/display_power_manager.py` with:
 
@@ -895,7 +914,7 @@ Acceptance:
 - CEC command execution is timeout-bounded.
 - No existing runtime module contains direct `cec-client` subprocess calls.
 
-### Phase 2 - Runtime Wiring
+### Phase 2 - Runtime Wiring - DONE 2026-09-03
 
 Wire manager into existing files with small hooks only:
 
@@ -915,7 +934,7 @@ Acceptance:
 - Frequent scene restarts do not power-cycle the display.
 - `VideoHandler` still only owns mpv/video playback.
 
-### Phase 3 - Manual Control
+### Phase 3 - Manual Control - DONE 2026-09-03
 
 Add at least one control surface:
 
@@ -931,7 +950,7 @@ Acceptance:
 - `ON` and `OFF` can be sent remotely.
 - Optional `STATUS` can report the current display manager state.
 
-### Phase 4 - Dashboard Status
+### Phase 4 - Dashboard Status - PARTIAL DONE 2026-09-03
 
 Optional but useful:
 
@@ -940,8 +959,9 @@ Optional but useful:
 
 Acceptance:
 
-- Operator can tell whether monitor is on because of auto video need,
+- DONE 2026-09-03: Operator status payload shows whether monitor is on because of auto video need,
   `displayPolicy = required`, or a recent manual command.
+- TODO: Add dashboard ON/OFF buttons if an operator-facing UI control is needed.
 
 ### Phase 5 - Target Validation
 

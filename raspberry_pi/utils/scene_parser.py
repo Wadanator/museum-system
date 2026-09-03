@@ -10,6 +10,15 @@ from utils.logging_setup import get_logger
 from utils.state_machine import StateMachine
 from utils.transition_manager import TransitionManager
 from utils.state_executor import StateExecutor
+from utils.display_policy import (
+    DISPLAY_POLICY_AUTO,
+    DISPLAY_POLICY_NEVER,
+    DISPLAY_POLICY_REQUIRED,
+    DISPLAY_SCENE_REQUIRED_REASON,
+    DISPLAY_SCENE_VIDEO_REASON,
+    normalize_display_policy,
+    scene_contains_display_content,
+)
 
 
 class SceneParser:
@@ -22,7 +31,7 @@ class SceneParser:
     """
 
     def __init__(self, mqtt_client=None, audio_handler=None,
-                 video_handler=None, logger=None):
+                 video_handler=None, display_power_manager=None, logger=None):
         """
         Initialize the scene parser and wire up all sub-components.
 
@@ -30,12 +39,14 @@ class SceneParser:
             mqtt_client: MQTT client instance for publishing commands.
             audio_handler: Audio handler for playback and preloading.
             video_handler: Video handler for playback control.
+            display_power_manager: Optional local display power controller.
             logger: Logger instance for scene events.
         """
         self.logger = logger or get_logger("SceneParser")
 
         self.audio_handler = audio_handler
         self.video_handler = video_handler
+        self.display_power_manager = display_power_manager
 
         self.state_machine = StateMachine()
         self.transition_manager = TransitionManager()
@@ -50,6 +61,7 @@ class SceneParser:
             mqtt_client=mqtt_client,
             audio_handler=audio_handler,
             video_handler=video_handler,
+            display_power_manager=display_power_manager,
             logger=self.logger
         )
 
@@ -122,8 +134,42 @@ class SceneParser:
         """
         if self.state_machine.load_scene(scene_file):
             self.scene_data = True
+            self._apply_display_policy_to_executor()
             return True
         return False
+
+    def get_display_policy(self):
+        """Return the loaded scene's display policy."""
+        scene_data = getattr(self.state_machine, "scene_data", None) or {}
+        return normalize_display_policy(
+            scene_data.get("displayPolicy", DISPLAY_POLICY_AUTO),
+            logger=self.logger,
+        )
+
+    def scene_display_request_reason(self):
+        """Return the display-on reason for the loaded scene, if any."""
+        policy = self.get_display_policy()
+        if policy == DISPLAY_POLICY_NEVER:
+            return None
+        if policy == DISPLAY_POLICY_REQUIRED:
+            return DISPLAY_SCENE_REQUIRED_REASON
+
+        scene_data = getattr(self.state_machine, "scene_data", None)
+        if scene_contains_display_content(scene_data):
+            return DISPLAY_SCENE_VIDEO_REASON
+        return None
+
+    def scene_requires_display(self):
+        """Return True when the loaded scene should power the display."""
+        return self.scene_display_request_reason() is not None
+
+    def _apply_display_policy_to_executor(self):
+        """Enable or suppress per-action display wakeups for this scene."""
+        if not self.state_executor:
+            return
+        self.state_executor.set_display_auto_enabled(
+            self.get_display_policy() != DISPLAY_POLICY_NEVER
+        )
 
     def start_scene(self):
         """

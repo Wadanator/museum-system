@@ -1,5 +1,10 @@
 """Coordinated scene/runtime stop operations."""
 
+from utils.display_policy import (
+    DISPLAY_SCENE_REQUIRED_REASON,
+    DISPLAY_SCENE_VIDEO_REASON,
+)
+
 
 class SceneStopCoordinator:
     """Keep shutdown ordering for scene, media, actuators, and MQTT STOP."""
@@ -19,6 +24,7 @@ class SceneStopCoordinator:
             expect_current=True,
         )
         if not transitioned:
+            self.release_display_reasons()
             self.force_actuators_off('external_stop_idle')
             owner.broadcast_stop()
             self.clear_current_scene()
@@ -28,6 +34,7 @@ class SceneStopCoordinator:
         self.stop_scene_parser()
         self.stop_audio()
         self.stop_video()
+        self.release_display_reasons()
         self.force_actuators_off('external_stop')
         owner.broadcast_stop()
         self.clear_current_scene()
@@ -70,8 +77,21 @@ class SceneStopCoordinator:
         """Stop local media/devices during controller cleanup when no scene runs."""
         self.stop_audio()
         self.stop_video()
+        self.release_display_reasons()
         self.force_actuators_off('service_cleanup')
         self.owner.broadcast_stop()
+
+    def release_display_reasons(self) -> None:
+        """Release scene-owned display power reasons."""
+        display_power = getattr(self.owner, 'display_power_manager', None)
+        if not display_power:
+            return
+
+        for reason in (DISPLAY_SCENE_VIDEO_REASON, DISPLAY_SCENE_REQUIRED_REASON):
+            try:
+                display_power.release(reason)
+            except Exception as exc:
+                self.log.error(f"Error releasing display reason {reason}: {exc}")
 
     def force_actuators_off(self, source: str) -> int:
         store = getattr(self.owner, 'actuator_state_store', None)

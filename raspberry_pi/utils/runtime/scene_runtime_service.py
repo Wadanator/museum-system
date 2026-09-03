@@ -4,6 +4,11 @@ import os
 import threading
 import time
 
+from utils.display_policy import (
+    DISPLAY_SCENE_REQUIRED_REASON,
+    DISPLAY_SCENE_VIDEO_REASON,
+)
+
 
 OUTCOME_NORMAL_END = 'normal_end'
 OUTCOME_MISSING_SCENE = 'missing_scene'
@@ -142,6 +147,8 @@ class SceneRuntimeService:
                     self.log.info("Scene start cancelled before execution.")
                     self._clear_current_scene_and_status()
                     return self._cancelled_start_outcome()
+
+                self._request_display_for_loaded_scene()
 
                 outcome = OUTCOME_ERROR
                 started_at = time.monotonic()
@@ -318,6 +325,7 @@ class SceneRuntimeService:
         stop_coordinator.stop_audio_for_scene_finally()
         if owner.video_handler:
             owner.video_handler.stop_video()
+        self._release_display_for_scene()
 
         transitioned = owner._set_scene_running(
             False,
@@ -399,6 +407,7 @@ class SceneRuntimeService:
         stop_coordinator.stop_video()
         stop_coordinator.force_actuators_off('ambient_recoverable_failure')
         self.owner.broadcast_stop()
+        self._release_display_for_scene()
 
     def _prepare_ambient_restart(self, scene_filename, reason='ambient_restart') -> bool:
         owner = self.owner
@@ -416,3 +425,28 @@ class SceneRuntimeService:
         owner.current_scene_state = None
         owner._dashboard_notifier_service().broadcast_status()
         return True
+
+    def _request_display_for_loaded_scene(self) -> None:
+        manager = getattr(self.owner, 'display_power_manager', None)
+        parser = getattr(self.owner, 'scene_parser', None)
+        if not manager or not parser:
+            return
+
+        try:
+            reason_getter = getattr(parser, 'scene_display_request_reason', None)
+            reason = reason_getter() if callable(reason_getter) else None
+            if reason:
+                manager.request_on(reason)
+        except Exception as exc:
+            self.log.error(f"Display power request for scene failed: {exc}")
+
+    def _release_display_for_scene(self) -> None:
+        manager = getattr(self.owner, 'display_power_manager', None)
+        if not manager:
+            return
+
+        for reason in (DISPLAY_SCENE_VIDEO_REASON, DISPLAY_SCENE_REQUIRED_REASON):
+            try:
+                manager.release(reason)
+            except Exception as exc:
+                self.log.error(f"Display power release failed for {reason}: {exc}")

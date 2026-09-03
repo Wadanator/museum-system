@@ -55,6 +55,15 @@ class MQTTRoomTopics:
         """
         return f'{self.room_id}/start_scene'
 
+    def display_topic(self):
+        """
+        Return the topic used for display power control in this room.
+
+        Returns:
+            str: MQTT topic string for display commands.
+        """
+        return f'{self.room_id}/display'
+
 
 class MQTTTopicRules:
     """Collection of reusable topic matching and mapping helpers."""
@@ -129,6 +138,19 @@ class MQTTTopicRules:
             bool: True if the topic ends with '/start_scene'.
         """
         return topic.endswith('/start_scene')
+
+    @staticmethod
+    def is_display_topic(topic):
+        """
+        Check whether a topic is a room display power command topic.
+
+        Args:
+            topic: The MQTT topic string to evaluate.
+
+        Returns:
+            bool: True if the topic ends with '/display'.
+        """
+        return topic.endswith('/display')
 
     @staticmethod
     def expected_feedback_topic(original_topic):

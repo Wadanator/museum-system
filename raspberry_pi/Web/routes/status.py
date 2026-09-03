@@ -24,6 +24,22 @@ def _get_ambient_status_data(controller):
         'last_outcome': 'never_started',
     }
 
+
+def _get_display_status_data(controller):
+    display_power = getattr(controller, 'display_power_manager', None)
+    if display_power and hasattr(display_power, 'get_status'):
+        return display_power.get_status()
+    return {
+        'enabled': False,
+        'backend': 'none',
+        'active_reasons': [],
+        'requested_state': 'unknown',
+        'pending_standby_at': None,
+        'last_command': None,
+        'last_result': None,
+        'last_error': None,
+    }
+
 # Pomocná funkcia na získanie dát o stave systému
 def _get_current_status_data(controller):
     config = getattr(controller, 'config', {}) or {}
@@ -39,6 +55,7 @@ def _get_current_status_data(controller):
         ),
         'startup_mode': config.get('startup_mode', 'classic'),
         'ambient': _get_ambient_status_data(controller),
+        'display': _get_display_status_data(controller),
     }
 
 def setup_status_routes(dashboard):

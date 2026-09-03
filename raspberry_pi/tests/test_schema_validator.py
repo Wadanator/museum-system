@@ -181,6 +181,35 @@ def test_validate_scene_payload_accepts_image_show_action():
     assert validate_scene_payload(data)["valid"] is True
 
 
+def test_validate_scene_payload_accepts_display_policy():
+    data = {
+        "sceneId": "room1_intro",
+        "initialState": "START",
+        "displayPolicy": "required",
+        "states": {
+            "START": {}
+        }
+    }
+
+    assert validate_scene_payload(data)["valid"] is True
+
+
+def test_validate_scene_payload_rejects_unknown_display_policy():
+    data = {
+        "sceneId": "room1_intro",
+        "initialState": "START",
+        "displayPolicy": "always_on",
+        "states": {
+            "START": {}
+        }
+    }
+
+    result = validate_scene_payload(data)
+
+    assert result["valid"] is False
+    assert result["errors"][0]["path"] == "displayPolicy"
+
+
 def test_validate_scene_payload_accepts_image_clear_action():
     data = _scene_with_on_enter_action(
         {"action": "image", "message": "CLEAR"}

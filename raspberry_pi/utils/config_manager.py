@@ -175,6 +175,14 @@ class ConfigManager:
         """
         script_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+        def resolve_runtime_path(path_value):
+            raw_value = str(path_value or '').strip()
+            if not raw_value:
+                return ''
+            if os.path.isabs(raw_value):
+                return os.path.normpath(raw_value)
+            return os.path.normpath(os.path.join(script_dir, raw_value))
+
         # Resolve directory names and room ID
         scenes_dir_name = self.config.get('Scenes', 'directory', fallback='scenes')
         room_id = self.config.get('Room', 'room_id', fallback='room1')
@@ -236,6 +244,18 @@ class ConfigManager:
             'ambient_stop_behavior',
             allowed={'suspend_until_restart', 'resume_after_delay'},
             fallback='suspend_until_restart',
+        )
+        display_backend = self._get_choice(
+            'Display',
+            'backend',
+            allowed={'script', 'cec', 'noop'},
+            fallback='noop',
+        )
+        display_startup_power_state = self._get_choice(
+            'Display',
+            'startup_power_state',
+            allowed={'unchanged', 'standby', 'on'},
+            fallback='unchanged',
         )
 
         if ambient_restart_delay_seconds > scene_wait_max_seconds:
@@ -335,6 +355,36 @@ class ConfigManager:
             'video_mpv_extra_args': (
                 shlex.split(mpv_extra_args_raw) if mpv_extra_args_raw else []
             ),
+
+            # Display / HDMI-CEC
+            'display_enabled': self.config.getboolean(
+                'Display', 'enabled', fallback=False),
+            'display_backend': display_backend,
+            'display_on_script': resolve_runtime_path(
+                self.config.get(
+                    'Display',
+                    'on_script',
+                    fallback='tools/CEC/display_on.sh',
+                )
+            ),
+            'display_off_script': resolve_runtime_path(
+                self.config.get(
+                    'Display',
+                    'off_script',
+                    fallback='tools/CEC/display_off.sh',
+                )
+            ),
+            'display_cec_target': self.config.get(
+                'Display', 'cec_target', fallback='0').strip(),
+            'display_idle_timeout_seconds': self._get_nonnegative_float(
+                'Display', 'idle_timeout_seconds', fallback=300.0),
+            'display_command_timeout_seconds': self._get_nonnegative_float(
+                'Display', 'command_timeout_seconds', fallback=5.0),
+            'display_min_seconds_between_power_commands': self._get_nonnegative_float(
+                'Display', 'min_seconds_between_power_commands', fallback=15.0),
+            'display_standby_on_service_stop': self.config.getboolean(
+                'Display', 'standby_on_service_stop', fallback=False),
+            'display_startup_power_state': display_startup_power_state,
 
             # Audio
             'audio_max_init_attempts': self.config.getint(

@@ -50,6 +50,10 @@ SCENE_SCHEMA = {
         "version": {"type": "string"},
         "description": {"type": "string"},
         "initialState": {"type": "string"},
+        "displayPolicy": {
+            "type": "string",
+            "enum": ["auto", "required", "never"]
+        },
 
         "globalEvents": {
             "type": "array",

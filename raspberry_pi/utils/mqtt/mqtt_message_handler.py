@@ -6,6 +6,7 @@ Receives all incoming MQTT messages and routes them to the correct handlers:
 - Device status messages -> device registry
 - Feedback messages -> feedback tracker
 - Button commands -> scene execution
+- Display commands -> local display power manager
 - MQTT transitions -> scene parser (for interactive scenes)
 """
 
@@ -39,6 +40,7 @@ class MQTTMessageHandler:
         self.button_callback = None
         self.scene_parser = None
         self.named_scene_callback = None  # New handler for named scene start commands
+        self.display_power_manager = None
 
     # ==========================================================================
     # HANDLER CONFIGURATION
@@ -46,7 +48,8 @@ class MQTTMessageHandler:
 
     def set_handlers(self, device_registry=None, feedback_tracker=None,
                      actuator_state_store=None, button_callback=None,
-                     scene_parser=None, named_scene_callback=None):
+                     scene_parser=None, named_scene_callback=None,
+                     display_power_manager=None):
         """
         Set the handlers for different message types.
 
@@ -57,6 +60,7 @@ class MQTTMessageHandler:
             button_callback: Callback for button/scene commands (starts default scene).
             scene_parser: Scene parser for MQTT transition events.
             named_scene_callback: Callback for starting a scene by file name.
+            display_power_manager: Local display ON/OFF command handler.
         """
         self.device_registry = device_registry
         self.feedback_tracker = feedback_tracker
@@ -64,6 +68,7 @@ class MQTTMessageHandler:
         self.button_callback = button_callback
         self.scene_parser = scene_parser
         self.named_scene_callback = named_scene_callback  # New assignment
+        self.display_power_manager = display_power_manager
         self.logger.debug("Message handlers configured")
 
     # ==========================================================================
@@ -126,7 +131,12 @@ class MQTTMessageHandler:
                     )
                     return
 
-            # 6. Route all other MQTT messages to scene parser for transitions
+            # 6. Handle display power commands (prefix/display = ON/OFF/STATUS)
+            if self._is_display_command(topic):
+                self._handle_display_command(topic, payload)
+                return
+
+            # 7. Route all other MQTT messages to scene parser for transitions
             if self.scene_parser:
                 self.scene_parser.register_mqtt_event(topic, payload)
                 self.logger.debug(
@@ -134,7 +144,7 @@ class MQTTMessageHandler:
                 )
                 return
 
-            # 7. Log any messages that do not match known patterns
+            # 8. Log any messages that do not match known patterns
             self.logger.debug(
                 f"Received unhandled message on topic {msg.topic}: {payload}"
             )
@@ -239,4 +249,50 @@ class MQTTMessageHandler:
             topic == self.room_topics.named_scene_topic()
             if self.room_topics
             else MQTTTopicRules.is_named_scene_start_topic(topic)
+        )
+
+    def _is_display_command(self, topic):
+        """
+        Check if a message is a local display power command.
+
+        Args:
+            topic: The MQTT topic string to evaluate.
+
+        Returns:
+            bool: True if the topic matches the room display command topic.
+        """
+        return (
+            topic == self.room_topics.display_topic()
+            if self.room_topics
+            else MQTTTopicRules.is_display_topic(topic)
+        )
+
+    def _handle_display_command(self, topic, payload):
+        """Handle ON/OFF/STANDBY/STATUS display commands."""
+        command = (payload or "").strip().upper()
+        manager = self.display_power_manager
+
+        if not manager:
+            self.logger.warning(
+                f"Display command ignored; manager unavailable: {topic} = {payload}"
+            )
+            return
+
+        if command == "ON":
+            manager.force_on("mqtt_manual")
+            self.logger.info("Display ON command received via MQTT")
+            return
+
+        if command in {"OFF", "STANDBY"}:
+            manager.force_standby("mqtt_manual")
+            self.logger.info("Display STANDBY command received via MQTT")
+            return
+
+        if command == "STATUS":
+            self.logger.info(f"Display status requested via MQTT: {manager.get_status()}")
+            return
+
+        self.logger.warning(
+            f"Unknown display command on {topic}: {payload!r} "
+            "(expected ON, OFF, STANDBY, or STATUS)"
         )

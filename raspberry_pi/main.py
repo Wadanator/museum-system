@@ -145,6 +145,7 @@ class MuseumController:
         self.mqtt_feedback_tracker = self.services.mqtt_feedback_tracker
         self.system_monitor = self.services.system_monitor
         self.button_handler = self.services.button_handler
+        self.display_power_manager = self.services.display_power_manager
 
         self._wire_dependencies()
         
@@ -167,7 +168,8 @@ class MuseumController:
                 feedback_tracker=self.mqtt_feedback_tracker,
                 actuator_state_store=self.actuator_state_store,
                 button_callback=self.on_button_press,
-                named_scene_callback=self.start_scene_by_name
+                named_scene_callback=self.start_scene_by_name,
+                display_power_manager=self.display_power_manager,
             )
 
         # Actuator state store - wire feedback tracker and WebSocket broadcast
@@ -191,7 +193,8 @@ class MuseumController:
         self.scene_parser = SceneParser(
             mqtt_client=self.mqtt_client,
             audio_handler=self.audio_handler,
-            video_handler=self.video_handler
+            video_handler=self.video_handler,
+            display_power_manager=self.display_power_manager,
         )
         
         # Connect scene parser to MQTT message handler so incoming messages

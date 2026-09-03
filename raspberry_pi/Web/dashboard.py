@@ -500,6 +500,7 @@ class WebDashboard:
             ),
             'startup_mode': config.get('startup_mode', 'classic'),
             'ambient': self._get_ambient_status_data(),
+            'display': self._get_display_status_data(),
             'web_dashboard': self.get_web_server_status(),
             'uptime': self.get_uptime(),
             'log_count': self.get_log_count()
@@ -517,6 +518,24 @@ class WebDashboard:
             'cycle_cleanup': 'scene_only',
             'next_restart_at': None,
             'last_outcome': 'never_started',
+        }
+
+    def _get_display_status_data(self):
+        display_power = getattr(self.controller, 'display_power_manager', None)
+        if display_power and hasattr(display_power, 'get_status'):
+            try:
+                return display_power.get_status()
+            except Exception as exc:
+                self.log.error(f"Error reading display status: {exc}")
+        return {
+            'enabled': False,
+            'backend': 'none',
+            'active_reasons': [],
+            'requested_state': 'unknown',
+            'pending_standby_at': None,
+            'last_command': None,
+            'last_result': None,
+            'last_error': None,
         }
 
     def _ensure_web_server_status_state(self) -> None:

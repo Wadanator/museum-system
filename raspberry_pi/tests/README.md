@@ -25,8 +25,10 @@ pytest -q \
   tests/test_mqtt_feedback_state.py \
   tests/test_mqtt_state_reporting.py \
   tests/test_device_status_broadcast.py \
+  tests/test_display_power_manager.py \
   tests/test_main_scene_state.py \
   tests/test_heartbeat.py \
+  tests/test_scene_display_policy.py \
   tests/test_transition_manager_overflow.py \
   tests/test_video_handler_end_detection.py \
   tests/test_runtime_smoke.py \

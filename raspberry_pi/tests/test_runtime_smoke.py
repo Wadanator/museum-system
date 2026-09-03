@@ -17,6 +17,8 @@ RUNTIME_MODULES = [
     "main.py",
     "Web/dashboard.py",
     "Web/routes/status.py",
+    "utils/display_policy.py",
+    "utils/display_power_manager.py",
     "utils/runtime/__init__.py",
     "utils/runtime/ambient_loop_service.py",
     "utils/runtime/dashboard_notifier.py",
