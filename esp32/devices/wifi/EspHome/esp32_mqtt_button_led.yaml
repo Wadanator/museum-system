@@ -4,7 +4,7 @@ substitutions:
   friendly_name: "Room1 ESP Trigger"
   room_prefix: "room1"
   client_id: "Room1_ESP_Trigger"
-  mqtt_broker: "TechMuzeumRoom1.local"
+  mqtt_broker: "192.168.0.127"
   ota_password: "room1"
 
 # ─── ESPHOME CORE ────────────────────────────────────────────────────────────
@@ -34,8 +34,8 @@ ota:
 
 # ─── WIFI CONFIGURATION ──────────────────────────────────────────────────────
 wifi:
-  ssid: "Museum-Room1"
-  password: "88888888"
+  ssid: "kastielhome"
+  password: "Kastiel18"
   power_save_mode: none
 
 # ─── MQTT CONFIGURATION ──────────────────────────────────────────────────────

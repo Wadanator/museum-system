@@ -18,6 +18,7 @@ static bool fallbackWifiStarted = false;
 static bool lanConnected = false;
 static bool fallbackWifiConnected = false;
 static bool fallbackStopRequested = false;
+static unsigned long fallbackWifiStartedAt = 0;
 static NetworkTransport activeTransport = NETWORK_NONE;
 
 static const char* transportName(NetworkTransport transport) {
@@ -69,20 +70,28 @@ static void stopFallbackWiFi() {
   fallbackWifiStarted = false;
   fallbackWifiConnected = false;
   fallbackStopRequested = false;
+  fallbackWifiStartedAt = 0;
   updateActiveTransport();
 }
 
 static void startFallbackWiFi() {
   if (fallbackWifiStarted || fallbackWifiConnected) return;
+  if (lanConnected) return;
 
   Serial.print("Starting WiFi fallback: ");
   Serial.println(WIFI_SSID);
   debugPrint("Starting WiFi fallback: " + String(WIFI_SSID));
 
   WiFi.mode(WIFI_STA);
+  WiFi.persistent(false);
+  WiFi.setAutoReconnect(true);
+  WiFi.setSleep(false);
   WiFi.setHostname(OTA_HOSTNAME);
+  WiFi.disconnect(false);
+  delay(50);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   fallbackWifiStarted = true;
+  fallbackWifiStartedAt = millis();
 }
 
 static void onNetworkEvent(arduino_event_id_t event, arduino_event_info_t info) {
@@ -136,6 +145,8 @@ static void onNetworkEvent(arduino_event_id_t event, arduino_event_info_t info) 
 
     case ARDUINO_EVENT_WIFI_STA_GOT_IP:
       fallbackWifiConnected = true;
+      fallbackWifiStarted = true;
+      fallbackWifiStartedAt = 0;
       lastWifiAttempt = 0;
       Serial.print("WiFi fallback connected - IP: ");
       Serial.println(WiFi.localIP());
@@ -146,15 +157,32 @@ static void onNetworkEvent(arduino_event_id_t event, arduino_event_info_t info) 
     case ARDUINO_EVENT_WIFI_STA_LOST_IP:
       Serial.println("WiFi fallback lost IP");
       fallbackWifiConnected = false;
+      if (lanConnected || fallbackStopRequested) {
+        fallbackWifiStarted = false;
+        fallbackWifiStartedAt = 0;
+      } else {
+        fallbackWifiStarted = true;
+        fallbackWifiStartedAt = millis();
+      }
       updateActiveTransport();
       break;
 
-    case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+    case ARDUINO_EVENT_WIFI_STA_DISCONNECTED: {
       Serial.println("WiFi fallback disconnected");
+      bool wasFallbackWifiConnected = fallbackWifiConnected;
       fallbackWifiConnected = false;
-      fallbackWifiStarted = false;
+      if (lanConnected || fallbackStopRequested) {
+        fallbackWifiStarted = false;
+        fallbackWifiStartedAt = 0;
+      } else {
+        fallbackWifiStarted = true;
+        if (wasFallbackWifiConnected || fallbackWifiStartedAt == 0) {
+          fallbackWifiStartedAt = millis();
+        }
+      }
       updateActiveTransport();
       break;
+    }
 
     default:
       break;
@@ -239,6 +267,20 @@ void reconnectWiFi() {
     networkRetryInterval = NETWORK_RETRY_INTERVAL;
     updateActiveTransport();
     return;
+  }
+
+  if (fallbackWifiStarted) {
+    if (WIFI_CONNECT_STALL_TIMEOUT_MS == 0 ||
+        currentTime - fallbackWifiStartedAt < WIFI_CONNECT_STALL_TIMEOUT_MS) {
+      updateActiveTransport();
+      return;
+    }
+
+    debugPrint("WiFi fallback connection stalled - restarting WiFi attempt");
+    WiFi.disconnect(false);
+    fallbackWifiStarted = false;
+    fallbackWifiConnected = false;
+    fallbackWifiStartedAt = 0;
   }
 
   if (currentTime - lastWifiAttempt < networkRetryInterval) {

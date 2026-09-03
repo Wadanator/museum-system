@@ -8,7 +8,9 @@ physical window over MQTT.
 
 - 2 active DC motor outputs: left side and right side of the window.
 - 4 active PWM Modbus channels total: two directions per active side.
-- Optional end-stop inputs: OPEN and CLOSED stop for each side.
+- End-stop inputs are mapped for OPEN and CLOSED on each side. Current hardware
+  uses only the CLOSED end-stops; OPEN end-stops stay in the code but are
+  disabled in the active production profile.
 - MQTT commands from the Raspberry Pi museum system.
 
 ## Hardware Mapping
@@ -40,11 +42,11 @@ External 4-channel PWM Modbus RTU module:
 | Window side | Enabled | OPEN PWM | CLOSE PWM | OPEN end-stop | CLOSED end-stop | MQTT topic |
 |---|---|---:|---:|---:|---:|---|
 | Left | yes | CH1 / duty register `0x0002` | CH2 / duty register `0x0005` | DI1 / GPIO4 | DI2 / GPIO5 | `room1/window/left` |
-| Right | yes | CH3 / duty register `0x0008` | CH4 / duty register `0x000B` | DI3 / GPIO6 | DI4 / GPIO7 | `room1/window/right` |
+| Right | yes | CH4 / duty register `0x000B` | CH3 / duty register `0x0008` | DI3 / GPIO6 | DI4 / GPIO7 | `room1/window/right` |
 
 Active safety defaults:
 
-- `endstopsEnabled = true` for both active sides.
+- OPEN end-stops disabled, CLOSE end-stops enabled for both active sides.
 - `defaultSpeed = 30` percent.
 - active profile: `WINDOW_PROFILE_PROD_WITH_ENDSTOPS`.
 - `maxOpenMoveMs = 6500` ms.
@@ -59,7 +61,8 @@ time.
 
 ## MQTT Interface
 
-Broker defaults to `TechMuzeumRoom1.local`, base topic defaults to `room1/`.
+Broker defaults to the Raspberry Pi fixed IP `192.168.0.127`, base topic
+defaults to `room1/`. LAN remains primary; WiFi is fallback.
 
 Subscribed command topics:
 
@@ -102,7 +105,7 @@ Status topic:
 
 The firmware does not require a separate Raspberry Pi heartbeat. If the broker
 or RPi-side MQTT path disappears, the ESP detects MQTT loss and stops active PWM
-after `NETWORK_FAILOVER_GRACE`.
+after `NETWORK_FAILOVER_GRACE`, currently 8000 ms.
 
 ## Safety Behavior
 
@@ -111,15 +114,19 @@ after `NETWORK_FAILOVER_GRACE`.
 - Before a direction receives non-zero duty, the opposite channel is written to
   zero over Modbus.
 - Direction changes schedule a non-blocking `DIRECTION_CHANGE_DEADTIME_MS` dead-time before enabling the requested PWM channel.
-- End-stops are optional in test mode and should be enabled for production.
+- OPEN end-stop code is retained but disabled for the current production
+  hardware; opening completes by the configured max movement time.
+- CLOSE end-stops are enabled for production.
 - Reaching an enabled OPEN end-stop immediately writes both channels for that
   side to zero.
 - Reaching an enabled CLOSE end-stop keeps the CLOSE motor output active for
   the side-specific press time before stopping, so the window can press into the
   closed position.
-- Direction movement timeout stops a side if it runs too long without reaching
-  an end-stop. The ESP task watchdog is configured to 1.5x the longer active
-  direction timeout.
+- Direction movement timeout stops a side if it runs too long. If that direction
+  has no enabled end-stop, max-time completion is treated as a normal `OK`
+  result. If an enabled end-stop was expected, timeout remains `ERROR:TIMEOUT`.
+- The ESP task watchdog is configured to 1.5x the longer active direction
+  timeout.
 - `room1/STOP`, `room1/window/STOP`, MQTT loss, inactivity timeout, and OTA
   start stop all window outputs.
 - For `OPEN`/`CLOSE`, the immediate MQTT `OK` means the command was accepted and

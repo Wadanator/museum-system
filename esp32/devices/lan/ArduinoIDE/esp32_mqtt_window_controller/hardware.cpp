@@ -39,7 +39,9 @@ static bool isWindowSideConfigSafe(int sideIndex) {
   if (side.pwmOpenChannel == side.pwmCloseChannel) return false;
   if (side.defaultSpeed > 100) return false;
   if (side.maxOpenMoveMs == 0 || side.maxCloseMoveMs == 0) return false;
-  if (side.endstopsEnabled && side.openEndstopPin >= 0 &&
+  if (side.openEndstopEnabled && side.openEndstopPin < 0) return false;
+  if (side.closeEndstopEnabled && side.closeEndstopPin < 0) return false;
+  if (side.openEndstopEnabled && side.closeEndstopEnabled &&
       side.openEndstopPin == side.closeEndstopPin) {
     return false;
   }
@@ -84,6 +86,12 @@ static const char* directionText(WindowDirection direction) {
 
 static unsigned long maxMoveMsForDirection(const WindowSideConfig& side, WindowDirection direction) {
   return direction == WINDOW_DIR_CLOSING ? side.maxCloseMoveMs : side.maxOpenMoveMs;
+}
+
+static bool endstopEnabledForDirection(const WindowSideConfig& side, WindowDirection direction) {
+  if (direction == WINDOW_DIR_OPENING) return side.openEndstopEnabled;
+  if (direction == WINDOW_DIR_CLOSING) return side.closeEndstopEnabled;
+  return false;
 }
 
 static bool shouldBlockMovementAtTargetEndstop(const WindowSideConfig& side, WindowDirection direction) {
@@ -150,19 +158,20 @@ static bool readConfiguredEndstop(int pin, bool activeLow) {
 static bool isOpenEndstopActive(int sideIndex) {
   if (!isWindowSideConfigSafe(sideIndex)) return false;
   const WindowSideConfig& side = WINDOW_SIDES[sideIndex];
-  if (!side.endstopsEnabled) return false;
+  if (!side.openEndstopEnabled) return false;
   return readConfiguredEndstop(side.openEndstopPin, side.endstopActiveLow);
 }
 
 static bool isCloseEndstopActive(int sideIndex) {
   if (!isWindowSideConfigSafe(sideIndex)) return false;
   const WindowSideConfig& side = WINDOW_SIDES[sideIndex];
-  if (!side.endstopsEnabled) return false;
+  if (!side.closeEndstopEnabled) return false;
   return readConfiguredEndstop(side.closeEndstopPin, side.endstopActiveLow);
 }
 
 static WindowState detectRestingState(int sideIndex) {
-  if (!WINDOW_SIDES[sideIndex].endstopsEnabled) return WINDOW_STATE_UNKNOWN;
+  const WindowSideConfig& side = WINDOW_SIDES[sideIndex];
+  if (!side.openEndstopEnabled && !side.closeEndstopEnabled) return WINDOW_STATE_UNKNOWN;
 
   bool openStop = isOpenEndstopActive(sideIndex);
   bool closeStop = isCloseEndstopActive(sideIndex);
@@ -182,9 +191,8 @@ static void configureEndstops() {
     }
 
     const WindowSideConfig& side = WINDOW_SIDES[i];
-    if (!side.endstopsEnabled) continue;
-    if (side.openEndstopPin >= 0) pinMode(side.openEndstopPin, ENDSTOP_INPUT_MODE);
-    if (side.closeEndstopPin >= 0) pinMode(side.closeEndstopPin, ENDSTOP_INPUT_MODE);
+    if (side.openEndstopEnabled) pinMode(side.openEndstopPin, ENDSTOP_INPUT_MODE);
+    if (side.closeEndstopEnabled) pinMode(side.closeEndstopPin, ENDSTOP_INPUT_MODE);
   }
 }
 
@@ -555,11 +563,20 @@ void handleWindows() {
 
     unsigned long maxMoveMs = maxMoveMsForDirection(WINDOW_SIDES[i], activeDirections[i]);
     if (maxMoveMs > 0 && currentTime - moveStartedAt[i] >= maxMoveMs) {
+      WindowDirection timedOutDirection = activeDirections[i];
+      bool expectedEndstop = endstopEnabledForDirection(WINDOW_SIDES[i], timedOutDirection);
       PwmResult result = stopWindowHardware(i);
-      windowStates[i] = result == PWM_RESULT_OK ? WINDOW_STATE_STOPPED : WINDOW_STATE_ERROR;
-      debugPrint(String(WINDOW_SIDES[i].topicName) + " move timeout");
-      publishWindowState(i, "timeout", true);
-      publishWindowFeedback(i, result == PWM_RESULT_OK ? "ERROR:TIMEOUT" : pwmResultText(result));
+      if (result == PWM_RESULT_OK && !expectedEndstop) {
+        windowStates[i] = timedOutDirection == WINDOW_DIR_OPENING ? WINDOW_STATE_OPEN : WINDOW_STATE_CLOSED;
+        debugPrint(String(WINDOW_SIDES[i].topicName) + " completed by max move time -> " + getWindowStateText(i));
+        publishWindowState(i, "max_time", true);
+        publishWindowFeedback(i, "OK");
+      } else {
+        windowStates[i] = result == PWM_RESULT_OK ? WINDOW_STATE_STOPPED : WINDOW_STATE_ERROR;
+        debugPrint(String(WINDOW_SIDES[i].topicName) + " move timeout");
+        publishWindowState(i, "timeout", true);
+        publishWindowFeedback(i, result == PWM_RESULT_OK ? "ERROR:TIMEOUT" : pwmResultText(result));
+      }
     }
   }
 }
