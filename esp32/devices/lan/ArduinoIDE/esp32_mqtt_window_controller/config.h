@@ -89,6 +89,16 @@ extern int ENDSTOP_INPUT_MODE;
 extern unsigned long ENDSTOP_POLL_INTERVAL_MS;
 extern unsigned long DIRECTION_CHANGE_DEADTIME_MS;
 
+// Local scene trigger button.
+extern bool SCENE_TRIGGER_BUTTON_ENABLED;
+extern int SCENE_TRIGGER_BUTTON_PIN;
+extern int SCENE_TRIGGER_BUTTON_INPUT_MODE;
+extern bool SCENE_TRIGGER_BUTTON_ACTIVE_LOW;
+extern unsigned long SCENE_TRIGGER_DEBOUNCE_MS;
+extern unsigned long SCENE_TRIGGER_COOLDOWN_MS;
+extern const char* SCENE_TRIGGER_TOPIC_NAME;
+extern const char* SCENE_TRIGGER_PAYLOAD;
+
 // System configuration.
 extern bool DEBUG;
 

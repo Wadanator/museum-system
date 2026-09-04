@@ -82,22 +82,21 @@ const unsigned long WINDOW_ACTIVE_MAX_MOVE_MS =
 //   DI2 / D2 / GPIO5  = left window CLOSE end-stop
 //   DI3 / D3 / GPIO6  = right window OPEN end-stop
 //   DI4 / D4 / GPIO7  = right window CLOSE end-stop
+//   DI5 / D5 / GPIO8  = local scene START trigger button
 const int DI1_LEFT_OPEN_ENDSTOP_PIN = 4;
 const int DI2_LEFT_CLOSE_ENDSTOP_PIN = 5;
 const int DI3_RIGHT_OPEN_ENDSTOP_PIN = 6;
 const int DI4_RIGHT_CLOSE_ENDSTOP_PIN = 7;
-const int AUX1_OPEN_ENDSTOP_PIN = 8;
-const int AUX1_CLOSE_ENDSTOP_PIN = 9;
-const int AUX2_OPEN_ENDSTOP_PIN = 10;
-const int AUX2_CLOSE_ENDSTOP_PIN = 11;
+const int DI5_SCENE_TRIGGER_BUTTON_PIN = 8;
+const int UNUSED_ENDSTOP_PIN = -1;
 const uint8_t WINDOW_DEFAULT_SPEED_PERCENT = 30;
 
 const WindowSideConfig WINDOW_SIDES[] = {
   // On     Topic           Label                OPEN CH                CLOSE CH               OPEN DI                     CLOSE DI                     OPEN stop                         CLOSE stop                        NC/active-low   Speed                         Max OPEN ms                     Max CLOSE ms                      CLOSE press ms
   {true,    "window/left",  "Window left side",  WINDOW_PWM_CH1,        WINDOW_PWM_CH2,        DI1_LEFT_OPEN_ENDSTOP_PIN,  DI2_LEFT_CLOSE_ENDSTOP_PIN,  WINDOW_ACTIVE_OPEN_ENDSTOP_ENABLED, WINDOW_ACTIVE_CLOSE_ENDSTOP_ENABLED, true, WINDOW_DEFAULT_SPEED_PERCENT, WINDOW_ACTIVE_MAX_OPEN_MOVE_MS, WINDOW_ACTIVE_MAX_CLOSE_MOVE_MS, WINDOW_LEFT_CLOSE_ENDSTOP_PRESS_MS},
   {true,    "window/right", "Window right side", WINDOW_PWM_CH4,        WINDOW_PWM_CH3,        DI3_RIGHT_OPEN_ENDSTOP_PIN, DI4_RIGHT_CLOSE_ENDSTOP_PIN, WINDOW_ACTIVE_OPEN_ENDSTOP_ENABLED, WINDOW_ACTIVE_CLOSE_ENDSTOP_ENABLED, true, WINDOW_DEFAULT_SPEED_PERCENT, WINDOW_ACTIVE_MAX_OPEN_MOVE_MS, WINDOW_ACTIVE_MAX_CLOSE_MOVE_MS, WINDOW_RIGHT_CLOSE_ENDSTOP_PRESS_MS},
-  {false,   "window/aux1",  "Window aux 1",     WINDOW_PWM_UNUSED_CH5, WINDOW_PWM_UNUSED_CH6,  AUX1_OPEN_ENDSTOP_PIN,      AUX1_CLOSE_ENDSTOP_PIN,      false, false, true, WINDOW_DEFAULT_SPEED_PERCENT, WINDOW_ACTIVE_MAX_OPEN_MOVE_MS, WINDOW_ACTIVE_MAX_CLOSE_MOVE_MS, WINDOW_AUX_CLOSE_ENDSTOP_PRESS_MS},
-  {false,   "window/aux2",  "Window aux 2",     WINDOW_PWM_UNUSED_CH7, WINDOW_PWM_UNUSED_CH8,  AUX2_OPEN_ENDSTOP_PIN,      AUX2_CLOSE_ENDSTOP_PIN,      false, false, true, WINDOW_DEFAULT_SPEED_PERCENT, WINDOW_ACTIVE_MAX_OPEN_MOVE_MS, WINDOW_ACTIVE_MAX_CLOSE_MOVE_MS, WINDOW_AUX_CLOSE_ENDSTOP_PRESS_MS}
+  {false,   "window/aux1",  "Window aux 1",     WINDOW_PWM_UNUSED_CH5, WINDOW_PWM_UNUSED_CH6,  UNUSED_ENDSTOP_PIN,         UNUSED_ENDSTOP_PIN,          false, false, true, WINDOW_DEFAULT_SPEED_PERCENT, WINDOW_ACTIVE_MAX_OPEN_MOVE_MS, WINDOW_ACTIVE_MAX_CLOSE_MOVE_MS, WINDOW_AUX_CLOSE_ENDSTOP_PRESS_MS},
+  {false,   "window/aux2",  "Window aux 2",     WINDOW_PWM_UNUSED_CH7, WINDOW_PWM_UNUSED_CH8,  UNUSED_ENDSTOP_PIN,         UNUSED_ENDSTOP_PIN,          false, false, true, WINDOW_DEFAULT_SPEED_PERCENT, WINDOW_ACTIVE_MAX_OPEN_MOVE_MS, WINDOW_ACTIVE_MAX_CLOSE_MOVE_MS, WINDOW_AUX_CLOSE_ENDSTOP_PRESS_MS}
 };
 
 const int WINDOW_SIDE_COUNT = sizeof(WINDOW_SIDES) / sizeof(WindowSideConfig);
@@ -107,6 +106,17 @@ const int WINDOW_SIDE_COUNT = sizeof(WINDOW_SIDES) / sizeof(WindowSideConfig);
 int ENDSTOP_INPUT_MODE = INPUT;
 unsigned long ENDSTOP_POLL_INTERVAL_MS = 50;
 unsigned long DIRECTION_CHANGE_DEADTIME_MS = 350;
+
+// Optional local scene START trigger on DI5. It publishes the same MQTT command
+// as the standalone ESPHome trigger button.
+bool SCENE_TRIGGER_BUTTON_ENABLED = true;
+int SCENE_TRIGGER_BUTTON_PIN = DI5_SCENE_TRIGGER_BUTTON_PIN;
+int SCENE_TRIGGER_BUTTON_INPUT_MODE = INPUT;
+bool SCENE_TRIGGER_BUTTON_ACTIVE_LOW = true;
+unsigned long SCENE_TRIGGER_DEBOUNCE_MS = 100;
+unsigned long SCENE_TRIGGER_COOLDOWN_MS = 4000;
+const char* SCENE_TRIGGER_TOPIC_NAME = "scene";
+const char* SCENE_TRIGGER_PAYLOAD = "START";
 
 // System configuration.
 bool DEBUG = true;

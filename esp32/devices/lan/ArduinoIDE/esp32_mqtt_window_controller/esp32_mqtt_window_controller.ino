@@ -5,6 +5,7 @@
 #include "mqtt_manager.h"
 #include "connection_monitor.h"
 #include "ota_manager.h"
+#include "scene_trigger_button.h"
 #include "status_led.h"
 #include "wdt_manager.h"
 #include "serial_console.h"
@@ -22,6 +23,7 @@ void setup() {
 
   Serial.println("\n--- Hardware initialization ---");
   initializeHardware();
+  initializeSceneTriggerButton();
   initializeStatusLed();
 
   Serial.println("\n--- Network connection (LAN primary, WiFi fallback) ---");
@@ -61,6 +63,7 @@ void loop() {
     mqttLoop();
   }
 
+  handleSceneTriggerButton();
   handleWindows();
 
   static unsigned long lastQuickCheck = 0;
