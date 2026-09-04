@@ -17,6 +17,49 @@ commands_bp = Blueprint('commands', __name__)
 def setup_commands_routes(dashboard):
     controller = dashboard.controller
 
+    def _get_display_power_manager():
+        manager = getattr(controller, 'display_power_manager', None)
+        if manager and hasattr(manager, 'get_status'):
+            return manager
+        return None
+
+    def _get_display_status_data(manager=None):
+        manager = manager or _get_display_power_manager()
+        room_id = getattr(controller, 'room_id', None)
+        topic = f'{room_id}/display' if room_id else None
+
+        if manager:
+            status = dict(manager.get_status() or {})
+            status.setdefault('enabled', False)
+            status.setdefault('backend', 'unknown')
+            status.setdefault('active_reasons', [])
+            status.setdefault('requested_state', 'unknown')
+            status.setdefault('pending_standby_at', None)
+            status.setdefault('last_command', None)
+            status.setdefault('last_result', None)
+            status.setdefault('last_error', None)
+            status['available'] = True
+            status['topic'] = topic
+            return status
+
+        return {
+            'available': False,
+            'enabled': False,
+            'backend': 'none',
+            'active_reasons': [],
+            'requested_state': 'unknown',
+            'pending_standby_at': None,
+            'last_command': None,
+            'last_result': None,
+            'last_error': None,
+            'topic': topic,
+        }
+
+    def _broadcast_status_if_possible():
+        broadcaster = getattr(dashboard, 'broadcast_status', None)
+        if callable(broadcaster):
+            broadcaster()
+
     def _is_room_stop_command(topic, payload):
         room_id = getattr(controller, 'room_id', None)
         return (
@@ -115,7 +158,89 @@ def setup_commands_routes(dashboard):
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
-    # --- 3. JSON COMMAND SÚBORY (scenes/room1/commands/*.json) ---
+    # --- 3. PRIAME OVLÁDANIE HDMI/CEC DISPLEJA ---
+    @commands_bp.route('/display/status')
+    @requires_auth
+    def get_display_status():
+        """Return local display power manager status for manual dashboard control."""
+        return jsonify({
+            'success': True,
+            'status': _get_display_status_data(),
+        })
+
+    @commands_bp.route('/display/on', methods=['POST'])
+    @requires_auth
+    def display_on():
+        """Queue an immediate local display ON request."""
+        manager = _get_display_power_manager()
+        if not manager or not hasattr(manager, 'force_on'):
+            return jsonify({
+                'success': False,
+                'error': 'Display power manager not available',
+                'status': _get_display_status_data(manager),
+            }), 503
+
+        if not getattr(manager, 'enabled', False):
+            return jsonify({
+                'success': False,
+                'error': 'Display power control is disabled',
+                'status': _get_display_status_data(manager),
+            }), 409
+
+        try:
+            queued = bool(manager.force_on('dashboard_manual'))
+            dashboard.log.info("[MANUAL] Display ON requested from dashboard")
+            _broadcast_status_if_possible()
+            return jsonify({
+                'success': queued,
+                'queued': queued,
+                'status': _get_display_status_data(manager),
+            })
+        except Exception as e:
+            dashboard.log.error(f"Error requesting display ON: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'status': _get_display_status_data(manager),
+            }), 500
+
+    @commands_bp.route('/display/off', methods=['POST'])
+    @requires_auth
+    def display_off():
+        """Queue an immediate local display standby request."""
+        manager = _get_display_power_manager()
+        if not manager or not hasattr(manager, 'force_standby'):
+            return jsonify({
+                'success': False,
+                'error': 'Display power manager not available',
+                'status': _get_display_status_data(manager),
+            }), 503
+
+        if not getattr(manager, 'enabled', False):
+            return jsonify({
+                'success': False,
+                'error': 'Display power control is disabled',
+                'status': _get_display_status_data(manager),
+            }), 409
+
+        try:
+            queued = bool(manager.force_standby('dashboard_manual'))
+            dashboard.log.info("[MANUAL] Display STANDBY requested from dashboard")
+            _broadcast_status_if_possible()
+            return jsonify({
+                'success': queued,
+                'queued': queued,
+                'status': _get_display_status_data(manager),
+            })
+        except Exception as e:
+            dashboard.log.error(f"Error requesting display STANDBY: {e}")
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'status': _get_display_status_data(manager),
+            }), 500
+
+    # --- 4. JSON COMMAND SÚBORY (scenes/room1/commands/*.json) ---
     @commands_bp.route('/commands')
     @requires_auth
     def list_commands():

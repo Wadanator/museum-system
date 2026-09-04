@@ -26,10 +26,16 @@ def _get_ambient_status_data(controller):
 
 
 def _get_display_status_data(controller):
+    room_id = getattr(controller, 'room_id', None)
+    topic = f'{room_id}/display' if room_id else None
     display_power = getattr(controller, 'display_power_manager', None)
     if display_power and hasattr(display_power, 'get_status'):
-        return display_power.get_status()
+        status = dict(display_power.get_status() or {})
+        status['available'] = True
+        status['topic'] = topic
+        return status
     return {
+        'available': False,
         'enabled': False,
         'backend': 'none',
         'active_reasons': [],
@@ -38,6 +44,7 @@ def _get_display_status_data(controller):
         'last_command': None,
         'last_result': None,
         'last_error': None,
+        'topic': topic,
     }
 
 # Pomocná funkcia na získanie dát o stave systému

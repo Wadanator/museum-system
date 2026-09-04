@@ -521,13 +521,19 @@ class WebDashboard:
         }
 
     def _get_display_status_data(self):
+        room_id = getattr(self.controller, 'room_id', None)
+        topic = f'{room_id}/display' if room_id else None
         display_power = getattr(self.controller, 'display_power_manager', None)
         if display_power and hasattr(display_power, 'get_status'):
             try:
-                return display_power.get_status()
+                status = dict(display_power.get_status() or {})
+                status['available'] = True
+                status['topic'] = topic
+                return status
             except Exception as exc:
                 self.log.error(f"Error reading display status: {exc}")
         return {
+            'available': False,
             'enabled': False,
             'backend': 'none',
             'active_reasons': [],
@@ -536,6 +542,7 @@ class WebDashboard:
             'last_command': None,
             'last_result': None,
             'last_error': None,
+            'topic': topic,
         }
 
     def _ensure_web_server_status_state(self) -> None:

@@ -165,6 +165,21 @@ export const api = {
     return res.json();
   },
 
+  getDisplayStatus: async () => {
+    const res = await authFetch(`${API_URL}/display/status`);
+    return res.json();
+  },
+
+  displayOn: async () => {
+    const res = await authFetch(`${API_URL}/display/on`, { method: 'POST' });
+    return res.json();
+  },
+
+  displayOff: async () => {
+    const res = await authFetch(`${API_URL}/display/off`, { method: 'POST' });
+    return res.json();
+  },
+
   // --- MEDIA CONTROL ---
   
   getMedia: async (type) => {

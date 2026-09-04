@@ -8,6 +8,7 @@ import { useConfirm } from '../../context/useConfirm';
 import MotorCard from '../Devices/MotorCard';
 import RelayCard from '../Devices/RelayCard';
 import WindowCard from '../Devices/WindowCard';
+import DisplayCard from '../Devices/DisplayCard';
 import DevicesConfigModal from '../Devices/DevicesConfigModal';
 import Button from '../ui/Button';
 import PageHeader from '../ui/PageHeader';
@@ -179,6 +180,7 @@ export default function CommandsView() {
                                     runtimeState={getRuntimeState(windowDevice)}
                                 />
                             ))}
+                            <DisplayCard />
                         </div>
                     </section>
                 )}
