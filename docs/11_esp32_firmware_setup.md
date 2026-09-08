@@ -1,5 +1,11 @@
 # Nastavenie a kompilácia ESP32 Hardvéru
 
+For the separate `_ESPNOW` relay/motor variants, use the
+[bridge build and pairing guide](../esp32/espnow/README.md). These need the local
+`MuseumEspNow` library, matching peer STA MAC addresses and a fixed radio channel.
+The motor bridge profile has no WiFi AP/MQTT association; its maintenance path is
+USB. The original MQTT sketches remain available for rollback.
+
 Tento dokument ukazuje, ako uviesť do prevádzky koncové mikrokontroléry ESP32 (Senzory a Aktory), ktoré komunikujú s Raspberry Pi.
 Všetky kódy pre zariadenia sa nachádzajú v zložke `esp32/devices/wifi/`.
 

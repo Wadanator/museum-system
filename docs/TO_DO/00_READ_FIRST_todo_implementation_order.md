@@ -122,6 +122,27 @@ Progress:
   verify `room1/motor1/state` and `room1/motor2/state` later when the motor ESP32
   can be connected.
 
+### 3b. ESP-NOW relay-to-motor bridge
+
+File:
+
+- `03b_espnow_relay_motor_bridge.md`
+
+Why after state reporting:
+
+- It keeps the existing MQTT topic contract and uses retained motor `/state`
+  plus `devices/<node_id>/status` already introduced by state reporting.
+- The Raspberry Pi backend can remain mostly unchanged while the relay LAN
+  controller becomes the runtime bridge for the WiFi-only motor controller.
+- It should be completed before adding more movement-heavy devices that depend
+  on reliable motor/actuator transport.
+
+Important dependency:
+
+- In production bridge mode, exactly one device should subscribe and act on
+  `room1/motor1` and `room1/motor2`: either the relay bridge or the motor's
+  legacy direct MQTT path, never both at the same time.
+
 ### 4. Dashboard scene editor remaining polish
 
 File:

@@ -1,0 +1,27 @@
+#ifndef MQTT_MANAGER_H
+#define MQTT_MANAGER_H
+
+#include <PubSubClient.h>
+#include <WiFi.h>
+
+// MQTT management interface.
+void initializeMqtt();
+void connectToMqtt();
+void publishStatus();
+void publishStatusImmediate();
+void publishMotorState(int motorNum, const char* source = "command", bool force = false);
+void publishAllMotorStates(const char* source = "snapshot");
+void mqttCallback(char* topic, byte* payload, unsigned int length);
+bool isMqttConnected();
+void mqttLoop();
+
+// MQTT state.
+extern WiFiClient wifiClient;
+extern PubSubClient client;
+extern bool mqttConnected;
+extern unsigned long lastMqttAttempt;
+extern unsigned long lastStatusPublish;
+extern unsigned long lastCommandTime;
+extern String STATUS_TOPIC;
+
+#endif

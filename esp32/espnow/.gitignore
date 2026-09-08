@@ -1,0 +1,3 @@
+.pio/
+build/
+platformio.local.ini

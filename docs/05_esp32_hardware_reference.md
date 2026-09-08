@@ -1,5 +1,11 @@
 # ESP32 Hardware & Pin Reference
 
+Optional ESP-NOW variants are separate `_ESPNOW` sketches under the existing LAN
+relay and WiFi motor ArduinoIDE directories. They preserve the original pin
+maps. Relay W5500 LAN carries MQTT primarily; same-channel WiFi fallback can carry
+MQTT alongside ESP-NOW. The router and ESPs must share a fixed 2.4 GHz channel.
+See [pairing and board selection](../esp32/espnow/README.md).
+
 Tento dokument je kritický pre AI a vývojárov, pretože obsahuje presné hardvérové mapovanie (piny, PWM frekvencie atď.) pre všetky ESP32 moduly zapojené v systéme. Konfiguračné súbory sú rozdelené medzi `esp32/devices/wifi/ArduinoIDE/` a `esp32/devices/wifi/EspHome/`.
 
 ---

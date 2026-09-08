@@ -1,5 +1,10 @@
 # MQTT protocol and scene command reference
 
+The optional `_ESPNOW` relay/motor firmware variants preserve this MQTT contract.
+In bridge mode the LAN relay subscribes to motor commands and proxies motor
+feedback, retained state and `devices/Room1_ESP_Motory/status`; the motor does not
+connect to MQTT. See [ESP-NOW setup and limits](../esp32/espnow/README.md).
+
 This is the main MQTT contract for the museum system. It documents what the
 Raspberry Pi backend subscribes to, what a scene can publish, what ESP32 nodes
 understand, and which feedback/status topics are expected.

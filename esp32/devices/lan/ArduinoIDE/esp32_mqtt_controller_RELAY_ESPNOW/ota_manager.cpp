@@ -1,0 +1,108 @@
+#include "ota_manager.h"
+#include <ArduinoOTA.h>
+#include <esp_task_wdt.h>
+#include "config.h"
+#include "debug.h"
+#include "wifi_manager.h"
+#include "hardware.h"
+#include "status_led.h"
+#include "espnow_bridge.h"
+#include "effects_manager.h"
+
+// OTA state.
+bool otaInProgress = false;
+bool otaInitialized = false;
+
+void initializeOTA() {
+  if (!OTA_ENABLED) return;
+  if (!wifiConnected || !isWiFiConnected()) {
+    debugPrint("OTA: network not connected, skipping setup");
+    return;
+  }
+
+  if (otaInitialized) return;
+
+  ArduinoOTA.setHostname(OTA_HOSTNAME);
+  if (strlen(OTA_PASSWORD) > 0) {
+    ArduinoOTA.setPassword(OTA_PASSWORD);
+  }
+
+  ArduinoOTA.onStart([]() {
+    otaInProgress = true;
+    Serial.println("=== OTA UPDATE STARTING ===");
+
+    setOtaLedState(true);
+
+    // Flash writes may exceed the normal watchdog service interval.
+    try {
+      esp_task_wdt_deinit();
+    } catch (...) {}
+
+    // All relays are de-energized before firmware replacement starts.
+    turnOffAllDevices();
+    stopAllEffects();
+    suspendEspNowBridge();
+    Serial.println("[OK] Hardware safely disabled");
+
+    String update_type = (ArduinoOTA.getCommand() == U_FLASH) ? "sketch" : "filesystem";
+    Serial.println("Updating: " + update_type);
+  });
+
+  ArduinoOTA.onEnd([]() {
+    otaInProgress = false;
+    setOtaLedState(false);
+    Serial.println("\n=== OTA UPDATE COMPLETE ===");
+    Serial.println(" Rebooting...");
+    delay(1000);
+  });
+
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    espNowBridgeLoop();
+    static unsigned int lastPercent = 0;
+    unsigned int percent = (progress * 100) / total;
+    if (percent >= lastPercent + 10 || percent == 100) {
+      Serial.printf("OTA Progress: %u%%\n", percent);
+      lastPercent = percent;
+    }
+  });
+
+  ArduinoOTA.onError([](ota_error_t error) {
+    otaInProgress = false;
+    setOtaLedState(false);
+    Serial.printf("[ERROR] OTA Error[%u]\n", error);
+    if (ESPNOW_ENABLED) Serial.println("ESP-NOW bridge remains suspended after OTA attempt; restart required");
+    
+    // Restore normal watchdog protection after a failed update.
+    try {
+      esp_task_wdt_config_t wdt_config = {
+        .timeout_ms = WDT_TIMEOUT * 1000,
+        .idle_core_mask = 0,
+        .trigger_panic = true
+      };
+      esp_task_wdt_init(&wdt_config);
+      esp_task_wdt_add(NULL);
+    } catch (...) {}
+  });
+
+  ArduinoOTA.setTimeout(30000);
+  ArduinoOTA.begin();
+  otaInitialized = true;
+
+  debugPrint("OTA: Initialized successfully via " + String(getActiveNetworkName()));
+  Serial.println("OTA READY: " + String(OTA_HOSTNAME) + " via " + String(getActiveNetworkName()));
+}
+
+void handleOTA() {
+  if (!otaInitialized || !wifiConnected) return;
+  ArduinoOTA.handle();
+}
+
+bool isOTAInProgress() {
+  return otaInProgress;
+}
+
+void reinitializeOTAAfterWiFiReconnect() {
+  if (wifiConnected && !otaInitialized) {
+    initializeOTA();
+  }
+}

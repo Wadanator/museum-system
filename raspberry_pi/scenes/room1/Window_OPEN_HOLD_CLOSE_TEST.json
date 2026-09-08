@@ -1,33 +1,49 @@
 {
   "sceneId": "window_open_hold_close_test",
-  "description": "Quick window test: open both sides at 100%, hold open for 10 seconds, then close at 100%.",
+  "description": "Display ON, wait 7 seconds, open windows at 70% with a 7-second offset, play fullhd-otoceny-monitor-slova.mp4 for 10 seconds, close at 80%, then display OFF.",
   "version": "1.0",
-  "initialState": "OPEN_WINDOW",
+  "initialState": "DISPLAY_ON",
   "states": {
+    "DISPLAY_ON": {
+      "description": "Turn on the display and allow 7 seconds to wake up.",
+      "onEnter": [
+        {"action": "video", "message": "STOP_VIDEO"},
+        {"action": "mqtt", "topic": "room1/display", "message": "ON"}
+      ],
+      "transitions": [
+        {"type": "timeout", "delay": 7, "goto": "OPEN_WINDOW"}
+      ]
+    },
     "OPEN_WINDOW": {
-      "description": "Open both window sides at 100%.",
+      "description": "Open left window at 70%, then right window 7 seconds later; allow 11 seconds for the right side.",
       "onEnter": [
         {
           "action": "mqtt",
           "topic": "room1/window/left",
-          "message": "OPEN:100"
-        },
+          "message": "OPEN:70"
+        }
+      ],
+      "timeline": [
         {
+          "at": 7.0,
           "action": "mqtt",
           "topic": "room1/window/right",
-          "message": "OPEN:100"
+          "message": "OPEN:70"
         }
       ],
       "transitions": [
         {
           "type": "timeout",
-          "delay": 8.0,
+          "delay": 18.0,
           "goto": "HOLD_OPEN"
         }
       ]
     },
     "HOLD_OPEN": {
-      "description": "Keep the window open for 10 seconds.",
+      "description": "Play fullhd-otoceny-monitor-slova.mp4 with windows open for 10 seconds.",
+      "onEnter": [
+        {"action": "video", "message": "PLAY_VIDEO:fullhd-otoceny-monitor-slova.mp4"}
+      ],
       "transitions": [
         {
           "type": "timeout",
@@ -37,17 +53,18 @@
       ]
     },
     "CLOSE_WINDOW": {
-      "description": "Close both window sides at 100%.",
+      "description": "Stop video and close both window sides at 80%.",
       "onEnter": [
+        {"action": "video", "message": "STOP_VIDEO"},
         {
           "action": "mqtt",
           "topic": "room1/window/left",
-          "message": "CLOSE:100"
+          "message": "CLOSE:80"
         },
         {
           "action": "mqtt",
           "topic": "room1/window/right",
-          "message": "CLOSE:100"
+          "message": "CLOSE:80"
         }
       ],
       "transitions": [
@@ -60,6 +77,10 @@
     },
     "END": {
       "description": "Scene finished.",
+      "onEnter": [
+        {"action": "video", "message": "STOP_VIDEO"},
+        {"action": "mqtt", "topic": "room1/display", "message": "OFF"}
+      ],
       "transitions": []
     }
   }
