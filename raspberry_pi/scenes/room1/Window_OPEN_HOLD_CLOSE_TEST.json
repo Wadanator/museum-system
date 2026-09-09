@@ -1,11 +1,11 @@
 {
   "sceneId": "window_open_hold_close_test",
-  "description": "Display ON, wait 7 seconds, open windows at 70% with a 7-second offset, play fullhd-otoceny-monitor-slova.mp4 for 10 seconds, close at 80%, then display OFF.",
+  "description": "Display ON, wait 5 seconds, open windows at 70% with a 7-second offset, play ghost2.mp4 for 10 seconds, close at 80%, then display OFF.",
   "version": "1.0",
   "initialState": "DISPLAY_ON",
   "states": {
     "DISPLAY_ON": {
-      "description": "Turn on the display and allow 7 seconds to wake up.",
+      "description": "Turn on the display and allow 5 seconds to wake up.",
       "onEnter": [
         {"action": "video", "message": "STOP_VIDEO"},
         {"action": "mqtt", "topic": "room1/display", "message": "ON"}
@@ -15,7 +15,7 @@
       ]
     },
     "OPEN_WINDOW": {
-      "description": "Open left window at 70%, then right window 7 seconds later; allow 11 seconds for the right side.",
+      "description": "Open left at 70%, right after 7 seconds, then reopen right at 14 seconds for an extra 2 seconds before video.",
       "onEnter": [
         {
           "action": "mqtt",
@@ -29,25 +29,37 @@
           "action": "mqtt",
           "topic": "room1/window/right",
           "message": "OPEN:70"
+        },
+        {
+          "at": 14,
+          "action": "mqtt",
+          "topic": "room1/window/right",
+          "message": "OPEN:70"
+        },
+        {
+          "at": 16,
+          "action": "mqtt",
+          "topic": "room1/window/right",
+          "message": "STOP"
         }
       ],
       "transitions": [
         {
           "type": "timeout",
-          "delay": 18.0,
+          "delay": 17,
           "goto": "HOLD_OPEN"
         }
       ]
     },
     "HOLD_OPEN": {
-      "description": "Play fullhd-otoceny-monitor-slova.mp4 with windows open for 10 seconds.",
+      "description": "Play ghost2.mp4 with windows open for 10 seconds.",
       "onEnter": [
         {"action": "video", "message": "PLAY_VIDEO:fullhd-otoceny-monitor-slova.mp4"}
       ],
       "transitions": [
         {
           "type": "timeout",
-          "delay": 10.0,
+          "delay": 25,
           "goto": "CLOSE_WINDOW"
         }
       ]
@@ -80,8 +92,7 @@
       "onEnter": [
         {"action": "video", "message": "STOP_VIDEO"},
         {"action": "mqtt", "topic": "room1/display", "message": "OFF"}
-      ],
-      "transitions": []
+      ]
     }
   }
 }
